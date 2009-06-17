@@ -1,0 +1,163 @@
+src/dropper-context.cpp:143:guint32 sp_dropper_context_get_color(SPEventContext *ec)
+src/dropper-context.cpp:258:                    guint32 bg = sp_desktop_namedview(desktop)->pagecolor;
+src/sp-namedview.cpp:60:static gboolean sp_nv_read_opacity(const gchar *str, guint32 *color);
+src/sp-namedview.cpp:951:static gboolean sp_nv_read_opacity(const gchar *str, guint32 *color)
+src/sp-namedview.cpp:964:    *color = (*color & 0xffffff00) | (guint32) floor(v * 255.9999);
+src/desktop-style.cpp:61:    guint32 rgba = SP_RGBA32_F_COMPOSE(color[0], color[1], color[2], color[3]);
+src/desktop-style.cpp:230:    guint32 r = 0; // if there's no color, return black
+src/desktop-style.cpp:308:    guint32 r = 0; // if there's no color, return black
+src/widgets/sp-color-wheel-selector.cpp:216:    guint32 start = _color.toRGBA32( 0x00 );
+src/widgets/sp-color-wheel-selector.cpp:217:    guint32 mid = _color.toRGBA32( 0x7f );
+src/widgets/sp-color-wheel-selector.cpp:218:    guint32 end = _color.toRGBA32( 0xff );
+src/widgets/sp-color-wheel-selector.cpp:282:    guint32 start = color.toRGBA32( 0x00 );
+src/widgets/sp-color-wheel-selector.cpp:283:    guint32 mid = color.toRGBA32( 0x7f );
+src/widgets/sp-color-wheel-selector.cpp:284:    guint32 end = color.toRGBA32( 0xff );
+src/widgets/sp-color-icc-selector.cpp:495:                    guint32 val = _color.toRGBA32(0);
+src/widgets/sp-color-icc-selector.cpp:786:    guint32 start = _color.toRGBA32( 0x00 );
+src/widgets/sp-color-icc-selector.cpp:787:    guint32 mid = _color.toRGBA32( 0x7f );
+src/widgets/sp-color-icc-selector.cpp:788:    guint32 end = _color.toRGBA32( 0xff );
+src/widgets/sp-color-icc-selector.cpp:851:         guint32 prior = iccSelector->_color.toRGBA32(255);
+src/widgets/paint-selector.cpp:1054:    guint32 rgba = color.toRGBA32( alpha );
+src/widgets/sp-color-preview.cpp:133:sp_color_preview_new (guint32 rgba)
+src/widgets/sp-color-preview.cpp:145:sp_color_preview_set_rgba32 (SPColorPreview *cp, guint32 rgba)
+src/widgets/sp-color-slider.h:61:void sp_color_slider_set_colors (SPColorSlider *slider, guint32 start, guint32 mid, guint32 end);
+src/widgets/gradient-vector.cpp:676:sp_average_color (guint32 c1, guint32 c2, gdouble p = 0.5)
+src/widgets/gradient-vector.cpp:726:    guint32 cnew = sp_average_color (c1, c2);
+src/widgets/sp-color-slider.cpp:370:sp_color_slider_set_colors (SPColorSlider *slider, guint32 start, guint32 mid, guint32 end)
+src/widgets/sp-color-preview.h:40:GtkWidget *sp_color_preview_new(guint32 rgba);
+src/widgets/sp-color-preview.h:42:void sp_color_preview_set_rgba32(SPColorPreview *cp, guint32 color);
+src/eraser-context.cpp:1017:            guint32 fillColor = sp_desktop_get_color_tool (desktop, "/tools/eraser", true);
+src/eraser-context.cpp:1018:            //guint32 strokeColor = sp_desktop_get_color_tool (desktop, "/tools/eraser", false);
+src/style.cpp:3101:        guint32 const rgb0 = sp_svg_read_color(str, 0xff);
+src/style.cpp:3158:            guint32 const rgb0 = sp_svg_read_color(str, &str, 0xff);
+src/draw-context.h:44:    guint32 red_color;
+src/draw-context.h:45:    guint32 blue_color;
+src/draw-context.h:46:    guint32 green_color;
+src/sp-guide.h:32:    guint32 color;
+src/sp-guide.h:33:    guint32 hicolor;
+src/color.h:67:guint32 sp_color_get_rgba32_ualpha (const SPColor *color, guint32 alpha);
+src/color.h:68:guint32 sp_color_get_rgba32_falpha (const SPColor *color, float alpha);
+src/svg/svg-color.cpp:202:sp_svg_read_color(gchar const *str, guint32 const dfl)
+src/svg/svg-color.cpp:208:internal_sp_svg_read_color(gchar const *str, gchar const **end_ptr, guint32 def)
+src/svg/svg-color.cpp:338:sp_svg_read_color(gchar const *str, gchar const **end_ptr, guint32 dfl)
+src/svg/svg-color.cpp:343:    guint32 const ret = internal_sp_svg_read_color(str, &end, dfl);
+src/svg/svg-color.cpp:352:        guint32 const check = internal_sp_svg_read_color(buf, &buf_end, 1);
+src/svg/svg-color.cpp:430:sp_svg_write_color(gchar *buf, unsigned const buflen, guint32 const rgba32)
+src/svg/svg-color-test.h:67:            guint32 result = sp_svg_read_color( val[i], &end, 0x3 );
+src/svg/svg-color.h:8:guint32 sp_svg_read_color(gchar const *str, unsigned int dfl);
+src/svg/svg-color.h:9:guint32 sp_svg_read_color(gchar const *str, gchar const **end_ptr, guint32 def);
+src/filters/flood.cpp:121:    guint32 read_color;
+src/filters/specularlighting.h:44:    guint32 lighting_color;
+src/filters/diffuselighting.h:41:    guint32 lighting_color;
+src/filters/flood.h:27:    guint32 color;
+src/desktop-style.h:60:guint32 sp_desktop_get_color (SPDesktop *desktop, bool is_fill);
+src/desktop-style.h:63:guint32 sp_desktop_get_color_tool(SPDesktop *desktop, Glib::ustring const &tool, bool is_fill, bool* has_color = NULL);
+src/gradient-context.cpp:434:                guint32 c1 = average_color (c0, c2,
+src/connector-context.h:58:    guint32 red_color;
+src/nodepath.h:332:SPCanvasItem *sp_nodepath_generate_helperpath(SPDesktop *desktop, SPCurve *curve, const Geom::Matrix & i2d, guint32 color);
+src/display/sp-ctrlpoint.cpp:140:sp_ctrlpoint_set_color (SPCtrlPoint *cp, guint32 rgba)
+src/display/nr-arena-image.cpp:230:        guint32 rgba = prefs->getInt("/options/wireframecolors/images", 0xff0000ff);
+src/display/nr-light.h:37:        DistantLight(SPFeDistantLight *light, guint32 lighting_color);
+src/display/nr-light.h:55:        guint32 color;
+src/display/nr-light.h:71:        PointLight(SPFePointLight *light, guint32 lighting_color, const Geom::Matrix &trans);
+src/display/nr-light.h:93:        guint32 color;
+src/display/nr-light.h:111:        SpotLight(SPFeSpotLight *light, guint32 lighting_color, const Geom::Matrix &trans);
+src/display/nr-light.h:136:        guint32 color;
+src/display/canvas-grid.cpp:503:static gboolean sp_nv_read_opacity(gchar const *str, guint32 *color)
+src/display/canvas-grid.cpp:516:    *color = (*color & 0xffffff00) | (guint32) floor(v * 255.9999);
+src/display/canvas-grid.cpp:904:    guint32 _empcolor;
+src/display/canvas-grid.cpp:948:                    grid_dot (buf, ix, iy, color | (guint32)0x000000FF); // put alpha to max value
+src/display/canvas-grid.cpp:954:                    grid_dot (buf, ix, iy, _empcolor | (guint32)0x000000FF);  // put alpha to max value
+src/display/nr-light.cpp:26:DistantLight::DistantLight(SPFeDistantLight *light, guint32 lighting_color) {
+src/display/nr-light.cpp:46:PointLight::PointLight(SPFePointLight *light, guint32 lighting_color, const Geom::Matrix &trans) {
+src/display/nr-light.cpp:69:SpotLight::SpotLight(SPFeSpotLight *light, guint32 lighting_color, const Geom::Matrix &trans) {
+src/display/nr-arena-glyphs.cpp:453:        guint32 rgba = item->arena->outlinecolor;
+src/display/nr-filter-flood.cpp:65:void FilterFlood::set_color(guint32 c) {
+src/display/sodipodi-ctrlrect.h:49:    guint32 _border_color;
+src/display/sodipodi-ctrlrect.h:50:    guint32 _fill_color;
+src/display/sodipodi-ctrlrect.h:51:    guint32 _shadow_color;    
+src/display/sp-ctrlpoint.h:34:void sp_ctrlpoint_set_color (SPCtrlPoint *cp, guint32 rgba);
+src/display/nr-arena-item.cpp:353:            guint32 saved_rgba = item->arena->outlinecolor; // save current outline color
+src/display/canvas-grid.h:90:    guint32 color;        /**< Color for normal lines */
+src/display/canvas-grid.h:91:    guint32 empcolor;     /**< Color for emphasis lines */
+src/display/nr-arena.h:54:	guint32 outlinecolor;
+src/display/sodipodi-ctrl.h:48:    guint32 fill_color;
+src/display/sodipodi-ctrl.h:49:    guint32 stroke_color;
+src/display/canvas-axonomgrid.cpp:278:static gboolean sp_nv_read_opacity(gchar const *str, guint32 *color)
+src/display/canvas-axonomgrid.cpp:291:    *color = (*color & 0xffffff00) | (guint32) floor(v * 255.9999);
+src/display/canvas-axonomgrid.cpp:557:    guint32 _empcolor;
+src/display/nr-filter-diffuselighting.h:39:    guint32 lighting_color;
+src/display/nr-arena-shape.cpp:732:    guint32 rgba = NR_ARENA_ITEM(shape)->arena->outlinecolor;
+src/display/nr-filter-specularlighting.h:40:    guint32 lighting_color;
+src/display/canvas-bpath.cpp:41:void nr_pixblock_render_bpath_rgba (Shape* theS,uint32_t color,NRRectL &area,char* destBuf,int stride);
+src/display/sp-canvas.h:63:    guint32 bg_color;
+src/display/nr-filter-flood.h:29:    virtual void set_color(guint32 c);
+src/display/nr-filter-flood.h:34:    guint32 color;
+src/gradient-chemistry.h:44:SPGradient *sp_document_default_gradient_vector (SPDocument *document, guint32 color = 0);
+src/gradient-chemistry.h:65:guint32 average_color (guint32 c1, guint32 c2, gdouble p = 0.5);
+src/ui/dialog/swatches.cpp:1418:                    guint32 together = color.toRGBA32(first.opacity);
+src/ui/dialog/swatches.cpp:1423:                    guint32 together2 = color2.toRGBA32(second.opacity);
+src/ui/dialog/print.cpp:54:            guint32 bgcolor = 0x00000000;
+src/ui/widget/style-swatch.cpp:283:            guint32 color = paint->value.color.toRGBA32( SP_SCALE24_TO_FLOAT ((i == SS_FILL)? query->fill_opacity.value : query->stroke_opacity.value) );
+src/ui/widget/selected-style.cpp:538:    guint32 color = sp_desktop_get_color(_desktop, true);
+src/ui/widget/selected-style.cpp:550:    guint32 color = sp_desktop_get_color(_desktop, false);
+src/ui/widget/selected-style.cpp:584:    guint32 color = _thisselected[SS_FILL];
+src/ui/widget/selected-style.cpp:604:    guint32 color = _thisselected[SS_STROKE];
+src/ui/widget/selected-style.cpp:701:        guint32 color = sp_svg_read_color(text.c_str(), 0x000000ff); // impossible value, as SVG color cannot have opacity
+src/ui/widget/selected-style.cpp:719:        guint32 color = sp_svg_read_color(text.c_str(), 0x000000ff); // impossible value, as SVG color cannot have opacity
+src/ui/widget/selected-style.cpp:978:                guint32 color = paint->value.color.toRGBA32(
+src/ui/widget/selected-style.cpp:1176:RotateableSwatch::color_adjust(float *hsl, double by, guint32 cc, guint modifier)
+src/ui/widget/color-picker.cpp:125:    guint32 rgba = color.toRGBA32( alpha );
+src/ui/widget/selected-style.h:65:    double color_adjust (float *hsl, double by, guint32 cc, guint state);
+src/ui/widget/selected-style.h:74:    guint32 startcolor;
+src/ui/clipboard.cpp:1108:            guint32 bgcolor = 0x00000000;
+src/ui/clipboard.cpp:1351:void ClipboardManagerImpl::_setClipboardColor(guint32 color)
+src/main.cpp:1361:    guint32 bgcolor = 0x00000000;
+src/main.cpp:1381:                bgcolor &= (guint32) 0xffffff00;
+src/main.cpp:1382:                bgcolor |= (guint32) floor(value);
+src/main.cpp:1385:                bgcolor &= (guint32) 0xffffff00;
+src/dialogs/clonetiler.cpp:1308:                guint32 rgba = sp_svg_read_color (initial_color.data(), 0x000000ff);
+src/dialogs/clonetiler.cpp:2448:            guint32 rgba = 0x000000ff | sp_svg_read_color (prefs->getString(prefs_path + "initial_color").data(), 0x000000ff);
+src/extension/extension.cpp:611:Extension::set_param_color (const gchar * name, guint32 color, SPDocument * doc, Inkscape::XML::Node * node)
+src/extension/extension.h:187:    guint32          get_param_color  (const gchar * name,
+src/extension/extension.h:209:    guint32          set_param_color  (const gchar * name,
+src/extension/extension.h:210:                                       guint32 color,
+src/extension/internal/bitmap/colorize.h:21:	guint32 _color;	
+src/extension/internal/odf.cpp:1553:        guint32 fillCol = style->fill.value.color.toRGBA32( 0 );
+src/extension/internal/odf.cpp:1571:        guint32 strokeCol = style->stroke.value.color.toRGBA32( 0 );
+src/extension/param/parameter.h:96:    guint32       get_color  (const SPDocument * doc,
+src/extension/param/parameter.h:105:    guint32       set_color  (guint32 in, SPDocument * doc, Inkscape::XML::Node * node);
+src/extension/param/parameter.cpp:258:Parameter::set_color (guint32 in, SPDocument * doc, Inkscape::XML::Node * node)
+src/live_effects/parameter/point.cpp:123:PointParam::set_oncanvas_looks(SPKnotShapeType shape, SPKnotModeType mode, guint32 color)
+src/live_effects/parameter/vector.h:53:    void set_vector_oncanvas_looks(SPKnotShapeType shape, SPKnotModeType mode, guint32 color);
+src/live_effects/parameter/vector.h:54:    void set_origin_oncanvas_looks(SPKnotShapeType shape, SPKnotModeType mode, guint32 color);
+src/live_effects/parameter/vector.h:71:    guint32         vec_knot_color;
+src/live_effects/parameter/vector.h:74:    guint32         ori_knot_color;
+src/live_effects/parameter/point.h:50:    void set_oncanvas_looks(SPKnotShapeType shape, SPKnotModeType mode, guint32 color);
+src/live_effects/parameter/point.h:63:    guint32 knot_color;
+src/live_effects/parameter/vector.cpp:126:VectorParam::set_vector_oncanvas_looks(SPKnotShapeType shape, SPKnotModeType mode, guint32 color)
+src/live_effects/parameter/vector.cpp:134:VectorParam::set_origin_oncanvas_looks(SPKnotShapeType shape, SPKnotModeType mode, guint32 color)
+src/knot-holder-entity.h:43:                        guint32 color = 0xffffff00);
+src/nodepath.cpp:164:sp_nodepath_make_helper_item(Inkscape::NodePath::Path *np, /*SPDesktop *desktop, */const SPCurve *curve, bool show = false, guint32 color = 0xff0000ff) {
+src/nodepath.cpp:5040:sp_nodepath_generate_helperpath(SPDesktop *desktop, SPCurve *curve, const Geom::Matrix & i2d, guint32 color = 0xff0000ff) {
+src/nodepath.cpp:5060:    guint32 color = prefs->getInt("/tools/nodes/highlight_color", 0xff0000ff);
+src/knot-holder-entity.cpp:36:                         SPKnotShapeType shape, SPKnotModeType mode, guint32 color)
+src/tweak-context.cpp:697:tweak_colorpaint (float *color, guint32 goal, double force, bool do_h, bool do_s, bool do_l)
+src/tweak-context.cpp:749:tweak_color (guint mode, float *color, guint32 goal, double force, bool do_h, bool do_s, bool do_l)
+src/tweak-context.cpp:1058:    guint32 fill_goal = sp_desktop_get_color_tool(desktop, "/tools/tweak", true, &do_fill);
+src/tweak-context.cpp:1059:    guint32 stroke_goal = sp_desktop_get_color_tool(desktop, "/tools/tweak", false, &do_stroke);
+src/sp-namedview.h:62:    guint32 guidecolor;
+src/sp-namedview.h:63:    guint32 guidehicolor;
+src/sp-namedview.h:64:    guint32 bordercolor;
+src/sp-namedview.h:65:    guint32 pagecolor;
+src/dropper-context.h:50:guint32 sp_dropper_context_get_color(SPEventContext *ec);
+src/style.h:174:    void setColor( guint32 val ) {value.color.set( val ); colorSet = true;}
+src/gradient-chemistry.cpp:578:average_color (guint32 c1, guint32 c2, gdouble p)
+src/gradient-chemistry.cpp:600:    guint32 cnew = average_color (c1, c2, (offset - prev_stop->offset) / (next_stop->offset - prev_stop->offset));
+src/gradient-chemistry.cpp:1213:sp_document_default_gradient_vector(SPDocument *document, guint32 color)
+src/dyna-draw-context.cpp:1234:            guint32 fillColor = sp_desktop_get_color_tool (desktop, "/tools/calligraphic", true);
+src/dyna-draw-context.cpp:1235:            //guint32 strokeColor = sp_desktop_get_color_tool (desktop, "/tools/calligraphic", false);
+src/sp-gradient.cpp:153:                    guint32 const color = sp_svg_read_color(p, 0);
+src/sp-gradient.cpp:172:                    guint32 const color = sp_svg_read_color(p, 0);
+src/sp-gradient.cpp:213:    guint32 specifiedcolor = stop->specified_color.toRGBA32( 255 );
+src/sp-gradient.cpp:279:        guint32 color = dfl;
