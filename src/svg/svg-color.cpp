@@ -547,6 +547,12 @@ bool sp_svg_read_icc_color( gchar const *str, gchar const **end_ptr, SVGICCColor
     return good;
 }
 
+
+bool sp_svg_read_icc_color( gchar const *str, SVGICCColor* dest )
+{
+    sp_svg_read_icc_color(str, NULL, dest);
+}
+
 /*
   Local Variables:
   mode:c++
