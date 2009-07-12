@@ -45,6 +45,7 @@ all_libs =			\
 	$(PYTHON_LIBS)		\
 	$(INKBOARD_LIBS)	\
 	$(LIBWPG_LIBS)		\
+	$(DBUS_LIBS)		\
 	$(IMAGEMAGICK_LIBS)
 
 # Add sources common for Inkscape and Inkview to this variable.
@@ -62,6 +63,7 @@ INCLUDES =	\
 	$(IMAGEMAGICK_CFLAGS) \
 	$(INKBOARD_CFLAGS) \
 	$(LIBWPG_CFLAGS) \
+	$(DBUS_CFLAGS) \
 	$(XFT_CFLAGS)	\
 	$(LCMS_CFLAGS)	\
 	$(POPPLER_CFLAGS)	\
@@ -104,6 +106,7 @@ include dialogs/Makefile_insert
 include display/Makefile_insert
 include dom/Makefile_insert
 include extension/Makefile_insert
+include extension/dbus/Makefile_insert
 include extension/implementation/Makefile_insert
 include extension/internal/Makefile_insert
 include extension/script/Makefile_insert
