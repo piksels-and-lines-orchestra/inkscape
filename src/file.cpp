@@ -42,6 +42,7 @@
 #include "extension/input.h"
 #include "extension/output.h"
 #include "extension/system.h"
+#include "extension/dbus/dbus-init.h"
 #include "file.h"
 #include "helper/png-write.h"
 #include "id-clash.h"
@@ -136,6 +137,7 @@ sp_file_new(const Glib::ustring &templ)
         sp_namedview_window_from_document(dt);
         sp_namedview_update_layers_from_document(dt);
     }
+    Inkscape::Extension::Dbus::dbus_init_desktop_interface(dt);
     return dt;
 }
 
