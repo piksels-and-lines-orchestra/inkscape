@@ -1,0 +1,31 @@
+## Makefile.am fragment sourced by src/Makefile.am.
+
+ink_common_sources +=	\
+	extension/dbus/dbus-init.cpp  \
+	extension/dbus/dbus-init.h  \
+	extension/dbus/application-interface.cpp  \
+	extension/dbus/application-interface.h  \
+	extension/dbus/document-interface.cpp  \
+	extension/dbus/document-interface.h
+
+## Slightly concerned about this.
+## Would use += but it has to be set first.
+BUILT_SOURCES =   \
+	extension/dbus/application-server-glue.h   \
+	extension/dbus/document-server-glue.h
+
+extension/dbus/application-server-glue.h: extension/dbus/application-interface.xml
+	dbus-binding-tool --mode=glib-server --output=$@ --prefix=application_interface $^
+
+extension/dbus/document-server-glue.h: extension/dbus/document-interface.xml
+	dbus-binding-tool --mode=glib-server --output=$@ --prefix=document_interface $^
+
+# Dbus service file
+servicedir = "/usr/share/dbus-1/services"
+service_in_files = extension/dbus/org.inkscape.service.in
+service_DATA = $(service_in_files:.service.in=.service)
+
+# Rule to make the service file with bindir expanded
+$(service_DATA): $(service_in_files) Makefile
+	@sed -e "s|@bindir@|$(bindir)|" $<> $@
+

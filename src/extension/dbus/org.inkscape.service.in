@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.inkscape
+Exec=/usr/local/bin/inkscape
+
