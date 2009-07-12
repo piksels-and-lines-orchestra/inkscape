@@ -617,6 +617,19 @@ AC_SUBST(LIBWPG_LIBS)
 AC_SUBST(LIBWPG_CFLAGS)
 
 dnl ******************************
+dnl Check for dbus functionality
+dnl ******************************
+
+PKG_CHECK_MODULES(DBUS, dbus-glib-1, with_dbus=yes, with_dbus=no)
+if test "x$with_dbus" = "xyes"; then
+	AC_DEFINE(WITH_DBUS,1,[Build in dbus])
+fi
+AM_CONDITIONAL(WITH_DBUS, test "x$with_dbus" = "xyes")
+
+AC_SUBST(DBUS_LIBS)
+AC_SUBST(DBUS_CFLAGS)
+
+dnl ******************************
 dnl Check for ImageMagick Magick++ 
 dnl ******************************
 
@@ -1008,6 +1021,7 @@ Configuration:
         Internal Python:          ${with_python}
         Internal Perl:            ${with_perl}
         Enable LittleCms:         ${enable_lcms}
+        Enable DBUS               ${with_dbus} 
         Enable Inkboard:          ${with_inkboard}
         Enable SSL in Inkboard:   ${with_inkboard_ssl}
         Enable Poppler-Cairo:     ${enable_poppler_cairo}
