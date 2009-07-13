@@ -365,21 +365,30 @@ gboolean
 document_interface_document_merge_css (DocumentInterface *object,
                                        gchar *stylestring, GError **error)
 {
-    return FALSE;
+    SPCSSAttr * style = sp_repr_css_attr_new();
+    sp_repr_css_attr_add_from_string (style, stylestring);
+    sp_desktop_set_style (object->desk, style);
+    return TRUE;
 }
 
+//FIXME this actually merges
 gboolean 
 document_interface_document_set_css (DocumentInterface *object,
                                      gchar *stylestring, GError **error)
 {
-    return FALSE;
+    SPCSSAttr * style = sp_repr_css_attr_new();
+    sp_repr_css_attr_add_from_string (style, stylestring);
+    sp_desktop_set_style (object->desk, style);
+    return TRUE;
 }
 
 gboolean 
 document_interface_document_resize_to_fit_selection (DocumentInterface *object,
                                                      GError **error)
 {
-    return FALSE;
+    dbus_call_verb (object, SP_VERB_FIT_CANVAS_TO_SELECTION, error);
+    //verb_fit_canvas_to_selection(object->desk);
+    return TRUE;
 }
 
 /****************************************************************************
@@ -506,28 +515,46 @@ gchar *
 document_interface_get_css (DocumentInterface *object, gchar *shape,
                             GError **error)
 {
-return NULL;
+    gchar style[] = "style";
+    return document_interface_get_attribute (object, shape, style, error);
 }
 
 gboolean 
 document_interface_modify_css (DocumentInterface *object, gchar *shape,
                                gchar *cssattrb, gchar *newval, GError **error)
 {
-    return FALSE;
+    gchar style[] = "style";
+    Inkscape::XML::Node *node = get_object_by_name(object->desk, shape)->repr;
+    SPCSSAttr * oldstyle = sp_repr_css_attr (node, style);
+    sp_repr_css_set_property(oldstyle, cssattrb, newval);
+    node->setAttribute (style, sp_repr_css_write_string (oldstyle), TRUE);
+    return TRUE;
 }
 
 gboolean 
 document_interface_merge_css (DocumentInterface *object, gchar *shape,
                                gchar *stylestring, GError **error)
 {
-    return FALSE;
+    SPCSSAttr * newstyle = sp_repr_css_attr_new();
+    sp_repr_css_attr_add_from_string (newstyle, stylestring);
+
+    gchar style[] = "style";
+    Inkscape::XML::Node *node = get_object_by_name(object->desk, shape)->repr;
+    SPCSSAttr * oldstyle = sp_repr_css_attr (node, style);
+
+    sp_repr_css_merge(oldstyle, newstyle);
+    node->setAttribute (style, sp_repr_css_write_string (oldstyle), TRUE);
+    return TRUE;
 }
 
 gboolean 
 document_interface_move_to_layer (DocumentInterface *object, gchar *shape, 
                               gchar *layerstr, GError **error)
 {
-    return FALSE;
+    const GSList *oldsel = selection_swap(object->desk, shape);
+    document_interface_selection_move_to_layer(object, layerstr, error);
+    selection_restore(object->desk, oldsel);
+    return TRUE;
 }
 
 DBUSPoint ** 
@@ -818,11 +845,30 @@ document_interface_selection_move_to (DocumentInterface *object, gdouble x, gdou
     return TRUE;
 }
 
+//FIXME: does not paste in new layer.
 gboolean 
 document_interface_selection_move_to_layer (DocumentInterface *object,
                                             gchar *layerstr, GError **error)
 {
-    return FALSE;
+    SPDesktop * dt = object->desk;
+
+    Inkscape::Selection *selection = sp_desktop_selection(dt);
+
+    // check if something is selected
+    if (selection->isEmpty())
+        return FALSE;
+
+    SPObject *next = get_object_by_name(object->desk, layerstr);
+
+    if (next && (strcmp("layer", (next->repr)->attribute("inkscape:groupmode")) == 0)) {
+
+        sp_selection_cut(dt);
+
+        dt->setCurrentLayer(next);
+
+        sp_selection_paste(dt, TRUE);
+        }
+    return TRUE;
 }
 
 gboolean 
