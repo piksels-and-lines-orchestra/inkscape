@@ -24,6 +24,14 @@
 
 #include "style.h" //style_write
 
+#include "file.h" //IO
+
+#include "extension/system.h" //IO
+
+#include "extension/output.h" //IO
+
+#include "print.h" //IO
+
 /****************************************************************************
      HELPER / SHORTCUT FUNCTIONS
 ****************************************************************************/
@@ -330,13 +338,27 @@ document_interface_spiral (DocumentInterface *object, int cx, int cy,
 gchar* 
 document_interface_text (DocumentInterface *object, gchar *text, GError **error)
 {
+    //FIXME: implement.
     return NULL;
 }
 
 gchar* 
 document_interface_node (DocumentInterface *object, gchar *type, GError **error)
 {
-    return NULL;
+    SPDocument * doc = sp_desktop_document (object->desk);
+    Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
+
+    Inkscape::XML::Node *newNode =  xml_doc->createElement(type);
+
+    object->desk->currentLayer()->appendChildRepr(newNode);
+    object->desk->currentLayer()->updateRepr();
+
+    if (object->updates)
+        sp_document_done(sp_desktop_document(object->desk), 0, (gchar *)"created empty node");
+    else
+        document_interface_pause_updates(object, error);
+
+    return strdup(newNode->attribute("id"));
 }
 
 /****************************************************************************
@@ -371,14 +393,14 @@ document_interface_document_merge_css (DocumentInterface *object,
     return TRUE;
 }
 
-//FIXME this actually merges
 gboolean 
 document_interface_document_set_css (DocumentInterface *object,
                                      gchar *stylestring, GError **error)
 {
     SPCSSAttr * style = sp_repr_css_attr_new();
     sp_repr_css_attr_add_from_string (style, stylestring);
-    sp_desktop_set_style (object->desk, style);
+    //Memory leak?
+    object->desk->current = style;
     return TRUE;
 }
 
@@ -387,7 +409,6 @@ document_interface_document_resize_to_fit_selection (DocumentInterface *object,
                                                      GError **error)
 {
     dbus_call_verb (object, SP_VERB_FIT_CANVAS_TO_SELECTION, error);
-    //verb_fit_canvas_to_selection(object->desk);
     return TRUE;
 }
 
@@ -440,7 +461,6 @@ document_interface_get_attribute (DocumentInterface *object, char *shape,
     SPDesktop *desk2 = object->desk;
     SPDocument * doc = sp_desktop_document (desk2);
 
-    // FIXME: Not sure if this is the most efficient way.
     Inkscape::XML::Node *newNode = doc->getObjectById(shape)->repr;
 
     /* WORKS
@@ -560,6 +580,7 @@ document_interface_move_to_layer (DocumentInterface *object, gchar *shape,
 DBUSPoint ** 
 document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape)
 {
+    //FIXME: implement.
     return NULL;
 }
 
@@ -569,48 +590,86 @@ document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape
 ****************************************************************************/
 
 gboolean 
-document_interface_save (DocumentInterface *object, GError **error){
+document_interface_save (DocumentInterface *object, GError **error)
+{
+    SPDocument * doc = sp_desktop_document(object->desk);
+    printf("1:  %s\n2:  %s\n3:  %s\n", doc->uri, doc->base, doc->name);
+    if (doc->uri)
+        return document_interface_save_as (object, doc->uri, error);
     return FALSE;
 }
 
 gboolean 
 document_interface_load (DocumentInterface *object, 
-                        gchar *filename, GError **error){
-    return FALSE;
+                        gchar *filename, GError **error)
+{
+    desktop_ensure_active (object->desk);
+    const Glib::ustring file(filename);
+    sp_file_open(file, NULL, TRUE, TRUE);
+    if (object->updates)
+        sp_document_done(sp_desktop_document(object->desk), SP_VERB_FILE_OPEN, "Opened File");
+    return TRUE;
 }
 
 gboolean 
 document_interface_save_as (DocumentInterface *object, 
-                           gchar *filename, GError **error){
-    return FALSE;
-}
+                           gchar *filename, GError **error)
+{
+    SPDocument * doc = sp_desktop_document(object->desk);
+    #ifdef WITH_GNOME_VFS
+    const Glib::ustring file(filename);
+    return file_save_remote(doc, file, NULL, TRUE, TRUE);
+    #endif
+    if (!doc || strlen(filename)<1) //Safety check
+        return false;
 
+    try {
+        Inkscape::Extension::save(NULL, doc, filename,
+                 false, false, true);
+    } catch (...) {
+        //SP_ACTIVE_DESKTOP->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("Document not saved."));
+        return false;
+    }
+
+    //SP_ACTIVE_DESKTOP->event_log->rememberFileSave();
+    //SP_ACTIVE_DESKTOP->messageStack()->flash(Inkscape::NORMAL_MESSAGE, "Document saved.");
+    return true;
+}
+/*
 gboolean 
-document_interface_print (DocumentInterface *object, GError **error){
-    return FALSE;
+document_interface_print_to_file (DocumentInterface *object, GError **error)
+{
+    SPDocument * doc = sp_desktop_document(object->desk);
+    sp_print_document_to_file (doc, g_strdup("/home/soren/test.pdf"));
+                               
+    return TRUE;
 }
-
+*/
 /****************************************************************************
      PROGRAM CONTROL FUNCTIONS
 ****************************************************************************/
 
 gboolean
-document_interface_close (DocumentInterface *object, GError **error){
+document_interface_close (DocumentInterface *object, GError **error)
+{
     return dbus_call_verb (object, SP_VERB_FILE_CLOSE_VIEW, error);
 }
 
 gboolean
-document_interface_exit (DocumentInterface *object, GError **error){
+document_interface_exit (DocumentInterface *object, GError **error)
+{
     return dbus_call_verb (object, SP_VERB_FILE_QUIT, error);
 }
 
 gboolean
-document_interface_undo (DocumentInterface *object, GError **error){
+document_interface_undo (DocumentInterface *object, GError **error)
+{
     return dbus_call_verb (object, SP_VERB_EDIT_UNDO, error);
 }
 
 gboolean
-document_interface_redo (DocumentInterface *object, GError **error){
+document_interface_redo (DocumentInterface *object, GError **error)
+{
     return dbus_call_verb (object, SP_VERB_EDIT_REDO, error);
 }
 
@@ -686,7 +745,6 @@ document_interface_selection_add (DocumentInterface *object, char *name, GError 
 {
     if (name == NULL) 
         return FALSE;
-    //FIXME: This gets called a lot.  Efficient? 
     SPDocument * doc = sp_desktop_document (object->desk);
     Inkscape::Selection *selection = sp_desktop_selection(object->desk);
     /* WORKS
@@ -701,6 +759,7 @@ gboolean
 document_interface_selection_add_list (DocumentInterface *object, 
                                        char **names, GError **error)
 {
+    //FIXME: implement.
     return FALSE;
 }
 
@@ -717,6 +776,7 @@ gboolean
 document_interface_selection_set_list (DocumentInterface *object, 
                                        gchar **names, GError **error)
 {
+    //FIXME: broken array passing.
     sp_desktop_selection(object->desk)->clear();
     int i;
     for (i=0;((i<30000) && (names[i] != NULL));i++) {
@@ -760,6 +820,7 @@ document_interface_select_all_in_all_layers(DocumentInterface *object,
                                             GError **error)
 {
     sp_edit_select_all_in_all_layers (object->desk);
+    return TRUE;
 }
 
 gboolean
@@ -767,6 +828,7 @@ document_interface_selection_box (DocumentInterface *object, int x, int y,
                                   int x2, int y2, gboolean replace, 
                                   GError **error)
 {
+    //FIXME: implement.
     return FALSE;
 }
 
@@ -836,12 +898,7 @@ document_interface_selection_move_to (DocumentInterface *object, gdouble x, gdou
         //Geom::Point m( (object->desk)->point() - sel_bbox->midpoint() );
         Geom::Point m( x - selection_get_center_x(sel) , 0 - (y - selection_get_center_y(sel)) );
         sp_selection_move_relative(sel, m, true);
-
     }
-
-    //FIXME: dosn't work with transformations
-    //sp_selection_move (object->desk, x - selection_get_center_x(sel),
-    //                                 0 - (y - selection_get_center_y(sel)));
     return TRUE;
 }
 
@@ -874,6 +931,7 @@ document_interface_selection_move_to_layer (DocumentInterface *object,
 gboolean 
 document_interface_selection_get_center (DocumentInterface *object)
 {
+    //FIXME: implement: pass struct.
     return FALSE;
 }
 
@@ -945,6 +1003,7 @@ document_interface_layer_set (DocumentInterface *object,
 gchar **
 document_interface_layer_get_all (DocumentInterface *object)
 {
+    //FIXME: implement.
     return NULL;
 }
 

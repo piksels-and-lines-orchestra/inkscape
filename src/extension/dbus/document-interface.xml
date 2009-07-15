@@ -719,8 +719,8 @@
         </doc:description>
       </doc:doc>
     </method>
-
-    <method name="print" >
+    <!--
+    <method name="print_to_file" >
       <doc:doc>
         <doc:description>
           <doc:para>Prints the current document with default settings.</doc:para>
@@ -729,6 +729,7 @@
         <doc:seealso><doc:ref type="interface" to="document.document_resize_to_fit_selection">document_resize_to_fit_selection()</doc:ref></doc:seealso>
       </doc:doc>
     </method>
+    -->
 
     <!-- PROGRAM CONTROL FUNCTIONS -->
 
