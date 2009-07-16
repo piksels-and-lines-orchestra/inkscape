@@ -567,14 +567,15 @@ document_interface_move_to_layer (DocumentInterface *object, gchar *shape,
 DBUSPoint ** 
 document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape)
 {
-    //FIXME: not implemented.
+    //FIXME: Needs lot's of work.
+/*
     Inkscape::XML::Node *node = document_retrive_node (sp_desktop_document (object->desk), pathname);
     if (node == NULL || node->attribute("d") == NULL) {
         g_set_error(error, DBUS_GERROR, DBUS_GERROR_REMOTE_EXCEPTION, "Object is not a path or does not exist.");
         return FALSE;
     }
-    char * path = strdup(node->attribute("d"));
-
+    //char * path = strdup(node->attribute("d"));
+*/
     return NULL;
 }
 
