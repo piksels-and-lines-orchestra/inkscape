@@ -119,9 +119,20 @@ Style strings look something like this: "fill:#ff0000;fill-opacity:1;stroke:#000
     </para>
   </sect1>
 
-  <anchor id="Nodes and Paths"/>
+  <anchor id="Paths"/>
   <sect1>
-    <title>Nodes and Paths</title>
+    <title>Paths</title>
+    <para>
+A path is a string representing a series of points, and how the line curves between the points.  It looks something like this: "m 351.42857,296.64789 a 54.285713,87.14286 0 1 1 -108.57143,0 54.285713,87.14286 0 1 1 108.57143,0 z" and is usually found as an attribute of a shape with the label "d".  All shapes except rectangles have this "d" attribute.
+    </para>
+    <para>
+Just because a shape has a path does not mean it IS a path however.  A path object has no attributes except the path and a style.  Calling <link linkend="document.object_to_path">object_to_path()</link> will convert any object to a path, stripping away any other attributes except id and style which stay the same.  This will not change the visual appearance but you will no longer be able to use shape handles or affect it by changing any attributes except for "style", "d", and "transform".  Some functions may require paths.
+    </para>
+  </sect1>
+
+  <anchor id="Nodes"/>
+  <sect1>
+    <title>Nodes</title>
     <para>
 To be written.
     </para>

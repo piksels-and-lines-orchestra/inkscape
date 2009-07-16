@@ -556,6 +556,27 @@
           <doc:para>After doing this you will no longer be able to modify the shape using shape specific attributes (cx, radius etc.) except transform</doc:para>
           <doc:para>Required for certain functions that work on paths (not yet present in this API.)</doc:para>
         </doc:description>
+        <doc:seealso><doc:ref type="interface" to="Paths">Paths</doc:ref></doc:seealso>
+      </doc:doc>
+    </method>
+
+    <method name="get_path">
+      <arg type="s" name="shape" direction="in" >
+        <doc:doc>
+          <doc:summary>The id of an object.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="s" name="val" direction="out" >
+        <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value="error"/>
+        <doc:doc>
+          <doc:summary>The path of the object.  NULL if the object has no path.</doc:summary>
+        </doc:doc>
+      </arg>
+      <doc:doc>
+        <doc:description>
+          <doc:para>Get the path value of an object.  Equivilent to calling <doc:ref type="method" to="document.get_attribte">get_attribte()</doc:ref> with argument "d".  Will not turn object into a path if it is not already.</doc:para>
+        </doc:description>
+        <doc:seealso><doc:ref type="interface" to="Paths">Paths</doc:ref></doc:seealso>
       </doc:doc>
     </method>
 
@@ -799,8 +820,7 @@
     <!-- SELECTION FUNCTIONS -->
 
     <method name="selection_get">
-      <arg type="as" name="list" direction="out" >
-        <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+      <arg type="as" name="listy" direction="out" >
         <doc:doc>
           <doc:summary>List of the ids of currently selected objects.</doc:summary>
         </doc:doc>

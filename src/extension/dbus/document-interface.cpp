@@ -422,8 +422,8 @@ document_interface_set_attribute (DocumentInterface *object, char *shape,
 {
     Inkscape::XML::Node *newNode = get_object_by_name(object->desk, shape)->repr;
 
-    /* ALTERNATIVE
-    Inkscape::XML::Node *repr2 = sp_repr_lookup_name((doc->root)->repr, name);
+    /* ALTERNATIVE (is this faster?)
+    Inkscape::XML::Node *newnode = sp_repr_lookup_name((doc->root)->repr, name);
     */
     if (newNode)
     {
@@ -458,14 +458,8 @@ gchar *
 document_interface_get_attribute (DocumentInterface *object, char *shape, 
                                   char *attribute, GError **error)
 {
-    SPDesktop *desk2 = object->desk;
-    SPDocument * doc = sp_desktop_document (desk2);
+    Inkscape::XML::Node *newNode = get_object_by_name(object->desk, shape)->repr;
 
-    Inkscape::XML::Node *newNode = doc->getObjectById(shape)->repr;
-
-    /* WORKS
-    Inkscape::XML::Node *repr2 = sp_repr_lookup_name((doc->root)->repr, name);
-    */
     if (newNode)
         return g_strdup(newNode->attribute(attribute));
     return FALSE;
@@ -493,16 +487,17 @@ document_interface_move_to (DocumentInterface *object, gchar *name, gdouble x,
     return TRUE;
 }
 
-void 
+gboolean
 document_interface_object_to_path (DocumentInterface *object, 
                                    char *shape, GError **error)
 {
     const GSList *oldsel = selection_swap(object->desk, shape);
     dbus_call_verb (object, SP_VERB_OBJECT_TO_CURVE, error);
     selection_restore(object->desk, oldsel);
+    return TRUE;
 }
 
-gboolean
+gchar *
 document_interface_get_path (DocumentInterface *object, char *pathname, GError **error)
 {
     Inkscape::XML::Node *node = document_retrive_node (sp_desktop_document (object->desk), pathname);
@@ -510,15 +505,7 @@ document_interface_get_path (DocumentInterface *object, char *pathname, GError *
         g_set_error(error, DBUS_GERROR, DBUS_GERROR_REMOTE_EXCEPTION, "Object is not a path or does not exist.");
         return FALSE;
     }
-    gchar *pathstr = strdup(node->attribute("d"));
-    printf("PATH: %s\n", pathstr);
-    //gfree (pathstr);
-    std::istringstream iss(pathstr);
-    std::copy(std::istream_iterator<std::string>(iss),
-             std::istream_iterator<std::string>(),
-             std::ostream_iterator<std::string>(std::cout, "\n"));
-
-    return TRUE;
+    return strdup(node->attribute("d"));
 }
 
 gboolean 
@@ -580,7 +567,14 @@ document_interface_move_to_layer (DocumentInterface *object, gchar *shape,
 DBUSPoint ** 
 document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape)
 {
-    //FIXME: implement.
+    //FIXME: not implemented.
+    Inkscape::XML::Node *node = document_retrive_node (sp_desktop_document (object->desk), pathname);
+    if (node == NULL || node->attribute("d") == NULL) {
+        g_set_error(error, DBUS_GERROR, DBUS_GERROR_REMOTE_EXCEPTION, "Object is not a path or does not exist.");
+        return FALSE;
+    }
+    char * path = strdup(node->attribute("d"));
+
     return NULL;
 }
 
@@ -712,8 +706,8 @@ document_interface_update (DocumentInterface *object, GError **error)
      SELECTION FUNCTIONS FIXME: use call_verb where appropriate.
 ****************************************************************************/
 
-gchar **
-document_interface_selection_get (DocumentInterface *object)
+gboolean
+document_interface_selection_get (DocumentInterface *object, GSList const * listy, GError **error)
 {
     Inkscape::Selection * sel = sp_desktop_selection(object->desk);
     GSList const *oldsel = sel->list();
@@ -737,7 +731,8 @@ document_interface_selection_get (DocumentInterface *object)
         printf("%d = %s\n", i, list[i]);
     }
     
-    return list;
+    listy = oldsel;
+    return TRUE;
 }
 
 gboolean
