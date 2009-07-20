@@ -745,7 +745,6 @@ document_interface_selection_add_list (DocumentInterface *object,
 {
     int i;
     for (i=0;names[i] != NULL;i++) {
-        //printf("NAME: %s\n", names[i]);
         document_interface_selection_add(object, names[i], error);       
     }
     return TRUE;
@@ -767,7 +766,6 @@ document_interface_selection_set_list (DocumentInterface *object,
     sp_desktop_selection(object->desk)->clear();
     int i;
     for (i=0;names[i] != NULL;i++) {
-        //printf("NAME: %s\n", names[i]);
         document_interface_selection_add(object, names[i], error);       
     }
     return TRUE;
@@ -882,7 +880,6 @@ document_interface_selection_move_to (DocumentInterface *object, gdouble x, gdou
 
     Geom::OptRect sel_bbox = sel->bounds();
     if (sel_bbox) {
-        //Geom::Point m( (object->desk)->point() - sel_bbox->midpoint() );
         Geom::Point m( x - selection_get_center_x(sel) , 0 - (y - selection_get_center_y(sel)) );
         sp_selection_move_relative(sel, m, true);
     }
@@ -915,11 +912,23 @@ document_interface_selection_move_to_layer (DocumentInterface *object,
     return TRUE;
 }
 
-gboolean 
+GArray *
 document_interface_selection_get_center (DocumentInterface *object)
 {
-    //FIXME: implement: pass struct.
-    return FALSE;
+    Inkscape::Selection * sel = sp_desktop_selection(object->desk);
+
+    if (sel) 
+    {
+        gdouble x = selection_get_center_x(sel);
+        gdouble y = selection_get_center_y(sel);
+        GArray * intArr = g_array_new (TRUE, TRUE, sizeof(double));
+
+        g_array_append_val (intArr, x);
+        g_array_append_val (intArr, y);
+        return intArr;
+    }
+
+    return NULL;
 }
 
 gboolean 
@@ -933,7 +942,6 @@ gchar *
 document_interface_selection_combine (DocumentInterface *object, gchar *cmd,
                                       GError **error)
 {
-
     if (strcmp(cmd, "union") == 0)
         dbus_call_verb (object, SP_VERB_SELECTION_UNION, error);
     else if (strcmp(cmd, "intersection") == 0)
@@ -947,8 +955,19 @@ document_interface_selection_combine (DocumentInterface *object, gchar *cmd,
     else
         return NULL;
 
-    //FIXME: this WILL cause problems with division
-    return g_strdup((sp_desktop_selection(object->desk)->singleRepr())->attribute("id"));
+    if (sp_desktop_selection(object->desk)->singleRepr() != NULL)
+        return g_strdup((sp_desktop_selection(object->desk)->singleRepr())->attribute("id"));
+
+    //Division will have a list of things selected, should have it's own function.
+    return NULL;
+}
+
+gboolean
+document_interface_selection_divide (DocumentInterface *object, char ***out, GError **error)
+{
+    dbus_call_verb (object, SP_VERB_SELECTION_CUT, error);
+
+    return document_interface_selection_get (object, out, error);
 }
 
 gboolean

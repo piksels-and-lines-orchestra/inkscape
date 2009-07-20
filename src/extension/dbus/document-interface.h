@@ -298,7 +298,7 @@ gboolean
 document_interface_selection_move_to_layer (DocumentInterface *object,
                                             gchar *layerstr, GError **error);
 
-gboolean 
+GArray * 
 document_interface_selection_get_center (DocumentInterface *object);
 
 gboolean 
@@ -307,6 +307,10 @@ document_interface_selection_to_path (DocumentInterface *object, GError **error)
 gchar *
 document_interface_selection_combine (DocumentInterface *object, gchar *cmd,
                                       GError **error);
+
+gboolean
+document_interface_selection_divide (DocumentInterface *object, 
+                                     char ***out, GError **error);
 
 
 gboolean

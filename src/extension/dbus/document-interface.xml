@@ -1084,7 +1084,7 @@
     </method>
 
     <method name="selection_get_center">
-      <arg type="(ii)" name="centerpoint" direction="out" >
+      <arg type="ad" name="centerpoint" direction="out" >
         <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
         <doc:doc>
           <doc:summary>Center of the selection.</doc:summary>
@@ -1128,6 +1128,21 @@
           <doc:para>Difference: The area of the second shape is subtracted from the first, only works with two objects.</doc:para>
           <doc:para>Exclusion: The new shape is the area(s) where none of the objects in the selection overlaped.  Only works with two objects.</doc:para>
           <doc:para>Division: the first object is split into multiple segments by the second object.  Only works with two objects and if multiple paths result they are grouped and the group id is returned.</doc:para>
+        </doc:description>
+      </doc:doc>
+    </method>
+
+    <method name="selection_divide">
+      <arg type="as" name="pieces" direction="out" >
+       <!-- <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/> -->
+        <doc:doc>
+          <doc:summary>List of the ids of resulting paths.</doc:summary>
+        </doc:doc>
+      </arg>
+      <doc:doc>
+        <doc:description>
+          <doc:para>Returns the result of cutting the bottom object by all other intersecting paths.</doc:para>
+          <doc:para>This may make many seperate layers.</doc:para>
         </doc:description>
       </doc:doc>
     </method>
