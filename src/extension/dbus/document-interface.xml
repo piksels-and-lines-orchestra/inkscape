@@ -821,6 +821,7 @@
 
     <method name="selection_get">
       <arg type="as" name="listy" direction="out" >
+       <!-- <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/> -->
         <doc:doc>
           <doc:summary>List of the ids of currently selected objects.</doc:summary>
         </doc:doc>

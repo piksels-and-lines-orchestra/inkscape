@@ -671,7 +671,7 @@ document_interface_redo (DocumentInterface *object, GError **error)
 
 
 /****************************************************************************
-     UPDATE FUNCTIONS
+     UPDATE FUNCTIONS FIXME: test update system again.
 ****************************************************************************/
 
 void
@@ -689,6 +689,7 @@ document_interface_resume_updates (DocumentInterface *object, GError **error)
     sp_desktop_document(object->desk)->root->uflags = TRUE;
     sp_desktop_document(object->desk)->root->mflags = TRUE;
     //sp_desktop_document(object->desk)->_updateDocument();
+    //FIXME: use better verb than rect.
     sp_document_done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
 }
 
@@ -708,31 +709,22 @@ document_interface_update (DocumentInterface *object, GError **error)
 ****************************************************************************/
 
 gboolean
-document_interface_selection_get (DocumentInterface *object, GSList const * listy, GError **error)
+document_interface_selection_get (DocumentInterface *object, char ***out, GError **error)
 {
     Inkscape::Selection * sel = sp_desktop_selection(object->desk);
     GSList const *oldsel = sel->list();
 
     int size = g_slist_length((GSList *) oldsel);
-    int i;
-    printf("premalloc\n");
-    gchar **list = (gchar **)malloc(size);
-        printf("postmalloc\n");
-    for(i = 0; i < size; i++)
-        list[i] = (gchar *)malloc(sizeof(gchar) * 10);
-        printf("postmalloc2\n");
-    i=0;
-        printf("prealloc\n");
+
+    *out = g_new0 (char *, size + 1);
+
+    int i = 0;
     for (GSList const *iter = oldsel; iter != NULL; iter = iter->next) {
-        strcpy (list[i], SP_OBJECT(iter->data)->repr->attribute("id"));
+        (*out)[i] = g_strdup(SP_OBJECT(iter->data)->repr->attribute("id"));
         i++;
     }
-            printf("postalloc\n");
-    for (i=0; i<size; i++) {
-        printf("%d = %s\n", i, list[i]);
-    }
-    
-    listy = oldsel;
+    (*out)[i] = NULL;
+
     return TRUE;
 }
 
@@ -741,13 +733,9 @@ document_interface_selection_add (DocumentInterface *object, char *name, GError 
 {
     if (name == NULL) 
         return FALSE;
-    SPDocument * doc = sp_desktop_document (object->desk);
     Inkscape::Selection *selection = sp_desktop_selection(object->desk);
-    /* WORKS
-    Inkscape::XML::Node *repr2 = sp_repr_lookup_name((doc->root)->repr, name);
-    selection->add(repr2, TRUE);
-    */
-    selection->add(doc->getObjectById(name));
+
+    selection->add(get_object_by_name(object->desk, name));
     return TRUE;
 }
 
@@ -755,8 +743,12 @@ gboolean
 document_interface_selection_add_list (DocumentInterface *object, 
                                        char **names, GError **error)
 {
-    //FIXME: implement.
-    return FALSE;
+    int i;
+    for (i=0;names[i] != NULL;i++) {
+        //printf("NAME: %s\n", names[i]);
+        document_interface_selection_add(object, names[i], error);       
+    }
+    return TRUE;
 }
 
 gboolean
@@ -772,11 +764,10 @@ gboolean
 document_interface_selection_set_list (DocumentInterface *object, 
                                        gchar **names, GError **error)
 {
-    //FIXME: broken array passing.
     sp_desktop_selection(object->desk)->clear();
     int i;
-    for (i=0;((i<30000) && (names[i] != NULL));i++) {
-        printf("NAME: %s\n", names[i]);
+    for (i=0;names[i] != NULL;i++) {
+        //printf("NAME: %s\n", names[i]);
         document_interface_selection_add(object, names[i], error);       
     }
     return TRUE;

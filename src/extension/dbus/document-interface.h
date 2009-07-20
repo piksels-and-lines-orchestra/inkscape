@@ -224,7 +224,7 @@ document_interface_update (DocumentInterface *object, GError **error);
      SELECTION FUNCTIONS
 ****************************************************************************/
 gboolean
-document_interface_selection_get (DocumentInterface *object, GSList const * listy, GError **error);
+document_interface_selection_get (DocumentInterface *object, char ***out, GError **error);
 
 gboolean
 document_interface_selection_add (DocumentInterface *object, 
