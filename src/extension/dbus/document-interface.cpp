@@ -32,6 +32,11 @@
 
 #include "print.h" //IO
 
+#include "live_effects/parameter/text.h" //text
+#include "display/canvas-text.h" //text
+
+#include "2geom/svg-path-parser.h" //get_node_coordinates
+
 /****************************************************************************
      HELPER / SHORTCUT FUNCTIONS
 ****************************************************************************/
@@ -335,11 +340,17 @@ document_interface_spiral (DocumentInterface *object, int cx, int cy,
     return retval;
 }
 
-gchar* 
-document_interface_text (DocumentInterface *object, gchar *text, GError **error)
+gboolean
+document_interface_text (DocumentInterface *object, int x, int y, gchar *text, GError **error)
 {
-    //FIXME: implement.
-    return NULL;
+    //FIXME: Not selectable.
+
+    SPDesktop *desktop = object->desk;
+    SPCanvasText * canvas_text = (SPCanvasText *) sp_canvastext_new(sp_desktop_tempgroup(desktop), desktop, Geom::Point(0,0), "");
+    sp_canvastext_set_text (canvas_text, text);
+    sp_canvastext_set_coords (canvas_text, x, y);
+
+    return TRUE;
 }
 
 gchar* 
@@ -564,18 +575,19 @@ document_interface_move_to_layer (DocumentInterface *object, gchar *shape,
     return TRUE;
 }
 
-DBUSPoint ** 
+GArray *
 document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape)
 {
     //FIXME: Needs lot's of work.
-/*
-    Inkscape::XML::Node *node = document_retrive_node (sp_desktop_document (object->desk), pathname);
-    if (node == NULL || node->attribute("d") == NULL) {
-        g_set_error(error, DBUS_GERROR, DBUS_GERROR_REMOTE_EXCEPTION, "Object is not a path or does not exist.");
+
+    Inkscape::XML::Node *shapenode = document_retrive_node (sp_desktop_document (object->desk), shape);
+    if (shapenode == NULL || shapenode->attribute("d") == NULL) {
         return FALSE;
     }
-    //char * path = strdup(node->attribute("d"));
-*/
+    const char * path = strdup(shapenode->attribute("d"));
+    printf("PATH: %s\n", path);
+    
+    Geom::parse_svg_path (path);
     return NULL;
 }
 
@@ -705,7 +717,7 @@ document_interface_update (DocumentInterface *object, GError **error)
 }
 
 /****************************************************************************
-     SELECTION FUNCTIONS FIXME: use call_verb where appropriate.
+     SELECTION FUNCTIONS FIXME: use call_verb where appropriate (once update system is tested.)
 ****************************************************************************/
 
 gboolean
@@ -950,15 +962,11 @@ document_interface_selection_combine (DocumentInterface *object, gchar *cmd,
         dbus_call_verb (object, SP_VERB_SELECTION_DIFF, error);
     else if (strcmp(cmd, "exclusion") == 0)
         dbus_call_verb (object, SP_VERB_SELECTION_SYMDIFF, error);
-    else if (strcmp(cmd, "division") == 0)
-        dbus_call_verb (object, SP_VERB_SELECTION_CUT, error);
     else
         return NULL;
 
     if (sp_desktop_selection(object->desk)->singleRepr() != NULL)
         return g_strdup((sp_desktop_selection(object->desk)->singleRepr())->attribute("id"));
-
-    //Division will have a list of things selected, should have it's own function.
     return NULL;
 }
 

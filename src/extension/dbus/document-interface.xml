@@ -276,15 +276,19 @@
     </method>
 
     <method name="text">
+      <arg type="i" name="x" direction="in" >
+        <doc:doc>
+          <doc:summary>The x coordinate to put the text at.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="i" name="y" direction="in" >
+        <doc:doc>
+          <doc:summary>The y coordinate to put the text at.</doc:summary>
+        </doc:doc>
+      </arg>
       <arg type="s" name="text" direction="in" >
         <doc:doc>
           <doc:summary>The text you want.</doc:summary>
-        </doc:doc>
-      </arg>
-      <arg type="s" name="object_name" direction="out" >
-        <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value="error"/>
-        <doc:doc>
-          <doc:summary>The name of the new text object.</doc:summary>
         </doc:doc>
       </arg>
       <doc:doc>
@@ -688,7 +692,7 @@
           <doc:summary>A object that contains a path ("d") attribute.</doc:summary>
         </doc:doc>
       </arg>
-      <arg type="a(ii)" name="points" direction="out" >
+      <arg type="ai" name="points" direction="out" >
         <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
         <doc:doc>
           <doc:summary>An array of points.</doc:summary>

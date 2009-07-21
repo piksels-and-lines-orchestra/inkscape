@@ -76,9 +76,9 @@ gchar*
 document_interface_line (DocumentInterface *object, int x, int y, 
                               int x2, int y2, GError **error);
 
-gchar* 
-document_interface_text (DocumentInterface *object, gchar *text, 
-                             GError **error);
+gboolean
+document_interface_text (DocumentInterface *object, int x, int y, 
+                         gchar *text, GError **error);
 
 gchar* 
 document_interface_node (DocumentInterface *object, gchar *svgtype, 
@@ -169,7 +169,7 @@ document_interface_move_to_layer (DocumentInterface *object, gchar *shape,
                               gchar *layerstr, GError **error);
 
 
-DBUSPoint ** 
+GArray *
 document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape);
 
 /****************************************************************************
