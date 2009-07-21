@@ -52,6 +52,9 @@ SPObject *
 get_object_by_name (SPDesktop *desk, gchar *name)
 {
     return sp_desktop_document(desk)->getObjectById(name);
+    /* ALTERNATIVE (is this faster if only repr is needed?)
+    Inkscape::XML::Node *newnode = sp_repr_lookup_name((doc->root)->repr, name);
+    */
 }
 
 const gchar *
@@ -584,7 +587,7 @@ document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape
     if (shapenode == NULL || shapenode->attribute("d") == NULL) {
         return FALSE;
     }
-    const char * path = strdup(shapenode->attribute("d"));
+    char * path = strdup(shapenode->attribute("d"));
     printf("PATH: %s\n", path);
     
     Geom::parse_svg_path (path);

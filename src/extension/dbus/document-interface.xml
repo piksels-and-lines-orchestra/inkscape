@@ -578,7 +578,7 @@
       </arg>
       <doc:doc>
         <doc:description>
-          <doc:para>Get the path value of an object.  Equivilent to calling <doc:ref type="method" to="document.get_attribte">get_attribte()</doc:ref> with argument "d".  Will not turn object into a path if it is not already.</doc:para>
+          <doc:para>Get the path value of an object.  Equivilent to calling <doc:ref type="method" to="document.get_attribute">get_attribte()</doc:ref> with argument "d".  Will not turn object into a path if it is not already.</doc:para>
         </doc:description>
         <doc:seealso><doc:ref type="interface" to="Paths">Paths</doc:ref></doc:seealso>
       </doc:doc>
