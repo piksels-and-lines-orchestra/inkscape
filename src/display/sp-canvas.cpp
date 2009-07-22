@@ -1028,6 +1028,8 @@ sp_canvas_init (SPCanvas *canvas)
 
     // See comment at in sp-canvas.h.
     canvas->gen_all_enter_events = false;
+    
+    canvas->drawing_disabled = false;
 
     canvas->tiles=NULL;
     canvas->tLeft=canvas->tTop=canvas->tRight=canvas->tBottom=0;
@@ -2084,6 +2086,9 @@ static int
 do_update (SPCanvas *canvas)
 {
     if (!canvas->root || !canvas->pixmap_gc) // canvas may have already be destroyed by closing desktop durring interrupted display!
+        return TRUE;
+        
+    if (canvas->drawing_disabled)
         return TRUE;
 
     /* Cause the update if necessary */

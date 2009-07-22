@@ -161,8 +161,8 @@ finish_create_shape (DocumentInterface *object, GError **error, Inkscape::XML::N
 
     if (object->updates)
         sp_document_done(sp_desktop_document(object->desk), 0, (gchar *)desc);
-    else
-        document_interface_pause_updates(object, error);
+    //else
+        //document_interface_pause_updates(object, error);
 
     return strdup(newNode->attribute("id"));
 }
@@ -178,10 +178,13 @@ dbus_call_verb (DocumentInterface *object, int verbid, GError **error)
         if ( verb ) {
             SPAction *action = verb->get_action(desk2);
             if ( action ) {
+                //if (!object->updates)
+                    //document_interface_pause_updates (object, error);
                 sp_action_perform( action, NULL );
-                if (object->updates) {
+                if (object->updates)
                     sp_document_done(sp_desktop_document(desk2), verb->get_code(), g_strdup(verb->get_tip()));
-                }
+                //if (!object->updates)
+                    //document_interface_pause_updates (object, error);
                 return TRUE;
             }
         }
@@ -433,8 +436,8 @@ document_interface_node (DocumentInterface *object, gchar *type, GError **error)
 
     if (object->updates)
         sp_document_done(sp_desktop_document(object->desk), 0, (gchar *)"created empty node");
-    else
-        document_interface_pause_updates(object, error);
+    //else
+        //document_interface_pause_updates(object, error);
 
     return strdup(newNode->attribute("id"));
 }
@@ -699,6 +702,7 @@ document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape
     Geom::parse_svg_path (path);
     return NULL;
     */
+    return NULL;
 }
 
 
@@ -813,16 +817,22 @@ void
 document_interface_pause_updates (DocumentInterface *object, GError **error)
 {
     object->updates = FALSE;
-    sp_desktop_document(object->desk)->root->uflags = FALSE;
-    sp_desktop_document(object->desk)->root->mflags = FALSE;
+    object->desk->canvas->drawing_disabled = 1;
+    //object->desk->canvas->need_redraw = 0;
+    //object->desk->canvas->need_repick = 0;
+    //sp_desktop_document(object->desk)->root->uflags = FALSE;
+    //sp_desktop_document(object->desk)->root->mflags = FALSE;
 }
 
 void
 document_interface_resume_updates (DocumentInterface *object, GError **error)
 {
     object->updates = TRUE;
-    sp_desktop_document(object->desk)->root->uflags = TRUE;
-    sp_desktop_document(object->desk)->root->mflags = TRUE;
+    object->desk->canvas->drawing_disabled = 0;
+    //object->desk->canvas->need_redraw = 1;
+    //object->desk->canvas->need_repick = 1;
+    //sp_desktop_document(object->desk)->root->uflags = TRUE;
+    //sp_desktop_document(object->desk)->root->mflags = TRUE;
     //sp_desktop_document(object->desk)->_updateDocument();
     //FIXME: use better verb than rect.
     sp_document_done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
@@ -833,7 +843,9 @@ document_interface_update (DocumentInterface *object, GError **error)
 {
     sp_desktop_document(object->desk)->root->uflags = TRUE;
     sp_desktop_document(object->desk)->root->mflags = TRUE;
+    object->desk->enableInteraction();
     sp_desktop_document(object->desk)->_updateDocument();
+    object->desk->disableInteraction();
     sp_desktop_document(object->desk)->root->uflags = FALSE;
     sp_desktop_document(object->desk)->root->mflags = FALSE;
     //sp_document_done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
@@ -989,12 +1001,23 @@ document_interface_selection_copy (DocumentInterface *object, GError **error)
     //sp_selection_copy ();
     return dbus_call_verb (object, SP_VERB_EDIT_COPY, error);
 }
-
+/*
 gboolean
 document_interface_selection_paste (DocumentInterface *object, GError **error)
 {
-    //desktop_ensure_active (object->desk);
-    //sp_selection_paste (object->desk, TRUE);
+    desktop_ensure_active (object->desk);
+                    if (!object->updates)
+                    document_interface_pause_updates (object, error);
+    sp_selection_paste (object->desk, TRUE);
+                    if (!object->updates)
+                    document_interface_pause_updates (object, error);
+    return TRUE;
+    //return dbus_call_verb (object, SP_VERB_EDIT_PASTE, error);
+}
+*/
+gboolean
+document_interface_selection_paste (DocumentInterface *object, GError **error)
+{
     return dbus_call_verb (object, SP_VERB_EDIT_PASTE, error);
 }
 
