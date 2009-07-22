@@ -31,6 +31,20 @@ struct _DocumentInterfaceClass {
         GObjectClass parent;
 };
 
+typedef enum
+{
+  INKSCAPE_ERROR_SELECTION,
+  INKSCAPE_ERROR_OBJECT,
+  INKSCAPE_ERROR_VERB,
+  INKSCAPE_ERROR_OTHER
+} InkscapeError;
+
+#define INKSCAPE_ERROR (inkscape_error_quark ())
+#define INKSCAPE_TYPE_ERROR (inkscape_error_get_type ()) 
+
+GQuark inkscape_error_quark (void);
+GType inkscape_error_get_type (void);
+
 struct DBUSPoint {
     int x;
     int y;
@@ -42,7 +56,7 @@ struct DBUSPoint {
 gboolean 
 document_interface_delete_all (DocumentInterface *object, GError **error);
 
-void 
+gboolean
 document_interface_call_verb (DocumentInterface *object, 
                               gchar *verbid, GError **error);
 
@@ -118,12 +132,12 @@ document_interface_set_attribute (DocumentInterface *object,
                                   char *shape, char *attribute, 
                                   char *newval, GError **error);
 
-void 
+gboolean
 document_interface_set_int_attribute (DocumentInterface *object, 
                                       char *shape, char *attribute, 
                                       int newval, GError **error);
 
-void 
+gboolean
 document_interface_set_double_attribute (DocumentInterface *object, 
                                          char *shape, char *attribute, 
                                          double newval, GError **error);
@@ -186,6 +200,9 @@ document_interface_load (DocumentInterface *object,
 gboolean 
 document_interface_save_as (DocumentInterface *object, 
                            gchar *filename, GError **error);
+
+gboolean 
+document_interface_mark_as_unmodified (DocumentInterface *object, GError **error);
 /*
 gboolean 
 document_interface_print_to_file (DocumentInterface *object, GError **error);

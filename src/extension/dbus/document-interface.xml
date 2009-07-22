@@ -744,6 +744,15 @@
         </doc:description>
       </doc:doc>
     </method>
+
+    <method name="mark_as_unmodified" >
+      <doc:doc>
+        <doc:description>
+          <doc:para>Marks the document as unmodified/saved.</doc:para>
+          <doc:para>Will prevent save confirmation on close if called at end of script.</doc:para>
+        </doc:description>
+      </doc:doc>
+    </method>
     <!--
     <method name="print_to_file" >
       <doc:doc>
