@@ -297,6 +297,35 @@
         </doc:description>
       </doc:doc>
     </method>
+    
+    <method name="image">
+      <arg type="i" name="x" direction="in" >
+        <doc:doc>
+          <doc:summary>The x coordinate to put the image at.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="i" name="y" direction="in" >
+        <doc:doc>
+          <doc:summary>The y coordinate to put the image at.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="s" name="text" direction="in" >
+        <doc:doc>
+          <doc:summary>The full path of the image you want.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="s" name="object_name" direction="out" >
+        <annotation name="org.freedesktop.DBus.GLib.ReturnVal" value="error"/>
+        <doc:doc>
+          <doc:summary>The name of the new image.</doc:summary>
+        </doc:doc>
+      </arg>
+      <doc:doc>
+        <doc:description>
+          <doc:para>This method imports a non-vector image (such as a jpeg, png, etc.) and places it at the given coordinates.  The resulting shape has no style or path but can be treated like a rectangle.  With and height can be set explicitly (will deform image) or transform strings or <doc:ref type="method" to="document.selection_scale">selection_scale()</doc:ref> can scale it relatively.</doc:para>
+        </doc:description>
+      </doc:doc>
+    </method>
 
     <method name="node">
       <arg type="s" name="svgtype" direction="in" >

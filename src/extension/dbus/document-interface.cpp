@@ -131,15 +131,11 @@ selection_restore(SPDesktop *desk, const GSList * oldsel)
 }
 
 Inkscape::XML::Node *
-dbus_create_node (SPDesktop *desk, gboolean isrect)
+dbus_create_node (SPDesktop *desk, const gchar *type)
 {
     SPDocument * doc = sp_desktop_document (desk);
     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
-    gchar *type;
-    if (isrect)
-        type = (gchar *)"svg:rect";
-    else
-        type = (gchar *)"svg:path";
+
     return xml_doc->createElement(type);
 }
 
@@ -306,7 +302,7 @@ document_interface_rectangle (DocumentInterface *object, int x, int y,
 {
 
 
-    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, TRUE);
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:rect");
     sp_repr_set_int(newNode, "x", x);  //could also use newNode->setAttribute()
     sp_repr_set_int(newNode, "y", y);
     sp_repr_set_int(newNode, "width", width);
@@ -318,7 +314,7 @@ gchar*
 document_interface_ellipse_center (DocumentInterface *object, int cx, int cy, 
                                    int rx, int ry, GError **error)
 {
-    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, FALSE);
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:path");
     newNode->setAttribute("sodipodi:type", "arc");
     sp_repr_set_int(newNode, "sodipodi:cx", cx);
     sp_repr_set_int(newNode, "sodipodi:cy", cy);
@@ -333,7 +329,7 @@ document_interface_polygon (DocumentInterface *object, int cx, int cy,
                             GError **error)
 {
     gdouble rot = ((rotation / 180.0) * 3.14159265) - ( 3.14159265 / 2.0);
-    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, FALSE);
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:path");
     newNode->setAttribute("inkscape:flatsided", "true");
     newNode->setAttribute("sodipodi:type", "star");
     sp_repr_set_int(newNode, "sodipodi:cx", cx);
@@ -354,7 +350,7 @@ document_interface_star (DocumentInterface *object, int cx, int cy,
                          int r1, int r2, int sides, gdouble rounded,
                          gdouble arg1, gdouble arg2, GError **error)
 {
-    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, FALSE);
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:path");
     newNode->setAttribute("inkscape:flatsided", "false");
     newNode->setAttribute("sodipodi:type", "star");
     sp_repr_set_int(newNode, "sodipodi:cx", cx);
@@ -383,7 +379,7 @@ gchar*
 document_interface_line (DocumentInterface *object, int x, int y, 
                               int x2, int y2, GError **error)
 {
-    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, FALSE);
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:path");
     std::stringstream out;
     printf("X2: %d\nY2 %d\n", x2, y2);
 	out << "m " << x << "," << y << " " << x2 << "," << y2;
@@ -396,7 +392,7 @@ gchar*
 document_interface_spiral (DocumentInterface *object, int cx, int cy, 
                            int r, int revolutions, GError **error)
 {
-    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, FALSE);
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:path");
     newNode->setAttribute("sodipodi:type", "spiral");
     sp_repr_set_int(newNode, "sodipodi:cx", cx);
     sp_repr_set_int(newNode, "sodipodi:cy", cy);
@@ -421,6 +417,28 @@ document_interface_text (DocumentInterface *object, int x, int y, gchar *text, G
     sp_canvastext_set_coords (canvas_text, x, y);
 
     return TRUE;
+}
+
+gchar *
+document_interface_image (DocumentInterface *object, int x, int y, gchar *filename, GError **error)
+{
+    gchar * uri = g_filename_to_uri (filename, FALSE, error);
+    if (!uri)
+        return FALSE;
+    
+    Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:image");
+    sp_repr_set_int(newNode, "x", x);
+    sp_repr_set_int(newNode, "y", y);
+    newNode->setAttribute("xlink:href", uri);
+    
+    object->desk->currentLayer()->appendChildRepr(newNode);
+    object->desk->currentLayer()->updateRepr();
+
+    if (object->updates)
+        sp_document_done(sp_desktop_document(object->desk), 0, "Imported bitmap.");
+
+    //g_free(uri);
+    return strdup(newNode->attribute("id"));
 }
 
 gchar* 
