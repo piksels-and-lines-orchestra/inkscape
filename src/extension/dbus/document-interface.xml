@@ -665,6 +665,40 @@
         <doc:seealso><doc:ref type="interface" to="Style Strings">Style Strings</doc:ref></doc:seealso>
       </doc:doc>
     </method>
+    
+    <method name="set_color">
+      <arg type="s" name="shape" direction="in" >
+        <doc:doc>
+          <doc:summary>Any object, or 'document' to apply to document style.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="i" name="red" direction="in" >
+        <doc:doc>
+          <doc:summary>The red component.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="i" name="green" direction="in" >
+        <doc:doc>
+          <doc:summary>The green component.</doc:summary>
+        </doc:doc>
+      </arg>
+            <arg type="i" name="blue" direction="in" >
+        <doc:doc>
+          <doc:summary>The blue component.</doc:summary>
+        </doc:doc>
+      </arg>
+      <arg type="b" name="fill" direction="in" >
+        <doc:doc>
+          <doc:summary>True to change fill color, false for stroke color.</doc:summary>
+        </doc:doc>
+      </arg>
+      <doc:doc>
+        <doc:description>
+          <doc:para>Modifies the fill or stroke color of an object (or the document style) based on RGB values.</doc:para>
+          <doc:para>Red green and blue must be between 0-255 inclusive.</doc:para>
+        </doc:description>
+      </doc:doc>
+    </method>
 
     <method name="move_to_layer">
       <arg type="s" name="objectname" direction="in" >

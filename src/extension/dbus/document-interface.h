@@ -179,6 +179,10 @@ document_interface_merge_css (DocumentInterface *object, gchar *shape,
                                gchar *stylestring, GError **error);
 
 gboolean 
+document_interface_set_color (DocumentInterface *object, gchar *shape,
+                              int r, int g, int b, gboolean fill, GError **error);
+
+gboolean 
 document_interface_move_to_layer (DocumentInterface *object, gchar *shape, 
                               gchar *layerstr, GError **error);
 

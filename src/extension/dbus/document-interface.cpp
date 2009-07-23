@@ -76,7 +76,7 @@ get_object_by_name (SPDesktop *desk, gchar *name, GError **error)
 }
 
 gboolean
-dbus_check_string (gchar *string, GError ** error, gchar * errorstr)
+dbus_check_string (gchar *string, GError ** error, const gchar * errorstr)
 {
     if (string == NULL)
     {
@@ -672,6 +672,28 @@ document_interface_merge_css (DocumentInterface *object, gchar *shape,
     sp_repr_css_merge(oldstyle, newstyle);
     node->setAttribute (style, sp_repr_css_write_string (oldstyle), TRUE);
     return TRUE;
+}
+
+gboolean 
+document_interface_set_color (DocumentInterface *object, gchar *shape,
+                              int r, int g, int b, gboolean fill, GError **error)
+{
+    gchar style[15];
+    if (r<0 || r>255 || g<0 || g>255 || b<0 || b>255)
+    {
+        g_set_error(error, INKSCAPE_ERROR, INKSCAPE_ERROR_OTHER, "Given (%d,%d,%d).  All values must be between 0-255 inclusive.", r, g, b);
+        return FALSE;
+    }
+    
+    if (fill)
+        snprintf(style, 15, "fill:#%.2x%.2x%.2x", r, g, b);
+    else
+        snprintf(style, 15, "stroke:#%.2x%.2x%.2x", r, g, b);
+    
+    if (strcmp(shape, "document") == 0)
+        return document_interface_document_merge_css (object, style, error);
+    
+    return document_interface_merge_css (object, shape, style, error);
 }
 
 gboolean 
