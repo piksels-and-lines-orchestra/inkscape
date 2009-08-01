@@ -1,6 +1,6 @@
 
 
-//#define DEBUG_LCMS
+#define DEBUG_LCMS
 
 #include <glib/gstdio.h>
 #include <sys/fcntl.h>
@@ -36,7 +36,7 @@ static cmsHPROFILE colorprofile_get_proof_profile_handle();
 
 #ifdef DEBUG_LCMS
 extern guint update_in_progress;
-#define DEBUG_MESSAGE(key, ...) \
+#define DEBUG_MESSAGE_SCISLAC(key, ...) \
 {\
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();\
     bool dump = prefs->getBool(Glib::ustring("/options/scislac/") + #key);\
@@ -62,6 +62,13 @@ extern guint update_in_progress;
         gtk_widget_show_all( dialog );\
     }\
 }
+
+
+#define DEBUG_MESSAGE(key, ...)\
+{\
+    g_message( __VA_ARGS__ );\
+}
+
 #endif // DEBUG_LCMS
 
 static SPObjectClass *cprof_parent_class;

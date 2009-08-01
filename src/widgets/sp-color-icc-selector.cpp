@@ -17,12 +17,12 @@
 #include "inkscape.h"
 #include "profile-manager.h"
 
-#define noDEBUG_LCMS
+#define DEBUG_LCMS
 
 #if ENABLE_LCMS
 #include "color-profile-fns.h"
 #include "color-profile.h"
-#define DEBUG_LCMS
+
 #ifdef DEBUG_LCMS
 #include "preferences.h"
 #include <gtk/gtkmessagedialog.h>
