@@ -12,13 +12,22 @@ ink_common_sources +=	\
 ## Would use += but it has to be set first.
 BUILT_SOURCES =   \
 	extension/dbus/application-server-glue.h   \
-	extension/dbus/document-server-glue.h
+	extension/dbus/document-server-glue.h   \
+	extension/dbus/document-client-glue.h
+#	extension/dbus/wrapper/libinkdbus.so.1.0 this probably belongs somewhere else
 
 extension/dbus/application-server-glue.h: extension/dbus/application-interface.xml
 	dbus-binding-tool --mode=glib-server --output=$@ --prefix=application_interface $^
 
 extension/dbus/document-server-glue.h: extension/dbus/document-interface.xml
 	dbus-binding-tool --mode=glib-server --output=$@ --prefix=document_interface $^
+
+extension/dbus/document-client-glue.h: extension/dbus/document-interface.xml
+	dbus-binding-tool --mode=glib-client --output=$@ --prefix=document_interface $^
+
+#extension/dbus/wrapper/libinkdbus.so.1.0: extension/dbus/wrapper/inkscape-dbus-wrapper.c extension/dbus/wrapper/inkscape-dbus-wrapper.h extension/dbus/document-interface.xml
+#	gcc -fPIC -c extension/dbus/wrapper/inkscape-dbus-wrapper.c -o extension/dbus/wrapper/inkscape-dbus-wrapper.o $(shell pkg-config --cflags --libs glib-2.0 gobject-2.0 dbus-glib-1)
+#	ld -shared -soname libinkdbus.so.1 -o extension/dbus/wrapper/libinkdbus.so.1.0 -lc extension/dbus/wrapper/inkscape-dbus-wrapper.o
 
 # Dbus service file
 servicedir = "/usr/share/dbus-1/services"
@@ -27,5 +36,5 @@ service_DATA = $(service_in_files:.service.in=.service)
 
 # Rule to make the service file with bindir expanded
 $(service_DATA): $(service_in_files) Makefile
-	@sed -e "s|@bindir@|$(bindir)|" $<> $@
+	@sed -e "s|@bindir@|$(bindir)|" $<> $@ #Fix bindir
 
