@@ -324,9 +324,25 @@ void ColorNotebook::init()
 
 	row++;
 
-	/* Create RGBA entry and color preview */
 	GtkWidget *rgbabox = gtk_hbox_new (FALSE, 0);
+	/* Create color management icons */
+        GtkWidget *box_colormanaged = gtk_event_box_new ();
+        GtkWidget *colormanaged = gtk_image_new_from_icon_name ("color-management-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
+        gtk_container_add (GTK_CONTAINER (box_colormanaged), colormanaged);
+        GtkTooltips *tooltips_colormanaged = gtk_tooltips_new ();
+        gtk_tooltips_set_tip (tooltips_colormanaged, box_colormanaged, _("Color Managed"), "");
+        //gtk_widget_hide (GTK_WIDGET (box_colormanaged));
+	gtk_box_pack_start(GTK_BOX(rgbabox), box_colormanaged, TRUE, FALSE, 2);
 
+        GtkWidget *box_outofgamut = gtk_event_box_new ();
+        GtkWidget *outofgamut = gtk_image_new_from_icon_name ("out-of-gamut-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
+        gtk_container_add (GTK_CONTAINER (box_outofgamut), outofgamut);
+        GtkTooltips *tooltips_outofgamut = gtk_tooltips_new ();
+        gtk_tooltips_set_tip (tooltips_outofgamut, box_outofgamut, _("Out of gamut!"), "");
+        //gtk_widget_hide (GTK_WIDGET (box_outofgamut));
+	gtk_box_pack_start(GTK_BOX(rgbabox), box_outofgamut, TRUE, FALSE, 2);        
+
+	/* Create RGBA entry and color preview */
 	_rgbal = gtk_label_new_with_mnemonic (_("RGBA_:"));
 	gtk_misc_set_alignment (GTK_MISC (_rgbal), 1.0, 0.5);
 	gtk_box_pack_start(GTK_BOX(rgbabox), _rgbal, TRUE, TRUE, 2);
