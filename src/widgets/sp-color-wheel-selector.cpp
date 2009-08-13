@@ -10,7 +10,8 @@
 #include "../dialogs/dialog-events.h"
 #include "sp-color-wheel-selector.h"
 #include "sp-color-scales.h"
-
+#include "sp-color-icc-selector.h"
+#include "../svg/svg-icc-color.h"
 
 G_BEGIN_DECLS
 
@@ -237,6 +238,10 @@ void ColorWheelSelector::_adjustmentChanged( GtkAdjustment *adjustment, SPColorW
 
     wheelSelector->_updating = TRUE;
 
+    /* Preserve ICC color */
+    ColorSelector* selector = (ColorSelector*)(SP_COLOR_SELECTOR(cs)->base);
+    wheelSelector->_color.icc = selector->getColor().icc ? new SVGICCColor(*selector->getColor().icc) : 0;
+
     wheelSelector->_updateInternals( wheelSelector->_color, ColorScales::getScaled( wheelSelector->_adj ), wheelSelector->_dragging );
 
     wheelSelector->_updating = FALSE;
@@ -249,6 +254,11 @@ void ColorWheelSelector::_sliderGrabbed( SPColorSlider *slider, SPColorWheelSele
     if (!wheelSelector->_dragging) {
         wheelSelector->_dragging = TRUE;
         wheelSelector->_grabbed();
+
+        /* Preserve ICC color */
+        ColorSelector* selector = (ColorSelector*)(SP_COLOR_SELECTOR(cs)->base);
+        wheelSelector->_color.icc = selector->getColor().icc ? new SVGICCColor(*selector->getColor().icc) : 0;
+
         wheelSelector->_updateInternals( wheelSelector->_color, ColorScales::getScaled( wheelSelector->_adj ), wheelSelector->_dragging );
     }
 }
@@ -260,6 +270,11 @@ void ColorWheelSelector::_sliderReleased( SPColorSlider *slider, SPColorWheelSel
     if (wheelSelector->_dragging) {
         wheelSelector->_dragging = FALSE;
         wheelSelector->_released();
+
+        /* Preserve ICC color */
+        ColorSelector* selector = (ColorSelector*)(SP_COLOR_SELECTOR(cs)->base);
+        wheelSelector->_color.icc = selector->getColor().icc ? new SVGICCColor(*selector->getColor().icc) : 0;
+
         wheelSelector->_updateInternals( wheelSelector->_color, ColorScales::getScaled( wheelSelector->_adj ), wheelSelector->_dragging );
     }
 }
@@ -268,6 +283,10 @@ void ColorWheelSelector::_sliderChanged( SPColorSlider *slider, SPColorWheelSele
 {
     (void)slider;
     ColorWheelSelector* wheelSelector = (ColorWheelSelector*)(SP_COLOR_SELECTOR(cs)->base);
+
+    /* Preserve ICC color */
+    ColorSelector* selector = (ColorSelector*)(SP_COLOR_SELECTOR(cs)->base);
+    wheelSelector->_color.icc = selector->getColor().icc ? new SVGICCColor(*selector->getColor().icc) : 0;
 
     wheelSelector->_updateInternals( wheelSelector->_color, ColorScales::getScaled( wheelSelector->_adj ), wheelSelector->_dragging );
 }
@@ -284,6 +303,10 @@ void ColorWheelSelector::_wheelChanged( SPColorWheel *wheel, SPColorWheelSelecto
     guint32 end = color.toRGBA32( 0xff );
 
     sp_color_slider_set_colors (SP_COLOR_SLIDER(wheelSelector->_slider), start, mid, end);
+
+    /* Preserve ICC color */
+    ColorSelector* selector = (ColorSelector*)(SP_COLOR_SELECTOR(cs)->base);
+    color.icc = selector->getColor().icc ? new SVGICCColor(*selector->getColor().icc) : 0;
 
     wheelSelector->_updateInternals( color, wheelSelector->_alpha, sp_color_wheel_is_adjusting( wheel ) );
 }
