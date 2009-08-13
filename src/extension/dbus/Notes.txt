@@ -1,0 +1,35 @@
+BUGS:
+    *Inkscape crashes if widow is closed while code is running,
+        need better error handling.
+    
+    *Pause updates needs work.
+    
+    *The following methods are broken:
+        -document_interface_selection_move_to_layer
+    
+    *The following are not implemented:
+        -document_interface_layer_get_all
+        -document_interface_selection_box
+        -document_interface_get_node_coordinates
+        
+    *The following do not behave like the documentation:
+        -document_interface_transform
+        -document_interface_text
+
+EFFICIENCY:
+    *Need better way to retrive objects by name.
+        Switch to GQuark codes for object retrival?
+    
+    *Rethink how often activate_desktop needs to be called.
+    
+    
+
+FEATURES:
+    *Find out more about extension API.
+    *API compatibility for plugins?
+
+CLEANUP:
+
+
+
+
