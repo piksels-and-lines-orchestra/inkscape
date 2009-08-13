@@ -1,3 +1,20 @@
+/*
+ * This is where the implementation of the DBus based document API lives.
+ * All the methods in here (except in the helper section) are 
+ * designed to be called remotly via DBus. application-interface.cpp
+ * has the methods used to connect to the bus and get a document instance.
+ *
+ * Documentation for these methods is in document-interface.xml
+ * which is the "gold standard" as to how the interface should work.
+ *
+ * Authors:
+ *   Soren Berg <Glimmer07@gmail.com>
+ *
+ * Copyright (C) 2009 Soren Berg
+ *
+ * Released under GNU GPL, read the file 'COPYING' for more information
+ */
+ 
 #ifndef INKSCAPE_EXTENSION_DOCUMENT_INTERFACE_H_
 #define INKSCAPE_EXTENSION_DOCUMENT_INTERFACE_H_
 

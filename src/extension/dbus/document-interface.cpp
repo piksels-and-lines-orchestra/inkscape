@@ -1,3 +1,20 @@
+/*
+ * This is where the implementation of the DBus based document API lives.
+ * All the methods in here (except in the helper section) are 
+ * designed to be called remotly via DBus. application-interface.cpp
+ * has the methods used to connect to the bus and get a document instance.
+ *
+ * Documentation for these methods is in document-interface.xml
+ * which is the "gold standard" as to how the interface should work.
+ *
+ * Authors:
+ *   Soren Berg <Glimmer07@gmail.com>
+ *
+ * Copyright (C) 2009 Soren Berg
+ *
+ * Released under GNU GPL, read the file 'COPYING' for more information
+ */
+
 #include "document-interface.h"
 #include <string.h>
 
@@ -41,13 +58,16 @@
      HELPER / SHORTCUT FUNCTIONS
 ****************************************************************************/
 
-const gchar* intToCString(int i)
-{
-    std::stringstream ss;
-    ss << i;
-    return ss.str().c_str();
-}
-
+/* 
+ * This function or the one below it translates the user input for an object
+ * into Inkscapes internal representation.  It is called by almost every
+ * method so it should be as fast as possible.
+ *
+ * (eg turns "rect2234" to an SPObject or Inkscape::XML::Node)
+ *
+ * If the internal representation changes (No more 'id' attributes) this is the
+ * place to adjust things.
+ */
 Inkscape::XML::Node *
 get_repr_by_name (SPDesktop *desk, gchar *name, GError **error)
 {
@@ -63,6 +83,9 @@ get_repr_by_name (SPDesktop *desk, gchar *name, GError **error)
     return node;
 }
 
+/* 
+ * See comment for get_repr_by_name, above.
+ */
 SPObject *
 get_object_by_name (SPDesktop *desk, gchar *name, GError **error)
 {
@@ -75,6 +98,11 @@ get_object_by_name (SPDesktop *desk, gchar *name, GError **error)
     return obj;
 }
 
+/*
+ * Tests for NULL strings and throws an appropriate error.
+ * Every method that takes a string parameter (other than the 
+ * name of an object, that's tested seperatly) should call this.
+ */
 gboolean
 dbus_check_string (gchar *string, GError ** error, const gchar * errorstr)
 {
@@ -86,12 +114,19 @@ dbus_check_string (gchar *string, GError ** error, const gchar * errorstr)
     return TRUE;
 }
 
+/* 
+ * This is used to return object values to the user
+ */
 const gchar *
 get_name_from_object (SPObject * obj)
 {
     return obj->repr->attribute("id"); 
 }
 
+/*
+ * Some verbs (cut, paste) only work on the active layer.
+ * This makes sure that the document that is about to recive a command is active.
+ */
 void
 desktop_ensure_active (SPDesktop* desk) {
     if (desk != SP_ACTIVE_DESKTOP)
@@ -112,7 +147,21 @@ selection_get_center_y (Inkscape::Selection *sel){
     box = sel->boundsInDocument(box);
     return box->y0 + ((box->y1 - box->y0)/2);
 }
-//move_to etc
+
+/* 
+ * This function is used along with selection_restore to
+ * take advantage of functionality provided by a selection
+ * for a single object.
+ *
+ * It saves the current selection and sets the selection to 
+ * the object specified.  Any selection verb can be used on the
+ * object and then selection_restore is called, restoring the 
+ * original selection.
+ *
+ * This should be mostly transparent to the user who need never
+ * know we never bothered to implement it seperatly.  Although
+ * they might see the selection box flicker if used in a loop.
+ */
 const GSList *
 selection_swap(SPDesktop *desk, gchar *name, GError **error)
 {
@@ -123,6 +172,9 @@ selection_swap(SPDesktop *desk, gchar *name, GError **error)
     return oldsel;
 }
 
+/*
+ * See selection_swap, above
+ */
 void
 selection_restore(SPDesktop *desk, const GSList * oldsel)
 {
@@ -130,6 +182,9 @@ selection_restore(SPDesktop *desk, const GSList * oldsel)
     sel->setList(oldsel);
 }
 
+/*
+ * Shortcut for creating a Node.
+ */
 Inkscape::XML::Node *
 dbus_create_node (SPDesktop *desk, const gchar *type)
 {
@@ -139,6 +194,13 @@ dbus_create_node (SPDesktop *desk, const gchar *type)
     return xml_doc->createElement(type);
 }
 
+/*
+ * Called by the shape creation functions.  Gets the default style for the doc
+ * or sets it arbitrarily if none.
+ *
+ * There is probably a better way to do this (use the shape tools default styles)
+ * but I'm not sure how.
+ */
 gchar *
 finish_create_shape (DocumentInterface *object, GError **error, Inkscape::XML::Node *newNode, gchar *desc)
 {
@@ -163,6 +225,14 @@ finish_create_shape (DocumentInterface *object, GError **error, Inkscape::XML::N
     return strdup(newNode->attribute("id"));
 }
 
+/*
+ * This is the code used internally to call all the verbs.
+ *
+ * It handles error reporting and update pausing (which needs some work.)
+ * This is a good place to improve efficiency as it is called a lot.
+ *
+ * document_interface_call_verb is similar but is called by the user.
+ */
 gboolean
 dbus_call_verb (DocumentInterface *object, int verbid, GError **error)
 {    
@@ -223,6 +293,11 @@ document_interface_new (void)
         return (DocumentInterface*)g_object_new (TYPE_DOCUMENT_INTERFACE, NULL);
 }
 
+/* 
+ * Error stuff...
+ *
+ * To add a new error type, edit here and in the .h InkscapeError enum.
+ */
 GQuark
 inkscape_error_quark (void)
 {
@@ -233,7 +308,6 @@ inkscape_error_quark (void)
   return quark;
 }
 
-/* This should really be standard. */
 #define ENUM_ENTRY(NAME, DESC) { NAME, "" #NAME "", DESC }
 
 GType
@@ -409,7 +483,7 @@ document_interface_spiral (DocumentInterface *object, int cx, int cy,
 gboolean
 document_interface_text (DocumentInterface *object, int x, int y, gchar *text, GError **error)
 {
-    //FIXME: Not selectable.
+    //FIXME: Not selectable (aka broken).  Needs to be rewritten completely.
 
     SPDesktop *desktop = object->desk;
     SPCanvasText * canvas_text = (SPCanvasText *) sp_canvastext_new(sp_desktop_tempgroup(desktop), desktop, Geom::Point(0,0), "");
@@ -1094,6 +1168,8 @@ document_interface_selection_move_to (DocumentInterface *object, gdouble x, gdou
 }
 
 //FIXME: does not paste in new layer.
+// This needs to use lower level cut_impl and paste_impl (messy)
+// See the built-in sp_selection_to_next_layer and duplicate.
 gboolean 
 document_interface_selection_move_to_layer (DocumentInterface *object,
                                             gchar *layerstr, GError **error)

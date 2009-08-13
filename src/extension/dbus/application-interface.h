@@ -1,3 +1,20 @@
+/*
+ * This is where the implementation of the DBus based application API lives.
+ * All the methods in here are designed to be called remotly via DBus.
+ * document-interface.cpp has all of the actual manipulation methods.
+ * This interface is just for creating new document interfaces.
+ *
+ * Documentation for these methods is in application-interface.xml
+ * which is the "gold standard" as to how the interface should work.
+ *
+ * Authors:
+ *   Soren Berg <Glimmer07@gmail.com>
+ *
+ * Copyright (C) 2009 Soren Berg
+ *
+ * Released under GNU GPL, read the file 'COPYING' for more information
+ */
+
 #ifndef INKSCAPE_EXTENSION_APPLICATION_INTERFACE_H_
 #define INKSCAPE_EXTENSION_APPLICATION_INTERFACE_H_
 

@@ -1,3 +1,22 @@
+<!--
+ * This is the master description of the DBus application interface.
+ * The interface is mostly just for creating new document instances.
+ *
+ * This file is used to generate both glue code and documentation.
+ * The methods are in the same order as the .cpp/.h and the sections are labeled.
+ *
+ * Any change to method prototypes in application-interface.cpp MUST be reflected here.
+ *
+ * This file is the proverbial gold standard for the application interface. 
+ *
+ * Authors:
+ *   Soren Berg <Glimmer07@gmail.com>
+ *
+ * Copyright (C) 2009 Soren Berg
+ *
+ * Released under GNU GPL, read the file 'COPYING' for more information
+-->
+
 <?xml version="1.0" encoding="UTF-8" ?>
 <node name="/org/inkscape/application"
   xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd"
