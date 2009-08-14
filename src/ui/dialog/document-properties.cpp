@@ -381,6 +381,17 @@ DocumentProperties::populate_available_profiles(){
     _menu.show_all();
 }
 
+//this is a quick workaround:
+static gchar* sanitize_name(gchar* name){
+    gchar* c=name;
+    while (*c != '\0'){
+        if (*c == ' ') *c = '-';
+        if (*c == '_') *c = '-';
+        c++;
+    }
+    return name;
+}
+
 void
 DocumentProperties::linkSelectedProfile()
 {
@@ -396,7 +407,8 @@ DocumentProperties::linkSelectedProfile()
         }
         Inkscape::XML::Document *xml_doc = sp_document_repr_doc(desktop->doc());
         Inkscape::XML::Node *cprofRepr = xml_doc->createElement("svg:color-profile");
-        cprofRepr->setAttribute("name", (gchar*) _menu.get_active()->get_data("name"));
+//        cprofRepr->setAttribute("inkscape:name", (gchar*) _menu.get_active()->get_data("name"));
+        cprofRepr->setAttribute("name", sanitize_name((gchar*) _menu.get_active()->get_data("name")));
         cprofRepr->setAttribute("xlink:href", (gchar*) _menu.get_active()->get_data("filepath"));
 
         // Checks whether there is a defs element. Creates it when needed
