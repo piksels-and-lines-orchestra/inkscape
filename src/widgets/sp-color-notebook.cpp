@@ -511,31 +511,9 @@ void ColorNotebook::_updateRgbaEntry( const SPColor& color, gfloat alpha )
     /* update out-of-gamut icon */
     gtk_widget_set_sensitive (_box_outofgamut, false);
     if (color.icc){
-        BYTE outofgamut = 0;
-        static cmsHPROFILE hNULL = cmsCreateNULLProfile();
-        static cmsHPROFILE hsRGB = cmsCreate_sRGBProfile();
-
         Inkscape::ColorProfile* target_profile = SP_ACTIVE_DOCUMENT->profileManager->find(color.icc->colorProfile.c_str());
-        if ( target_profile ) {
-            cmsHTRANSFORM trans = cmsCreateProofingTransform(hsRGB, TYPE_RGBA_8, hNULL, TYPE_GRAY_8, target_profile->profHandle,
-             INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC, (cmsFLAGS_GAMUTCHECK|cmsFLAGS_SOFTPROOFING));
-
-            if ( trans ) {
-                guint32 val = color.toRGBA32(0);
-                guchar check_color[4] = {
-                    SP_RGBA32_R_U(val),
-                    SP_RGBA32_G_U(val),
-                    SP_RGBA32_B_U(val),
-                    255};
-
-                int alarm_r, alarm_g, alarm_b;
-                cmsGetAlarmCodes(&alarm_r, &alarm_g, &alarm_b);
-                cmsSetAlarmCodes(255, 255, 255);
-                cmsDoTransform(trans, &check_color, &outofgamut, 1);
-                cmsSetAlarmCodes(alarm_r, alarm_g, alarm_b);
-                gtk_widget_set_sensitive (_box_outofgamut, outofgamut == 255);
-            }
-        }
+        if ( target_profile )
+            gtk_widget_set_sensitive (_box_outofgamut, target_profile->GamutCheck(color));
     }
 
 
