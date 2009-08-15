@@ -1,11 +1,11 @@
 INTRO:
 For people that are interested in improving the DBus API here is a 
-intro to how everything is layed out.
+intro to how everything is laid out.
 
 First read the documentation for a general idea of how the different interfaces 
 fit together and how Dbus is used in this application.
 
-Here are short descriptions of the relevent files:
+Here are short descriptions of the relevant files:
 
 document-interface.cpp: This has most of the "meat" of the interface, this is where
 most functions are implemented.
@@ -20,7 +20,7 @@ dbus-init.cpp: This is where the interface is exposed when Inkscape starts up.
 Here is where the names given to the various interfaces are set.  The application interface is constant but the document interfaces are generated on the fly.
 
 org.inkscape.service.in: This sets where DBus looks for the Inkscape executable
-if it is not running when someone tries to connect.  Needs work.
+if it is not running when someone tries to connect.
 
 pytester.py: A python script that tests a lot of dbus functions.
 
@@ -29,15 +29,15 @@ doc/builddocs.sh: builds documentation out of the XML files and some others.
 config.xsl, dbus-introspect-docs.dtd, spec-to-docbook.xsl, docbook.css: I borrowed 
 these files, they set how the documentation looks, I have no idea how to edit them.
 
-doc/inkscapeDbusRef.xml: This is the top level file for laying out th documentation,
+doc/inkscapeDbusRef.xml: This is the top level file for laying out the documentation,
 it also includes the introduction.
 
-doc/inkscapeDbusTerms.xml: This containes the terms sections of the documentation.  
+doc/inkscapeDbusTerms.xml: This contains the terms sections of the documentation.  
 Also the overview and all the tutorials.
 
 *.ref.xml: These are intermediate files, do not edit.
 
-wrapper/inkscape-dbus-wrapper.c: This is actually completely seperate from inkscape.
+wrapper/inkscape-dbus-wrapper.c: This is actually completely separate from inkscape.
 It has a wrapper for each function in the document interface and includes the
 client generated bindings.  It is used to create a shared object that will allow 
 people to use the interface without even knowing anything about Dbus.
@@ -47,6 +47,8 @@ BUGS:
         need better error handling.
     
     *Pause updates needs work.
+    
+    *Default style for new shapes is occasionally strange.
     
     *The following methods are broken:
         -document_interface_selection_move_to_layer
@@ -59,13 +61,10 @@ BUGS:
     *The following do not behave like the documentation:
         -document_interface_transform
         -document_interface_text
-    
-    *Service file should point to wherever the inkscape executable
-     was placed.
 
 EFFICIENCY:
-    *Need better way to retrive objects by name.
-        Switch to GQuark codes for object retrival?
+    *Need better way to retrieve objects by name.
+        Switch to GQuark codes for object retrieval?
     
     *Rethink how often activate_desktop needs to be called.
 
