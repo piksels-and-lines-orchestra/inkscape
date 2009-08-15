@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" ?>
+<!--
+ * These are some of the proposed functions for the document interface.
+ *
+ * It is only used in generating documentation.
+ *
+ * None of these methods are implemented.  If someone does code one of 
+ * these methods, remove it from here and add it to document-interface.xml.
+ *
+ * Authors:
+ *   Soren Berg <Glimmer07@gmail.com>
+ *
+ * Copyright (C) 2009 Soren Berg
+ *
+ * Released under GNU GPL, read the file 'COPYING' for more information
+-->
 <node name="/org/inkscape/proposed"
   xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd"
 >
