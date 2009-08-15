@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <!--
  * This is the master description of the DBus document interface.
  *
@@ -16,7 +17,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
 -->
  
-<?xml version="1.0" encoding="UTF-8" ?>
+ 
 <node name="/org/inkscape/document"
   xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd"
 >
