@@ -329,6 +329,8 @@ void ColorNotebook::init()
 	row++;
 
 	GtkWidget *rgbabox = gtk_hbox_new (FALSE, 0);
+
+#if ENABLE_LCMS
 	/* Create color management icons */
         _box_colormanaged = gtk_event_box_new ();
         GtkWidget *colormanaged = gtk_image_new_from_icon_name ("color-management-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
@@ -336,7 +338,7 @@ void ColorNotebook::init()
         GtkTooltips *tooltips_colormanaged = gtk_tooltips_new ();
         gtk_tooltips_set_tip (tooltips_colormanaged, _box_colormanaged, _("Color Managed"), "");
         gtk_widget_set_sensitive (_box_colormanaged, false);
-	gtk_box_pack_start(GTK_BOX(rgbabox), _box_colormanaged, TRUE, FALSE, 2);
+	gtk_box_pack_start(GTK_BOX(rgbabox), _box_colormanaged, FALSE, FALSE, 2);
 
         _box_outofgamut = gtk_event_box_new ();
         GtkWidget *outofgamut = gtk_image_new_from_icon_name ("out-of-gamut-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
@@ -344,7 +346,9 @@ void ColorNotebook::init()
         GtkTooltips *tooltips_outofgamut = gtk_tooltips_new ();
         gtk_tooltips_set_tip (tooltips_outofgamut, _box_outofgamut, _("Out of gamut!"), "");
         gtk_widget_set_sensitive (_box_outofgamut, false);
-	gtk_box_pack_start(GTK_BOX(rgbabox), _box_outofgamut, TRUE, FALSE, 2);        
+	gtk_box_pack_start(GTK_BOX(rgbabox), _box_outofgamut, FALSE, FALSE, 2);
+
+#endif //ENABLE_LCMS
 
 	/* Create RGBA entry and color preview */
 	_rgbal = gtk_label_new_with_mnemonic (_("RGBA_:"));
@@ -361,7 +365,7 @@ void ColorNotebook::init()
 
 	sp_set_font_size_smaller (rgbabox);
 	gtk_widget_show_all (rgbabox);
-	gtk_table_attach (GTK_TABLE (table), rgbabox, 1, 2, row, row + 1, GTK_FILL, GTK_SHRINK, XPAD, YPAD);
+        gtk_table_attach (GTK_TABLE (table), rgbabox, 0, 2, row, row + 1, GTK_FILL, GTK_SHRINK, XPAD, YPAD);
 
 #ifdef SPCS_PREVIEW
 	_p = sp_color_preview_new (0xffffffff);
@@ -504,7 +508,8 @@ void ColorNotebook::_rgbaEntryChanged(GtkEntry* entry)
 void ColorNotebook::_updateRgbaEntry( const SPColor& color, gfloat alpha )
 {
     g_return_if_fail( ( 0.0 <= alpha ) && ( alpha <= 1.0 ) );
-    
+
+#if ENABLE_LCMS    
     /* update color management icon*/
     gtk_widget_set_sensitive (_box_colormanaged, color.icc != NULL);
 
@@ -515,7 +520,7 @@ void ColorNotebook::_updateRgbaEntry( const SPColor& color, gfloat alpha )
         if ( target_profile )
             gtk_widget_set_sensitive (_box_outofgamut, target_profile->GamutCheck(color));
     }
-
+#endif //ENABLE_LCMS
 
     if ( !_updatingrgba )
     {
