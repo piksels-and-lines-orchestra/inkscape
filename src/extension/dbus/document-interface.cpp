@@ -449,16 +449,14 @@ document_interface_ellipse (DocumentInterface *object, int x, int y,
     return document_interface_ellipse_center (object, x+rx, y+ry, rx, ry, error);
 }
 
-/* FIXME: makes line but gets one endpoint wrong.*/
 gchar* 
 document_interface_line (DocumentInterface *object, int x, int y, 
                               int x2, int y2, GError **error)
 {
     Inkscape::XML::Node *newNode = dbus_create_node(object->desk, "svg:path");
     std::stringstream out;
-    printf("X2: %d\nY2 %d\n", x2, y2);
-	out << "m " << x << "," << y << " " << x2 << "," << y2;
-    printf ("PATH: %s\n", out.str().c_str());
+    // Not sure why this works.
+	out << "m " << x << "," << y << " " << x2 - x << "," << y2 - y;
     newNode->setAttribute("d", out.str().c_str());
     return finish_create_shape (object, error, newNode, (gchar *)"create line");
 }
