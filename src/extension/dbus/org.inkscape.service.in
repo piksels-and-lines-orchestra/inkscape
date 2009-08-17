@@ -1,5 +1,5 @@
 [D-BUS Service]
 Name=org.inkscape
-Exec=bindir/inkscape
+Exec=bindir/bin/inkscape
 
 
