@@ -2,7 +2,7 @@
  * Authors:
  *   Soren Berg <glimmer07@gmail.com>
  *
- * Copyright (C) 2004 Authors
+ * Copyright (C) 2009 Authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */

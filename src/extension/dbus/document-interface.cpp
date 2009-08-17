@@ -449,6 +449,7 @@ document_interface_ellipse (DocumentInterface *object, int x, int y,
     return document_interface_ellipse_center (object, x+rx, y+ry, rx, ry, error);
 }
 
+/* FIXME: makes line but gets one endpoint wrong.*/
 gchar* 
 document_interface_line (DocumentInterface *object, int x, int y, 
                               int x2, int y2, GError **error)

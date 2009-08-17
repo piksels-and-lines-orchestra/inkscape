@@ -61,6 +61,7 @@ BUGS:
     *The following do not behave like the documentation:
         -document_interface_transform
         -document_interface_text
+        -document_interface_line
 
 EFFICIENCY:
     *Need better way to retrieve objects by name.

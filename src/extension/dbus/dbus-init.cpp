@@ -1,4 +1,18 @@
-
+/*
+ * This is where Inkscape connects to the DBus when it starts and 
+ * registers the main interface.
+ *
+ * Also where new interfaces are registered when a new document is created.
+ * (Not called directly by application-interface but called indirectly.)
+ *
+ * Authors:
+ *   Soren Berg <Glimmer07@gmail.com>
+ *
+ * Copyright (C) 2009 Soren Berg
+ *
+ * Released under GNU GPL, read the file 'COPYING' for more information
+ */
+ 
 #include <dbus/dbus-glib.h>
 #include "dbus-init.h"
 
