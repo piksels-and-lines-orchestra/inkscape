@@ -475,7 +475,10 @@ document_interface_spiral (DocumentInterface *object, int cx, int cy,
     sp_repr_set_int(newNode, "sodipodi:argument", 0);
     sp_repr_set_int(newNode, "sodipodi:expansion", 1);
     gchar * retval = finish_create_shape (object, error, newNode, (gchar *)"create spiral");
-    newNode->setAttribute("style", "fill:none");
+    //Makes sure there is no fill for spirals by default.
+    gchar* newString = g_strconcat(newNode->attribute("style"), ";fill:none", NULL);
+    newNode->setAttribute("style", newString);
+    g_free(newString);
     return retval;
 }
 
