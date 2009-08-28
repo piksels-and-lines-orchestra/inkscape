@@ -74,6 +74,7 @@ INCLUDES =	\
 	$(WIN32_CFLAGS) \
 	-I$(srcdir)/bind/javainc \
 	-I$(srcdir)/bind/javainc/linux \
+	-I$(builddir)/extension/dbus \
 	$(AM_CPPFLAGS)
 
 CXXTEST_TEMPLATE = $(srcdir)/cxxtest-template.tpl
