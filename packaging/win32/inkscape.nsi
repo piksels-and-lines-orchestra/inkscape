@@ -7,7 +7,7 @@
 ; DEFINES
 ; #######################################
 !define PRODUCT_NAME "Inkscape"
-!define PRODUCT_VERSION "0.46+devel"
+!define PRODUCT_VERSION "0.47"
 !define PRODUCT_REVISION 1
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\inkscape.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"

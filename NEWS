@@ -1160,7 +1160,7 @@ command in shell mode must be a complete valid Inkscape command line but
 without the Inkscape program name, for example:
 
 $ inkscape --shell
-Inkscape 0.46+devel interactive shell mode. Type 'quit' to quit.
+Inkscape 0.47 interactive shell mode. Type 'quit' to quit.
 >file.svg --export-pdf=file.pdf
 >otherfile.svg --export-png=bitmap.png
 Background RRGGBBAA: ffffff00
