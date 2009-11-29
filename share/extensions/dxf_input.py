@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import inkex, simplestyle, math
 from StringIO import StringIO
+from urllib import quote
 
 def export_MTEXT():
     # mandatory group codes : (1 or 3, 10, 20) (text, x, y)
@@ -238,7 +239,7 @@ def export_INSERT():
     if vals[groups['2']] and vals[groups['10']] and vals[groups['20']]:
         x = vals[groups['10']][0]
         y = vals[groups['20']][0] - scale*ymax
-        attribs = {'x': '%f' % x, 'y': '%f' % y, inkex.addNS('href','xlink'): '#' + vals[groups['2']][0]}
+        attribs = {'x': '%f' % x, 'y': '%f' % y, inkex.addNS('href','xlink'): '#' + quote(vals[groups['2']][0].encode("utf-8"))}
         inkex.etree.SubElement(layer, 'use', attribs)
 
 def export_BLOCK():
@@ -301,6 +302,8 @@ parser = inkex.optparse.OptionParser(usage="usage: %prog [options] SVGfile", opt
 parser.add_option("--auto", action="store", type="inkbool", dest="auto", default=True)
 parser.add_option("--scale", action="store", type="string", dest="scale", default="1.0")
 parser.add_option("--encoding", action="store", type="string", dest="input_encode", default="latin_1")
+parser.add_option("--tab", action="store", type="string", dest="tab", default="Options")
+parser.add_option("--inputhelp", action="store", type="string", dest="inputhelp", default="")
 (options, args) = parser.parse_args(inkex.sys.argv[1:])
 doc = inkex.etree.parse(StringIO('<svg xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"></svg>'))
 desc = inkex.etree.SubElement(doc.getroot(), 'desc', {})

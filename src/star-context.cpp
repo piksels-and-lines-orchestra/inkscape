@@ -34,6 +34,7 @@
 #include "desktop.h"
 #include "desktop-style.h"
 #include "message-context.h"
+#include "libnr/nr-macros.h"
 #include "pixmaps/cursor-star.xpm"
 #include "sp-metrics.h"
 #include <glibmm/i18n.h>
@@ -51,11 +52,13 @@ static void sp_star_context_init (SPStarContext * star_context);
 static void sp_star_context_dispose (GObject *object);
 
 static void sp_star_context_setup (SPEventContext *ec);
+static void sp_star_context_finish(SPEventContext *ec);
 static void sp_star_context_set (SPEventContext *ec, Inkscape::Preferences::Entry *val);
 static gint sp_star_context_root_handler (SPEventContext *ec, GdkEvent *event);
 
 static void sp_star_drag (SPStarContext * sc, Geom::Point p, guint state);
 static void sp_star_finish (SPStarContext * sc);
+static void sp_star_cancel(SPStarContext * sc);
 
 static SPEventContextClass * parent_class;
 
@@ -90,6 +93,7 @@ sp_star_context_class_init (SPStarContextClass * klass)
     object_class->dispose = sp_star_context_dispose;
 
     event_context_class->setup = sp_star_context_setup;
+    event_context_class->finish = sp_star_context_finish;
     event_context_class->set = sp_star_context_set;
     event_context_class->root_handler = sp_star_context_root_handler;
 }
@@ -116,6 +120,21 @@ sp_star_context_init (SPStarContext * star_context)
 
     new (&star_context->sel_changed_connection) sigc::connection();
 }
+
+static void sp_star_context_finish(SPEventContext *ec)
+{
+    SPStarContext *sc = SP_STAR_CONTEXT(ec);
+	SPDesktop *desktop = ec->desktop;
+
+	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), GDK_CURRENT_TIME);
+	sp_star_finish(sc);
+    sc->sel_changed_connection.disconnect();
+
+    if (((SPEventContextClass *) parent_class)->finish) {
+		((SPEventContextClass *) parent_class)->finish(ec);
+	}
+}
+
 
 static void
 sp_star_context_dispose (GObject *object)
@@ -203,9 +222,9 @@ sp_star_context_set (SPEventContext *ec, Inkscape::Preferences::Entry *val)
     Glib::ustring path = val->getEntryName();
 
     if (path == "magnitude") {
-        sc->magnitude = CLAMP (val->getInt(5), 3, 1024);
+        sc->magnitude = NR_CLAMP(val->getInt(5), 3, 1024);
     } else if (path == "proportion") {
-        sc->proportion = CLAMP (val->getDouble(0.5), 0.01, 2.0);
+        sc->proportion = NR_CLAMP(val->getDouble(0.5), 0.01, 2.0);
     } else if (path == "isflatsided") {
         sc->isflatsided = val->getBool();
     } else if (path == "rounded") {
@@ -234,7 +253,6 @@ static gint sp_star_context_root_handler(SPEventContext *event_context, GdkEvent
         if (event->button.button == 1 && !event_context->space_panning) {
 
             dragging = TRUE;
-            sp_event_context_snap_window_open(event_context);
 
             sc->center = Inkscape::setup_for_drag_start(desktop, event_context, event);
 
@@ -281,7 +299,7 @@ static gint sp_star_context_root_handler(SPEventContext *event_context, GdkEvent
         event_context->xp = event_context->yp = 0;
         if (event->button.button == 1 && !event_context->space_panning) {
             dragging = FALSE;
-            sp_event_context_snap_window_closed(event_context, false); //button release will also occur on a double-click; in that case suppress warnings
+            sp_event_context_discard_delayed_snap_event(event_context);
             if (!event_context->within_tolerance) {
                 // we've been dragging, finish the star
                 sp_star_finish (sc);
@@ -332,18 +350,22 @@ static gint sp_star_context_root_handler(SPEventContext *event_context, GdkEvent
             }
             break;
         case GDK_Escape:
-            sp_desktop_selection(desktop)->clear();
-            //TODO: make dragging escapable by Esc
-            break;
-
+        	if (dragging) {
+        		dragging = false;
+        		sp_event_context_discard_delayed_snap_event(event_context);
+        		// if drawing, cancel, otherwise pass it up for deselecting
+        		sp_star_cancel(sc);
+        		ret = TRUE;
+        	}
+        	break;
         case GDK_space:
             if (dragging) {
                 sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate),
                                       event->button.time);
                 dragging = false;
-                sp_event_context_snap_window_closed(event_context);
+                sp_event_context_discard_delayed_snap_event(event_context);
                 if (!event_context->within_tolerance) {
-                    // we've been dragging, finish the rect
+                    // we've been dragging, finish the star
                     sp_star_finish(sc);
                 }
                 // do not return true, so that space would work switching to selector
@@ -452,7 +474,13 @@ sp_star_finish (SPStarContext * sc)
     sc->_message_context->clear();
 
     if (sc->item != NULL) {
-        SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
+    	SPStar *star = SP_STAR(sc->item);
+    	if (star->r[1] == 0) {
+    		sp_star_cancel(sc); // Don't allow the creating of zero sized arc, for example when the start and and point snap to the snap grid point
+    		return;
+    	}
+
+    	SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
         SPObject *object = SP_OBJECT(sc->item);
 
         sp_shape_set_shape(SP_SHAPE(sc->item));
@@ -467,6 +495,28 @@ sp_star_finish (SPStarContext * sc)
 
         sc->item = NULL;
     }
+}
+
+static void sp_star_cancel(SPStarContext *sc)
+{
+	SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
+
+	sp_desktop_selection(desktop)->clear();
+	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), 0);
+
+    if (sc->item != NULL) {
+    	SP_OBJECT(sc->item)->deleteObject();
+    	sc->item = NULL;
+    }
+
+    sc->within_tolerance = false;
+    sc->xp = 0;
+    sc->yp = 0;
+    sc->item_to_select = NULL;
+
+    sp_canvas_end_forced_full_redraws(desktop->canvas);
+
+    sp_document_cancel(sp_desktop_document(desktop));
 }
 
 /*

@@ -201,34 +201,6 @@ sp_nodepath_create_helperpaths(Inkscape::NodePath::Path *np) {
     }
 }
 
-void
-sp_nodepath_update_helperpaths(Inkscape::NodePath::Path *np) {
-    //std::map<Inkscape::LivePathEffect::Effect *, std::vector<SPCanvasItem *> > helper_path_vec;
-    if (!SP_IS_LPE_ITEM(np->item)) {
-        g_print ("Only LPEItems can have helperpaths!\n");
-        return;
-    }
-
-    SPLPEItem *lpeitem = SP_LPE_ITEM(np->item);
-    PathEffectList lpelist = sp_lpe_item_get_effect_list(lpeitem);
-    for (PathEffectList::iterator i = lpelist.begin(); i != lpelist.end(); ++i) {
-        Inkscape::LivePathEffect::Effect *lpe = (*i)->lpeobject->get_lpe();
-        if (lpe) {
-            /* update canvas items from the effect's helper paths; note that this code relies on the
-             * fact that getHelperPaths() will always return the same number of helperpaths in the same
-             * order as during their creation in sp_nodepath_create_helperpaths
-             */
-            std::vector<Geom::PathVector> hpaths = lpe->getHelperPaths(lpeitem);
-            for (unsigned int j = 0; j < hpaths.size(); ++j) {
-                SPCurve *curve = new SPCurve(hpaths[j]);
-                curve->transform(np->i2d);
-                sp_canvas_bpath_set_bpath(SP_CANVAS_BPATH((np->helper_path_vec[lpe])[j]), curve);
-                curve = curve->unref();
-            }
-        }
-    }
-}
-
 static void
 sp_nodepath_destroy_helperpaths(Inkscape::NodePath::Path *np) {
     for (HelperPathList::iterator i = np->helper_path_vec.begin(); i != np->helper_path_vec.end(); ++i) {
@@ -241,6 +213,36 @@ sp_nodepath_destroy_helperpaths(Inkscape::NodePath::Path *np) {
     np->helper_path_vec.clear();
 }
 
+/** updates canvas items from the effect's helper paths */
+void
+sp_nodepath_update_helperpaths(Inkscape::NodePath::Path *np) {
+    //std::map<Inkscape::LivePathEffect::Effect *, std::vector<SPCanvasItem *> > helper_path_vec;
+    if (!SP_IS_LPE_ITEM(np->item)) {
+        g_print ("Only LPEItems can have helperpaths!\n");
+        return;
+    }
+
+    SPLPEItem *lpeitem = SP_LPE_ITEM(np->item);
+    PathEffectList lpelist = sp_lpe_item_get_effect_list(lpeitem);
+
+    /* The number or type or LPEs may have changed, so we need to clear and recreate our
+     * helper_path_vec to make sure it is in sync */
+    sp_nodepath_destroy_helperpaths(np);
+    sp_nodepath_create_helperpaths(np);
+
+    for (PathEffectList::iterator i = lpelist.begin(); i != lpelist.end(); ++i) {
+        Inkscape::LivePathEffect::Effect *lpe = (*i)->lpeobject->get_lpe();
+        if (lpe) {
+            std::vector<Geom::PathVector> hpaths = lpe->getHelperPaths(lpeitem);
+            for (unsigned int j = 0; j < hpaths.size(); ++j) {
+                SPCurve *curve = new SPCurve(hpaths[j]);
+                curve->transform(np->i2d);
+                sp_canvas_bpath_set_bpath(SP_CANVAS_BPATH((np->helper_path_vec[lpe])[j]), curve);
+                curve = curve->unref();
+            }
+        }
+    }
+}
 
 /**
  * \brief Creates new nodepath from item
@@ -1199,7 +1201,9 @@ void sp_nodepath_convert_node_type(Inkscape::NodePath::Node *node, Inkscape::Nod
                 // pull opposite handle in line with the existing one
             }
         } else if (no_handles) {
-            if (both_segments_are_lines OR both_segments_are_curves) {
+            if (both_segments_are_lines 
+                  OR both_segments_are_curves 
+                  OR one_is_line_but_the_curveside_node_is_selected_and_has_two_handles) {
                 //pull both handles
             } else {
                 // pull the handle opposite to line segment, making node half-smooth
@@ -1211,6 +1215,8 @@ void sp_nodepath_convert_node_type(Inkscape::NodePath::Node *node, Inkscape::Nod
         bool p_is_line = sp_node_side_is_line(node, &node->p);
         bool n_is_line = sp_node_side_is_line(node, &node->n);
 
+#define NODE_HAS_BOTH_HANDLES(node) ((Geom::L2(node->pos  - node->n.pos) > 1e-6) && (Geom::L2(node->pos  - node->p.pos) > 1e-6))
+
         if (p_has_handle && n_has_handle) {
             // do nothing, adjust_handles will line them up
         } else if (p_has_handle || n_has_handle) {
@@ -1219,6 +1225,7 @@ void sp_nodepath_convert_node_type(Inkscape::NodePath::Node *node, Inkscape::Nod
                 Radial handle (node->pos - node->p.pos);
                 if (fabs(line.a - handle.a) < 1e-3) { // lined up
                     // already half-smooth; pull opposite handle too making it fully smooth
+                    node->n.other->code = NR_CURVETO;
                     node->n.pos = node->pos + (node->n.other->pos - node->pos) / 3;
                 } else {
                     // do nothing, adjust_handles will line the handle  up, producing a half-smooth node
@@ -1228,6 +1235,7 @@ void sp_nodepath_convert_node_type(Inkscape::NodePath::Node *node, Inkscape::Nod
                 Radial handle (node->pos - node->n.pos);
                 if (fabs(line.a - handle.a) < 1e-3) { // lined up
                     // already half-smooth; pull opposite handle too making it fully smooth
+                    node->code = NR_CURVETO;
                     node->p.pos = node->pos + (node->p.other->pos - node->pos) / 3;
                 } else {
                     // do nothing, adjust_handles will line the handle  up, producing a half-smooth node
@@ -1248,9 +1256,13 @@ void sp_nodepath_convert_node_type(Inkscape::NodePath::Node *node, Inkscape::Nod
                 node->p.pos = node->pos - (len / Geom::L2(node->n.pos - node->pos)) * (node->n.pos - node->pos);
             }
         } else if (!p_has_handle && !n_has_handle) {
-            if ((p_is_line && n_is_line) || (!p_is_line && node->p.other && !n_is_line && node->n.other)) {
-                // no handles, but both segments are either lnes or curves:
-                //pull both handles
+            if ((p_is_line && n_is_line) || (!p_is_line && node->p.other && !n_is_line && node->n.other) || 
+                (n_is_line && node->p.other && node->p.other->selected && NODE_HAS_BOTH_HANDLES(node->p.other)) ||
+                (p_is_line && node->n.other && node->n.other->selected && NODE_HAS_BOTH_HANDLES(node->n.other)) 
+            ) {
+                // no handles, but: both segments are either lines or curves; or: one is line and the
+                // node at the other side is selected (so it was just smoothed too!) and now has both
+                // handles: then pull both handles here
 
                 // convert both to curves:
                 node->code = NR_CURVETO;
@@ -1305,7 +1317,7 @@ void sp_node_moveto(Inkscape::NodePath::Node *node, Geom::Point p)
     Inkscape::NodePath::Node *node_n = NULL;
 
     if (node->p.other) {
-        if (node->code == NR_LINETO) {
+        if (sp_node_side_is_line(node, &node->p)) {
             sp_node_adjust_handle(node, 1);
             sp_node_adjust_handle(node->p.other, -1);
             node_p = node->p.other;
@@ -1316,7 +1328,7 @@ void sp_node_moveto(Inkscape::NodePath::Node *node, Geom::Point p)
         }
     }
     if (node->n.other) {
-        if (node->n.other->code == NR_LINETO) {
+        if (sp_node_side_is_line(node, &node->n)) {
             sp_node_adjust_handle(node, -1);
             sp_node_adjust_handle(node->n.other, 1);
             node_n = node->n.other;
@@ -3590,7 +3602,6 @@ static void node_grabbed(SPKnot *knot, guint state, gpointer data)
     }
 
     n->is_dragging = true;
-    //sp_event_context_snap_window_open(n->subpath->nodepath->desktop->canvas);
     // Reconstruct and store the location of the mouse pointer at the time when we started dragging (needed for snapping)
     n->subpath->nodepath->drag_origin_mouse = knot->grabbed_rel_pos + knot->drag_origin;
 
@@ -3608,7 +3619,6 @@ static void node_ungrabbed(SPKnot */*knot*/, guint /*state*/, gpointer data)
 
    n->dragging_out = NULL;
    n->is_dragging = false;
-   //sp_event_context_snap_window_closed(n->subpath->nodepath->desktop->canvas);
    n->subpath->nodepath->drag_origin_mouse = Geom::Point(NR_HUGE, NR_HUGE);
    sp_canvas_end_forced_full_redraws(n->subpath->nodepath->desktop->canvas);
 

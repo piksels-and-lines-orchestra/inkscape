@@ -112,6 +112,7 @@ static void sp_dtw_zoom_200 (GtkMenuItem *item, gpointer data);
 static void sp_dtw_zoom_page (GtkMenuItem *item, gpointer data);
 static void sp_dtw_zoom_drawing (GtkMenuItem *item, gpointer data);
 static void sp_dtw_zoom_selection (GtkMenuItem *item, gpointer data);
+static void sp_dtw_sticky_zoom_toggled (GtkMenuItem *item, gpointer data);
 
 SPViewWidgetClass *dtw_parent_class;
 
@@ -379,6 +380,7 @@ sp_desktop_widget_init (SPDesktopWidget *dtw)
                                                  dtw->tt);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dtw->sticky_zoom), prefs->getBool("/options/stickyzoom/value"));
     gtk_box_pack_start (GTK_BOX (dtw->vscrollbar_box), dtw->sticky_zoom, FALSE, FALSE, 0);
+    g_signal_connect (G_OBJECT (dtw->sticky_zoom), "toggled", G_CALLBACK (sp_dtw_sticky_zoom_toggled), dtw);
     dtw->vadj = (GtkAdjustment *) gtk_adjustment_new (0.0, -4000.0, 4000.0, 10.0, 100.0, 4.0);
     dtw->vscrollbar = gtk_vscrollbar_new (GTK_ADJUSTMENT (dtw->vadj));
     gtk_box_pack_start (GTK_BOX (dtw->vscrollbar_box), dtw->vscrollbar, TRUE, TRUE, 0);
@@ -499,10 +501,10 @@ sp_desktop_widget_init (SPDesktopWidget *dtw)
     eventbox = gtk_event_box_new ();
     gtk_container_add (GTK_CONTAINER (eventbox), dtw->coord_status);
     gtk_tooltips_set_tip (dtw->tt, eventbox, _("Cursor coordinates"), NULL);
-    GtkWidget *label_x = gtk_label_new("X:");
+    GtkWidget *label_x = gtk_label_new(_("X:"));
     gtk_misc_set_alignment (GTK_MISC(label_x), 0.0, 0.5);
     gtk_table_attach(GTK_TABLE(dtw->coord_status),  label_x, 1,2, 0,1, GTK_FILL, GTK_FILL, 0, 0);
-    GtkWidget *label_y = gtk_label_new("Y:");
+    GtkWidget *label_y = gtk_label_new(_("Y:"));
     gtk_misc_set_alignment (GTK_MISC(label_y), 0.0, 0.5);
     gtk_table_attach(GTK_TABLE(dtw->coord_status),  label_y, 1,2, 1,2, GTK_FILL, GTK_FILL, 0, 0);
     dtw->coord_status_x = gtk_label_new(NULL);
@@ -513,7 +515,7 @@ sp_desktop_widget_init (SPDesktopWidget *dtw)
     gtk_misc_set_alignment (GTK_MISC(dtw->coord_status_y), 1.0, 0.5);
     gtk_table_attach(GTK_TABLE(dtw->coord_status), dtw->coord_status_x, 2,3, 0,1, GTK_FILL, GTK_FILL, 0, 0);
     gtk_table_attach(GTK_TABLE(dtw->coord_status), dtw->coord_status_y, 2,3, 1,2, GTK_FILL, GTK_FILL, 0, 0);
-    gtk_table_attach(GTK_TABLE(dtw->coord_status),  gtk_label_new("Z:"), 3,4, 0,2, GTK_FILL, GTK_FILL, 0, 0);
+    gtk_table_attach(GTK_TABLE(dtw->coord_status),  gtk_label_new(_("Z:")), 3,4, 0,2, GTK_FILL, GTK_FILL, 0, 0);
     gtk_table_attach(GTK_TABLE(dtw->coord_status),  dtw->zoom_status, 4,5, 0,2, GTK_FILL, GTK_FILL, 0, 0);
     sp_set_font_size_smaller (dtw->coord_status);
     gtk_box_pack_end (GTK_BOX (statusbar_tail), eventbox, FALSE, FALSE, 1);
@@ -553,6 +555,8 @@ sp_desktop_widget_init (SPDesktopWidget *dtw)
     gtk_box_pack_start (GTK_BOX (dtw->statusbar), dtw->select_status_eventbox, TRUE, TRUE, 0);
 
     gtk_widget_show_all (dtw->vbox);
+
+    gtk_widget_grab_focus (GTK_WIDGET(dtw->canvas));
 }
 
 /**
@@ -659,7 +663,9 @@ sp_desktop_widget_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
             /* Find new visible area */
             Geom::Rect newarea = dtw->desktop->get_display_area();
             /* Calculate adjusted zoom */
-            zoom *= sqrt(newarea.area() / area.area());
+            double oldshortside = MIN(   area.width(),    area.height());
+            double newshortside = MIN(newarea.width(), newarea.height());
+            zoom *= newshortside / oldshortside;
         }
         dtw->desktop->zoom_absolute(area.midpoint()[Geom::X], area.midpoint()[Geom::Y], zoom);
 
@@ -888,7 +894,7 @@ SPDesktopWidget::shutdown()
                 _("<span weight=\"bold\" size=\"larger\">The file \"%s\" was saved with a format (%s) that may cause data loss!</span>\n\n"
                   "Do you want to save this file as an Inkscape SVG?"),
                 SP_DOCUMENT_NAME(doc),
-                Inkscape::Extension::db.get(sp_document_repr_root(doc)->attribute("inkscape:output_extension"))->get_name());
+                SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE);
             // fix for bug 1767940:
             GTK_WIDGET_UNSET_FLAGS(GTK_WIDGET(GTK_MESSAGE_DIALOG(dialog)->label), GTK_CAN_FOCUS);
 
@@ -915,7 +921,7 @@ SPDesktopWidget::shutdown()
 
                 Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
 
-                if (sp_file_save_dialog(*window, doc)) {
+                if (sp_file_save_dialog(*window, doc, Inkscape::Extension::FILE_SAVE_METHOD_INKSCAPE_SVG)) {
                     sp_document_unref(doc);
                 } else { // save dialog cancelled or save failed
                     sp_document_unref(doc);
@@ -1277,11 +1283,19 @@ SPDesktopWidget::setToolboxFocusTo (const gchar* label)
 void
 SPDesktopWidget::setToolboxAdjustmentValue (gchar const *id, double value)
 {
+    GtkAdjustment *a = NULL;
     gpointer hb = sp_search_by_data_recursive (aux_toolbox, (gpointer) id);
-    if (hb && GTK_IS_WIDGET(hb) && GTK_IS_SPIN_BUTTON(hb)) {
-        GtkAdjustment *a = gtk_spin_button_get_adjustment (GTK_SPIN_BUTTON(hb));
-        gtk_adjustment_set_value (a, value);
+    if (hb && GTK_IS_WIDGET(hb)) {
+        if (GTK_IS_SPIN_BUTTON(hb))
+            a = gtk_spin_button_get_adjustment (GTK_SPIN_BUTTON(hb));
+        else if (GTK_IS_RANGE(hb))
+            a = gtk_range_get_adjustment (GTK_RANGE(hb));
     }
+
+    if (a)
+        gtk_adjustment_set_value (a, value);
+    else
+        g_warning ("Could not find GtkAdjustment for %s\n", id);
 }
 
 void
@@ -1325,8 +1339,7 @@ sp_desktop_widget_new (SPNamedView *namedview)
 
     dtw->desktop = new SPDesktop();
     dtw->stub = new SPDesktopWidget::WidgetStub (dtw);
-    dtw->desktop->registerEditWidget (dtw->stub);
-    dtw->desktop->init (namedview, dtw->canvas);
+    dtw->desktop->init (namedview, dtw->canvas, dtw->stub);
     inkscape_add_desktop (dtw->desktop);
 
     // Add the shape geometry to libavoid for autorouting connectors.
@@ -1613,6 +1626,13 @@ sp_dtw_zoom_selection (GtkMenuItem */*item*/, gpointer data)
     static_cast<SPDesktop*>(data)->zoom_selection();
 }
 
+static void
+sp_dtw_sticky_zoom_toggled (GtkMenuItem *, gpointer data)
+{
+    SPDesktopWidget *dtw = SP_DESKTOP_WIDGET(data);
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/options/stickyzoom/value", SP_BUTTON_IS_DOWN(dtw->sticky_zoom));
+}
 
 
 void

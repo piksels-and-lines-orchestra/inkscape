@@ -10,10 +10,12 @@
  */
 
 #include "sp-shape.h"
+#include "sp-path.h"
 #include "display/curve.h"
 #include "live_effects/lpe-knot.h"
 #include "svg/svg.h"
 #include "style.h"
+#include "knot-holder-entity.h"
 
 #include <2geom/sbasis-to-bezier.h>
 #include <2geom/sbasis.h>
@@ -24,6 +26,10 @@
 #include <2geom/bezier-to-sbasis.h>
 #include <2geom/basic-intersection.h>
 #include <2geom/exception.h>
+
+// for change crossing undo
+#include "verbs.h"
+#include "document.h"
 
 #include <exception>
 
@@ -320,10 +326,10 @@ CrossingPoints::inherit_signs(CrossingPoints const &other, int default_value)
 LPEKnot::LPEKnot(LivePathEffectObject *lpeobject) :
     Effect(lpeobject),
     // initialise your parameters here:
-    interruption_width(_("Interruption width"), _("Size of hidden region of lower string"), "interruption_width", &wr, this, 3),
-    prop_to_stroke_width(_("unit of stroke width"), _("Consider 'Interruption width' as a ratio of stroke width."), "prop_to_stroke_width", &wr, this, true),
-    add_stroke_width(_("add stroke width to interruption size"), _("Add the stroke width to the interruption size."), "add_stroke_width", &wr, this, true),
-    add_other_stroke_width(_("add other's stroke width to interruption size"), _("Add crossed stroke width to the interruption size."), "add_other_stroke_width", &wr, this, true),
+    interruption_width(_("Fixed width"), _("Size of hidden region of lower string"), "interruption_width", &wr, this, 3),
+    prop_to_stroke_width(_("In units of stroke width"), _("Consider 'Interruption width' as a ratio of stroke width"), "prop_to_stroke_width", &wr, this, true),
+    add_stroke_width(_("Stroke width"), _("Add the stroke width to the interruption size"), "add_stroke_width", &wr, this, true),
+    add_other_stroke_width(_("Crossing path stroke width"), _("Add crossed stroke width to the interruption size"), "add_other_stroke_width", &wr, this, true),
     switcher_size(_("Switcher size"), _("Orientation indicator/switcher size"), "switcher_size", &wr, this, 15),
     crossing_points_vector(_("Crossing Signs"), _("Crossings signs"), "crossing_points_vector", &wr, this),
     gpaths(),gstroke_widths()
@@ -486,7 +492,12 @@ void collectPathsAndWidths (SPLPEItem const *lpeitem, std::vector<Geom::Path> &p
         }
     }
     else if (SP_IS_SHAPE(lpeitem)) {
-        SPCurve * c = sp_shape_get_curve(SP_SHAPE(lpeitem));
+        SPCurve * c = NULL;
+        if (SP_IS_PATH(lpeitem)) {
+            c = sp_path_get_curve_for_edit(SP_PATH(lpeitem));
+        } else {
+            c = sp_shape_get_curve(SP_SHAPE(lpeitem));
+        }
         if (c) {
             Geom::PathVector subpaths = c->get_pathvector();
             for (unsigned i=0; i<subpaths.size(); i++){
@@ -623,9 +634,11 @@ KnotHolderEntityCrossingSwitcher::knot_click(guint state)
             //std::cout<<"crossing set to"<<lpe->crossing_points[s].sign<<".\n";
         }
         lpe->crossing_points_vector.param_set_and_write_new_value(lpe->crossing_points.to_vector());
+        sp_document_done(lpe->getSPDoc(), SP_VERB_DIALOG_LIVE_PATH_EFFECT, /// @todo Is this the right verb?
+                 _("Change knot crossing"));
 
         // FIXME: this should not directly ask for updating the item. It should write to SVG, which triggers updating.
-        sp_lpe_item_update_patheffect (SP_LPE_ITEM(item), false, true);
+//        sp_lpe_item_update_patheffect (SP_LPE_ITEM(item), false, true);
     }
 }
 

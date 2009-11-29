@@ -125,13 +125,26 @@ CairoRenderContext::CairoRenderContext(CairoRenderer *parent) :
     _renderer(parent),
     _render_mode(RENDER_MODE_NORMAL),
     _clip_mode(CLIP_MODE_MASK)
-{}
+{
+    font_table = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, font_data_free);
+}
 
 CairoRenderContext::~CairoRenderContext(void)
 {
+    if(font_table != NULL) {
+        g_hash_table_remove_all(font_table);
+    }
+
     if (_cr) cairo_destroy(_cr);
     if (_surface) cairo_surface_destroy(_surface);
     if (_layout) g_object_unref(_layout);
+}
+void CairoRenderContext::font_data_free(gpointer data)
+{
+    cairo_font_face_t *font_face = (cairo_font_face_t *)data;
+    if (font_face) {
+        cairo_font_face_destroy(font_face);
+    }
 }
 
 CairoRenderer*
@@ -192,6 +205,8 @@ CairoRenderContext::cloneMe(double width, double height) const
                                                             (int)ceil(width), (int)ceil(height));
     new_context->_cr = cairo_create(surface);
     new_context->_surface = surface;
+    new_context->_width = width;
+    new_context->_height = height;
     new_context->_is_valid = TRUE;
 
     return new_context;
@@ -610,7 +625,7 @@ CairoRenderContext::popLayer(void)
 
                 // copy over the correct CTM
                 // It must be stored in item_transform of current state after pushState.
-                Geom::Matrix item_transform; 
+                Geom::Matrix item_transform;
                 if (_state->parent_has_userspace)
                     item_transform = getParentState()->transform * _state->item_transform;
                 else
@@ -749,7 +764,12 @@ CairoRenderContext::setupSurface(double width, double height)
     if (_vector_based_target && _stream == NULL)
         return false;
 
+    _width = width;
+    _height = height;
+
     cairo_surface_t *surface = NULL;
+    cairo_matrix_t ctm;
+    cairo_matrix_init_identity (&ctm);
     switch (_target) {
         case CAIRO_SURFACE_TYPE_IMAGE:
             surface = cairo_image_surface_create(_target_format, (int)ceil(width), (int)ceil(height));
@@ -762,10 +782,10 @@ CairoRenderContext::setupSurface(double width, double height)
 #ifdef CAIRO_HAS_PS_SURFACE
         case CAIRO_SURFACE_TYPE_PS:
             surface = cairo_ps_surface_create_for_stream(Inkscape::Extension::Internal::_write_callback, _stream, width, height);
-#if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 5, 2))
             if(CAIRO_STATUS_SUCCESS != cairo_surface_status(surface)) {
                 return FALSE;
             }
+#if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 5, 2))
             cairo_ps_surface_restrict_to_level (surface, (cairo_ps_level_t)_ps_level);
             cairo_ps_surface_set_eps (surface, (cairo_bool_t) _eps);
 #endif
@@ -776,7 +796,7 @@ CairoRenderContext::setupSurface(double width, double height)
             break;
     }
 
-    return _finishSurfaceSetup (surface);
+    return _finishSurfaceSetup (surface, &ctm);
 }
 
 bool
@@ -796,13 +816,16 @@ bool
 CairoRenderContext::_finishSurfaceSetup(cairo_surface_t *surface, cairo_matrix_t *ctm)
 {
     if(surface == NULL) {
-        return FALSE;
+        return false;
     }
     if(CAIRO_STATUS_SUCCESS != cairo_surface_status(surface)) {
-        return FALSE;
+        return false;
     }
 
     _cr = cairo_create(surface);
+    if(CAIRO_STATUS_SUCCESS != cairo_status(_cr)) {
+        return false;
+    }
     if (ctm)
         cairo_set_matrix(_cr, ctm);
     _surface = surface;
@@ -1005,7 +1028,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
 
     }
 
-    // Calculate the size of the surface which has to be created 
+    // Calculate the size of the surface which has to be created
 #define SUBPIX_SCALE 100
     // Cairo requires an integer pattern surface width/height.
     // Subtract 0.5 to prevent small rounding errors from increasing pattern size by one pixel.
@@ -1313,8 +1336,8 @@ CairoRenderContext::renderPathVector(Geom::PathVector const & pathv, SPStyle con
     }
 
     bool no_fill = style->fill.isNone() || style->fill_opacity.value == 0;
-    bool no_stroke = style->stroke.isNone() || style->stroke_width.computed < 1e-9 || 
-                    style->fill_opacity.value == 0;
+    bool no_stroke = style->stroke.isNone() || style->stroke_width.computed < 1e-9 ||
+                    style->stroke_opacity.value == 0;
 
     if (no_fill && no_stroke)
         return true;
@@ -1440,7 +1463,7 @@ CairoRenderContext::renderImage(guchar *px, unsigned int w, unsigned int h, unsi
 #define GLYPH_ARRAY_SIZE 64
 
 unsigned int
-CairoRenderContext::_showGlyphs(cairo_t *cr, PangoFont *font, std::vector<CairoGlyphInfo> const &glyphtext, bool is_stroke)
+CairoRenderContext::_showGlyphs(cairo_t *cr, PangoFont *font, std::vector<CairoGlyphInfo> const &glyphtext, bool path)
 {
     cairo_glyph_t glyph_array[GLYPH_ARRAY_SIZE];
     cairo_glyph_t *glyphs = glyph_array;
@@ -1464,15 +1487,10 @@ CairoRenderContext::_showGlyphs(cairo_t *cr, PangoFont *font, std::vector<CairoG
         i++;
     }
 
-    if (is_stroke) {
+    if (path) {
         cairo_glyph_path(cr, glyphs, num_glyphs - num_invalid_glyphs);
     } else {
-        if (_is_texttopath) {
-            cairo_glyph_path(cr, glyphs, num_glyphs - num_invalid_glyphs);
-            cairo_fill_preserve(cr);
-        } else {
-            cairo_show_glyphs(cr, glyphs, num_glyphs - num_invalid_glyphs);
-        }
+        cairo_show_glyphs(cr, glyphs, num_glyphs - num_invalid_glyphs);
     }
 
     if (num_glyphs > GLYPH_ARRAY_SIZE)
@@ -1487,10 +1505,11 @@ CairoRenderContext::renderGlyphtext(PangoFont *font, Geom::Matrix const *font_ma
 {
     // create a cairo_font_face from PangoFont
     double size = style->font_size.computed;
-    cairo_font_face_t *font_face = NULL;
+    gpointer fonthash = (gpointer)font;
+    cairo_font_face_t *font_face = (cairo_font_face_t *)g_hash_table_lookup(font_table, fonthash);
 
     FcPattern *fc_pattern = NULL;
-    
+
 #ifdef USE_PANGO_WIN32
 # ifdef CAIRO_HAS_WIN32_FONT
     LOGFONTA *lfa = pango_win32_font_logfont(font);
@@ -1499,17 +1518,23 @@ CairoRenderContext::renderGlyphtext(PangoFont *font, Geom::Matrix const *font_ma
     ZeroMemory(&lfw, sizeof(LOGFONTW));
     memcpy(&lfw, lfa, sizeof(LOGFONTA));
     MultiByteToWideChar(CP_OEMCP, MB_PRECOMPOSED, lfa->lfFaceName, LF_FACESIZE, lfw.lfFaceName, LF_FACESIZE);
-    
-    font_face = cairo_win32_font_face_create_for_logfontw(&lfw);
+
+    if(font_face == NULL) {
+        font_face = cairo_win32_font_face_create_for_logfontw(&lfw);
+        g_hash_table_insert(font_table, fonthash, font_face);
+    }
 # endif
 #else
 # ifdef CAIRO_HAS_FT_FONT
     PangoFcFont *fc_font = PANGO_FC_FONT(font);
     fc_pattern = fc_font->font_pattern;
-    font_face = cairo_ft_font_face_create_for_pattern(fc_pattern);
+    if(font_face == NULL) {
+        font_face = cairo_ft_font_face_create_for_pattern(fc_pattern);
+        g_hash_table_insert(font_table, fonthash, font_face);
+    }
 # endif
 #endif
-    
+
     cairo_save(_cr);
     cairo_set_font_face(_cr, font_face);
 
@@ -1534,28 +1559,36 @@ CairoRenderContext::renderGlyphtext(PangoFont *font, Geom::Matrix const *font_ma
             _showGlyphs(_cr, font, glyphtext, TRUE);
         }
     } else {
-
+        bool fill = false, stroke = false, have_path = false;
         if (style->fill.isColor() || style->fill.isPaintserver()) {
-            // set fill style
-            _setFillStyle(style, NULL);
-
-            _showGlyphs(_cr, font, glyphtext, FALSE);
+            fill = true;
         }
 
         if (style->stroke.isColor() || style->stroke.isPaintserver()) {
-            // set stroke style
+            stroke = true;
+        }
+        if (fill) {
+            _setFillStyle(style, NULL);
+            if (_is_texttopath) {
+                _showGlyphs(_cr, font, glyphtext, true);
+                have_path = true;
+                if (stroke) cairo_fill_preserve(_cr);
+                else cairo_fill(_cr);
+            } else {
+                _showGlyphs(_cr, font, glyphtext, false);
+            }
+        }
+        if (stroke) {
             _setStrokeStyle(style, NULL);
-
-            // paint stroke
-            _showGlyphs(_cr, font, glyphtext, TRUE);
+            if (!have_path) _showGlyphs(_cr, font, glyphtext, true);
             cairo_stroke(_cr);
         }
     }
 
     cairo_restore(_cr);
 
-    if (font_face)
-        cairo_font_face_destroy(font_face);
+//    if (font_face)
+//        cairo_font_face_destroy(font_face);
 
     return true;
 }

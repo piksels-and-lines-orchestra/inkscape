@@ -22,21 +22,25 @@ from ffgeom import *
 import gettext
 _ = gettext.gettext
 
+try:
+    from subprocess import Popen, PIPE
+    bsubprocess = True
+except:
+    bsubprocess = False
+
 class Project(inkex.Effect):
     def __init__(self):
             inkex.Effect.__init__(self)
     def effect(self):
         if len(self.options.ids) < 2:
-            inkex.errormsg(_("This extension requires two selected paths.")
-                           + "  "
-                           + _("The second path must be exactly four nodes long."))
+            inkex.errormsg(_("This extension requires two selected paths. \nThe second path must be exactly four nodes long."))
             exit()
 
         #obj is selected second
         obj = self.selected[self.options.ids[0]]
         trafo = self.selected[self.options.ids[1]]
         if obj.get(inkex.addNS('type','sodipodi')):
-            inkex.errormsg(_("The first selected object is of type '%s'.\nTry using the procedure Path | Object to Path." % obj.get(inkex.addNS('type','sodipodi'))))
+            inkex.errormsg(_("The first selected object is of type '%s'.\nTry using the procedure Path->Object to Path." % obj.get(inkex.addNS('type','sodipodi'))))
             exit()
         if obj.tag == inkex.addNS('path','svg') or obj.tag == inkex.addNS('g','svg'):
             if trafo.tag == inkex.addNS('path','svg'):
@@ -58,10 +62,16 @@ class Project(inkex.Effect):
                 file = self.args[-1]
                 id = self.options.ids[0]
                 for query in self.q.keys():
-                    f,err = os.popen3('inkscape --query-%s --query-id=%s "%s"' % (query,id,file))[1:]
-                    self.q[query] = float(f.read())
-                    f.close()
-                    err.close()
+                    if bsubprocess:
+                        p = Popen('inkscape --query-%s --query-id=%s "%s"' % (query,id,file), shell=True, stdout=PIPE, stderr=PIPE)
+                        rc = p.wait()
+                        self.q[query] = float(p.stdout.read())
+                        err = p.stderr.read()
+                    else:
+                        f,err = os.popen3('inkscape --query-%s --query-id=%s "%s"' % (query,id,file))[1:]
+                        self.q[query] = float(f.read())
+                        f.close()
+                        err.close()
 
                 if obj.tag == inkex.addNS("path",'svg'):
                     self.process_path(obj)
@@ -69,12 +79,12 @@ class Project(inkex.Effect):
                     self.process_group(obj)
             else:
                 if trafo.tag == inkex.addNS('g','svg'):
-                    inkex.errormsg(_("The second selected object is a group, not a path.\nTry using the procedure Object | Ungroup."))
+                    inkex.errormsg(_("The second selected object is a group, not a path.\nTry using the procedure Object->Ungroup."))
                 else:
-                    inkex.errormsg(_("The second selected object is not a path.\nTry using the procedure Path | Object to Path."))
+                    inkex.errormsg(_("The second selected object is not a path.\nTry using the procedure Path->Object to Path."))
                 exit()
         else:
-            inkex.errormsg(_("The first selected object is not a path.\nTry using the procedure Path | Object to Path."))
+            inkex.errormsg(_("The first selected object is not a path.\nTry using the procedure Path->Object to Path."))
             exit()
 
     def process_group(self,group):

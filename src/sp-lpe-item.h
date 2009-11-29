@@ -39,10 +39,10 @@ struct SPLPEItem : public SPItem {
     int path_effects_enabled;
 
     PathEffectList* path_effect_list;
+    std::list<sigc::connection> *lpe_modified_connection_list; // this list contains the connections for listening to lpeobject parameter changes
+
     Inkscape::LivePathEffect::LPEObjectReference* current_path_effect;
     std::vector<Inkscape::Display::TemporaryItem*> lpe_helperpaths;
-
-    sigc::connection lpe_modified_connection;
 };
 
 struct SPLPEItemClass {
@@ -64,6 +64,7 @@ void sp_lpe_item_remove_current_path_effect(SPLPEItem *lpeitem, bool keep_paths)
 void sp_lpe_item_down_current_path_effect(SPLPEItem *lpeitem);
 void sp_lpe_item_up_current_path_effect(SPLPEItem *lpeitem);
 bool sp_lpe_item_has_path_effect(SPLPEItem *lpeitem);
+bool sp_lpe_item_has_broken_path_effect(SPLPEItem *lpeitem);
 bool sp_lpe_item_has_path_effect_recursive(SPLPEItem *lpeitem);
 Inkscape::LivePathEffect::Effect* sp_lpe_item_has_path_effect_of_type(SPLPEItem *lpeitem, int type);
 bool sp_lpe_item_can_accept_freehand_shape(SPLPEItem *lpeitem);

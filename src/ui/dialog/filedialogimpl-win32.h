@@ -120,9 +120,9 @@ public:
     /// @param title The title caption for the dialog in UTF-8
     /// @param type The dialog type
     FileOpenDialogImplWin32(Gtk::Window &parent,
-                       const Glib::ustring &dir,
-                       FileDialogType fileTypes,
-                       const char *title);
+                            const Glib::ustring &dir,
+                            FileDialogType fileTypes,
+                            const char *title);
 
     /// Destructor
     virtual ~FileOpenDialogImplWin32();
@@ -306,11 +306,12 @@ class FileSaveDialogImplWin32 : public FileSaveDialog, public FileDialogBaseWin3
 
 public:
     FileSaveDialogImplWin32(Gtk::Window &parent,
-                       const Glib::ustring &dir,
-                       FileDialogType fileTypes,
-                       const char *title,
-                       const Glib::ustring &default_key,
-                       const char *docTitle);
+                            const Glib::ustring &dir,
+                            FileDialogType fileTypes,
+                            const char *title,
+                            const Glib::ustring &default_key,
+                            const char *docTitle,
+                            const Inkscape::Extension::FileSaveMethod save_method);
 
     /// Destructor
     virtual ~FileSaveDialogImplWin32();

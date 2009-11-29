@@ -98,7 +98,6 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
 
 {
 
-
      GdkPixbuf* pixbuf = NULL;
      /* Create new arena for offscreen rendering*/
      NRArena *arena = NRArena::create();
@@ -141,13 +140,18 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
 
      nr_arena_item_invoke_update(root, &final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
 
-     guchar *px = g_try_new(guchar, 4L * width * height);
+    guchar *px = NULL;
+    guint64 size = 4L * (guint64)width * (guint64)height;
+    if(size < (guint64)G_MAXSIZE) {
+        // g_try_new is limited to g_size type which is defined as unisgned int. Need to test for very large nubers
+        px = g_try_new(guchar, size);
+    }
 
     if(px != NULL)
     {
 
          NRPixBlock B;
-        g_warning("sp_generate_internal_bitmap: nr_pixblock_setup_extern.");
+         //g_warning("sp_generate_internal_bitmap: nr_pixblock_setup_extern.");
          nr_pixblock_setup_extern( &B, NR_PIXBLOCK_MODE_R8G8B8A8N,
                                    final_bbox.x0, final_bbox.y0, final_bbox.x1, final_bbox.y1,
                                    px, 4 * width, FALSE, FALSE );
@@ -158,15 +162,15 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
          dtc[2] = NR_RGBA32_B(bgcolor);
          dtc[3] = NR_RGBA32_A(bgcolor);
 
-         for (unsigned int fy = 0; fy < height; fy++) {
-             guchar *p = NR_PIXBLOCK_PX(&B) + fy * B.rs;
+         for (gsize fy = 0; fy < height; fy++) {
+             guchar *p = NR_PIXBLOCK_PX(&B) + fy * (gsize)B.rs;
              for (unsigned int fx = 0; fx < width; fx++) {
                  for (int i = 0; i < 4; i++) {
                      *p++ = dtc[i];
                  }
              }
          }
-     
+
 
          nr_arena_item_invoke_render(NULL, root, &final_bbox, &B, NR_ARENA_ITEM_RENDER_NO_CACHE );
 
@@ -178,7 +182,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
     }
     else
     {
-        g_warning("sp_generate_internal_bitmap: not enough memory to create pixel buffer. Need %ld.", 4L * width * height);
+        g_warning("sp_generate_internal_bitmap: not enough memory to create pixel buffer. Need %lld.", size);
     }
      sp_item_invoke_hide (SP_ITEM(sp_document_root(doc)), dkey);
      nr_object_unref((NRObject *) arena);

@@ -381,15 +381,37 @@ DocumentProperties::populate_available_profiles(){
     _menu.show_all();
 }
 
-//this is a quick workaround:
-static gchar* sanitize_name(gchar* name){
-    gchar* c=name;
-    while (*c != '\0'){
-        if (*c == ' ') *c = '-';
-        if (*c == '_') *c = '-';
-        c++;
+/**
+ * Cleans up name to remove disallowed characters.
+ * Some discussion at http://markmail.org/message/bhfvdfptt25kgtmj
+ * Allowed ASCII first characters:  ':', 'A'-'Z', '_', 'a'-'z'
+ * Allowed ASCII remaining chars add: '-', '.', '0'-'9', 
+ *
+ * @param str the string to clean up.
+ */
+static void sanitizeName( Glib::ustring& str )
+{
+    if (str.size() > 1) {
+        char val = str.at(0);
+        if (((val < 'A') || (val > 'Z'))
+            && ((val < 'a') || (val > 'z'))
+            && (val != '_')
+            && (val != ':')) {
+            str.replace(0, 1, "-");
+        }
+        for (Glib::ustring::size_type i = 1; i < str.size(); i++) {
+            char val = str.at(i);
+            if (((val < 'A') || (val > 'Z'))
+                && ((val < 'a') || (val > 'z'))
+                && ((val < '0') || (val > '9'))
+                && (val != '_')
+                && (val != ':')
+                && (val != '-')
+                && (val != '.')) {
+                str.replace(i, 1, "-");
+            }
+        }
     }
-    return name;
 }
 
 void
@@ -407,8 +429,10 @@ DocumentProperties::linkSelectedProfile()
         }
         Inkscape::XML::Document *xml_doc = sp_document_repr_doc(desktop->doc());
         Inkscape::XML::Node *cprofRepr = xml_doc->createElement("svg:color-profile");
-//        cprofRepr->setAttribute("inkscape:name", (gchar*) _menu.get_active()->get_data("name"));
-        cprofRepr->setAttribute("name", sanitize_name((gchar*) _menu.get_active()->get_data("name")));
+        gchar* tmp = static_cast<gchar*>(_menu.get_active()->get_data("name"));
+        Glib::ustring nameStr = tmp ? tmp : "profile"; // TODO add some auto-numbering to avoid collisions
+        sanitizeName(nameStr);
+        cprofRepr->setAttribute("name", nameStr.c_str());
         cprofRepr->setAttribute("xlink:href", (gchar*) _menu.get_active()->get_data("filepath"));
 
         // Checks whether there is a defs element. Creates it when needed
@@ -665,7 +689,7 @@ void DocumentProperties::removeExternalScript(){
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
         SPScript* script = (SPScript*) obj;
-        if (!name.compare(script->xlinkhref)){
+        if (name == script->xlinkhref){
             sp_repr_unparent(obj->repr);
             sp_document_done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT, _("Remove external script"));
         }
@@ -683,8 +707,12 @@ void DocumentProperties::populate_external_scripts_box(){
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
         SPScript* script = (SPScript*) obj;
-        Gtk::TreeModel::Row row = *(_ExternalScriptsListStore->append());
-        row[_ExternalScriptsListColumns.filenameColumn] = script->xlinkhref;
+        if (script->xlinkhref)
+        {
+            Gtk::TreeModel::Row row = *(_ExternalScriptsListStore->append());
+            row[_ExternalScriptsListColumns.filenameColumn] = script->xlinkhref;
+        }
+
         current = g_slist_next(current);
     }
 }

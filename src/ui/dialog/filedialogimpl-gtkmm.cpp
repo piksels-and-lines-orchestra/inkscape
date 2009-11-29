@@ -883,8 +883,11 @@ FileSaveDialogImplGtk::FileSaveDialogImplGtk( Gtk::Window &parentWindow,
                                               FileDialogType fileTypes,
                                               const Glib::ustring &title,
                                               const Glib::ustring &/*default_key*/,
-                                              const gchar* docTitle) :
-    FileDialogBaseGtk(parentWindow, title, Gtk::FILE_CHOOSER_ACTION_SAVE, fileTypes, "/dialogs/save_as")
+                                              const gchar* docTitle,
+                                              const Inkscape::Extension::FileSaveMethod save_method) :
+    FileDialogBaseGtk(parentWindow, title, Gtk::FILE_CHOOSER_ACTION_SAVE, fileTypes,
+                      (save_method == Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY) ? "/dialogs/save_copy" : "/dialogs/save_as"),
+    save_method(save_method)
 {
     FileSaveDialog::myDocTitle = docTitle;
 
@@ -922,7 +925,11 @@ FileSaveDialogImplGtk::FileSaveDialogImplGtk( Gtk::Window &parentWindow,
     //###### Do we want the .xxx extension automatically added?
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     fileTypeCheckbox.set_label(Glib::ustring(_("Append filename extension automatically")));
-    fileTypeCheckbox.set_active(prefs->getBool("/dialogs/save_as/append_extension", true));
+    if (save_method == Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY) {
+        fileTypeCheckbox.set_active(prefs->getBool("/dialogs/save_copy/append_extension", true));
+    } else {
+        fileTypeCheckbox.set_active(prefs->getBool("/dialogs/save_as/append_extension", true));
+    }
 
     createFileTypeMenu();
     fileTypeComboBox.set_size_request(200,40);
@@ -1109,10 +1116,13 @@ FileSaveDialogImplGtk::show()
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         
         // Store changes of the "Append filename automatically" checkbox back to preferences.
-        prefs->setBool("/dialogs/save_as/append_extension", fileTypeCheckbox.get_active());
+        if (save_method == Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY) {
+            prefs->setBool("/dialogs/save_copy/append_extension", fileTypeCheckbox.get_active());
+        } else {
+            prefs->setBool("/dialogs/save_as/append_extension", fileTypeCheckbox.get_active());
+        }
 
-        // Store the last used save-as filetype to preferences.
-        prefs->setString("/dialogs/save_as/default", ( extension != NULL ? extension->get_id() : "" ));
+        Inkscape::Extension::store_file_extension_in_prefs ((extension != NULL ? extension->get_id() : "" ), save_method);
 
         cleanup( true );
 
@@ -1234,11 +1244,14 @@ void FileSaveDialogImplGtk::updateNameAndExtension()
 
     Inkscape::Extension::Output* newOut = extension ? dynamic_cast<Inkscape::Extension::Output*>(extension) : 0;
     if ( fileTypeCheckbox.get_active() && newOut ) {
-        // Append the file extension if it's not already present
+        // Append the file extension if it's not already present and display it in the file name entry field
         appendExtension(myFilename, newOut);
+        change_path(myFilename);
     }
 }
 
+
+#ifdef NEW_EXPORT_DIALOG
 
 //########################################################################
 //# F I L E     E X P O R T
@@ -1355,7 +1368,7 @@ FileExportDialogImpl::FileExportDialogImpl( Gtk::Window& parentWindow,
             destDPISpinner("DPI",         _("Resolution (dots per inch)"))
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    append_extension = prefs->getBool("/dialogs/save_as/append_extension", true);
+    append_extension = prefs->getBool("/dialogs/save_export/append_extension", true);
 
     /* One file at a time */
     set_select_multiple(false);
@@ -1565,8 +1578,8 @@ FileExportDialogImpl::show()
 
         append_extension = checkbox.get_active();
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        prefs->setBool("/dialogs/save_as/append_extension", append_extension);
-        prefs->setBool("/dialogs/save_as/default", ( extension != NULL ? extension->get_id() : "" ));
+        prefs->setBool("/dialogs/save_export/append_extension", append_extension);
+        prefs->setBool("/dialogs/save_export/default", ( extension != NULL ? extension->get_id() : "" ));
         */
         return TRUE;
         }
@@ -1595,6 +1608,8 @@ FileExportDialogImpl::getFilename()
 {
     return myFilename;
 }
+
+#endif // NEW_EXPORT_DIALOG
 
 
 } //namespace Dialog

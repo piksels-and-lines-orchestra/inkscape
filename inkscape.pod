@@ -121,12 +121,12 @@ In PNG, PDF, PS, and EPS export, exported area is the drawing (not canvas), i.e.
 of all objects of the document (or of the exported object if --export-id is used). 
 With this option, the exported image will
 display all the visible objects of the document without margins or cropping. This is the default
-export area for EPS. For PNG, it can be used in combination wtih --export-use-hints.
+export area for EPS. For PNG, it can be used in combination with --export-use-hints.
 
 =item B<--export-area-snap>
 
 For PNG export, snap the export area outwards to the nearest integer SVG user unit (px) values. If you are using the 
-default export resolution of 90dpi and your graphics are pixel-snapped to minimize antialiasing, this switch 
+default export resolution of 90 dpi and your graphics are pixel-snapped to minimize antialiasing, this switch 
 allows you to preserve this alignment even if you are exporting some object's bounding 
 box (with --export-id or --export-area-drawing) which is itself not pixel-aligned.
 
@@ -283,19 +283,19 @@ return the dimensions of the drawing (i.e. all document objects), not the page o
 
 =item B<-X>, B<--query-x>
 
-Query the X coordinate of of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
+Query the X coordinate of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
 
 =item B<-Y>, B<--query-y>
 
-Query the Y coordinate of of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
+Query the Y coordinate of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
 
 =item B<-W>, B<--query-width>
 
-Query the width of of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
+Query the width of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
 
 =item B<-H>, B<--query-height>
 
-Query the height of of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
+Query the height of the drawing or, if specified, of the object with --query-id. The returned value is in px (SVG user units). 
 
 =item B<-S>, B<--query-all>
 
@@ -360,7 +360,7 @@ or crashes, it is useful to look at this output for clues.
 =head1 EXAMPLES
 
 While obviously B<Inkscape> is primarily intended as a GUI application,
-it can be used for doing SVG processing on the commandline as well.
+it can be used for doing SVG processing on the command line as well.
 
 Open an SVG file in the GUI:
 
@@ -387,13 +387,13 @@ the resolution that were used for that object last time when it was exported fro
 
     inkscape filename.svg --export-id=text1555 --export-use-hints
 
-Same, but use the default 90dpi resolution, specify the filename, 
+Same, but use the default 90 dpi resolution, specify the filename, 
 and snap the exported area outwards to the nearest whole SVG user unit values 
-(to preserve pixel-alignment of objects and thus minimize antialiasing):
+(to preserve pixel-alignment of objects and thus minimize aliasing):
 
     inkscape filename.svg --export-id=text1555 --export-png=text.png --export-snap-area
 
-Convert an Inkscape SVG document to plain SVG:  
+Convert an Inkscape SVG document to plain SVG:
 
     inkscape filename1.svg --export-plain-svg=filename2.svg
 
@@ -472,7 +472,7 @@ To learn Inkscape's GUI operation, read the tutorials in Help > Tutorials.
 
 Apart from SVG, Inkscape can import (File > Import) most bitmap formats 
 (PNG, BMP, JPG, XPM, GIF, etc.), plain text (requires Perl), PS and EPS (requires Ghostscript), PDF 
-and AI format (AI version 9.0 or newer). 
+and AI format (AI version 9.0 or newer).
 
 Inkscape exports 32-bit PNG images (File > Export) as well as AI, PS, EPS, PDF, DXF, 
 and several other formats via File > Save as.
@@ -484,7 +484,7 @@ Inkscape includes a GUI front-end to the Potrace bitmap tracing engine
 (http://potrace.sf.net) which is embedded into Inkscape.
 
 Inkscape can use external scripts (stdin-to-stdout filters) that are represented by
-commands in the Effects menu. A script can have a GUI dialog for setting various
+commands in the Extensions menu. A script can have a GUI dialog for setting various
 parameters and can get the IDs of the selected objects on which to act via the command
 line. Inkscape comes with an assortment of effects written in Python.
 
@@ -500,7 +500,7 @@ your version (file `NEWS').
 
 =head1 AUTHORS
 
-This codebase owes its existance to a large number of contributors
+This codebase owes its existence to a large number of contributors
 throughout its various incarnations.  The following list is certainly
 incomplete, but serves to recognize the many shoulders on which this
 application sits:
@@ -516,7 +516,7 @@ The codebase that would become Inkscape began life in 1999 as the
 program Gill, the GNOME Illustrator application, created by Raph
 Levien.  The stated objective for Gill was to eventually support all of
 SVG.  Raph implemented the PostScript bezier imaging model, including
-stroking and filling, line cap style, line join style, text, etc.  
+stroking and filling, line cap style, line join style, text, etc.
 Raph's Gill page is at http://www.levien.com/svg/.  Work on Gill appears
 to have slowed or ceased in 2000.
 
@@ -533,7 +533,7 @@ SVG compliance, interface look-and-feel, and a desire to open
 development opportunities to more participants.  The project progressed
 rapidly, gaining a number of very active contributors and features.
 
-Much work in the early days of the project focused on code stablization
+Much work in the early days of the project focused on code stabilization
 and internationalization.  The original renderer inherited from Sodipodi
 was laced with a number of mathematical corner cases which led to
 unexpected crashes when the program was pushed beyond routine uses; this
@@ -556,10 +556,10 @@ making Open Source more visually stimulating to larger audiences.
 
 =head1 COPYRIGHT AND LICENSE
 
-B<Copyright (C)> 1999-2008 by Authors.  
+B<Copyright (C)> 1999-2008 by Authors.
 
 B<Inkscape> is free software; you can redistribute it and/or modify it
-under the terms of the GPL.  
+under the terms of the GPL.
 
 
 =for comment

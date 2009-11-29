@@ -19,6 +19,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 import inkex
 import sys, os, tempfile
 
+try:
+    from subprocess import Popen, PIPE
+    bsubprocess = True
+except:
+    bsubprocess = False
+
 class MyEffect(inkex.Effect):
     def __init__(self):
         inkex.Effect.__init__(self)
@@ -86,7 +92,7 @@ class MyEffect(inkex.Effect):
 			gridSpacingFunc = '(gimp-image-grid-set-spacing img %s %s)' % (spacingX[:-2], spacingY[:-2])
 			gridOriginFunc = '(gimp-image-grid-set-offset img %s %s)'% (originX[:-2], originY[:-2])
 
-        area = '--export-area-canvas'
+        area = '--export-area-page'
         pngs = []
         names = []
         path = "/svg:svg/*[name()='g' or @style][@id]"
@@ -95,7 +101,13 @@ class MyEffect(inkex.Effect):
             name = "%s.png" % id
             filename = os.path.join(tmp_dir, name)
             command = "inkscape -i %s -j %s -e %s %s " % (id, area, filename, svg_file)
-            _,f,err = os.popen3(command,'r')
+            if bsubprocess:
+                p = Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
+                return_code = p.wait()
+                f = p.stdout
+                err = p.stderr
+            else:
+                _,f,err = os.popen3(command,'r')
             f.read()
             f.close()
             err.close()

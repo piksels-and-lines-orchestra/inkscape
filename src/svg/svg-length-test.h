@@ -13,9 +13,13 @@ private:
     struct test_t {
         char const* str; SVGLength::Unit unit; float value; float computed;
     };
+    struct testd_t {
+        char const* str; double val; int prec; int minexp;
+    };
     static test_t const absolute_tests[12];
     static test_t const relative_tests[3];
     static char const * fail_tests[8];
+
 public:
     SvgLengthTest() {
     }
@@ -28,68 +32,68 @@ public:
     void testRead()
     {
         for(size_t i=0; i<G_N_ELEMENTS(absolute_tests); i++) {
-            SVGLength l;
-            TSM_ASSERT(absolute_tests[i].str , l.read(absolute_tests[i].str));
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.unit , absolute_tests[i].unit);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.value , absolute_tests[i].value);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.computed , absolute_tests[i].computed);
+            SVGLength len;
+            TSM_ASSERT(absolute_tests[i].str , len.read(absolute_tests[i].str));
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.unit , absolute_tests[i].unit);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.value , absolute_tests[i].value);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.computed , absolute_tests[i].computed);
         }
         for(size_t i=0; i<G_N_ELEMENTS(relative_tests); i++) {
-            SVGLength l;
-            TSM_ASSERT(relative_tests[i].str , l.read(relative_tests[i].str));
-            l.update(7,13,19);
-            TSM_ASSERT_EQUALS(relative_tests[i].str , l.unit , relative_tests[i].unit);
-            TSM_ASSERT_EQUALS(relative_tests[i].str , l.value , relative_tests[i].value);
-            TSM_ASSERT_EQUALS(relative_tests[i].str , l.computed , relative_tests[i].computed);
+            SVGLength len;
+            TSM_ASSERT(relative_tests[i].str , len.read(relative_tests[i].str));
+            len.update(7,13,19);
+            TSM_ASSERT_EQUALS(relative_tests[i].str , len.unit , relative_tests[i].unit);
+            TSM_ASSERT_EQUALS(relative_tests[i].str , len.value , relative_tests[i].value);
+            TSM_ASSERT_EQUALS(relative_tests[i].str , len.computed , relative_tests[i].computed);
         }
         for(size_t i=0; i<G_N_ELEMENTS(fail_tests); i++) {
-            SVGLength l;
-            TSM_ASSERT(fail_tests[i] , !l.read(fail_tests[i]));
+            SVGLength len;
+            TSM_ASSERT(fail_tests[i] , !len.read(fail_tests[i]));
         }
     }
 
     void testReadOrUnset()
     {
         for(size_t i=0; i<G_N_ELEMENTS(absolute_tests); i++) {
-            SVGLength l;
-            l.readOrUnset(absolute_tests[i].str);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.unit , absolute_tests[i].unit);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.value , absolute_tests[i].value);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.computed , absolute_tests[i].computed);
+            SVGLength len;
+            len.readOrUnset(absolute_tests[i].str);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.unit , absolute_tests[i].unit);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.value , absolute_tests[i].value);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.computed , absolute_tests[i].computed);
         }
         for(size_t i=0; i<G_N_ELEMENTS(relative_tests); i++) {
-            SVGLength l;
-            l.readOrUnset(relative_tests[i].str);
-            l.update(7,13,19);
-            TSM_ASSERT_EQUALS(relative_tests[i].str , l.unit , relative_tests[i].unit);
-            TSM_ASSERT_EQUALS(relative_tests[i].str , l.value , relative_tests[i].value);
-            TSM_ASSERT_EQUALS(relative_tests[i].str , l.computed , relative_tests[i].computed);
+            SVGLength len;
+            len.readOrUnset(relative_tests[i].str);
+            len.update(7,13,19);
+            TSM_ASSERT_EQUALS(relative_tests[i].str , len.unit , relative_tests[i].unit);
+            TSM_ASSERT_EQUALS(relative_tests[i].str , len.value , relative_tests[i].value);
+            TSM_ASSERT_EQUALS(relative_tests[i].str , len.computed , relative_tests[i].computed);
         }
         for(size_t i=0; i<G_N_ELEMENTS(fail_tests); i++) {
-            SVGLength l;
-            l.readOrUnset(fail_tests[i], SVGLength::INCH, 123, 456);
-            TSM_ASSERT_EQUALS(fail_tests[i] , l.unit , SVGLength::INCH);
-            TSM_ASSERT_EQUALS(fail_tests[i] , l.value , 123);
-            TSM_ASSERT_EQUALS(fail_tests[i] , l.computed , 456);
+            SVGLength len;
+            len.readOrUnset(fail_tests[i], SVGLength::INCH, 123, 456);
+            TSM_ASSERT_EQUALS(fail_tests[i] , len.unit , SVGLength::INCH);
+            TSM_ASSERT_EQUALS(fail_tests[i] , len.value , 123);
+            TSM_ASSERT_EQUALS(fail_tests[i] , len.computed , 456);
         }
     }
 
     void testReadAbsolute()
     {
         for(size_t i=0; i<G_N_ELEMENTS(absolute_tests); i++) {
-            SVGLength l;
-            TSM_ASSERT(absolute_tests[i].str , l.readAbsolute(absolute_tests[i].str));
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.unit , absolute_tests[i].unit);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.value , absolute_tests[i].value);
-            TSM_ASSERT_EQUALS(absolute_tests[i].str , l.computed , absolute_tests[i].computed);
+            SVGLength len;
+            TSM_ASSERT(absolute_tests[i].str , len.readAbsolute(absolute_tests[i].str));
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.unit , absolute_tests[i].unit);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.value , absolute_tests[i].value);
+            TSM_ASSERT_EQUALS(absolute_tests[i].str , len.computed , absolute_tests[i].computed);
         }
         for(size_t i=0; i<G_N_ELEMENTS(relative_tests); i++) {
-            SVGLength l;
-            TSM_ASSERT(relative_tests[i].str , !l.readAbsolute(relative_tests[i].str));
+            SVGLength len;
+            TSM_ASSERT(relative_tests[i].str , !len.readAbsolute(relative_tests[i].str));
         }
         for(size_t i=0; i<G_N_ELEMENTS(fail_tests); i++) {
-            SVGLength l;
-            TSM_ASSERT(fail_tests[i] , !l.readAbsolute(fail_tests[i]));
+            SVGLength len;
+            TSM_ASSERT(fail_tests[i] , !len.readAbsolute(fail_tests[i]));
         }
     }
 
@@ -132,6 +136,23 @@ public:
             }
         }
         TSM_ASSERT_EQUALS(validStrings, validStrings.size(), 0u);
+    }
+
+    void testPlaces()
+    {
+        testd_t const precTests[] = {
+            {"760", 761.92918978947023, 2, -8},
+            {"761.9", 761.92918978947023, 4, -8},
+        };
+
+        for ( size_t i = 0; i < G_N_ELEMENTS(precTests); i++ ) {
+            char buf[256] = {0};
+            memset(buf, 0xCC, sizeof(buf)); // Make it easy to detect an overrun.
+            unsigned int retval = sp_svg_number_write_de( buf, sizeof(buf), precTests[i].val, precTests[i].prec, precTests[i].minexp );
+            TSM_ASSERT_EQUALS("Number of chars written", retval, strlen(precTests[i].str));
+            TSM_ASSERT_EQUALS("Numeric string written", std::string(buf), std::string(precTests[i].str));
+            TSM_ASSERT_EQUALS(std::string("Buffer overrun ") + precTests[i].str, '\xCC', buf[retval + 1]);
+        }
     }
 
     // TODO: More tests

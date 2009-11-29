@@ -497,6 +497,11 @@ g_message("transform to sRGB done");
     }
 }
 
+/*
+ * Some discussion at http://markmail.org/message/bhfvdfptt25kgtmj
+ * Allowed ASCII first characters:  ':', 'A'-'Z', '_', 'a'-'z'
+ * Allowed ASCII remaining chars add: '-', '.', '0'-'9',
+ */
 bool sp_svg_read_icc_color( gchar const *str, gchar const **end_ptr, SVGICCColor* dest )
 {
     bool good = true;
@@ -526,11 +531,14 @@ bool sp_svg_read_icc_color( gchar const *str, gchar const **end_ptr, SVGICCColor
             }
 
             if ( !g_ascii_isalpha(*str)
-                 && ( !(0x080 & *str) ) ) {
+                 && ( !(0x080 & *str) )
+                 && (*str != '_')
+                 && (*str != ':') ) {
                 // Name must start with a certain type of character
                 good = false;
             } else {
-                while ( g_ascii_isdigit(*str) || g_ascii_isalpha(*str) || (*str == '-') ) {
+                while ( g_ascii_isdigit(*str) || g_ascii_isalpha(*str)
+                        || (*str == '-') || (*str == ':') || (*str == '_') || (*str == '.') ) {
                     if ( dest ) {
                         dest->colorProfile += *str;
                     }

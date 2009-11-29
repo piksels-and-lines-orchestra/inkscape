@@ -120,7 +120,7 @@ InkscapePreferences::InkscapePreferences()
     initPageCMS();
     initPageGrids();
     initPageSVGOutput();
-    initPageAutosave();
+    initPageSave();
     initPageImportExport();
     initPageMouse();
     initPageScrolling();
@@ -220,15 +220,19 @@ void InkscapePreferences::initPageSnapping()
 
     _snap_delay.init("/options/snapdelay/value", 0, 1000, 50, 100, 300, 0);
     _page_snapping.add_line( false, _("Delay (in ms):"), _snap_delay, "",
-                             _("Postpone snapping as long as the mouse is moving, and then wait an additional fraction of a second. This additional delay is specified here. When set to zero or to a very small number, snapping will be immediate"), true);
+                             _("Postpone snapping as long as the mouse is moving, and then wait an additional fraction of a second. This additional delay is specified here. When set to zero or to a very small number, snapping will be immediate."), true);
 
     _snap_closest_only.init( _("Only snap the node closest to the pointer"), "/options/snapclosestonly/value", false);
     _page_snapping.add_line( false, "", _snap_closest_only, "",
-                             _("Only try to snap the node that is initialy closest to the mouse pointer"));
+                             _("Only try to snap the node that is initially closest to the mouse pointer"));
 
     _snap_weight.init("/options/snapweight/value", 0, 1, 0.1, 0.2, 0.5, 1);
     _page_snapping.add_line( false, _("Weight factor:"), _snap_weight, "",
                              _("When multiple snap solutions are found, then Inkscape can either prefer the closest transformation (when set to 0), or prefer the node that was initially the closest to the pointer (when set to 1)"), true);
+
+    _snap_mouse_pointer.init( _("Snap the mouse pointer when dragging a constrained knot"), "/options/snapmousepointer/value", false);
+    _page_snapping.add_line( false, "", _snap_mouse_pointer, "",
+                             _("When dragging a knot along a constraint line, then snap the position of the mouse pointer instead of snapping the projection of the knot onto the constraint line"));
 
     this->AddPage(_page_snapping, _("Snapping"), PREFS_PAGE_SNAPPING);
 }
@@ -321,7 +325,7 @@ void StyleFromSelectionToTool(Glib::ustring const &prefs_path, StyleSwatch *swat
     if (!css) return;
 
     // only store text style for the text tool
-    if (prefs_path == "/tools/text") {
+    if (prefs_path != "/tools/text") {
         css = sp_css_attr_unset_text (css);
     }
 
@@ -1105,19 +1109,24 @@ void InkscapePreferences::initPageUI()
 }
 
 
-void InkscapePreferences::initPageAutosave()
+void InkscapePreferences::initPageSave()
 {
+    _save_use_current_dir.init( _("Use current directory for \"Save As ...\""), "/dialogs/save_as/use_current_dir", true);
+    _page_save.add_line( false, "", _save_use_current_dir, "",
+                         _("When this option is on, the \"Save as...\" dialog will always open in the directory where the currently open document is. When it's off, it will open in the directory where you last saved a file using that dialog."), true);
+
+
     // Autosave options
-    _autosave_autosave_enable.init( _("Enable autosave (requires restart)"), "/options/autosave/enable", false);
-    _page_autosave.add_line(false, "", _autosave_autosave_enable, "", _("Automatically save the current document(s) at a given interval, thus minimizing loss in case of a crash"), false);
-    _autosave_autosave_interval.init("/options/autosave/interval", 1.0, 10800.0, 1.0, 10.0, 10.0, true, false);
-    _page_autosave.add_line(true, _("Interval (in minutes):"), _autosave_autosave_interval, "", _("Interval (in minutes) at which document will be autosaved"), false);
-    _autosave_autosave_path.init("/options/autosave/path", true);
+    _save_autosave_enable.init( _("Enable autosave (requires restart)"), "/options/autosave/enable", false);
+    _page_save.add_line(false, "", _save_autosave_enable, "", _("Automatically save the current document(s) at a given interval, thus minimizing loss in case of a crash"), false);
+    _save_autosave_interval.init("/options/autosave/interval", 1.0, 10800.0, 1.0, 10.0, 10.0, true, false);
+    _page_save.add_line(true, _("Interval (in minutes):"), _save_autosave_interval, "", _("Interval (in minutes) at which document will be autosaved"), false);
+    _save_autosave_path.init("/options/autosave/path", true);
     //TRANSLATORS: only translate "string" in "context|string".
     // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-    _page_autosave.add_line(true, Q_("filesystem|Path:"), _autosave_autosave_path, "", _("The directory where autosaves will be written"), false);
-    _autosave_autosave_max.init("/options/autosave/max", 1.0, 100.0, 1.0, 10.0, 10.0, true, false);
-    _page_autosave.add_line(true, _("Maximum number of autosaves:"), _autosave_autosave_max, "", _("Maximum number of autosaved files; use this to limit the storage space used"), false);
+    _page_save.add_line(true, Q_("filesystem|Path:"), _save_autosave_path, "", _("The directory where autosaves will be written"), false);
+    _save_autosave_max.init("/options/autosave/max", 1.0, 100.0, 1.0, 10.0, 10.0, true, false);
+    _page_save.add_line(true, _("Maximum number of autosaves:"), _save_autosave_max, "", _("Maximum number of autosaved files; use this to limit the storage space used"), false);
 
     /* When changing the interval or enabling/disabling the autosave function,
      * update our running configuration
@@ -1133,7 +1142,7 @@ void InkscapePreferences::initPageAutosave()
 
     // -----------
 
-    this->AddPage(_page_autosave, _("Autosave"), PREFS_PAGE_AUTOSAVE);
+    this->AddPage(_page_save, _("Save"), PREFS_PAGE_SAVE);
 }
 
 void InkscapePreferences::initPageBitmaps()
@@ -1271,7 +1280,7 @@ void InkscapePreferences::initPageMisc()
 
     _misc_simpl.init("/options/simplifythreshold/value", 0.0001, 1.0, 0.0001, 0.0010, 0.0010, false, false);
     _page_misc.add_line( false, _("Simplification threshold:"), _misc_simpl, "",
-                           _("How strong is the Simplify command by default. If you invoke this command several times in quick succession, it will act more and more aggressively; invoking it again after a pause restores the default threshold."), false);
+                           _("How strong is the Node tool's Simplify command by default. If you invoke this command several times in quick succession, it will act more and more aggressively; invoking it again after a pause restores the default threshold."), false);
 
     _misc_latency_skew.init("/debug/latency/skew", 0.5, 2.0, 0.01, 0.10, 1.0, false, false);
     _page_misc.add_line( false, _("Latency skew:"), _misc_latency_skew, _("(requires restart)"),

@@ -54,6 +54,7 @@ static void sp_box3d_context_init(Box3DContext *box3d_context);
 static void sp_box3d_context_dispose(GObject *object);
 
 static void sp_box3d_context_setup(SPEventContext *ec);
+static void sp_box3d_context_finish(SPEventContext *ec);
 
 static gint sp_box3d_context_root_handler(SPEventContext *event_context, GdkEvent *event);
 static gint sp_box3d_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEvent *event);
@@ -92,6 +93,7 @@ static void sp_box3d_context_class_init(Box3DContextClass *klass)
     object_class->dispose = sp_box3d_context_dispose;
 
     event_context_class->setup = sp_box3d_context_setup;
+    event_context_class->finish = sp_box3d_context_finish;
     event_context_class->root_handler  = sp_box3d_context_root_handler;
     event_context_class->item_handler  = sp_box3d_context_item_handler;
 }
@@ -118,6 +120,21 @@ static void sp_box3d_context_init(Box3DContext *box3d_context)
 
     new (&box3d_context->sel_changed_connection) sigc::connection();
 }
+
+static void sp_box3d_context_finish(SPEventContext *ec)
+{
+	Box3DContext *bc = SP_BOX3D_CONTEXT(ec);
+	SPDesktop *desktop = ec->desktop;
+
+	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), GDK_CURRENT_TIME);
+	sp_box3d_finish(bc);
+    bc->sel_changed_connection.disconnect();
+
+    if (((SPEventContextClass *) parent_class)->finish) {
+		((SPEventContextClass *) parent_class)->finish(ec);
+	}
+}
+
 
 static void sp_box3d_context_dispose(GObject *object)
 {
@@ -276,7 +293,6 @@ static gint sp_box3d_context_root_handler(SPEventContext *event_context, GdkEven
             event_context->item_to_select = sp_event_context_find_item (desktop, button_w, event->button.state & GDK_MOD1_MASK, event->button.state & GDK_CONTROL_MASK);
 
             dragging = true;
-            sp_event_context_snap_window_open(event_context);
 
             /*  */
             Geom::Point button_dt(desktop->w2d(button_w));
@@ -373,7 +389,7 @@ static gint sp_box3d_context_root_handler(SPEventContext *event_context, GdkEven
         event_context->xp = event_context->yp = 0;
         if ( event->button.button == 1  && !event_context->space_panning) {
             dragging = false;
-            sp_event_context_snap_window_closed(event_context, false); //button release will also occur on a double-click; in that case suppress warnings
+            sp_event_context_discard_delayed_snap_event(event_context);
 
             if (!event_context->within_tolerance) {
                 // we've been dragging, finish the box
@@ -508,7 +524,7 @@ static gint sp_box3d_context_root_handler(SPEventContext *event_context, GdkEven
                 sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate),
                                       event->button.time);
                 dragging = false;
-                sp_event_context_snap_window_closed(event_context);
+                sp_event_context_discard_delayed_snap_event(event_context);
                 if (!event_context->within_tolerance) {
                     // we've been dragging, finish the box
                     sp_box3d_finish(bc);
@@ -609,10 +625,14 @@ static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
 static void sp_box3d_finish(Box3DContext *bc)
 {
     bc->_message_context->clear();
-    g_assert (SP_ACTIVE_DOCUMENT->current_persp3d);
+    bc->ctrl_dragged = false;
+    bc->extruded = false;
 
     if ( bc->item != NULL ) {
         SPDesktop * desktop = SP_EVENT_CONTEXT_DESKTOP(bc);
+        SPDocument *doc = sp_desktop_document(desktop);
+        if (!doc || !doc->current_persp3d)
+            return;
 
         SPBox3D *box = SP_BOX3D(bc->item);
 
@@ -631,9 +651,6 @@ static void sp_box3d_finish(Box3DContext *bc)
 
         bc->item = NULL;
     }
-
-    bc->ctrl_dragged = false;
-    bc->extruded = false;
 }
 
 void sp_box3d_context_update_lines(SPEventContext *ec) {

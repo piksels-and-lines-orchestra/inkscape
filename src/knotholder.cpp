@@ -30,6 +30,7 @@
 #include "sp-pattern.h"
 #include "style.h"
 #include "live_effects/lpeobject.h"
+#include "live_effects/effect.h"
 #include "desktop.h"
 #include "display/sp-canvas.h"
 
@@ -139,7 +140,6 @@ KnotHolder::knot_moved_handler(SPKnot *knot, Geom::Point const &p, guint state)
 {
     if (this->dragging == false) {
     	this->dragging = true;
-    	//sp_event_context_snap_window_open(desktop->canvas);
     }
 
 	// this was a local change and the knotholder does not need to be recreated:
@@ -165,7 +165,6 @@ void
 KnotHolder::knot_ungrabbed_handler(SPKnot */*knot*/)
 {
 	this->dragging = false;
-	//sp_event_context_snap_window_closed(desktop->canvas);
 
 	if (this->released) {
         this->released(this->item);
@@ -236,7 +235,7 @@ KnotHolder::add_pattern_knotholder()
                           _("<b>Move</b> the pattern fill inside the object"),
                           SP_KNOT_SHAPE_CROSS);
         entity_scale->create(desktop, item, this,
-                             _("<b>Scale</b> the pattern fill uniformly"),
+                             _("<b>Scale</b> the pattern fill; uniformly if with <b>Ctrl</b>"),
                              SP_KNOT_SHAPE_SQUARE, SP_KNOT_MODE_XOR);
         entity_angle->create(desktop, item, this,
                              _("<b>Rotate</b> the pattern fill; with <b>Ctrl</b> to snap angle"),

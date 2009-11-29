@@ -91,6 +91,7 @@
 #include <extension/system.h>
 #include <extension/db.h>
 #include <extension/output.h>
+#include <extension/input.h>
 
 #ifdef WIN32
 //#define REPLACEARGS_ANSI
@@ -129,7 +130,7 @@ enum {
     SP_ARG_EXPORT_DPI,
     SP_ARG_EXPORT_AREA,
     SP_ARG_EXPORT_AREA_DRAWING,
-    SP_ARG_EXPORT_AREA_CANVAS,
+    SP_ARG_EXPORT_AREA_PAGE,
     SP_ARG_EXPORT_AREA_SNAP,
     SP_ARG_EXPORT_WIDTH,
     SP_ARG_EXPORT_HEIGHT,
@@ -179,7 +180,7 @@ static gchar *sp_export_png = NULL;
 static gchar *sp_export_dpi = NULL;
 static gchar *sp_export_area = NULL;
 static gboolean sp_export_area_drawing = FALSE;
-static gboolean sp_export_area_canvas = FALSE;
+static gboolean sp_export_area_page = FALSE;
 static gchar *sp_export_width = NULL;
 static gchar *sp_export_height = NULL;
 static gchar *sp_export_id = NULL;
@@ -222,7 +223,7 @@ static void resetCommandlineGlobals() {
         sp_export_dpi = NULL;
         sp_export_area = NULL;
         sp_export_area_drawing = FALSE;
-        sp_export_area_canvas = FALSE;
+        sp_export_area_page = FALSE;
         sp_export_width = NULL;
         sp_export_height = NULL;
         sp_export_id = NULL;
@@ -296,17 +297,17 @@ struct poptOption options[] = {
 
     {"export-area", 'a',
      POPT_ARG_STRING, &sp_export_area, SP_ARG_EXPORT_AREA,
-     N_("Exported area in SVG user units (default is the canvas; 0,0 is lower-left corner)"),
+     N_("Exported area in SVG user units (default is the page; 0,0 is lower-left corner)"),
      N_("x0:y0:x1:y1")},
 
     {"export-area-drawing", 'D',
      POPT_ARG_NONE, &sp_export_area_drawing, SP_ARG_EXPORT_AREA_DRAWING,
-     N_("Exported area is the entire drawing (not canvas)"),
+     N_("Exported area is the entire drawing (not page)"),
      NULL},
 
-    {"export-area-canvas", 'C',
-     POPT_ARG_NONE, &sp_export_area_canvas, SP_ARG_EXPORT_AREA_CANVAS,
-     N_("Exported area is the entire canvas"),
+    {"export-area-page", 'C',
+     POPT_ARG_NONE, &sp_export_area_page, SP_ARG_EXPORT_AREA_PAGE,
+     N_("Exported area is the entire page"),
      NULL},
 
     {"export-area-snap", 0,
@@ -469,10 +470,12 @@ gchar * blankParam = g_strdup("");
 static Glib::ustring _win32_getExePath()
 {
     char exeName[MAX_PATH+1];
+    // TODO these should use xxxW() calls explicitly and convert UTF-16 <--> UTF-8
     GetModuleFileName(NULL, exeName, MAX_PATH);
     char *slashPos = strrchr(exeName, '\\');
-    if (slashPos)
+    if (slashPos) {
         *slashPos = '\0';
+    }
     Glib::ustring s = exeName;
     return s;
 }
@@ -483,6 +486,7 @@ static Glib::ustring _win32_getExePath()
  */
 static int _win32_set_inkscape_env(const Glib::ustring &exePath)
 {
+    // TODO use g_getenv() and g_setenv() that use filename encoding, which is UTF-8 on Windows
 
     char *oldenv = getenv("PATH");
     Glib::ustring tmp = "PATH=";
@@ -531,7 +535,7 @@ static int set_extensions_env()
         tmp += oldenv;
     }
     g_setenv("PYTHONPATH", tmp.c_str(), TRUE);
-    
+
     return 0;
 }
 
@@ -559,6 +563,7 @@ main(int argc, char **argv)
       HKCR\svgfile\shell\open\command is a good example
     */
     Glib::ustring homedir = _win32_getExePath();
+    // TODO these should use xxxW() calls explicitly and convert UTF-16 <--> UTF-8
     SetCurrentDirectory(homedir.c_str());
     _win32_set_inkscape_env(homedir);
     RegistryTool rt;
@@ -610,6 +615,7 @@ main(int argc, char **argv)
     gboolean use_gui;
 
 #ifndef WIN32
+    // TODO use g_getenv() and g_setenv() that use filename encoding, which is UTF-8 on Windows
     use_gui = (getenv("DISPLAY") != NULL);
 #else
     use_gui = TRUE;
@@ -623,13 +629,13 @@ main(int argc, char **argv)
             || !strcmp(argv[i], "-e")
             || !strncmp(argv[i], "--export-png", 12)
             || !strcmp(argv[i], "-l")
-            || !strncmp(argv[i], "--export-plain-svg", 12)
+            || !strncmp(argv[i], "--export-plain-svg", 18)
             || !strcmp(argv[i], "-i")
             || !strncmp(argv[i], "--export-area-drawing", 21)
             || !strcmp(argv[i], "-D")
-            || !strncmp(argv[i], "--export-area-canvas", 20)
+            || !strncmp(argv[i], "--export-area-page", 18)
             || !strcmp(argv[i], "-C")
-            || !strncmp(argv[i], "--export-id", 12)
+            || !strncmp(argv[i], "--export-id", 11)
             || !strcmp(argv[i], "-P")
             || !strncmp(argv[i], "--export-ps", 11)
             || !strcmp(argv[i], "-E")
@@ -647,11 +653,11 @@ main(int argc, char **argv)
             || !strcmp(argv[i], "-S")
             || !strncmp(argv[i], "--query-all", 11)
             || !strcmp(argv[i], "-X")
-            || !strncmp(argv[i], "--query-x", 13)
+            || !strncmp(argv[i], "--query-x", 9)
             || !strcmp(argv[i], "-Y")
-            || !strncmp(argv[i], "--query-y", 14)
+            || !strncmp(argv[i], "--query-y", 9)
             || !strcmp(argv[i], "--vacuum-defs")
-            || !strncmp(argv[i], "--shell", 7)
+            || !strcmp(argv[i], "--shell")
            )
         {
             /* main_console handles any exports -- not the gui */
@@ -957,12 +963,27 @@ void sp_process_file_list(GSList *fl)
 {
     while (fl) {
         const gchar *filename = (gchar *)fl->data;
-        SPDocument *doc = Inkscape::Extension::open(NULL, filename);
+
+        SPDocument *doc = NULL;
+        try {
+            doc = Inkscape::Extension::open(NULL, filename);
+        } catch (Inkscape::Extension::Input::no_extension_found &e) {
+            doc = NULL;
+        } catch (Inkscape::Extension::Input::open_failed &e) {
+            doc = NULL;
+        }
+
         if (doc == NULL) {
-            doc = Inkscape::Extension::open(Inkscape::Extension::db.get(SP_MODULE_KEY_INPUT_SVG), filename);
+            try {
+                doc = Inkscape::Extension::open(Inkscape::Extension::db.get(SP_MODULE_KEY_INPUT_SVG), filename);
+            } catch (Inkscape::Extension::Input::no_extension_found &e) {
+                doc = NULL;
+            } catch (Inkscape::Extension::Input::open_failed &e) {
+                doc = NULL;
+            }
         }
         if (doc == NULL) {
-            g_warning("Specified document %s cannot be opened (is it a valid SVG file?)", filename);
+            g_warning("Specified document %s cannot be opened (does not exist or not a valid SVG file)", filename);
         } else {
             if (sp_vacuum_defs) {
                 vacuum_document(doc);
@@ -974,7 +995,7 @@ void sp_process_file_list(GSList *fl)
             if (sp_global_printer) {
                 sp_print_document_to_file(doc, sp_global_printer);
             }
-            if (sp_export_png) {
+            if (sp_export_png || (sp_export_id && sp_export_use_hints)) {
                 sp_do_export_png(doc);
             }
             if (sp_export_svg) {
@@ -1203,6 +1224,7 @@ static void
 sp_do_export_png(SPDocument *doc)
 {
     const gchar *filename = NULL;
+    bool filename_from_hint = false;
     gdouble dpi = 0.0;
 
     if (sp_export_use_hints && (!sp_export_id && !sp_export_area_drawing)) {
@@ -1249,6 +1271,7 @@ sp_do_export_png(SPDocument *doc)
                         filename = sp_export_png;
                     } else {
                         filename = fn_hint;
+                        filename_from_hint = true;
                     }
                 } else {
                     g_warning ("Export filename hint not found for the object.");
@@ -1293,8 +1316,8 @@ sp_do_export_png(SPDocument *doc)
             return;
         }
         area = Geom::Rect(Geom::Interval(x0,x1), Geom::Interval(y0,y1));
-    } else if (sp_export_area_canvas || !(sp_export_id || sp_export_area_drawing)) {
-        /* Export the whole canvas */
+    } else if (sp_export_area_page || !(sp_export_id || sp_export_area_drawing)) {
+        /* Export the whole page: note: Inkscape uses 'page' in all menus and dialogs, not 'canvas' */
         sp_document_ensure_up_to_date (doc);
         Geom::Point origin (SP_ROOT(doc->root)->x.computed, SP_ROOT(doc->root)->y.computed);
         area = Geom::Rect(origin, origin + sp_document_dimensions(doc));
@@ -1388,6 +1411,23 @@ sp_do_export_png(SPDocument *doc)
         }
     }
 
+    gchar *path = 0;
+    if (filename_from_hint) {
+        //Make relative paths go from the document location, if possible:
+        if (!g_path_is_absolute(filename) && doc->uri) {
+            gchar *dirname = g_path_get_dirname(doc->uri);
+            if (dirname) {
+                path = g_build_filename(dirname, filename, NULL);
+                g_free(dirname);
+            }
+        }
+        if (!path) {
+            path = g_strdup(filename);
+        }
+    } else {
+        path = g_strdup(filename);
+    }
+
     g_print("Background RRGGBBAA: %08x\n", bgcolor);
 
     g_print("Area %g:%g:%g:%g exported to %lu x %lu pixels (%g dpi)\n", area[Geom::X][0], area[Geom::Y][0], area[Geom::X][1], area[Geom::Y][1], width, height, dpi);
@@ -1395,11 +1435,12 @@ sp_do_export_png(SPDocument *doc)
     g_print("Bitmap saved as: %s\n", filename);
 
     if ((width >= 1) && (height >= 1) && (width <= PNG_UINT_31_MAX) && (height <= PNG_UINT_31_MAX)) {
-        sp_export_png_file(doc, filename, area, width, height, dpi, dpi, bgcolor, NULL, NULL, true, sp_export_id_only ? items : NULL);
+        sp_export_png_file(doc, path, area, width, height, dpi, dpi, bgcolor, NULL, NULL, true, sp_export_id_only ? items : NULL);
     } else {
         g_warning("Calculated bitmap dimensions %lu %lu are out of range (1 - %lu). Nothing exported.", width, height, (unsigned long int)PNG_UINT_31_MAX);
     }
 
+    g_free (path);
     g_slist_free (items);
 }
 
@@ -1438,8 +1479,8 @@ static void do_export_ps_pdf(SPDocument* doc, gchar const* uri, char const* mime
         (*i)->set_param_string ("exportId", "");
     }
 
-    if (sp_export_area_canvas && sp_export_area_drawing) {
-        g_warning ("You cannot use --export-area-canvas and --export-area-drawing at the same time; only the former will take effect.");
+    if (sp_export_area_page && sp_export_area_drawing) {
+        g_warning ("You cannot use --export-area-page and --export-area-drawing at the same time; only the former will take effect.");
         sp_export_area_drawing = false;
     }
 
@@ -1449,22 +1490,22 @@ static void do_export_ps_pdf(SPDocument* doc, gchar const* uri, char const* mime
         (*i)->set_param_bool ("areaDrawing", FALSE);
     }
 
-    if (sp_export_area_canvas) {
+    if (sp_export_area_page) {
         if (sp_export_eps) {
-            g_warning ("EPS cannot have its bounding box extend beyond its content, so if your drawing is smaller than the canvas, --export-area-canvas will clip it to drawing.");
-        } 
-        (*i)->set_param_bool ("areaCanvas", TRUE);
+            g_warning ("EPS cannot have its bounding box extend beyond its content, so if your drawing is smaller than the page, --export-area-page will clip it to drawing.");
+        }
+        (*i)->set_param_bool ("areaPage", TRUE);
     } else {
-        (*i)->set_param_bool ("areaCanvas", FALSE);
+        (*i)->set_param_bool ("areaPage", FALSE);
     }
 
-    if (!sp_export_area_drawing && !sp_export_area_canvas && !sp_export_id) { 
-        // neither is set, set canvas as default for ps/pdf and drawing for eps
+    if (!sp_export_area_drawing && !sp_export_area_page && !sp_export_id) {
+        // neither is set, set page as default for ps/pdf and drawing for eps
         if (sp_export_eps) {
             try {
                (*i)->set_param_bool("areaDrawing", TRUE);
             } catch (...) {}
-        } 
+        }
     }
 
     if (sp_export_text_to_path) {

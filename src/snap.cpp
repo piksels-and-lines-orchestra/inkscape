@@ -50,6 +50,15 @@ SnapManager::SnapManager(SPNamedView const *v) :
 }
 
 /**
+ *  \brief Return a list of snappers
+ *
+ *  Inkscape snaps to objects, grids, and guides. For each of these snap targets a
+ *  separate class is used, which has been derived from the base Snapper class. The
+ *  getSnappers() method returns a list of pointers to instances of this class. This
+ *  list contains exactly one instance of the guide snapper and of the object snapper
+ *  class, but any number of grid snappers (because each grid has its own snapper
+ *  instance)
+ *
  *  \return List of snappers that we use.
  */
 SnapManager::SnapperList
@@ -66,6 +75,13 @@ SnapManager::getSnappers() const
 }
 
 /**
+ *  \brief Return a list of gridsnappers
+ *
+ *  Each grid has its own instance of the snapper class. This way snapping can
+ *  be enabled per grid individually. A list will be returned containing the
+ *  pointers to these instances, but only for grids that are being displayed
+ *  and for which snapping is enabled.
+ *
  *  \return List of gridsnappers that we use.
  */
 SnapManager::SnapperList
@@ -73,7 +89,6 @@ SnapManager::getGridSnappers() const
 {
     SnapperList s;
 
-    //FIXME: this code should actually do this: add new grid snappers that are active for this desktop. now it just adds all gridsnappers
     if (_desktop && _desktop->gridsEnabled() && snapprefs.getSnapToGrids()) {
         for ( GSList const *l = _named_view->grids; l != NULL; l = l->next) {
             Inkscape::CanvasGrid *grid = (Inkscape::CanvasGrid*) l->data;
@@ -85,7 +100,14 @@ SnapManager::getGridSnappers() const
 }
 
 /**
- * \return true if one of the snappers will try to snap something.
+ * \brief Return true if any snapping might occur, whether its to grids, guides or objects
+ *
+ * Each snapper instance handles its own snapping target, e.g. grids, guides or
+ * objects. This method iterates through all these snapper instances and returns
+ * true if any of the snappers might possible snap, considering only the relevant
+ * snapping preferences.
+ *
+ * \return true if one of the snappers will try to snap to something.
  */
 
 bool SnapManager::someSnapperMightSnap() const
@@ -104,7 +126,7 @@ bool SnapManager::someSnapperMightSnap() const
 }
 
 /**
- * \return true if one of the snappers will try to snap something.
+ * \return true if one of the grids might be snapped to.
  */
 
 bool SnapManager::gridSnapperMightSnap() const
@@ -123,14 +145,27 @@ bool SnapManager::gridSnapperMightSnap() const
 }
 
 /**
- *  Try to snap a point to any of the specified snappers.
+ *  \brief Try to snap a point to grids, guides or objects.
  *
- *  \param point_type Type of point.
- *  \param p Point.
- *  \param first_point If true then this point is the first one from a whole bunch of points
- *  \param points_to_snap The whole bunch of points, all from the same selection and having the same transformation
- *  \param snappers List of snappers to try to snap to
- *  \return Snapped point.
+ *  Try to snap a point to grids, guides or objects, in two degrees-of-freedom,
+ *  i.e. snap in any direction on the two dimensional canvas to the nearest
+ *  snap target. freeSnapReturnByRef() is equal in snapping behavior to
+ *  freeSnap(), but the former returns the snapped point trough the referenced
+ *  parameter p. This parameter p initially contains the position of the snap
+ *  source and will we overwritten by the target position if snapping has occurred.
+ *  This makes snapping transparent to the calling code. If this is not desired
+ *  because either the calling code must know whether snapping has occurred, or
+ *  because the original position should not be touched, then freeSnap() should be
+ *  called instead.
+ *
+ *  PS: SnapManager::setup() must have been called before calling this method,
+ *  but only once for a set of points
+ *
+ *  \param point_type Category of points to which the source point belongs: node, guide or bounding box
+ *  \param p Current position of the snap source; will be overwritten by the position of the snap target if snapping has occurred
+ *  \param source_type Detailed description of the source type, will be used by the snap indicator
+ *  \param first_point If true then this point is the first one from a set of points, all from the same selection and having the same transformation
+ *  \param bbox_to_snap Bounding box hulling the set of points, all from the same selection and having the same transformation
  */
 
 void SnapManager::freeSnapReturnByRef(Inkscape::SnapPreferences::PointType point_type,
@@ -139,21 +174,31 @@ void SnapManager::freeSnapReturnByRef(Inkscape::SnapPreferences::PointType point
                                       bool first_point,
                                       Geom::OptRect const &bbox_to_snap) const
 {
+    //TODO: PointType and source_type are somewhat redundant; can't we get rid of the point_type parameter?
     Inkscape::SnappedPoint const s = freeSnap(point_type, p, source_type, first_point, bbox_to_snap);
     s.getPoint(p);
 }
 
 
 /**
- *  Try to snap a point to any of the specified snappers.
+ *  \brief Try to snap a point to grids, guides or objects.
  *
- *  \param point_type Type of point.
- *  \param p Point.
- *  \param first_point If true then this point is the first one from a whole bunch of points
- *  \param points_to_snap The whole bunch of points, all from the same selection and having the same transformation
- *  \param snappers List of snappers to try to snap to
- *  \return Snapped point.
+ *  Try to snap a point to grids, guides or objects, in two degrees-of-freedom,
+ *  i.e. snap in any direction on the two dimensional canvas to the nearest
+ *  snap target. freeSnap() is equal in snapping behavior to
+ *  freeSnapReturnByRef(). Please read the comments of the latter for more details
+ *
+ *  PS: SnapManager::setup() must have been called before calling this method,
+ *  but only once for a set of points
+ *
+ *  \param point_type Category of points to which the source point belongs: node, guide or bounding box
+ *  \param p Current position of the snap source
+ *  \param source_type Detailed description of the source type, will be used by the snap indicator
+ *  \param first_point If true then this point is the first one from a set of points, all from the same selection and having the same transformation
+ *  \param bbox_to_snap Bounding box hulling the set of points, all from the same selection and having the same transformation
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics
  */
+
 
 Inkscape::SnappedPoint SnapManager::freeSnap(Inkscape::SnapPreferences::PointType point_type,
                                              Geom::Point const &p,
@@ -161,13 +206,6 @@ Inkscape::SnappedPoint SnapManager::freeSnap(Inkscape::SnapPreferences::PointTyp
                                              bool first_point,
                                              Geom::OptRect const &bbox_to_snap) const
 {
-	if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-		g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-		// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
-	//std::cout << "SnapManager::freeSnap -> postponed: " << snapprefs.getSnapPostponedGlobally() << std::endl;
-
 	if (!someSnapperMightSnap()) {
         return Inkscape::SnappedPoint(p, source_type, Inkscape::SNAPTARGET_UNDEFINED, NR_HUGE, 0, false, false);
     }
@@ -196,18 +234,29 @@ Inkscape::SnappedPoint SnapManager::freeSnap(Inkscape::SnapPreferences::PointTyp
     return findBestSnap(p, source_type, sc, false);
 }
 
-// When pasting, we would like to snap to the grid. Problem is that we don't know which nodes were
-// aligned to the grid at the time of copying, so we don't know which nodes to snap. If we'd snap an
-// unaligned node to the grid, previously aligned nodes would become unaligned. That's undesirable.
-// Instead we will make sure that the offset between the source and the copy is a multiple of the grid
-// pitch. If the source was aligned, then the copy will therefore also be aligned
-// PS: Whether we really find a multiple also depends on the snapping range!
+/**
+ * \brief Snap to the closest multiple of a grid pitch
+ *
+ * When pasting, we would like to snap to the grid. Problem is that we don't know which
+ * nodes were aligned to the grid at the time of copying, so we don't know which nodes
+ * to snap. If we'd snap an unaligned node to the grid, previously aligned nodes would
+ * become unaligned. That's undesirable. Instead we will make sure that the offset
+ * between the source and its pasted copy is a multiple of the grid pitch. If the source
+ * was aligned, then the copy will therefore also be aligned.
+ *
+ * PS: Whether we really find a multiple also depends on the snapping range! Most users
+ * will have "always snap" enabled though, in which case a multiple will always be found.
+ * PS2: When multiple grids are present then the result will become ambiguous. There is no
+ * way to control to which grid this method will snap.
+ *
+ * \param t Vector that represents the offset of the pasted copy with respect to the original
+ * \return Offset vector after snapping to the closest multiple of a grid pitch
+ */
+
 Geom::Point SnapManager::multipleOfGridPitch(Geom::Point const &t) const
 {
     if (!snapprefs.getSnapEnabledGlobally()) // No need to check for snapprefs.getSnapPostponedGlobally() here
         return t;
-
-    //FIXME: this code should actually do this: add new grid snappers that are active for this desktop. now it just adds all gridsnappers
 
     if (_desktop && _desktop->gridsEnabled()) {
         bool success = false;
@@ -252,56 +301,70 @@ Geom::Point SnapManager::multipleOfGridPitch(Geom::Point const &t) const
 }
 
 /**
- *  Try to snap a point to any interested snappers.  A snap will only occur along
- *  a line described by a Inkscape::Snapper::ConstraintLine.
+ *  \brief Try to snap a point along a constraint line to grids, guides or objects.
  *
- *  \param point_type Type of point.
- *  \param p Point.
- *  \param first_point If true then this point is the first one from a whole bunch of points
- *  \param points_to_snap The whole bunch of points, all from the same selection and having the same transformation
- *  \param constraint Constraint line.
- *  \return Snapped point.
+ *  Try to snap a point to grids, guides or objects, in only one degree-of-freedom,
+ *  i.e. snap in a specific direction on the two dimensional canvas to the nearest
+ *  snap target.
+ *
+ *  constrainedSnapReturnByRef() is equal in snapping behavior to
+ *  constrainedSnap(), but the former returns the snapped point trough the referenced
+ *  parameter p. This parameter p initially contains the position of the snap
+ *  source and will we overwritten by the target position if snapping has occurred.
+ *  This makes snapping transparent to the calling code. If this is not desired
+ *  because either the calling code must know whether snapping has occurred, or
+ *  because the original position should not be touched, then constrainedSnap() should
+ *  be called instead.
+ *
+ *  PS: SnapManager::setup() must have been called before calling this method,
+ *  but only once for a set of points
+ *
+ *  \param point_type Category of points to which the source point belongs: node, guide or bounding box
+ *  \param p Current position of the snap source; will be overwritten by the position of the snap target if snapping has occurred
+ *  \param source_type Detailed description of the source type, will be used by the snap indicator
+ *  \param constraint The direction or line along which snapping must occur
+ *  \param first_point If true then this point is the first one from a set of points, all from the same selection and having the same transformation
+ *  \param bbox_to_snap Bounding box hulling the set of points, all from the same selection and having the same transformation
  */
 
 void SnapManager::constrainedSnapReturnByRef(Inkscape::SnapPreferences::PointType point_type,
                                              Geom::Point &p,
                                              Inkscape::SnapSourceType const source_type,
                                              Inkscape::Snapper::ConstraintLine const &constraint,
-                                             bool const snap_projection,
                                              bool first_point,
                                              Geom::OptRect const &bbox_to_snap) const
 {
-    Inkscape::SnappedPoint const s = constrainedSnap(point_type, p, source_type, constraint, snap_projection, first_point, bbox_to_snap);
+    Inkscape::SnappedPoint const s = constrainedSnap(point_type, p, source_type, constraint, first_point, bbox_to_snap);
     s.getPoint(p);
 }
 
-
 /**
- *  Try to snap a point to any interested snappers.  A snap will only occur along
- *  a line described by a Inkscape::Snapper::ConstraintLine.
+ *  \brief Try to snap a point along a constraint line to grids, guides or objects.
  *
- *  \param point_type Type of point.
- *  \param p Point.
- *  \param first_point If true then this point is the first one from a whole bunch of points
- *  \param points_to_snap The whole bunch of points, all from the same selection and having the same transformation
- *  \param constraint Constraint line.
- *  \return Snapped point.
+ *  Try to snap a point to grids, guides or objects, in only one degree-of-freedom,
+ *  i.e. snap in a specific direction on the two dimensional canvas to the nearest
+ *  snap target. constrainedSnap is equal in snapping behavior to
+ *  constrainedSnapReturnByRef(). Please read the comments of the latter for more details.
+ *
+ *  PS: SnapManager::setup() must have been called before calling this method,
+ *  but only once for a set of points
+ *
+ *  \param point_type Category of points to which the source point belongs: node, guide or bounding box
+ *  \param p Current position of the snap source
+ *  \param source_type Detailed description of the source type, will be used by the snap indicator
+ *  \param constraint The direction or line along which snapping must occur
+ *  \param first_point If true then this point is the first one from a set of points, all from the same selection and having the same transformation
+ *  \param bbox_to_snap Bounding box hulling the set of points, all from the same selection and having the same transformation
  */
 
 Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::PointType point_type,
                                                     Geom::Point const &p,
                                                     Inkscape::SnapSourceType const &source_type,
                                                     Inkscape::Snapper::ConstraintLine const &constraint,
-                                                    bool /*snap_projection*/,
                                                     bool first_point,
                                                     Geom::OptRect const &bbox_to_snap) const
 {
-	if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-		g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-		// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
-	if (!someSnapperMightSnap()) {
+    if (!someSnapperMightSnap()) {
         return Inkscape::SnappedPoint(p, source_type, Inkscape::SNAPTARGET_UNDEFINED, NR_HUGE, 0, false, false);
     }
 
@@ -315,7 +378,10 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::P
         items_to_ignore = _items_to_ignore;
     }
 
+
+    // First project the mouse pointer onto the constraint
     Geom::Point pp = constraint.projection(p);
+    // Then try to snap the projected point
 
     SnappedConstraints sc;
     SnapperList const snappers = getSnappers();
@@ -327,19 +393,23 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::P
         delete items_to_ignore;
     }
 
-    return findBestSnap(p, source_type, sc, true);
+    return findBestSnap(pp, source_type, sc, true);
 }
 
-// guideFreeSnap is used when dragging or rotating the guide
-void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal) const
+/**
+ *  \brief Try to snap a point of a guide to another guide or to a node
+ *
+ *  Try to snap a point of a guide to another guide or to a node in two degrees-
+ *  of-freedom, i.e. snap in any direction on the two dimensional canvas to the
+ *  nearest snap target. This method is used when dragging or rotating a guide
+ *
+ *  PS: SnapManager::setup() must have been called before calling this method,
+ *
+ *  \param p Current position of the point on the guide that is to be snapped; will be overwritten by the position of the snap target if snapping has occurred
+ *  \param guide_normal Vector normal to the guide line
+ */
+void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal, SPGuideDragType drag_type) const
 {
-    // This method is used to snap a guide to nodes or to other guides, while dragging the guide around. Will not snap to grids!
-
-	if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-			g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-			// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
     if (!snapprefs.getSnapEnabledGlobally() || snapprefs.getSnapPostponedGlobally()) {
         return;
     }
@@ -348,34 +418,47 @@ void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal)
         return;
     }
 
+    Inkscape::SnapSourceType source_type = Inkscape::SNAPSOURCE_GUIDE_ORIGIN;
+    if (drag_type == SP_DRAG_ROTATE) {
+    	source_type = Inkscape::SNAPSOURCE_GUIDE;
+    }
+
     // Snap to nodes
     SnappedConstraints sc;
     if (object.GuidesMightSnap()) {
         object.guideFreeSnap(sc, p, guide_normal);
     }
 
-    // Snap to guides
-    if (snapprefs.getSnapToGuides()) {
-        guide.freeSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, Inkscape::SNAPSOURCE_GUIDE, true, Geom::OptRect(), NULL, NULL);
-    }
+    // Snap to guides & grid lines
+    SnapperList snappers = getGridSnappers();
+    snappers.push_back(&guide);
+	for (SnapperList::const_iterator i = snappers.begin(); i != snappers.end(); i++) {
+		(*i)->freeSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, source_type, true, Geom::OptRect(), NULL, NULL);
+	}
 
-    // We won't snap to grids, what's the use?
+    // Snap to intersections of curves, but not to the curves themselves! (see _snapTranslatingGuideToNodes in object-snapper.cpp)
+    Inkscape::SnappedPoint const s = findBestSnap(p, source_type, sc, false, true);
 
-    Inkscape::SnappedPoint const s = findBestSnap(p, Inkscape::SNAPSOURCE_GUIDE, sc, false);
     s.getPoint(p);
 }
 
-// guideConstrainedSnap is used when dragging the origin of the guide along the guide itself
+/**
+ *  \brief Try to snap a point on a guide to the intersection with another guide or a path
+ *
+ *  Try to snap a point on a guide to the intersection of that guide with another
+ *  guide or with a path. The snapped point will lie somewhere on the guide-line,
+ *  making this is a constrained snap, i.e. in only one degree-of-freedom.
+ *  This method is used when dragging the origin of the guide along the guide itself.
+ *
+ *  PS: SnapManager::setup() must have been called before calling this method,
+ *
+ *  \param p Current position of the point on the guide that is to be snapped; will be overwritten by the position of the snap target if snapping has occurred
+ *  \param guide_normal Vector normal to the guide line
+ */
+
 void SnapManager::guideConstrainedSnap(Geom::Point &p, SPGuide const &guideline) const
 {
-    // This method is used to snap a guide to paths or to other guides, while dragging the origin of the guide around. Will not snap to grids!
-
-	if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-			g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-			// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
-    if (!snapprefs.getSnapEnabledGlobally() || snapprefs.getSnapPostponedGlobally()) {
+	if (!snapprefs.getSnapEnabledGlobally() || snapprefs.getSnapPostponedGlobally()) {
         return;
     }
 
@@ -383,39 +466,50 @@ void SnapManager::guideConstrainedSnap(Geom::Point &p, SPGuide const &guideline)
         return;
     }
 
+    Inkscape::SnapSourceType source_type = Inkscape::SNAPSOURCE_GUIDE_ORIGIN;
+
     // Snap to nodes or paths
     SnappedConstraints sc;
     Inkscape::Snapper::ConstraintLine cl(guideline.point_on_line, Geom::rot90(guideline.normal_to_line));
     if (object.ThisSnapperMightSnap()) {
-        object.constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, Inkscape::SNAPSOURCE_GUIDE_ORIGIN, true, Geom::OptRect(), cl, NULL);
+        object.constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, source_type, true, Geom::OptRect(), cl, NULL);
     }
 
-    // Snap to guides
-    if (snapprefs.getSnapToGuides()) {
-        guide.constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, Inkscape::SNAPSOURCE_GUIDE_ORIGIN, true, Geom::OptRect(), cl, NULL);
-    }
+    // Snap to guides & grid lines
+	SnapperList snappers = getGridSnappers();
+	snappers.push_back(&guide);
+	for (SnapperList::const_iterator i = snappers.begin(); i != snappers.end(); i++) {
+		(*i)->constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, source_type, true, Geom::OptRect(), cl, NULL);
+	}
 
-    // We won't snap to grids, what's the use?
-
-    Inkscape::SnappedPoint const s = findBestSnap(p, Inkscape::SNAPSOURCE_GUIDE, sc, false);
+    Inkscape::SnappedPoint const s = findBestSnap(p, source_type, sc, false);
     s.getPoint(p);
 }
 
 /**
- *  Main internal snapping method, which is called by the other, friendlier, public
- *  methods.  It's a bit hairy as it has lots of parameters, but it saves on a lot
- *  of duplicated code.
+ *  \brief Method for snapping sets of points while they are being transformed
  *
- *  \param type Type of points being snapped.
- *  \param points List of points to snap (i.e. untransformed).
- *  \param pointer Location of the mouse pointer, at the time when dragging started (i.e. "untransformed")
- *  \param constrained true if the snap is constrained.
- *  \param constraint Constraint line to use, if `constrained' is true, otherwise undefined.
+ *  Method for snapping sets of points while they are being transformed, when using
+ *  for example the selector tool. This method is for internal use only, and should
+ *  not have to be called directly. Use freeSnapTransalation(), constrainedSnapScale(),
+ *  etc. instead.
+ *
+ *  This is what is being done in this method: transform each point, find out whether
+ *  a free snap or constrained snap is more appropriate, do the snapping, calculate
+ *  some metrics to quantify the snap "distance", and see if it's better than the
+ *  previous snap. Finally, the best ("nearest") snap from all these points is returned.
+ *
+ *  \param type Category of points to which the source point belongs: node or bounding box.
+ *  \param points Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param constrained true if the snap is constrained, e.g. for stretching or for purely horizontal translation.
+ *  \param constraint The direction or line along which snapping must occur, if 'constrained' is true; otherwise undefined.
  *  \param transformation_type Type of transformation to apply to points before trying to snap them.
  *  \param transformation Description of the transformation; details depend on the type.
  *  \param origin Origin of the transformation, if applicable.
- *  \param dim Dimension of the transformation, if applicable.
+ *  \param dim Dimension to which the transformation applies, if applicable.
  *  \param uniform true if the transformation should be uniform; only applicable for stretching and scaling.
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::_snapTransformed(
@@ -499,7 +593,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
             if (transformation_type == SCALE && !uniform) {
                 g_warning("Non-uniform constrained scaling is not supported!");
             }
-            snapped_point = constrainedSnap(type, (*j).first, static_cast<Inkscape::SnapSourceType>((*j).second), dedicated_constraint, false, i == points.begin(), bbox);
+            snapped_point = constrainedSnap(type, (*j).first, static_cast<Inkscape::SnapSourceType>((*j).second), dedicated_constraint, i == points.begin(), bbox);
         } else {
             bool const c1 = fabs(b[Geom::X]) < 1e-6;
             bool const c2 = fabs(b[Geom::Y]) < 1e-6;
@@ -508,7 +602,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                 // move in that specific direction; therefore it should only snap in that direction, otherwise
                 // we will get snapped points with an invalid transformation
                 dedicated_constraint = Inkscape::Snapper::ConstraintLine(origin, component_vectors[c1]);
-                snapped_point = constrainedSnap(type, (*j).first, static_cast<Inkscape::SnapSourceType>((*j).second), dedicated_constraint, false, i == points.begin(), bbox);
+                snapped_point = constrainedSnap(type, (*j).first, static_cast<Inkscape::SnapSourceType>((*j).second), dedicated_constraint, i == points.begin(), bbox);
             } else {
                 snapped_point = freeSnap(type, (*j).first, static_cast<Inkscape::SnapSourceType>((*j).second), i == points.begin(), bbox);
             }
@@ -649,13 +743,13 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
 
 
 /**
- *  Try to snap a list of points to any interested snappers after they have undergone
- *  a translation.
+ *  \brief Apply a translation to a set of points and try to snap freely in 2 degrees-of-freedom
  *
- *  \param point_type Type of points.
- *  \param p Points.
- *  \param tr Proposed translation.
- *  \return Snapped translation, if a snap occurred, and a flag indicating whether a snap occurred.
+ *  \param point_type Category of points to which the source point belongs: node or bounding box.
+ *  \param p Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param tr Proposed translation; the final translation can only be calculated after snapping has occurred
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::freeSnapTranslation(Inkscape::SnapPreferences::PointType point_type,
@@ -670,17 +764,15 @@ Inkscape::SnappedPoint SnapManager::freeSnapTranslation(Inkscape::SnapPreference
     return _snapTransformed(point_type, p, pointer, false, Geom::Point(0,0), TRANSLATION, tr, Geom::Point(0,0), Geom::X, false);
 }
 
-
 /**
- *  Try to snap a list of points to any interested snappers after they have undergone a
- *  translation.  A snap will only occur along a line described by a
- *  Inkscape::Snapper::ConstraintLine.
+ *  \brief Apply a translation to a set of points and try to snap along a constraint
  *
- *  \param point_type Type of points.
- *  \param p Points.
- *  \param constraint Constraint line.
- *  \param tr Proposed translation.
- *  \return Snapped translation, if a snap occurred, and a flag indicating whether a snap occurred.
+ *  \param point_type Category of points to which the source point belongs: node or bounding box.
+ *  \param p Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param constraint The direction or line along which snapping must occur.
+ *  \param tr Proposed translation; the final translation can only be calculated after snapping has occurred.
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::constrainedSnapTranslation(Inkscape::SnapPreferences::PointType point_type,
@@ -698,14 +790,14 @@ Inkscape::SnappedPoint SnapManager::constrainedSnapTranslation(Inkscape::SnapPre
 
 
 /**
- *  Try to snap a list of points to any interested snappers after they have undergone
- *  a scale.
+ *  \brief Apply a scaling to a set of points and try to snap freely in 2 degrees-of-freedom
  *
- *  \param point_type Type of points.
- *  \param p Points.
- *  \param s Proposed scale.
- *  \param o Origin of proposed scale.
- *  \return Snapped scale, if a snap occurred, and a flag indicating whether a snap occurred.
+ *  \param point_type Category of points to which the source point belongs: node or bounding box.
+ *  \param p Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param s Proposed scaling; the final scaling can only be calculated after snapping has occurred
+ *  \param o Origin of the scaling
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::freeSnapScale(Inkscape::SnapPreferences::PointType point_type,
@@ -723,15 +815,14 @@ Inkscape::SnappedPoint SnapManager::freeSnapScale(Inkscape::SnapPreferences::Poi
 
 
 /**
- *  Try to snap a list of points to any interested snappers after they have undergone
- *  a scale.  A snap will only occur along a line described by a
- *  Inkscape::Snapper::ConstraintLine.
+ *  \brief Apply a scaling to a set of points and snap such that the aspect ratio of the selection is preserved
  *
- *  \param point_type Type of points.
- *  \param p Points.
- *  \param s Proposed scale.
- *  \param o Origin of proposed scale.
- *  \return Snapped scale, if a snap occurred, and a flag indicating whether a snap occurred.
+ *  \param point_type Category of points to which the source point belongs: node or bounding box.
+ *  \param p Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param s Proposed scaling; the final scaling can only be calculated after snapping has occurred
+ *  \param o Origin of the scaling
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::constrainedSnapScale(Inkscape::SnapPreferences::PointType point_type,
@@ -748,18 +839,17 @@ Inkscape::SnappedPoint SnapManager::constrainedSnapScale(Inkscape::SnapPreferenc
     return _snapTransformed(point_type, p, pointer, true, Geom::Point(0,0), SCALE, Geom::Point(s[Geom::X], s[Geom::Y]), o, Geom::X, true);
 }
 
-
 /**
- *  Try to snap a list of points to any interested snappers after they have undergone
- *  a stretch.
+ *  \brief Apply a stretch to a set of points and snap such that the direction of the stretch is preserved
  *
- *  \param point_type Type of points.
- *  \param p Points.
- *  \param s Proposed stretch.
- *  \param o Origin of proposed stretch.
+ *  \param point_type Category of points to which the source point belongs: node or bounding box.
+ *  \param p Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param s Proposed stretch; the final stretch can only be calculated after snapping has occurred
+ *  \param o Origin of the stretching
  *  \param d Dimension in which to apply proposed stretch.
- *  \param u true if the stretch should be uniform (ie to be applied equally in both dimensions)
- *  \return Snapped stretch, if a snap occurred, and a flag indicating whether a snap occurred.
+ *  \param u true if the stretch should be uniform (i.e. to be applied equally in both dimensions)
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::constrainedSnapStretch(Inkscape::SnapPreferences::PointType point_type,
@@ -777,17 +867,17 @@ Inkscape::SnappedPoint SnapManager::constrainedSnapStretch(Inkscape::SnapPrefere
     return _snapTransformed(point_type, p, pointer, true, Geom::Point(0,0), STRETCH, Geom::Point(s, s), o, d, u);
 }
 
-
 /**
- *  Try to snap a list of points to any interested snappers after they have undergone
- *  a skew.
+ *  \brief Apply a skew to a set of points and snap such that the direction of the skew is preserved
  *
- *  \param point_type Type of points.
- *  \param p Points.
- *  \param s Proposed skew.
- *  \param o Origin of proposed skew.
+ *  \param point_type Category of points to which the source point belongs: node or bounding box.
+ *  \param p Collection of points to snap (snap sources), at their untransformed position, all points undergoing the same transformation. Paired with an identifier of the type of the snap source.
+ *  \param pointer Location of the mouse pointer at the time dragging started (i.e. when the selection was still untransformed).
+ *  \param constraint The direction or line along which snapping must occur.
+ *  \param s Proposed skew; the final skew can only be calculated after snapping has occurred
+ *  \param o Origin of the proposed skew
  *  \param d Dimension in which to apply proposed skew.
- *  \return Snapped skew, if a snap occurred, and a flag indicating whether a snap occurred.
+ *  \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics.
  */
 
 Inkscape::SnappedPoint SnapManager::constrainedSnapSkew(Inkscape::SnapPreferences::PointType point_type,
@@ -800,7 +890,7 @@ Inkscape::SnappedPoint SnapManager::constrainedSnapSkew(Inkscape::SnapPreference
 {
     // "s" contains skew factor in s[0], and scale factor in s[1]
 
-    // Snapping the nodes of the boundingbox of a selection that is being transformed, will only work if
+    // Snapping the nodes of the bounding box of a selection that is being transformed, will only work if
     // the transformation of the bounding box is equal to the transformation of the individual nodes. This is
     // NOT the case for example when rotating or skewing. The bounding box itself cannot possibly rotate or skew,
     // so it's corners have a different transformation. The snappers cannot handle this, therefore snapping
@@ -814,7 +904,23 @@ Inkscape::SnappedPoint SnapManager::constrainedSnapSkew(Inkscape::SnapPreference
     return _snapTransformed(point_type, p, pointer, true, constraint, SKEW, s, o, d, false);
 }
 
-Inkscape::SnappedPoint SnapManager::findBestSnap(Geom::Point const &p, Inkscape::SnapSourceType const source_type, SnappedConstraints &sc, bool constrained) const
+/**
+ * \brief Given a set of possible snap targets, find the best target (which is not necessarily
+ * also the nearest target), and show the snap indicator if requested
+ *
+ * \param p Current position of the snap source
+ * \param source_type Detailed description of the source type, will be used by the snap indicator
+ * \param sc A structure holding all snap targets that have been found so far
+ * \param constrained True if the snap is constrained, e.g. for stretching or for purely horizontal translation.
+ * \param noCurves If true, then do consider snapping to intersections of curves, but not to the curves themself
+ * \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics
+ */
+
+Inkscape::SnappedPoint SnapManager::findBestSnap(Geom::Point const &p,
+											     Inkscape::SnapSourceType const source_type,
+											     SnappedConstraints &sc,
+											     bool constrained,
+											     bool noCurves) const
 {
 
     /*
@@ -836,9 +942,11 @@ Inkscape::SnappedPoint SnapManager::findBestSnap(Geom::Point const &p, Inkscape:
     }
 
     // search for the closest snapped curve
-    Inkscape::SnappedCurve closestCurve;
-    if (getClosestCurve(sc.curves, closestCurve)) {
-        sp_list.push_back(Inkscape::SnappedPoint(closestCurve));
+    if (!noCurves) {
+		Inkscape::SnappedCurve closestCurve;
+		if (getClosestCurve(sc.curves, closestCurve)) {
+			sp_list.push_back(Inkscape::SnappedPoint(closestCurve));
+		}
     }
 
     if (snapprefs.getSnapIntersectionCS()) {
@@ -925,6 +1033,22 @@ Inkscape::SnappedPoint SnapManager::findBestSnap(Geom::Point const &p, Inkscape:
     return bestSnappedPoint;
 }
 
+/**
+ * \brief Prepare the snap manager for the actual snapping, which includes building a list of snap targets
+ * to ignore and toggling the snap indicator
+ *
+ * There are two overloaded setup() methods, of which this one only allows for a single item to be ignored
+ * whereas the other one will take a list of items to ignore
+ *
+ * \param desktop Reference to the desktop to which this snap manager is attached
+ * \param snapindicator If true then a snap indicator will be displayed automatically (when enabled in the preferences)
+ * \param item_to_ignore This item will not be snapped to, e.g. the item that is currently being dragged. This avoids "self-snapping"
+ * \param unselected_nodes Stationary nodes of the path that is currently being edited in the node tool and
+ * that can be snapped too. Nodes not in this list will not be snapped to, to avoid "self-snapping". Of each
+ * unselected node both the position (Geom::Point) and the type (Inkscape::SnapTargetType) will be stored
+ * \param guide_to_ignore Guide that is currently being dragged and should not be snapped to
+ */
+
 void SnapManager::setup(SPDesktop const *desktop,
                         bool snapindicator,
                         SPItem const *item_to_ignore,
@@ -939,6 +1063,22 @@ void SnapManager::setup(SPDesktop const *desktop,
     _unselected_nodes = unselected_nodes;
     _guide_to_ignore = guide_to_ignore;
 }
+
+/**
+ * \brief Prepare the snap manager for the actual snapping, which includes building a list of snap targets
+ * to ignore and toggling the snap indicator
+ *
+ * There are two overloaded setup() methods, of which the other one only allows for a single item to be ignored
+ * whereas this one will take a list of items to ignore
+ *
+ * \param desktop Reference to the desktop to which this snap manager is attached
+ * \param snapindicator If true then a snap indicator will be displayed automatically (when enabled in the preferences)
+ * \param items_to_ignore These items will not be snapped to, e.g. the items that are currently being dragged. This avoids "self-snapping"
+ * \param unselected_nodes Stationary nodes of the path that is currently being edited in the node tool and
+ * that can be snapped too. Nodes not in this list will not be snapped to, to avoid "self-snapping". Of each
+ * unselected node both the position (Geom::Point) and the type (Inkscape::SnapTargetType) will be stored
+ * \param guide_to_ignore Guide that is currently being dragged and should not be snapped to
+ */
 
 void SnapManager::setup(SPDesktop const *desktop,
                         bool snapindicator,
@@ -959,6 +1099,18 @@ SPDocument *SnapManager::getDocument() const
 {
     return _named_view->document;
 }
+
+/**
+ * \brief Takes an untransformed point, applies the given transformation, and returns the transformed point. Eliminates lots of duplicated code
+ *
+ * \param p The untransformed position of the point, paired with an identifier of the type of the snap source.
+ * \param transformation_type Type of transformation to apply.
+ * \param transformation Mathematical description of the transformation; details depend on the type.
+ * \param origin Origin of the transformation, if applicable.
+ * \param dim Dimension to which the transformation applies, if applicable.
+ * \param uniform true if the transformation should be uniform; only applicable for stretching and scaling.
+ * \return The position of the point after transformation
+ */
 
 Geom::Point SnapManager::_transformPoint(std::pair<Geom::Point, int> const &p,
                                         Transformation const transformation_type,
@@ -1001,6 +1153,13 @@ Geom::Point SnapManager::_transformPoint(std::pair<Geom::Point, int> const &p,
 
     return transformed;
 }
+
+/**
+ * \brief Mark the location of the snap source (not the snap target!) on the canvas by drawing a symbol
+ *
+ * \param point_type Category of points to which the source point belongs: node, guide or bounding box
+ * \param p The transformed position of the source point, paired with an identifier of the type of the snap source.
+ */
 
 void SnapManager::_displaySnapsource(Inkscape::SnapPreferences::PointType point_type, std::pair<Geom::Point, int> const &p) const {
 

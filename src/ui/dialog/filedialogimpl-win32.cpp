@@ -193,11 +193,11 @@ void FileOpenDialogImplWin32::createFilterMenu()
     ustring all_inkscape_files_filter, all_image_files_filter, all_vectors_filter, all_bitmaps_filter;
     Filter all_files, all_inkscape_files, all_image_files, all_vectors, all_bitmaps;
 
-    const gchar *all_files_filter_name = N_("All Files");
-    const gchar *all_inkscape_files_filter_name = N_("All Inkscape Files");
-    const gchar *all_image_files_filter_name = N_("All Images");
-    const gchar *all_vectors_filter_name = N_("All Vectors");
-    const gchar *all_bitmaps_filter_name = N_("All Bitmaps");
+    const gchar *all_files_filter_name = _("All Files");
+    const gchar *all_inkscape_files_filter_name = _("All Inkscape Files");
+    const gchar *all_image_files_filter_name = _("All Images");
+    const gchar *all_vectors_filter_name = _("All Vectors");
+    const gchar *all_bitmaps_filter_name = _("All Bitmaps");
 
     // Calculate the amount of memory required
     int filter_count = 5;       // 5 - one for each filter type
@@ -608,9 +608,12 @@ LRESULT CALLBACK FileOpenDialogImplWin32::preview_wnd_proc(HWND hwnd, UINT uMsg,
 
             if(pImpl->_path_string[0] == 0)
             {
+                WCHAR* noFileText=(WCHAR*)g_utf8_to_utf16(_("No file selected"),
+                    -1, NULL, NULL, NULL);
                 FillRect(dc, &rcClient, (HBRUSH)(COLOR_3DFACE + 1));
-                DrawText(dc, _("No file selected"), -1, &rcClient,
+                DrawTextW(dc,  noFileText, -1, &rcClient, 
                     DT_CENTER | DT_VCENTER | DT_NOPREFIX);
+                g_free(noFileText);
             }
             else if(pImpl->_preview_bitmap != NULL)
             {
@@ -1494,8 +1497,10 @@ FileSaveDialogImplWin32::FileSaveDialogImplWin32(Gtk::Window &parent,
             FileDialogType fileTypes,
             const char *title,
             const Glib::ustring &/*default_key*/,
-            const char *docTitle) :
-    FileDialogBaseWin32(parent, dir, title, fileTypes, "dialogs.save_as"),
+            const char *docTitle,
+            const Inkscape::Extension::FileSaveMethod save_method) :
+    FileDialogBaseWin32(parent, dir, title, fileTypes,
+                        (save_method == Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY) ? "dialogs.save_copy" :  "dialogs.save_as"),
         _title_label(NULL),
         _title_edit(NULL)
 {

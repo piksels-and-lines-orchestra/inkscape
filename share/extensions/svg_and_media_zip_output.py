@@ -23,7 +23,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-Version 0.3
+Version 0.4 (Nicolas Dufour, nicoduf@yahoo.fr)
+  fix a coding bug: now use UTF-8 to save filenames in the archive.
+  fix xlink href parsing (now a real URL in 0.47).
+  fix Win32 stdout \r\r\n bug (stdout now set to bin mode).
+  fix a double .svg extension bug (added svg and svgz in the docstripped extensions).
 
 TODO
 - fix bug: not saving existing .zip after a Collect for Output is run
@@ -33,8 +37,10 @@ TODO
 - maybe add better extention
 """
 
-import inkex, os.path
-import os
+import inkex
+import urlparse
+import urllib
+import os, os.path
 import string
 import zipfile
 import shutil
@@ -48,7 +54,13 @@ class SVG_and_Media_ZIP_Output(inkex.Effect):
         inkex.Effect.__init__(self)
 
     def output(self):
-        out = open(self.zip_file,'r')
+        out = open(self.zip_file,'rb')
+        if os.name == 'nt':
+            try:
+                import msvcrt
+                msvcrt.setmode(1, os.O_BINARY)
+            except:
+                pass
         sys.stdout.write(out.read())
         out.close()
         self.clear_tmp()
@@ -56,24 +68,23 @@ class SVG_and_Media_ZIP_Output(inkex.Effect):
     def clear_tmp(self):
         shutil.rmtree(self.tmp_dir)
 
-
     def effect(self):
         ttmp_orig = self.document.getroot()
 
         docname = ttmp_orig.get(inkex.addNS('docname',u'sodipodi'))
         if docname is None: docname = self.args[-1]
 
-        #orig_tmpfile = sys.argv[1]
-
         #create os temp dir
         self.tmp_dir = tempfile.mkdtemp()
 
-        # create destination zip in same directory as the document
-        self.zip_file = self.tmp_dir + os.path.sep + docname + '.zip'
-        z = zipfile.ZipFile(self.zip_file, 'w')
-
         #fixme replace whatever extention
         docstripped = docname.replace('.zip', '')
+        docstripped = docstripped.replace('.svg', '')
+        docstripped = docstripped.replace('.svgz', '')
+        
+        # create destination zip in same directory as the document
+        self.zip_file = os.path.join(self.tmp_dir, docstripped) + '.zip'
+        z = zipfile.ZipFile(self.zip_file, 'w')
 
         #read tmpdoc and copy all images to temp dir
         for node in self.document.xpath('//svg:image', namespaces=inkex.NSS):
@@ -87,24 +98,29 @@ class SVG_and_Media_ZIP_Output(inkex.Effect):
 
         stream.close()
 
-        z.write(dst_file.encode("latin-1"),docstripped.encode("latin-1")+'.svg') 
-        z.close()
+        z.write(dst_file,docstripped.encode("utf_8")+'.svg')
 
+        z.close()
 
     def collectAndZipImages(self, node, docname, z):
         xlink = node.get(inkex.addNS('href',u'xlink'))
         if (xlink[:4]!='data'):
-            absref = node.get(inkex.addNS('absref',u'sodipodi'))
-            if absref is None:
-              absref = node.get(inkex.addNS('href',u'xlink'))
+            absref=node.get(inkex.addNS('absref',u'sodipodi'))
+            url=urlparse.urlparse(xlink)
+            href=urllib.unquote(url.path)
+            if os.name == 'nt' and href[0] == '/':
+                href = href[1:]
+            if (href != None):
+                absref=os.path.realpath(href)
+
             if (os.path.isfile(absref)):
                 shutil.copy(absref, self.tmp_dir)
-                z.write(absref.encode("latin-1"),os.path.basename(absref).encode("latin-1"))
-            elif (os.path.isfile(self.tmp_dir + os.path.sep + absref)):
+                z.write(absref, os.path.basename(absref).encode("utf_8"))
+            elif (os.path.isfile(os.path.join(self.tmp_dir, absref))):
                 #TODO: please explain why this clause is necessary
-                shutil.copy(self.tmp_dir + os.path.sep + absref, self.tmp_dir)
-                z.write(self.tmp_dir + os.path.sep + absref.encode("latin-1"),
-                        os.path.basename(absref).encode("latin-1"))
+                shutil.copy(os.path.join(self.tmp_dir, absref), self.tmp_dir)
+                z.write(os.path.join(self.tmp_dir, absref),
+                        os.path.basename(absref).encode("utf_8"))
             else:
                 inkex.errormsg(_('Could not locate file: %s') % absref)
 

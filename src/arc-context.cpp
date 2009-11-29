@@ -50,11 +50,13 @@ static void sp_arc_context_init(SPArcContext *arc_context);
 static void sp_arc_context_dispose(GObject *object);
 
 static void sp_arc_context_setup(SPEventContext *ec);
+static void sp_arc_context_finish(SPEventContext *ec);
 static gint sp_arc_context_root_handler(SPEventContext *event_context, GdkEvent *event);
 static gint sp_arc_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEvent *event);
 
 static void sp_arc_drag(SPArcContext *ec, Geom::Point pt, guint state);
 static void sp_arc_finish(SPArcContext *ec);
+static void sp_arc_cancel(SPArcContext *ec);
 
 static SPEventContextClass *parent_class;
 
@@ -88,6 +90,7 @@ static void sp_arc_context_class_init(SPArcContextClass *klass)
     object_class->dispose = sp_arc_context_dispose;
 
     event_context_class->setup = sp_arc_context_setup;
+    event_context_class->finish = sp_arc_context_finish;
     event_context_class->root_handler = sp_arc_context_root_handler;
     event_context_class->item_handler = sp_arc_context_item_handler;
 }
@@ -108,6 +111,20 @@ static void sp_arc_context_init(SPArcContext *arc_context)
     arc_context->item = NULL;
 
     new (&arc_context->sel_changed_connection) sigc::connection();
+}
+
+static void sp_arc_context_finish(SPEventContext *ec)
+{
+    SPArcContext *ac = SP_ARC_CONTEXT(ec);
+	SPDesktop *desktop = ec->desktop;
+
+	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), GDK_CURRENT_TIME);
+	sp_arc_finish(ac);
+    ac->sel_changed_connection.disconnect();
+
+    if (((SPEventContextClass *) parent_class)->finish) {
+		((SPEventContextClass *) parent_class)->finish(ec);
+	}
 }
 
 static void sp_arc_context_dispose(GObject *object)
@@ -222,7 +239,6 @@ static gint sp_arc_context_root_handler(SPEventContext *event_context, GdkEvent 
             if (event->button.button == 1 && !event_context->space_panning) {
 
                 dragging = true;
-                sp_event_context_snap_window_open(event_context);
                 ac->center = Inkscape::setup_for_drag_start(desktop, event_context, event);
 
                 /* Snap center */
@@ -266,10 +282,10 @@ static gint sp_arc_context_root_handler(SPEventContext *event_context, GdkEvent 
             event_context->xp = event_context->yp = 0;
             if (event->button.button == 1 && !event_context->space_panning) {
                 dragging = false;
-                sp_event_context_snap_window_closed(event_context, false); //button release will also occur on a double-click; in that case suppress warnings
+                sp_event_context_discard_delayed_snap_event(event_context);
                 if (!event_context->within_tolerance) {
                     // we've been dragging, finish the arc
-                    sp_arc_finish(ac);
+               		sp_arc_finish(ac);
                 } else if (event_context->item_to_select) {
                     // no dragging, select clicked item if any
                     if (event->button.state & GDK_SHIFT_MASK) {
@@ -321,18 +337,22 @@ static gint sp_arc_context_root_handler(SPEventContext *event_context, GdkEvent 
                     }
                     break;
                 case GDK_Escape:
-                    sp_desktop_selection(desktop)->clear();
-                    //TODO: make dragging escapable by Esc
-                    break;
-
+                	if (dragging) {
+                		dragging = false;
+                		sp_event_context_discard_delayed_snap_event(event_context);
+                		// if drawing, cancel, otherwise pass it up for deselecting
+						sp_arc_cancel(ac);
+						ret = TRUE;
+					}
+                	break;
                 case GDK_space:
                     if (dragging) {
                         sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate),
                                               event->button.time);
                         dragging = false;
-                        sp_event_context_snap_window_closed(event_context);
+                        sp_event_context_discard_delayed_snap_event(event_context);
                         if (!event_context->within_tolerance) {
-                            // we've been dragging, finish the rect
+                            // we've been dragging, finish the arc
                             sp_arc_finish(ac);
                         }
                         // do not return true, so that space would work switching to selector
@@ -461,7 +481,14 @@ static void sp_arc_finish(SPArcContext *ac)
     ac->_message_context->clear();
 
     if (ac->item != NULL) {
-        SPDesktop *desktop = SP_EVENT_CONTEXT(ac)->desktop;
+
+    	SPGenericEllipse *ge = SP_GENERICELLIPSE(SP_ARC(ac->item));
+		if (ge->rx.computed == 0 || ge->ry.computed == 0) {
+			sp_arc_cancel(ac); // Don't allow the creating of zero sized arc, for example when the start and and point snap to the snap grid point
+			return;
+		}
+
+    	SPDesktop *desktop = SP_EVENT_CONTEXT(ac)->desktop;
 
         SP_OBJECT(ac->item)->updateRepr();
 
@@ -473,6 +500,28 @@ static void sp_arc_finish(SPArcContext *ac)
 
         ac->item = NULL;
     }
+}
+
+static void sp_arc_cancel(SPArcContext *ac)
+{
+	SPDesktop *desktop = SP_EVENT_CONTEXT(ac)->desktop;
+
+	sp_desktop_selection(desktop)->clear();
+	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), 0);
+
+    if (ac->item != NULL) {
+    	SP_OBJECT(ac->item)->deleteObject();
+    	ac->item = NULL;
+    }
+
+    ac->within_tolerance = false;
+    ac->xp = 0;
+    ac->yp = 0;
+    ac->item_to_select = NULL;
+
+    sp_canvas_end_forced_full_redraws(desktop->canvas);
+
+    sp_document_cancel(sp_desktop_document(desktop));
 }
 
 

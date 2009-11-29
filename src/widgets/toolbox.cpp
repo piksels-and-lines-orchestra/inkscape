@@ -9,7 +9,7 @@
  *   Frank Felfe <innerspace@iname.com>
  *   John Cliff <simarilius@yahoo.com>
  *   David Turner <novalis@gnu.org>
- *   Josh Andler <scislac@scislac.com>
+ *   Josh Andler <scislac@users.sf.net>
  *   Jon A. Cruz <jon@joncruz.org>
  *   Maximilian Albert <maximilian.albert@gmail.com>
  *
@@ -2384,8 +2384,10 @@ static void sp_stb_proportion_value_changed( GtkAdjustment *adj, GObject *dataKl
     SPDesktop *desktop = (SPDesktop *) g_object_get_data( dataKludge, "desktop" );
 
     if (sp_document_get_undo_sensitive(sp_desktop_document(desktop))) {
-        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        prefs->setDouble("/tools/shapes/star/proportion", adj->value);
+        if (!IS_NAN(adj->value)) {
+			Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+			prefs->setDouble("/tools/shapes/star/proportion", adj->value);
+        }
     }
 
     // quit if run by the attr_changed listener
@@ -4434,14 +4436,14 @@ static void update_presets_list (GObject *tbl)
 static void sp_ddc_mass_value_changed( GtkAdjustment *adj, GObject* tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/calligraphic/mass", adj->value * 0.01 );
+    prefs->setDouble( "/tools/calligraphic/mass", adj->value );
     update_presets_list(tbl);
 }
 
 static void sp_ddc_wiggle_value_changed( GtkAdjustment *adj, GObject* tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/calligraphic/wiggle", adj->value * 0.01 );
+    prefs->setDouble( "/tools/calligraphic/wiggle", adj->value );
     update_presets_list(tbl);
 }
 
@@ -4455,28 +4457,28 @@ static void sp_ddc_angle_value_changed( GtkAdjustment *adj, GObject* tbl )
 static void sp_ddc_width_value_changed( GtkAdjustment *adj, GObject *tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/calligraphic/width", adj->value * 0.01 );
+    prefs->setDouble( "/tools/calligraphic/width", adj->value );
     update_presets_list(tbl);
 }
 
 static void sp_ddc_velthin_value_changed( GtkAdjustment *adj, GObject* tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble("/tools/calligraphic/thinning", adj->value * 0.01 );
+    prefs->setDouble("/tools/calligraphic/thinning", adj->value );
     update_presets_list(tbl);
 }
 
 static void sp_ddc_flatness_value_changed( GtkAdjustment *adj, GObject* tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/calligraphic/flatness", adj->value * 0.01);
+    prefs->setDouble( "/tools/calligraphic/flatness", adj->value );
     update_presets_list(tbl);
 }
 
 static void sp_ddc_tremor_value_changed( GtkAdjustment *adj, GObject* tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/calligraphic/tremor", adj->value * 0.01 );
+    prefs->setDouble( "/tools/calligraphic/tremor", adj->value );
     update_presets_list(tbl);
 }
 
@@ -4550,7 +4552,7 @@ static void sp_dcc_build_presets_list(GObject *tbl)
     	GtkTreeIter iter;
         Glib::ustring preset_name = prefs->getString(*i + "/name");
         gtk_list_store_append( model, &iter );
-        gtk_list_store_set( model, &iter, 0, preset_name.data(), 1, ii++, -1 );
+        gtk_list_store_set( model, &iter, 0, _(preset_name.data()), 1, ii++, -1 );
     }
 
     {
@@ -4716,7 +4718,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-calligraphy",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_width_value_changed,  0.01, 0, 100 );
+                                                              sp_ddc_width_value_changed,  1, 0);
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
@@ -4733,7 +4735,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
                                                               -100, 100, 1, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_velthin_value_changed, 0.01, 0, 100);
+                                                              sp_ddc_velthin_value_changed, 1, 0);
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
         }
@@ -4767,7 +4769,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
                                                               0.0, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_flatness_value_changed, 0.01, 0, 100 );
+                                                              sp_ddc_flatness_value_changed, 1, 0);
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
         }
@@ -4800,7 +4802,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
                                                               0.0, 100, 1, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_tremor_value_changed, 0.01, 0, 100 );
+                                                              sp_ddc_tremor_value_changed, 1, 0);
 
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
@@ -4818,7 +4820,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
                                                               0.0, 100, 1, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_wiggle_value_changed, 0.01, 0, 100 );
+                                                              sp_ddc_wiggle_value_changed, 1, 0);
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
@@ -4835,7 +4837,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
                                                               0.0, 100, 1, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_mass_value_changed, 0.01, 0, 100 );
+                                                              sp_ddc_mass_value_changed, 1, 0);
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
@@ -4927,7 +4929,7 @@ sp_arctb_startend_value_changed(GtkAdjustment *adj, GObject *tbl, gchar const *v
 
     if (sp_document_get_undo_sensitive(sp_desktop_document(desktop))) {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        prefs->setDouble(Glib::ustring("/tools/shapes/arc") + value_name, (adj->value * M_PI)/ 180);
+        prefs->setDouble(Glib::ustring("/tools/shapes/arc/") + value_name, adj->value);
     }
 
     // quit if run by the attr_changed listener
@@ -5571,7 +5573,7 @@ static void sp_lpetool_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActi
         gtk_list_store_set( model, &iter,
                             0, _("All inactive"),
                             1, _("No geometric tool is active"),
-                            2, _("draw-geometry-inactive"),
+                            2, "draw-geometry-inactive",
                             -1 );
 
         Inkscape::LivePathEffect::EffectType type;
@@ -5695,7 +5697,7 @@ static void sp_lpetool_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActi
 static void sp_erc_width_value_changed( GtkAdjustment *adj, GObject *tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/eraser/width", adj->value * 0.01 );
+    prefs->setDouble( "/tools/eraser/width", adj->value );
     update_presets_list(tbl);
 }
 
@@ -5735,7 +5737,7 @@ static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActio
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-eraser",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_erc_width_value_changed,  0.01, 0, 100 );
+                                                              sp_erc_width_value_changed, 1, 0);
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
@@ -5939,7 +5941,7 @@ sp_text_toolbox_selection_changed (Inkscape::Selection */*selection*/, GObject *
             GtkToggleButton *button = GTK_TOGGLE_BUTTON (g_object_get_data (G_OBJECT (tbl), "style-bold"));
 
             gboolean active = gtk_toggle_button_get_active (button);
-            gboolean check  = (query->font_weight.computed >= SP_CSS_FONT_WEIGHT_700);
+            gboolean check  = ((query->font_weight.computed >= SP_CSS_FONT_WEIGHT_700) && (query->font_weight.computed != SP_CSS_FONT_WEIGHT_NORMAL) && (query->font_weight.computed != SP_CSS_FONT_WEIGHT_LIGHTER));
 
             if (active != check)
             {
@@ -6087,8 +6089,8 @@ sp_text_toolbox_family_changed (GtkComboBoxEntry    *,
     // If querying returned nothing, set the default style of the tool (for new texts)
     if (result_fontspec == QUERY_STYLE_NOTHING)
     {
-    	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        prefs->mergeStyle("/tools/text/style", css);
         sp_text_edit_dialog_default_set_insensitive (); //FIXME: Replace trough a verb
     }
     else
@@ -6162,7 +6164,7 @@ sp_text_toolbox_anchoring_toggled (GtkRadioButton   *button,
     if (result_numbers == QUERY_STYLE_NOTHING)
     {
     	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_style_unref(query);
@@ -6206,17 +6208,31 @@ sp_text_toolbox_style_toggled (GtkToggleButton  *button,
         fontFromStyle->Unref();
     }
 
+    bool nochange = true;
     switch (prop)
     {
         case 0:
         {
             if (!fontSpec.empty()) {
                 newFontSpec = font_factory::Default()->FontSpecificationSetBold(fontSpec, active);
+                if (!newFontSpec.empty()) {
+                    // Don't even set the bold if the font didn't exist on the system
+                    sp_repr_css_set_property (css, "font-weight", active ? "bold" : "normal" );
+                    nochange = false;
+                }
             }
-            if (fontSpec != newFontSpec) {
-                // Don't even set the bold if the font didn't exist on the system
-                sp_repr_css_set_property (css, "font-weight", active ? "bold" : "normal" );
+            // set or reset the button according
+            if(nochange) {
+                gboolean check = gtk_toggle_button_get_active (button);
+
+                if (active != check)
+                {
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(1));
+                    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button), active);
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(0));
+                }
             }
+
             break;
         }
 
@@ -6224,10 +6240,21 @@ sp_text_toolbox_style_toggled (GtkToggleButton  *button,
         {
             if (!fontSpec.empty()) {
                 newFontSpec = font_factory::Default()->FontSpecificationSetItalic(fontSpec, active);
+                if (!newFontSpec.empty()) {
+                    // Don't even set the italic if the font didn't exist on the system
+                    sp_repr_css_set_property (css, "font-style", active ? "italic" : "normal");
+                    nochange = false;
+                }
             }
-            if (fontSpec != newFontSpec) {
-                // Don't even set the italic if the font didn't exist on the system
-                sp_repr_css_set_property (css, "font-style", active ? "italic" : "normal");
+            if(nochange) {
+                gboolean check = gtk_toggle_button_get_active (button);
+
+                if (active != check)
+                {
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(1));
+                    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button), active);
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(0));
+                }
             }
             break;
         }
@@ -6241,7 +6268,7 @@ sp_text_toolbox_style_toggled (GtkToggleButton  *button,
     if (result_fontspec == QUERY_STYLE_NOTHING)
     {
     	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_style_unref(query);
@@ -6290,7 +6317,7 @@ sp_text_toolbox_orientation_toggled (GtkRadioButton  *button,
     if (result_numbers == QUERY_STYLE_NOTHING)
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_desktop_set_style (desktop, css, true, true);
@@ -6312,10 +6339,10 @@ sp_text_toolbox_family_keypress (GtkWidget */*w*/, GdkEventKey *event, GObject *
         case GDK_Return:
             // unfreeze and update, which will defocus
             g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
-            sp_text_toolbox_family_changed (NULL, tbl); 
+            sp_text_toolbox_family_changed (NULL, tbl);
             return TRUE; // I consumed the event
             break;
-        case GDK_Escape: 
+        case GDK_Escape:
             // defocus
             gtk_widget_grab_focus (GTK_WIDGET(desktop->canvas));
             return TRUE; // I consumed the event
@@ -6402,7 +6429,7 @@ sp_text_toolbox_size_changed  (GtkComboBox *cbox,
     if (result_numbers == QUERY_STYLE_NOTHING)
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_style_unref(query);
@@ -6508,7 +6535,7 @@ cell_data_func  (GtkCellLayout */*cell_layout*/,
 gboolean            text_toolbox_completion_match_selected    (GtkEntryCompletion *widget,
                                                         GtkTreeModel       *model,
                                                         GtkTreeIter        *iter,
-                                                        GObject *tbl) 
+                                                        GObject *tbl)
 {
     // We intercept this signal so as to fire family_changed at once (without it, you'd have to
     // press Enter again after choosing a completion)
@@ -6583,10 +6610,10 @@ void        sp_text_toolbox_family_popnotify          (GtkComboBox *widget,
                          }
 
                          // update
-                         sp_text_toolbox_family_changed (NULL, tbl); 
+                         sp_text_toolbox_family_changed (NULL, tbl);
                          break;
                      }
-                 } 
+                 }
              }
          }
 
@@ -6612,10 +6639,20 @@ sp_text_toolbox_new (SPDesktop *desktop)
     ////////////Family
     Glib::RefPtr<Gtk::ListStore> store = Inkscape::FontLister::get_instance()->get_font_list();
     Gtk::ComboBoxEntry *font_sel = Gtk::manage(new Gtk::ComboBoxEntry(store));
+
+    gtk_rc_parse_string (
+       "style \"dropdown-as-list-style\"\n"
+       "{\n"
+       "    GtkComboBox::appears-as-list = 1\n"
+       "}\n"
+       "widget \"*.toolbox-fontfamily-list\" style \"dropdown-as-list-style\"");
+    gtk_widget_set_name(GTK_WIDGET (font_sel->gobj()), "toolbox-fontfamily-list");
+    gtk_tooltips_set_tip (tt, GTK_WIDGET (font_sel->gobj()), _("Select font family (Alt+X to access)"), "");
+
     g_signal_connect (G_OBJECT (font_sel->gobj()), "key-press-event", G_CALLBACK(sp_text_toolbox_family_list_keypress), tbl);
 
     cbe_add_completion(font_sel->gobj(), G_OBJECT(tbl));
-    
+
     gtk_toolbar_append_widget( tbl, (GtkWidget*) font_sel->gobj(), "", "");
     g_object_set_data (G_OBJECT (tbl), "family-entry-combo", font_sel);
 
@@ -6628,7 +6665,7 @@ sp_text_toolbox_new (SPDesktop *desktop)
     g_signal_connect (G_OBJECT (entry), "activate", G_CALLBACK (sp_text_toolbox_family_changed), tbl);
 
     g_signal_connect (G_OBJECT (font_sel->gobj()), "changed", G_CALLBACK (sp_text_toolbox_family_changed), tbl);
-    g_signal_connect (G_OBJECT (font_sel->gobj()), "notify::popup-shown", 
+    g_signal_connect (G_OBJECT (font_sel->gobj()), "notify::popup-shown",
              G_CALLBACK (sp_text_toolbox_family_popnotify), tbl);
     g_signal_connect (G_OBJECT (entry), "key-press-event", G_CALLBACK(sp_text_toolbox_family_keypress), tbl);
     g_signal_connect (G_OBJECT (entry),  "focus-in-event", G_CALLBACK (sp_text_toolbox_entry_focus_in), tbl);
@@ -6647,8 +6684,7 @@ sp_text_toolbox_new (SPDesktop *desktop)
     gtk_container_add (GTK_CONTAINER (box), image);
     gtk_toolbar_append_widget( tbl, box, "", "");
     g_object_set_data (G_OBJECT (tbl), "warning-image", box);
-    GtkTooltips *tooltips = gtk_tooltips_new ();
-    gtk_tooltips_set_tip (tooltips, box, _("This font is currently not installed on your system. Inkscape will use the default font instead."), "");
+    gtk_tooltips_set_tip (tt, box, _("This font is currently not installed on your system. Inkscape will use the default font instead."), "");
     gtk_widget_hide (GTK_WIDGET (box));
     g_signal_connect_swapped (G_OBJECT (tbl), "show", G_CALLBACK (gtk_widget_hide), box);
 
@@ -6833,11 +6869,6 @@ static void sp_connector_path_set_ignore(void)
 
 static void connector_spacing_changed(GtkAdjustment *adj, GObject* tbl)
 {
-    // quit if run by the _changed callbacks
-    if (g_object_get_data( tbl, "freeze" )) {
-        return;
-    }
-
     SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
     SPDocument *doc = sp_desktop_document(desktop);
 
@@ -6848,18 +6879,21 @@ static void connector_spacing_changed(GtkAdjustment *adj, GObject* tbl)
 
     Inkscape::XML::Node *repr = SP_OBJECT_REPR(desktop->namedview);
 
-    if ( repr->attribute("inkscape:connector-spacing") ) {
-        gdouble priorValue = gtk_adjustment_get_value(adj);
-        sp_repr_get_double( repr, "inkscape:connector-spacing", &priorValue );
-        if ( priorValue == gtk_adjustment_get_value(adj) ) {
-            return;
-        }
-    } else if ( adj->value == defaultConnSpacing ) {
+    if ( !repr->attribute("inkscape:connector-spacing") &&
+            ( adj->value == defaultConnSpacing )) {
+        // Don't need to update the repr if the attribute doesn't
+        // exist and it is being set to the default value -- as will
+        // happen at startup.
         return;
     }
 
-    // in turn, prevent callbacks from responding
-    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+    // quit if run by the attr_changed listener
+    if (g_object_get_data( tbl, "freeze" )) {
+        return;
+    }
+
+    // in turn, prevent listener from responding
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE));
 
     sp_repr_set_css_double(repr, "inkscape:connector-spacing", adj->value);
     SP_OBJECT(desktop->namedview)->updateRepr();
@@ -6879,8 +6913,6 @@ static void connector_spacing_changed(GtkAdjustment *adj, GObject* tbl)
             _("Change connector spacing"));
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
-
-    spinbutton_defocus(GTK_OBJECT(tbl));
 }
 
 static void sp_connector_graph_layout(void)
@@ -6918,7 +6950,6 @@ static void connector_length_changed(GtkAdjustment *adj, GObject* tbl)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     prefs->setDouble("/tools/connector/length", adj->value);
-    spinbutton_defocus(GTK_OBJECT(tbl));
 }
 
 static void connector_tb_event_attr_changed(Inkscape::XML::Node *repr,
@@ -6940,6 +6971,9 @@ static void connector_tb_event_attr_changed(Inkscape::XML::Node *repr,
     sp_repr_get_double(repr, "inkscape:connector-spacing", &spacing);
 
     gtk_adjustment_set_value(adj, spacing);
+    gtk_adjustment_value_changed(adj);
+
+    spinbutton_defocus(GTK_OBJECT(tbl));
 }
 
 

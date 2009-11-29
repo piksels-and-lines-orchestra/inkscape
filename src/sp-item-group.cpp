@@ -34,6 +34,7 @@
 #include "sp-item-transform.h"
 #include "sp-root.h"
 #include "sp-use.h"
+#include "sp-offset.h"
 #include "sp-clippath.h"
 #include "sp-mask.h"
 #include "sp-path.h"
@@ -42,6 +43,7 @@
 #include "inkscape.h"
 #include "desktop-handles.h"
 #include "selection.h"
+#include "live_effects/effect.h"
 #include "live_effects/lpeobject.h"
 #include "live_effects/lpeobject-reference.h"
 #include "sp-title.h"
@@ -71,7 +73,7 @@ static void sp_group_hide (SPItem * item, unsigned int key);
 static void sp_group_snappoints (SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const *snapprefs);
 
 static void sp_group_update_patheffect(SPLPEItem *lpeitem, bool write);
-static void sp_group_perform_patheffect(SPGroup *group, SPGroup *topgroup);
+static void sp_group_perform_patheffect(SPGroup *group, SPGroup *topgroup, bool write);
 
 static SPLPEItemClass * parent_class;
 
@@ -366,18 +368,18 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
 
     g_return_if_fail (!strcmp (grepr->name(), "svg:g") || !strcmp (grepr->name(), "svg:a") || !strcmp (grepr->name(), "svg:switch"));
 
-      // this converts the gradient/pattern fill/stroke on the group, if any, to userSpaceOnUse
-      sp_item_adjust_paint_recursive (gitem, Geom::identity(), Geom::identity(), false);
+    // this converts the gradient/pattern fill/stroke on the group, if any, to userSpaceOnUse
+    sp_item_adjust_paint_recursive (gitem, Geom::identity(), Geom::identity(), false);
 
     SPItem *pitem = SP_ITEM (SP_OBJECT_PARENT (gitem));
     Inkscape::XML::Node *prepr = SP_OBJECT_REPR (pitem);
 
-        if (SP_IS_BOX3D(gitem)) {
-            group = box3d_convert_to_group(SP_BOX3D(gitem));
-            gitem = SP_ITEM(group);
-        }
+	if (SP_IS_BOX3D(gitem)) {
+		group = box3d_convert_to_group(SP_BOX3D(gitem));
+		gitem = SP_ITEM(group);
+	}
 
-        sp_lpe_item_remove_all_path_effects(SP_LPE_ITEM(group), false);
+	sp_lpe_item_remove_all_path_effects(SP_LPE_ITEM(group), false);
 
     /* Step 1 - generate lists of children objects */
     GSList *items = NULL;
@@ -428,7 +430,24 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
                 // make sure a clone's effective transform is the same as was under group
                 ctrans = g.inverse() * citem->transform * g;
             } else {
-                ctrans = citem->transform * g;
+            	// We should not apply the group's transformation to both a linked offset AND to its source
+            	if (SP_IS_OFFSET(citem)) { // Do we have an offset at hand (whether it's dynamic or linked)?
+                	SPItem *source = sp_offset_get_source(SP_OFFSET(citem));
+                	// When dealing with a chain of linked offsets, the transformation of an offset will be
+                	// tied to the transformation of the top-most source, not to any of the intermediate
+                	// offsets. So let's find the top-most source
+                	while (source != NULL && SP_IS_OFFSET(source)) {
+                		source = sp_offset_get_source(SP_OFFSET(source));
+                	}
+                	if (source != NULL && // If true then we must be dealing with a linked offset ...
+                			SP_OBJECT(group)->isAncestorOf(SP_OBJECT(source)) == false) { // ... of which the source is not in the same group
+                		ctrans = citem->transform * g; // then we should apply the transformation of the group to the offset
+                	} else {
+                		ctrans = citem->transform;
+                	}
+                } else {
+                	ctrans = citem->transform * g;
+                }
             }
 
             // FIXME: constructing a transform that would fully preserve the appearance of a
@@ -443,7 +462,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
             // (i.e. optimized into the object if the corresponding preference is set)
             gchar *affinestr=sp_svg_transform_write(ctrans);
             nrepr->setAttribute("transform", affinestr);
-                        g_free(affinestr);
+            g_free(affinestr);
 
             items = g_slist_prepend (items, nrepr);
 
@@ -464,11 +483,11 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     if (objects) {
         Inkscape::XML::Node *last_def = SP_OBJECT_REPR(defs)->lastChild();
         while (objects) {
-                Inkscape::XML::Node *repr = (Inkscape::XML::Node *) objects->data;
-                if (!sp_repr_is_meta_element(repr))
-                    SP_OBJECT_REPR(defs)->addChild(repr, last_def);
-                Inkscape::GC::release(repr);
-        objects = g_slist_remove (objects, objects->data);
+			Inkscape::XML::Node *repr = (Inkscape::XML::Node *) objects->data;
+			if (!sp_repr_is_meta_element(repr))
+				SP_OBJECT_REPR(defs)->addChild(repr, last_def);
+			Inkscape::GC::release(repr);
+			objects = g_slist_remove (objects, objects->data);
         }
     }
 
@@ -476,7 +495,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     while (items) {
         Inkscape::XML::Node *repr = (Inkscape::XML::Node *) items->data;
         // add item
-                prepr->appendChild(repr);
+        prepr->appendChild(repr);
         // restore position; since the items list was prepended (i.e. reverse), we now add
         // all children at the same pos, which inverts the order once again
         repr->setPosition(pos > 0 ? pos : 0);
@@ -838,30 +857,39 @@ sp_group_update_patheffect (SPLPEItem *lpeitem, bool write)
             }
         }
 
-        sp_group_perform_patheffect(SP_GROUP(lpeitem), SP_GROUP(lpeitem));
+        sp_group_perform_patheffect(SP_GROUP(lpeitem), SP_GROUP(lpeitem), write);
     }
 }
 
 static void
-sp_group_perform_patheffect(SPGroup *group, SPGroup *topgroup)
+sp_group_perform_patheffect(SPGroup *group, SPGroup *topgroup, bool write)
 {
     GSList const *item_list = sp_item_group_item_list(SP_GROUP(group));
     for ( GSList const *iter = item_list; iter; iter = iter->next ) {
         SPObject *subitem = static_cast<SPObject *>(iter->data);
         if (SP_IS_GROUP(subitem)) {
-            sp_group_perform_patheffect(SP_GROUP(subitem), topgroup);
+            sp_group_perform_patheffect(SP_GROUP(subitem), topgroup, write);
         } else if (SP_IS_SHAPE(subitem)) {
-            SPCurve * c = sp_shape_get_curve(SP_SHAPE(subitem));
+            SPCurve * c = NULL;
+            if (SP_IS_PATH(subitem)) {
+                c = sp_path_get_original_curve(SP_PATH(subitem));
+            } else {
+                c = sp_shape_get_curve(SP_SHAPE(subitem));
+            }
             // only run LPEs when the shape has a curve defined
             if (c) {
                 sp_lpe_item_perform_path_effect(SP_LPE_ITEM(topgroup), c);
                 sp_shape_set_curve(SP_SHAPE(subitem), c, TRUE);
 
-                Inkscape::XML::Node *repr = SP_OBJECT_REPR(subitem);
-
-                gchar *str = sp_svg_write_path(c->get_pathvector());
-                repr->setAttribute("d", str);
-                g_free(str);
+                if (write) {
+                    Inkscape::XML::Node *repr = SP_OBJECT_REPR(subitem);
+                    gchar *str = sp_svg_write_path(c->get_pathvector());
+                    repr->setAttribute("d", str);
+#ifdef GROUP_VERBOSE
+g_message("sp_group_perform_patheffect writes 'd' attribute");
+#endif
+                    g_free(str);
+                }
 
                 c->unref();
             }

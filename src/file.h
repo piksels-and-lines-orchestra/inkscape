@@ -20,6 +20,7 @@
 #include <gtk/gtkwidget.h>
 
 #include "extension/extension-forward.h"
+#include "extension/system.h"
 
 struct SPDesktop;
 struct SPDocument;
@@ -29,6 +30,7 @@ namespace Inkscape {
         struct Extension;
     }
 }
+
 
 /*######################
 ## N E W
@@ -111,7 +113,7 @@ bool sp_file_save_a_copy (Gtk::Window &parentWindow, gpointer object, gpointer d
 bool sp_file_save_document (Gtk::Window &parentWindow, SPDocument *document);
 
 /* Do the saveas dialog with a document as the parameter */
-bool sp_file_save_dialog (Gtk::Window &parentWindow, SPDocument *doc, bool bAsCopy = FALSE);
+bool sp_file_save_dialog (Gtk::Window &parentWindow, SPDocument *doc, Inkscape::Extension::FileSaveMethod save_method);
 
 
 /*######################
@@ -139,7 +141,7 @@ void file_import(SPDocument *in_doc, const Glib::ustring &uri,
  * additional type selection, to allow the user to export
  * the a document as a given type.
  */
-bool sp_file_export_dialog (void *widget);
+bool sp_file_export_dialog (Gtk::Window &parentWindow);
 
 
 /*######################
@@ -149,13 +151,13 @@ bool sp_file_export_dialog (void *widget);
 /**
  * Export the current document to OCAL
  */
-void sp_file_export_to_ocal (Gtk::Window &parentWindow );
+//void sp_file_export_to_ocal (Gtk::Window &parentWindow );
 
 
 /**
  * Export the current document to OCAL
  */
-bool sp_file_export_to_ocal_dialog (void *widget);
+//bool sp_file_export_to_ocal_dialog (void *widget);
 
 
 /*######################

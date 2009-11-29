@@ -148,7 +148,6 @@ SPDesktop::SPDesktop() :
     _layer_hierarchy( 0 ),
     _reconstruction_old_layer_id( 0 ),
     _display_mode(Inkscape::RENDERMODE_NORMAL),
-    _saved_display_mode(Inkscape::RENDERMODE_NORMAL),
     _widget( 0 ),
     _inkscape( 0 ),
     _guides_message_context( 0 ),
@@ -165,8 +164,10 @@ SPDesktop::SPDesktop() :
 }
 
 void
-SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas)
+SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWidgetInterface *widget)
 {
+    _widget = widget;
+
     // Temporary workaround for link order issues:
     Inkscape::DeviceManager::getManager().getDevices();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -226,11 +227,18 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas)
         setDisplayModeNormal();
     }
 
+    // The order in which these canvas items are added determines the z-order. It's therefore
+    // important to add the tempgroup (which will contain the snapindicator) before adding the
+    // controls. Only this way one will be able to quickly (before the snap indicator has
+    // disappeared) reselect a node after snapping it. If the z-order is wrong however, this
+    // will not work (the snap indicator is on top of the node handler; is the snapindicator
+    // being selected? or does it intercept some of the events that should have gone to the
+    // node handler? see bug https://bugs.launchpad.net/inkscape/+bug/414142)
     gridgroup = (SPCanvasGroup *) sp_canvas_item_new (main, SP_TYPE_CANVAS_GROUP, NULL);
     guides = (SPCanvasGroup *) sp_canvas_item_new (main, SP_TYPE_CANVAS_GROUP, NULL);
     sketch = (SPCanvasGroup *) sp_canvas_item_new (main, SP_TYPE_CANVAS_GROUP, NULL);
-    controls = (SPCanvasGroup *) sp_canvas_item_new (main, SP_TYPE_CANVAS_GROUP, NULL);
     tempgroup = (SPCanvasGroup *) sp_canvas_item_new (main, SP_TYPE_CANVAS_GROUP, NULL);
+    controls = (SPCanvasGroup *) sp_canvas_item_new (main, SP_TYPE_CANVAS_GROUP, NULL);
 
     /* Push select tool to the bottom of stack */
     /** \todo
@@ -437,18 +445,21 @@ void SPDesktop::_setDisplayMode(Inkscape::RenderMode mode) {
     SP_CANVAS_ARENA (drawing)->arena->rendermode = mode;
     canvas->rendermode = mode;
     _display_mode = mode;
-    if (mode != Inkscape::RENDERMODE_OUTLINE) {
-        _saved_display_mode = _display_mode;
-    }
     sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (main), _d2w); // redraw
     _widget->setTitle(SP_DOCUMENT_NAME(sp_desktop_document(this)));
 }
 
 void SPDesktop::displayModeToggle() {
-    if (_display_mode == Inkscape::RENDERMODE_OUTLINE) {
-        _setDisplayMode(_saved_display_mode);
-    } else {
+    switch (_display_mode) {
+    case Inkscape::RENDERMODE_NORMAL:
+        _setDisplayMode(Inkscape::RENDERMODE_NO_FILTERS);
+        break;
+    case Inkscape::RENDERMODE_NO_FILTERS:
         _setDisplayMode(Inkscape::RENDERMODE_OUTLINE);
+        break;
+    case Inkscape::RENDERMODE_OUTLINE:
+    default:
+        _setDisplayMode(Inkscape::RENDERMODE_NORMAL);
     }
 }
 

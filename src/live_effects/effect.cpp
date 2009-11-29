@@ -29,6 +29,7 @@
 #include "message-stack.h"
 #include "desktop.h"
 #include "nodepath.h"
+#include "knotholder.h"
 
 #include "live_effects/lpeobject.h"
 #include "live_effects/parameter/parameter.h"
@@ -74,6 +75,7 @@
 #include "live_effects/lpe-path_length.h"
 #include "live_effects/lpe-line_segment.h"
 #include "live_effects/lpe-recursiveskeleton.h"
+#include "live_effects/lpe-extrude.h"
 
 
 namespace Inkscape {
@@ -90,6 +92,7 @@ const Util::EnumData<EffectType> LPETypeData[] = {
     {CIRCLE_WITH_RADIUS,    N_("Circle (by center and radius)"),   "circle_with_radius"},
     {CIRCLE_3PTS,           N_("Circle by 3 points"),      "circle_3pts"},
     {DYNASTROKE,            N_("Dynamic stroke"),          "dynastroke"},
+    {EXTRUDE,               N_("Extrude"),                 "extrude"},
     {LATTICE,               N_("Lattice Deformation"),     "lattice"},
     {LINE_SEGMENT,          N_("Line Segment"),            "line_segment"},
     {MIRROR_SYMMETRY,       N_("Mirror symmetry"),         "mirror_symmetry"},
@@ -232,6 +235,9 @@ Effect::New(EffectType lpenr, LivePathEffectObject *lpeobj)
         case RECURSIVE_SKELETON:
             neweffect = static_cast<Effect*> ( new LPERecursiveSkeleton(lpeobj) );
             break;
+        case EXTRUDE:
+            neweffect = static_cast<Effect*> ( new LPEExtrude(lpeobj) );
+            break;
         default:
             g_warning("LivePathEffect::Effect::New   called with invalid patheffect type (%d)", lpenr);
             neweffect = NULL;
@@ -278,6 +284,7 @@ Effect::Effect(LivePathEffectObject *lpeobject)
       is_ready(false) // is automatically set to false if providesOwnFlashPaths() is not overridden
 {
     registerParameter( dynamic_cast<Parameter *>(&is_visible) );
+    is_visible.widget_is_visible = false;
 }
 
 Effect::~Effect()
@@ -504,7 +511,7 @@ Effect::getHelperPaths(SPLPEItem *lpeitem)
     std::vector<Geom::PathVector> hp_vec;
 
     if (!SP_IS_SHAPE(lpeitem)) {
-        g_print ("How to handle helperpaths for non-shapes?\n"); // non-shapes are for example SPGroups.
+//        g_print ("How to handle helperpaths for non-shapes?\n"); // non-shapes are for example SPGroups.
         return hp_vec;
     }
 
@@ -550,13 +557,15 @@ Effect::newWidget(Gtk::Tooltips * tooltips)
 
     std::vector<Parameter *>::iterator it = param_vector.begin();
     while (it != param_vector.end()) {
-        Parameter * param = *it;
-        Gtk::Widget * widg = param->param_newWidget(tooltips);
-        Glib::ustring * tip = param->param_getTooltip();
-        if (widg) {
-           vbox->pack_start(*widg, true, true, 2);
-            if (tip != NULL) {
-                tooltips->set_tip(*widg, *tip);
+        if ((*it)->widget_is_visible) {
+            Parameter * param = *it;
+            Gtk::Widget * widg = param->param_newWidget(tooltips);
+            Glib::ustring * tip = param->param_getTooltip();
+            if (widg) {
+                vbox->pack_start(*widg, true, true, 2);
+                if (tip != NULL) {
+                    tooltips->set_tip(*widg, *tip);
+                }
             }
         }
 

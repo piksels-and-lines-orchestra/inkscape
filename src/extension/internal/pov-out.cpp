@@ -303,14 +303,28 @@ bool PovOutput::doCurve(SPItem *item, const String &id)
     Geom::Matrix tf = sp_item_i2d_affine(item);
     Geom::PathVector pathv = pathv_to_linear_and_cubic_beziers( curve->get_pathvector() * tf );
 
-    //Count the NR_CURVETOs/LINETOs (including closing line segment)
+    /*
+     * We need to know the number of segments (NR_CURVETOs/LINETOs, including
+     * closing line segment) before we write out segment data. Since we are
+     * going to skip degenerate (zero length) paths, we need to loop over all
+     * subpaths and segments first.
+     */
     int segmentCount = 0;
-    for(Geom::PathVector::const_iterator it = pathv.begin(); it != pathv.end(); ++it)
-	    {
-        segmentCount += (*it).size();
-        if (it->closed())
-            segmentCount += 1;
+    /**
+     * For all Subpaths in the <path>
+     */	     
+    for (Geom::PathVector::const_iterator pit = pathv.begin(); pit != pathv.end(); ++pit)
+    {
+        /**
+         * For all segments in the subpath, including extra closing segment defined by 2geom
+         */		         
+        for (Geom::Path::const_iterator cit = pit->begin(); cit != pit->end_closed(); ++cit)
+        {
+
+            // Skip zero length segments.
+            if( !cit->isDegenerate() ) ++segmentCount;
         }
+    }
 
     out("/*###################################################\n");
     out("### PRISM:  %s\n", id.c_str());
@@ -340,10 +354,14 @@ bool PovOutput::doCurve(SPItem *item, const String &id)
         cminmax.expandTo(pit->initialPoint());
 
         /**
-         * For all segments in the subpath
+         * For all segments in the subpath, including extra closing segment defined by 2geom
          */		         
         for (Geom::Path::const_iterator cit = pit->begin(); cit != pit->end_closed(); ++cit)
-		    {
+            {
+
+            // Skip zero length segments
+            if( cit->isDegenerate() )
+                continue;
 
             if( is_straight_curve(*cit) )
                 {
@@ -365,7 +383,7 @@ bool PovOutput::doCurve(SPItem *item, const String &id)
                 nrNodes += 8;
                 }
             else
-			    {
+		{
                 err("logical error, because pathv_to_linear_and_cubic_beziers was used");
                 return false;
                 }
@@ -374,6 +392,11 @@ bool PovOutput::doCurve(SPItem *item, const String &id)
                 out(",\n");
             else
                 out("\n");
+            if (segmentNr > segmentCount)
+                {
+                err("Too many segments");
+                return false;
+                }
 
             cminmax.expandTo(cit->finalPoint());
 
