@@ -60,7 +60,7 @@ size_t  font_style_hash::operator()(const font_style &x) const {
 	return h;
 }
 
-bool  font_style_equal::operator()(const font_style &a,const font_style &b) {
+bool  font_style_equal::operator()(const font_style &a,const font_style &b) const {
     for (int i=0;i<6;i++) {
         if ( (int)(100*a.transform[i]) != (int)(100*b.transform[i]) ) return false;
     }

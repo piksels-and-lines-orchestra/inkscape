@@ -11,7 +11,7 @@
 
 #include <functional>
 #include <algorithm>
-#include <ext/hash_map>
+#include <tr1/unordered_map>
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -46,7 +46,7 @@ struct font_descr_hash : public std::unary_function<PangoFontDescription*,size_t
     size_t operator()(PangoFontDescription *const &x) const;
 };
 struct font_descr_equal : public std::binary_function<PangoFontDescription*, PangoFontDescription*, bool> {
-    bool operator()(PangoFontDescription *const &a, PangoFontDescription *const &b);
+    bool operator()(PangoFontDescription *const &a, PangoFontDescription *const &b) const;
 };
 
 // Comparison functions for style names
@@ -84,7 +84,7 @@ public:
     double fontSize; /**< The huge fontsize used as workaround for hinting.
                       *   Different between freetype and win32. */
 
-    __gnu_cxx::hash_map<PangoFontDescription*, font_instance*, font_descr_hash, font_descr_equal> loadedFaces;
+    std::tr1::unordered_map<PangoFontDescription*, font_instance*, font_descr_hash, font_descr_equal> loadedFaces;
 
     font_factory();
     virtual ~font_factory();

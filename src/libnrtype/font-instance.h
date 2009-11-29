@@ -1,7 +1,7 @@
 #ifndef SEEN_LIBNRTYPE_FONT_INSTANCE_H
 #define SEEN_LIBNRTYPE_FONT_INSTANCE_H
 
-#include <ext/hash_map>
+#include <tr1/unordered_map>
 #include <map>
 #include <pango/pango-types.h>
 #include <pango/pango-font.h>
@@ -26,13 +26,13 @@ struct font_style_hash : public std::unary_function<font_style, size_t> {
 };
 
 struct font_style_equal : public std::binary_function<font_style, font_style, bool> {
-    bool operator()(font_style const &a, font_style const &b);
+    bool operator()(font_style const &a, font_style const &b) const;
 };
 
 class font_instance {
 public:
 	// hashmap to get the raster_font for a given style
-    __gnu_cxx::hash_map<font_style, raster_font*, font_style_hash, font_style_equal>     loadedStyles;
+    std::tr1::unordered_map<font_style, raster_font*, font_style_hash, font_style_equal>     loadedStyles;
 	// the real source of the font
     PangoFont*            pFont;
 		// depending on the rendering backend, different temporary data

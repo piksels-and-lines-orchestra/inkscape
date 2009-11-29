@@ -56,7 +56,6 @@
 #include "attributes.h"
 #include "rubberband.h"
 #include "selcue.h"
-#include "node-context.h"
 #include "lpe-tool-context.h"
 
 static void sp_event_context_class_init(SPEventContextClass *klass);
