@@ -43,7 +43,7 @@ size_t font_descr_hash::operator()( PangoFontDescription *const &x) const {
     h += (int)pango_font_description_get_stretch(x);
     return h;
 }
-bool  font_descr_equal::operator()( PangoFontDescription *const&a, PangoFontDescription *const &b) {
+bool  font_descr_equal::operator()( PangoFontDescription *const&a, PangoFontDescription *const &b) const {
     //if ( pango_font_description_equal(a,b) ) return true;
     char const *fa = pango_font_description_get_family(a);
     char const *fb = pango_font_description_get_family(b);

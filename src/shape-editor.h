@@ -147,26 +147,6 @@ private:
     Inkscape::XML::Node *nodepath_listener_attached_for;
 };
 
-
-/* As the next stage, this will be a collection of multiple ShapeEditors,
-with the same interface as the single ShapeEditor, passing the actions to all its
-contained ShapeEditors. Thus it should be easy to switch node context from 
-using a single ShapeEditor to using a ShapeEditorsCollective. */
-
-class ShapeEditorsCollective {
-public:
-
-    ShapeEditorsCollective(SPDesktop *desktop);
-    ~ShapeEditorsCollective();
-
-    void update_statusbar();
-
-private:
-    std::vector<ShapeEditor> editors;
-
-    SPNodeContext *nc; // who holds us
-};
-
 #endif
 
 

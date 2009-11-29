@@ -56,7 +56,6 @@ ink_common_sources +=	\
 	fixes.cpp							\
 	flood-context.cpp flood-context.h				\
 	forward.h							\
-	gc-allocator.h							\
 	gc-alloc.h							\
 	gc-anchored.h gc-anchored.cpp					\
 	gc-core.h							\

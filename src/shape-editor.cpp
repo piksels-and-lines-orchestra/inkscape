@@ -35,20 +35,6 @@
 
 #include "shape-editor.h"
 
-
-ShapeEditorsCollective::ShapeEditorsCollective(SPDesktop */*dt*/) {
-}
-
-ShapeEditorsCollective::~ShapeEditorsCollective() {
-}
-
-
-void ShapeEditorsCollective::update_statusbar() {
-
-//!!! move from nodepath: sp_nodepath_update_statusbar but summing for all nodepaths
-
-}
-
 ShapeEditor::ShapeEditor(SPDesktop *dt) {
     this->desktop = dt;
     this->grab_node = -1;

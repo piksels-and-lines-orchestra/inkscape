@@ -1,0 +1,146 @@
+/** @file
+ * Path manipulator - a component that edits a single path on-canvas
+ */
+/* Authors:
+ *   Krzysztof Kosiński <tweenk.pl@gmail.com>
+ *
+ * Copyright (C) 2009 Authors
+ * Released under GNU GPL, read the file 'COPYING' for more information
+ */
+
+#ifndef SEEN_UI_TOOL_PATH_MANIPULATOR_H
+#define SEEN_UI_TOOL_PATH_MANIPULATOR_H
+
+#include <string>
+#include <memory>
+#include <2geom/pathvector.h>
+#include <2geom/matrix.h>
+#include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
+#include "display/display-forward.h"
+#include "forward.h"
+#include "ui/tool/node.h"
+#include "ui/tool/manipulator.h"
+
+struct SPCanvasItem;
+
+namespace Inkscape {
+namespace UI {
+
+class PathManipulator;
+class ControlPointSelection;
+class PathManipulatorObserver;
+class CurveDragPoint;
+class PathCanvasGroups;
+
+struct PathSharedData {
+    NodeSharedData node_data;
+    SPCanvasGroup *outline_group;
+    SPCanvasGroup *dragpoint_group;
+};
+
+/**
+ * Manipulator that edits a single path using nodes with handles.
+ * Currently only cubic bezier and linear segments are supported, but this might change
+ * some time in the future.
+ */
+class PathManipulator : public PointManipulator {
+public:
+    typedef SPPath *ItemType;
+
+    PathManipulator(PathSharedData const &data, SPPath *path,
+        Geom::Matrix const &edit_trans, guint32 outline_color);
+    ~PathManipulator();
+    virtual bool event(GdkEvent *);
+
+    bool empty();
+    void writeXML();
+    void update(); // update display, but don't commit
+    void clear(); // remove all nodes from manipulator
+    SPPath *item() { return _path; }
+
+    void selectSubpaths();
+    void selectAll();
+    void selectArea(Geom::Rect const &);
+    void shiftSelection(int dir);
+    void linearGrow(int dir);
+    void spatialGrow(int dir);
+    void invertSelection();
+    void invertSelectionInSubpaths();
+
+    void insertNodes();
+    void weldNodes(NodeList::iterator const &preserve_pos = NodeList::iterator());
+    void weldSegments();
+    void breakNodes();
+    void deleteNodes(bool keep_shape = true);
+    void deleteSegments();
+    void reverseSubpaths();
+    void setSegmentType(SegmentType);
+
+    void showOutline(bool show);
+    void showHandles(bool show);
+    void showPathDirection(bool show);
+    void setOutlineTransform(Geom::Matrix const &);
+
+    NodeList::iterator subdivideSegment(NodeList::iterator after, double t);
+
+    static bool is_item_type(void *item);
+private:
+    typedef NodeList Subpath;
+    typedef boost::shared_ptr<NodeList> SubpathPtr;
+
+    void _createControlPointsFromGeometry();
+    void _createGeometryFromControlPoints();
+    std::string _createTypeString();
+    void _updateOutline();
+    //void _setOutline(Geom::PathVector const &);
+
+    void _attachNodeHandlers(Node *n);
+    void _removeNodeHandlers(Node *n);
+
+    void _selectionChanged(SelectableControlPoint *p, bool selected);
+    bool _nodeClicked(Node *, GdkEventButton *);
+    void _handleGrabbed();
+    bool _handleClicked(Handle *, GdkEventButton *);
+    void _handleUngrabbed();
+    void _externalChange(unsigned type);
+    void _removeNodesFromSelection();
+    void _commit(Glib::ustring const &annotation);
+    void _updateDragPoint(Geom::Point const &);
+    void _updateOutlineOnZoomChange();
+    double _getStrokeTolerance();
+
+    SubpathList _subpaths;
+    PathSharedData const &_path_data;
+    SPPath *_path;
+    SPCurve *_spcurve; // in item coordinates
+    SPCanvasItem *_outline;
+    CurveDragPoint *_dragpoint; // an invisible control point hoverng over curve
+    PathManipulatorObserver *_observer;
+    Geom::Matrix _d2i_transform; ///< desktop-to-item transform
+    Geom::Matrix _i2d_transform; ///< item-to-desktop transform, inverse of _d2i_transform
+    Geom::Matrix _edit_transform; ///< additional transform to apply to editing controls
+    unsigned _num_selected; ///< number of selected nodes
+    bool _show_handles;
+    bool _show_outline;
+    bool _show_path_direction;
+
+    friend class PathManipulatorObserver;
+    friend class CurveDragPoint;
+};
+
+} // namespace UI
+} // namespace Inkscape
+
+#endif
+
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0)(case-label . +))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :

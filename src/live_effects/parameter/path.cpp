@@ -195,23 +195,13 @@ PathParam::param_newWidget(Gtk::Tooltips * tooltips)
 void
 PathParam::param_editOncanvas(SPItem * item, SPDesktop * dt)
 {
-    // If not already in nodecontext, goto it!
-    if (!tools_isactive(dt, TOOLS_NODES)) {
-        tools_switch(dt, TOOLS_NODES);
-    }
-
-    ShapeEditor * shape_editor = dt->event_context->shape_editor;
-    if (!href) {
-        shape_editor->set_item_lpe_path_parameter(item, param_effect->getLPEObj(), param_key.c_str());
-    } else {
-        // set referred item for editing
-        shape_editor->set_item(ref.getObject(), SH_NODEPATH);
-    }
+    // TODO this whole method is broken!
 }
 
 void
 PathParam::param_setup_nodepath(Inkscape::NodePath::Path *np)
-{
+{   
+    // TODO this too!
     np->show_helperpath = true;
     np->helperpath_rgba = 0x009000ff;
     np->helperpath_width = 1.0;
