@@ -18,6 +18,7 @@
 #define __FILE_DIALOGIMPL_H__
 
 #include "filedialog.h"
+#include "extension/system.h"
 
 //General includes
 #include <unistd.h>
@@ -281,11 +282,12 @@ class FileSaveDialogImplGtk : public FileSaveDialog, public FileDialogBaseGtk
 
 public:
     FileSaveDialogImplGtk(Gtk::Window &parentWindow,
-    		           const Glib::ustring &dir,
-                       FileDialogType fileTypes,
-                       const Glib::ustring &title,
-                       const Glib::ustring &default_key,
-                       const gchar* docTitle);
+                          const Glib::ustring &dir,
+                          FileDialogType fileTypes,
+                          const Glib::ustring &title,
+                          const Glib::ustring &default_key,
+                          const gchar* docTitle,
+                          const Inkscape::Extension::FileSaveMethod save_method);
 
     virtual ~FileSaveDialogImplGtk();
 
@@ -300,6 +302,12 @@ private:
     //void change_title(const Glib::ustring& title);
     void change_path(const Glib::ustring& path);
     void updateNameAndExtension();
+
+    /**
+     * The file save method (essentially whether the dialog was invoked by "Save as ..." or "Save a
+     * copy ..."), which is used to determine file extensions and save paths.
+     */
+    Inkscape::Extension::FileSaveMethod save_method;
 
     /**
      * Fix to allow the user to type the file name
@@ -348,6 +356,8 @@ private:
 
 
 
+
+#ifdef NEW_EXPORT_DIALOG
 
 //########################################################################
 //# F I L E     E X P O R T
@@ -565,6 +575,7 @@ private:
     Glib::ustring myFilename;
 };
 
+#endif // NEW_EXPORT_DIALOG
 
 } // namespace Dialog
 } // namespace UI

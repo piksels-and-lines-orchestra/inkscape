@@ -352,7 +352,6 @@ sp_text_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEve
                         sp_text_context_update_cursor(tc);
                         sp_text_context_update_text_selection(tc);
                         tc->dragging = 1;
-                        sp_event_context_snap_window_open(event_context);
                     }
                     ret = TRUE;
                 }
@@ -369,7 +368,6 @@ sp_text_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEve
                     sp_text_context_update_cursor(tc);
                     sp_text_context_update_text_selection(tc);
                     tc->dragging = 2;
-                    sp_event_context_snap_window_open(event_context);
                     ret = TRUE;
                 }
             }
@@ -381,14 +379,13 @@ sp_text_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEve
                 sp_text_context_update_cursor(tc);
                 sp_text_context_update_text_selection(tc);
                 tc->dragging = 3;
-                sp_event_context_snap_window_open(event_context);
                 ret = TRUE;
             }
             break;
         case GDK_BUTTON_RELEASE:
             if (event->button.button == 1 && tc->dragging && !event_context->space_panning) {
                 tc->dragging = 0;
-                sp_event_context_snap_window_closed(event_context, false); //button release will also occur on a double-click; in that case suppress warnings
+                sp_event_context_discard_delayed_snap_event(event_context);
                 ret = TRUE;
             }
             break;
@@ -884,10 +881,10 @@ sp_text_context_root_handler(SPEventContext *const event_context, GdkEvent *cons
                                 if (MOD__CTRL_ONLY && tc->text) {
                                     SPStyle const *style = sp_te_style_at_position(tc->text, std::min(tc->text_sel_start, tc->text_sel_end));
                                     SPCSSAttr *css = sp_repr_css_attr_new();
-                                    if (style->font_style.computed == SP_CSS_FONT_STYLE_NORMAL)
-                                        sp_repr_css_set_property(css, "font-style", "italic");
-                                    else
+                                    if (style->font_style.computed != SP_CSS_FONT_STYLE_NORMAL)
                                         sp_repr_css_set_property(css, "font-style", "normal");
+                                    else
+                                        sp_repr_css_set_property(css, "font-style", "italic");
                                     sp_te_apply_style(tc->text, tc->text_sel_start, tc->text_sel_end, css);
                                     sp_repr_css_attr_unref(css);
                                     sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT,

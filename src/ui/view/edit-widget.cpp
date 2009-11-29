@@ -1071,15 +1071,15 @@ EditWidget::initStatusbar()
     _coord_eventbox.add (_coord_status);
     _tooltips.set_tip (_coord_eventbox, _("Cursor coordinates"));
     _coord_status.attach (*new Gtk::VSeparator(), 0,1, 0,2, Gtk::FILL,Gtk::FILL, 0,0);
-    _coord_status.attach (*new Gtk::Label("X:", 0.0, 0.5), 1,2, 0,1, Gtk::FILL,Gtk::FILL, 0,0);
-    _coord_status.attach (*new Gtk::Label("Y:", 0.0, 0.5), 1,2, 1,2, Gtk::FILL,Gtk::FILL, 0,0);
+    _coord_status.attach (*new Gtk::Label(_("X:"), 0.0, 0.5), 1,2, 0,1, Gtk::FILL,Gtk::FILL, 0,0);
+    _coord_status.attach (*new Gtk::Label(_("Y:"), 0.0, 0.5), 1,2, 1,2, Gtk::FILL,Gtk::FILL, 0,0);
     _coord_status_x.set_text ("0.0");
     _coord_status_x.set_alignment (0.0, 0.5);
     _coord_status_y.set_text ("0.0");
     _coord_status_y.set_alignment (0.0, 0.5);
     _coord_status.attach (_coord_status_x, 2,3, 0,1, Gtk::FILL,Gtk::FILL, 0,0);
     _coord_status.attach (_coord_status_y, 2,3, 1,2, Gtk::FILL,Gtk::FILL, 0,0);
-    _coord_status.attach (*new Gtk::Label("Z:", 0.0, 0.5), 3,4, 0,2, Gtk::FILL,Gtk::FILL, 0,0);
+    _coord_status.attach (*new Gtk::Label(_("Z:"), 0.0, 0.5), 3,4, 0,2, Gtk::FILL,Gtk::FILL, 0,0);
     _coord_status.attach (_zoom_status, 4,5, 0,2, Gtk::FILL,Gtk::FILL, 0,0);
     sp_set_font_size_smaller (static_cast<GtkWidget*>((void*)_coord_status.gobj()));
     _statusbar.pack_end (_coord_eventbox, false, false, 1);
@@ -1247,7 +1247,7 @@ EditWidget::shutdown()
                 _("<span weight=\"bold\" size=\"larger\">The file \"%s\" was saved with a format (%s) that may cause data loss!</span>\n\n"
                   "Do you want to save this file as an Inkscape SVG?"),
                 SP_DOCUMENT_NAME(doc),
-                Inkscape::Extension::db.get(sp_document_repr_root(doc)->attribute("inkscape:output_extension"))->get_name());
+                SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE);
 
         Gtk::MessageDialog dlg (*this,
                        markup,
@@ -1551,11 +1551,10 @@ void
 EditWidget::initEdit (SPDocument *doc)
 {
     _desktop = new SPDesktop();
-    _desktop->registerEditWidget (this);
 
     _namedview = sp_document_namedview (doc, 0);
     _svg_canvas.init (_desktop);
-    _desktop->init (_namedview, _svg_canvas.spobj());
+    _desktop->init (_namedview, _svg_canvas.spobj(), this);
     sp_namedview_window_from_document (_desktop);
     sp_namedview_update_layers_from_document (_desktop);
     _dt2r = 1.0 / _namedview->doc_units->unittobase;

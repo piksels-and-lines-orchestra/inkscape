@@ -46,6 +46,7 @@ static void sp_spiral_context_class_init(SPSpiralContextClass * klass);
 static void sp_spiral_context_init(SPSpiralContext *spiral_context);
 static void sp_spiral_context_dispose(GObject *object);
 static void sp_spiral_context_setup(SPEventContext *ec);
+static void sp_spiral_context_finish(SPEventContext *ec);
 static void sp_spiral_context_set(SPEventContext *ec, Inkscape::Preferences::Entry *val);
 
 static gint sp_spiral_context_root_handler(SPEventContext *event_context, GdkEvent *event);
@@ -87,6 +88,7 @@ sp_spiral_context_class_init(SPSpiralContextClass *klass)
     object_class->dispose = sp_spiral_context_dispose;
 
     event_context_class->setup = sp_spiral_context_setup;
+    event_context_class->finish = sp_spiral_context_finish;
     event_context_class->set = sp_spiral_context_set;
     event_context_class->root_handler = sp_spiral_context_root_handler;
 }
@@ -112,6 +114,20 @@ sp_spiral_context_init(SPSpiralContext *spiral_context)
     spiral_context->t0 = 0.0;
 
     new (&spiral_context->sel_changed_connection) sigc::connection();
+}
+
+static void sp_spiral_context_finish(SPEventContext *ec)
+{
+    SPSpiralContext *sc = SP_SPIRAL_CONTEXT(ec);
+	SPDesktop *desktop = ec->desktop;
+
+	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), GDK_CURRENT_TIME);
+	sp_spiral_finish(sc);
+    sc->sel_changed_connection.disconnect();
+
+    if (((SPEventContextClass *) parent_class)->finish) {
+		((SPEventContextClass *) parent_class)->finish(ec);
+	}
 }
 
 static void
@@ -221,7 +237,6 @@ sp_spiral_context_root_handler(SPEventContext *event_context, GdkEvent *event)
             if (event->button.button == 1 && !event_context->space_panning) {
 
                 dragging = TRUE;
-                sp_event_context_snap_window_open(event_context);
                 sc->center = Inkscape::setup_for_drag_start(desktop, event_context, event);
 
                 SnapManager &m = desktop->namedview->snap_manager;
@@ -270,7 +285,7 @@ sp_spiral_context_root_handler(SPEventContext *event_context, GdkEvent *event)
             event_context->xp = event_context->yp = 0;
             if (event->button.button == 1 && !event_context->space_panning) {
                 dragging = FALSE;
-                sp_event_context_snap_window_closed(event_context, false); //button release will also occur on a double-click; in that case suppress warnings
+                sp_event_context_discard_delayed_snap_event(event_context);
                 if (!event_context->within_tolerance) {
                     // we've been dragging, finish the spiral
                     sp_spiral_finish(sc);
@@ -323,7 +338,7 @@ sp_spiral_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                 case GDK_Escape:
                 	if (dragging) {
                 		dragging = false;
-                		sp_event_context_snap_window_closed(event_context);
+                		sp_event_context_discard_delayed_snap_event(event_context);
                 		// if drawing, cancel, otherwise pass it up for deselecting
                 		sp_spiral_cancel(sc);
                 		ret = TRUE;
@@ -335,7 +350,7 @@ sp_spiral_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate),
                                               event->button.time);
                         dragging = false;
-                        sp_event_context_snap_window_closed(event_context);
+                        sp_event_context_discard_delayed_snap_event(event_context);
                         if (!event_context->within_tolerance) {
                             // we've been dragging, finish the spiral
                             sp_spiral_finish(sc);

@@ -103,7 +103,7 @@
           
     <makefile file="${src}/inkscape-version.cpp">
         namespace Inkscape {
-            char const *version_string = "${version} r${svn.revision}";
+            char const *version_string = "${version} ${svn.revision}";
         }
     </makefile>
     <makefile file="config.h">
@@ -166,8 +166,8 @@
         #define WITH_PYTHON                   1
 
         /* shared whiteboard */
-        #define WITH_INKBOARD                 1
-        #define HAVE_SSL                      1
+        #undef WITH_INKBOARD
+        #undef HAVE_SSL
         
         /* use poppler for pdf import? */
         #define HAVE_POPPLER                  1
@@ -298,6 +298,7 @@
             <exclude name="ast/.*"/>
             <exclude name="bonobo/.*"/>
             <exclude name="deptool.cpp"/>
+            <exclude name="cxxtests.cpp"/>
             <!--<exclude name="test-main.cpp"/>-->
             <!--<exclude name="test-src.cpp"/>-->
             <exclude name="display/test-display.cpp"/>
@@ -498,6 +499,7 @@
            -lgc
            -lws2_32 -lintl -lgdi32 -lcomdlg32 -lm
            -lgomp -lpthreadGC2 -laspell
+           -lmscms  <!-- required for color profiles -->
        </libs>
     </link>
   </target>
@@ -551,7 +553,8 @@
            -lpng -ljpeg.dll -ltiff.dll -lpopt ${devlibs}/lib/zdll.lib
            -lgc
            -lws2_32 -lintl -lgdi32 -lcomdlg32 -lm
-           -lgomp -lpthreadGC2
+           -lgomp -lpthreadGC2 -laspell
+           -lmscms  <!-- required for color profiles -->
        </libs>
     </link>
   </target>
@@ -602,7 +605,8 @@
            -lpng -ljpeg.dll -ltiff.dll -lpopt ${devlibs}/lib/zdll.lib
            -lgc
            -lws2_32 -lintl -lgdi32 -lcomdlg32 -lm
-           -lgomp -lpthreadGC2 
+           -lgomp -lpthreadGC2 -laspell
+           -lmscms  <!-- required for color profiles -->
        </libs>
     </link>
   </target>
@@ -896,7 +900,6 @@
     <delete file="build.dep"/>
     <delete file="config.h"/>
     <delete file="${src}/inkscape-version.cpp"/>
-
     <delete file="${src}/test-main.cpp"/>
     <delete file="${src}/test-src.cpp"/>
     <delete file="${src}/display/test-display.cpp"/>

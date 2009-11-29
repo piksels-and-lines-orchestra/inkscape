@@ -161,8 +161,8 @@ void Inkscape::ObjectSnapper::_findCandidates(SPObject* parent,
                             // This item is within snapping range, so record it as a candidate
                             _candidates->push_back(SnapCandidate(item, clip_or_mask, additional_affine));
                             // For debugging: print the id of the candidate to the console
-                            // SPObject *obj = (SPObject*)item;
-                            // std::cout << "Snap candidate added: " << obj->id << std::endl;
+                            //SPObject *obj = (SPObject*)item;
+                            //std::cout << "Snap candidate added: " << obj->id << std::endl;
                         }
                     }
                 }
@@ -295,6 +295,13 @@ void Inkscape::ObjectSnapper::_snapTranslatingGuideToNodes(SnappedConstraints &s
 {
     // Iterate through all nodes, find out which one is the closest to this guide, and snap to it!
     _collectNodes(t, true);
+
+    // Although we won't snap to paths here (which would give us under constrained snaps) we can still snap to intersections of paths.
+    if (_snapmanager->snapprefs.getSnapToItemPath() || _snapmanager->snapprefs.getSnapToBBoxPath() || _snapmanager->snapprefs.getSnapToPageBorder()) {
+    	_collectPaths(t, true);
+    	_snapPaths(sc, t, p, SNAPSOURCE_GUIDE, true, NULL, NULL);
+    	// The paths themselves should be discarded in findBestSnap(), as we should only snap to their intersections
+	}
 
     SnappedPoint s;
 
@@ -547,7 +554,7 @@ void Inkscape::ObjectSnapper::_snapPathsConstrained(SnappedConstraints &sc,
     // The intersection point of the constraint line with any path,
     // must lie within two points on the constraintline: p_min_on_cl and p_max_on_cl
     // The distance between those points is twice the snapping tolerance
-    Geom::Point const p_proj_on_cl = c.projection(p);
+    Geom::Point const p_proj_on_cl = p; // projection has already been taken care of in constrainedSnap in the snapmanager;
     Geom::Point const p_min_on_cl = _snapmanager->getDesktop()->dt2doc(p_proj_on_cl - getSnapperTolerance() * direction_vector);
     Geom::Point const p_max_on_cl = _snapmanager->getDesktop()->dt2doc(p_proj_on_cl + getSnapperTolerance() * direction_vector);
 
@@ -683,14 +690,14 @@ void Inkscape::ObjectSnapper::guideFreeSnap(SnappedConstraints &sc,
 
     _findCandidates(sp_document_root(_snapmanager->getDocument()), &it, true, Geom::Rect(p, p), snap_dim, false, Geom::identity());
     _snapTranslatingGuideToNodes(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, guide_normal);
-    // _snapRotatingGuideToNodes has not been implemented yet.
+
 }
 
 // This method is used to snap the origin of a guide to nodes/paths, while dragging the origin along the guide
 void Inkscape::ObjectSnapper::guideConstrainedSnap(SnappedConstraints &sc,
                                         Geom::Point const &p,
                                         Geom::Point const &guide_normal,
-                                        ConstraintLine const &c) const
+                                        ConstraintLine const &/*c*/) const
 {
     /* Get a list of all the SPItems that we will try to snap to */
     std::vector<SPItem*> cand;
@@ -707,7 +714,7 @@ void Inkscape::ObjectSnapper::guideConstrainedSnap(SnappedConstraints &sc,
 
     _findCandidates(sp_document_root(_snapmanager->getDocument()), &it, true, Geom::Rect(p, p), snap_dim, false, Geom::identity());
     _snapTranslatingGuideToNodes(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, guide_normal);
-    // _snapRotatingGuideToNodes has not been implemented yet.
+
 }
 
 /**
@@ -734,7 +741,8 @@ bool Inkscape::ObjectSnapper::GuidesMightSnap() const // almost the same as This
 						|| (_snapmanager->snapprefs.getSnapModeBBox() && _snapmanager->snapprefs.getSnapToBBoxNode())
 						|| (_snapmanager->snapprefs.getSnapModeBBox() && (_snapmanager->snapprefs.getSnapBBoxEdgeMidpoints() || _snapmanager->snapprefs.getSnapBBoxMidpoints()))
 						|| (_snapmanager->snapprefs.getSnapModeNode() && (_snapmanager->snapprefs.getSnapLineMidpoints() || _snapmanager->snapprefs.getSnapObjectMidpoints()))
-						|| (_snapmanager->snapprefs.getSnapModeNode() && _snapmanager->snapprefs.getIncludeItemCenter());
+						|| (_snapmanager->snapprefs.getSnapModeNode() && _snapmanager->snapprefs.getIncludeItemCenter())
+						|| (_snapmanager->snapprefs.getSnapModeNode() && (_snapmanager->snapprefs.getSnapToItemPath() && _snapmanager->snapprefs.getSnapIntersectionCS()));
 
     return (_snap_enabled && _snapmanager->snapprefs.getSnapModeGuide() && snap_to_something);
 }

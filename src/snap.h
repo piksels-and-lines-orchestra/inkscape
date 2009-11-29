@@ -31,6 +31,14 @@
 #include "object-snapper.h"
 #include "snap-preferences.h"
 
+/* Guides */
+enum SPGuideDragType { // used both here and in desktop-events.cpp
+    SP_DRAG_TRANSLATE,
+    SP_DRAG_ROTATE,
+    SP_DRAG_MOVE_ORIGIN,
+    SP_DRAG_NONE
+};
+
 class SPNamedView;
 
 /// Class to coordinate snapping operations
@@ -103,7 +111,7 @@ public:
 										   bool first_point = true,
                                            Geom::OptRect const &bbox_to_snap = Geom::OptRect()) const;
 
-    void guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal) const;
+    void guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal, SPGuideDragType drag_type) const;
     void guideConstrainedSnap(Geom::Point &p, SPGuide const &guideline) const;
 
     Inkscape::SnappedPoint freeSnapTranslation(Inkscape::SnapPreferences::PointType point_type,
@@ -193,7 +201,7 @@ private:
 
     void _displaySnapsource(Inkscape::SnapPreferences::PointType point_type, std::pair<Geom::Point, int> const &p) const;
 
-    Inkscape::SnappedPoint findBestSnap(Geom::Point const &p, Inkscape::SnapSourceType const source_type, SnappedConstraints &sc, bool constrained) const;
+    Inkscape::SnappedPoint findBestSnap(Geom::Point const &p, Inkscape::SnapSourceType const source_type, SnappedConstraints &sc, bool constrained, bool noCurves = false) const;
 };
 
 #endif /* !SEEN_SNAP_H */

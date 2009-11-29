@@ -60,6 +60,11 @@
 
 #include "helper/png-write.h"
 
+#ifdef WIN32
+#include <windows.h>
+#include <COMMDLG.h>
+#include <gdk/gdkwin32.h>
+#endif
 
 #define SP_EXPORT_MIN_SIZE 1.0
 
@@ -167,7 +172,7 @@ sp_export_dialog_delete ( GtkObject */*object*/, GdkEvent */*event*/, gpointer /
 
     if (x<0) x=0;
     if (y<0) y=0;
-    
+
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     prefs->setInt(prefs_path + "x", x);
     prefs->setInt(prefs_path + "y", y);
@@ -535,8 +540,7 @@ sp_export_dialog (void)
                 gchar *name;
                 SPDocument * doc = SP_ACTIVE_DOCUMENT;
                 const gchar *uri = SP_DOCUMENT_URI (doc);
-                Inkscape::XML::Node * repr = sp_document_repr_root(doc);
-                const gchar * text_extension = repr->attribute("inkscape:output_extension");
+                const gchar *text_extension = get_file_save_extension (Inkscape::Extension::FILE_SAVE_METHOD_SAVE_AS).c_str();
                 Inkscape::Extension::Output * oextension = NULL;
 
                 if (text_extension != NULL) {
@@ -1056,6 +1060,23 @@ filename_add_extension (const gchar *filename, const gchar *extension)
   }
 }
 
+gchar *absolutize_path_from_document_location (SPDocument *doc, const gchar *filename)
+{
+    gchar *path = 0;
+    //Make relative paths go from the document location, if possible:
+    if (!g_path_is_absolute(filename) && doc->uri) {
+        gchar *dirname = g_path_get_dirname(doc->uri);
+        if (dirname) {
+            path = g_build_filename(dirname, filename, NULL);
+            g_free(dirname);
+        }
+    }
+    if (!path) {
+        path = g_strdup(filename);
+    }
+    return path;
+}
+
 /// Called when export button is clicked
 static void
 sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
@@ -1063,6 +1084,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
     if (!SP_ACTIVE_DESKTOP) return;
 
     SPNamedView *nv = sp_desktop_namedview(SP_ACTIVE_DESKTOP);
+    SPDocument *doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
 
     GtkWidget *be = (GtkWidget *)gtk_object_get_data(base, "batch_checkbox");
     GtkWidget *he = (GtkWidget *)gtk_object_get_data(base, "hide_checkbox");
@@ -1084,10 +1106,14 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
              i != NULL;
              i = i->next) {
             SPItem *item = (SPItem *) i->data;
+
             // retrieve export filename hint
-            const gchar *fn = SP_OBJECT_REPR(item)->attribute("inkscape:export-filename");
-            if (!fn) {
-                fn = create_filepath_from_id (SP_OBJECT_ID(item), NULL);
+            const gchar *filename = SP_OBJECT_REPR(item)->attribute("inkscape:export-filename");
+            gchar *path = 0;
+            if (!filename) {
+                path = create_filepath_from_id (SP_OBJECT_ID(item), NULL);
+            } else {
+                path = absolutize_path_from_document_location(doc, filename);
             }
 
             // retrieve export dpi hints
@@ -1108,14 +1134,14 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
 
                 if (width > 1 && height > 1) {
                     /* Do export */
-                    if (!sp_export_png_file (sp_desktop_document (SP_ACTIVE_DESKTOP), fn,
+                    if (!sp_export_png_file (doc, path,
                                              *area, width, height, dpi, dpi,
                                              nv->pagecolor,
                                              NULL, NULL, TRUE,  // overwrite without asking
                                              hide ? (GSList *) sp_desktop_selection(SP_ACTIVE_DESKTOP)->itemList() : NULL
                             )) {
                         gchar * error;
-                        gchar * safeFile = Inkscape::IO::sanitizeString(fn);
+                        gchar * safeFile = Inkscape::IO::sanitizeString(path);
                         error = g_strdup_printf(_("Could not export to filename %s.\n"), safeFile);
                         sp_ui_error_dialog(error);
                         g_free(safeFile);
@@ -1124,6 +1150,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
                 }
             }
             n++;
+            g_free(path);
             sp_export_progress_callback((float)n/num, base);
         }
 
@@ -1154,7 +1181,13 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
         return;
     }
 
-    gchar *dirname = g_path_get_dirname(filename);
+    // make sure that .png is the extension of the file:
+    gchar * filename_ext = filename_add_extension(filename, "png");
+    gtk_entry_set_text(GTK_ENTRY(fe), filename_ext);
+
+    gchar *path = absolutize_path_from_document_location(doc, filename_ext);
+
+    gchar *dirname = g_path_get_dirname(path);
     if ( dirname == NULL
          || !Inkscape::IO::file_test(dirname, (GFileTest)(G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR)) )
     {
@@ -1165,30 +1198,27 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
         g_free(safeDir);
         g_free(error);
         g_free(dirname);
+        g_free(path);
         return;
     }
     g_free(dirname);
 
-    // make sure that .png is the extension of the file:
-    gchar * filename_ext = filename_add_extension(filename, "png");
-    gtk_entry_set_text(GTK_ENTRY(fe), filename_ext);
-
-    gchar *fn = g_path_get_basename (filename_ext);
-
+    gchar *fn = g_path_get_basename (path);
     gchar *progress_text = g_strdup_printf (_("Exporting %s (%lu x %lu)"), fn, width, height);
     g_free (fn);
+
     GtkWidget *prog_dlg = create_progress_dialog (base, progress_text);
     g_free (progress_text);
 
     /* Do export */
-    if (!sp_export_png_file (sp_desktop_document (SP_ACTIVE_DESKTOP), filename_ext,
+    if (!sp_export_png_file (sp_desktop_document (SP_ACTIVE_DESKTOP), path,
                              Geom::Rect(Geom::Point(x0, y0), Geom::Point(x1, y1)), width, height, xdpi, ydpi,
                              nv->pagecolor,
                              sp_export_progress_callback, base, FALSE,
                              hide ? (GSList *) sp_desktop_selection(SP_ACTIVE_DESKTOP)->itemList() : NULL
             )) {
         gchar * error;
-        gchar * safeFile = Inkscape::IO::sanitizeString(filename);
+        gchar * safeFile = Inkscape::IO::sanitizeString(path);
         error = g_strdup_printf(_("Could not export to filename %s.\n"), safeFile);
         sp_ui_error_dialog(error);
         g_free(safeFile);
@@ -1284,12 +1314,14 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
     }
 
     g_free (filename_ext);
+    g_free (path);
 
     }
 
 } // end of sp_export_export_clicked()
 
 /// Called when Browse button is clicked
+/// @todo refactor this code to use ui/dialogs/filedialog.cpp
 static void
 sp_export_browse_clicked (GtkButton */*button*/, gpointer /*userdata*/)
 {
@@ -1318,11 +1350,59 @@ sp_export_browse_clicked (GtkButton */*button*/, gpointer /*userdata*/)
     filename = gtk_entry_get_text (GTK_ENTRY (fe));
 
     if (*filename == '\0') {
-        filename = homedir_path(NULL);
+        filename = create_filepath_from_id(NULL, NULL);
     }
 
     gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (fs), filename);
 
+#ifdef WIN32
+	// code in this section is borrowed from ui/dialogs/filedialogimpl-win32.cpp
+	OPENFILENAMEW opf;
+	WCHAR filter_string[20];
+	wcsncpy(filter_string, L"PNG#*.png##", 11);
+	filter_string[3] = L'\0';
+	filter_string[9] = L'\0';
+	filter_string[10] = L'\0';
+	WCHAR* title_string = (WCHAR*)g_utf8_to_utf16(_("Select a filename for exporting"), -1, NULL, NULL, NULL);
+	WCHAR* extension_string = (WCHAR*)g_utf8_to_utf16("*.png", -1, NULL, NULL, NULL);
+	// Copy the selected file name, converting from UTF-8 to UTF-16
+	WCHAR _filename[_MAX_PATH + 1];
+    memset(_filename, 0, sizeof(_filename));
+    gunichar2* utf16_path_string = g_utf8_to_utf16(filename, -1, NULL, NULL, NULL);
+    wcsncpy(_filename, (wchar_t*)utf16_path_string, _MAX_PATH);
+    g_free(utf16_path_string);
+
+	opf.hwndOwner = (HWND)(GDK_WINDOW_HWND(GTK_WIDGET(dlg)->window));
+	opf.lpstrFilter = filter_string;
+	opf.lpstrCustomFilter = 0;
+	opf.nMaxCustFilter = 0L;
+	opf.nFilterIndex = 1L;
+	opf.lpstrFile = _filename;
+	opf.nMaxFile = _MAX_PATH;
+	opf.lpstrFileTitle = NULL;
+	opf.nMaxFileTitle=0;
+	opf.lpstrInitialDir = 0;
+	opf.lpstrTitle = title_string;
+	opf.nFileOffset = 0;
+	opf.nFileExtension = 2;
+	opf.lpstrDefExt = extension_string;
+	opf.lpfnHook = NULL;
+	opf.lCustData = 0;
+	opf.Flags = OFN_PATHMUSTEXIST;
+	opf.lStructSize = sizeof(OPENFILENAMEW);
+	if (GetSaveFileNameW(&opf) != 0)
+	{
+		// Copy the selected file name, converting from UTF-16 to UTF-8
+		gchar *utf8string = g_utf16_to_utf8((const gunichar2*)opf.lpstrFile, _MAX_PATH, NULL, NULL, NULL);
+		gtk_entry_set_text (GTK_ENTRY (fe), utf8string);
+        g_object_set_data (G_OBJECT (dlg), "filename", fe);
+		g_free(utf8string);
+
+	}
+	g_free(extension_string);
+	g_free(title_string);
+
+#else
     if (gtk_dialog_run (GTK_DIALOG (fs)) == GTK_RESPONSE_ACCEPT)
     {
         gchar *file;
@@ -1337,6 +1417,7 @@ sp_export_browse_clicked (GtkButton */*button*/, gpointer /*userdata*/)
         g_free(utf8file);
         g_free(file);
     }
+#endif
 
     gtk_widget_destroy (fs);
 

@@ -20,6 +20,8 @@
 
 #include <interface.h>
 
+#include "system.h"
+#include "preferences.h"
 #include "extension.h"
 #include "db.h"
 #include "input.h"
@@ -30,6 +32,7 @@
 #include "implementation/script.h"
 #include "implementation/xslt.h"
 #include "xml/rebase-hrefs.h"
+#include "io/sys.h"
 /* #include "implementation/plugin.h" */
 
 namespace Inkscape {
@@ -184,7 +187,8 @@ open_internal(Extension *in_plug, gpointer in_data)
  * Lastly, the save function is called in the module itself.
  */
 void
-save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, bool check_overwrite, bool official)
+save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, bool check_overwrite, bool official,
+    Inkscape::Extension::FileSaveMethod save_method)
 {
     Output *omod;
     if (key == NULL) {
@@ -202,7 +206,7 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
         }
         /* If autodetect fails, save as Inkscape SVG */
         if (omod == NULL) {
-            omod = dynamic_cast<Output *>(db.get(SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE));
+            // omod = dynamic_cast<Output *>(db.get(SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE)); use exception and let user choose
         }
     } else {
         omod = dynamic_cast<Output *>(key);
@@ -245,17 +249,25 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
         throw Output::no_overwrite();
     }
 
+    // test if the file exists and is writable
+    // the test only checks the file attributes and might pass where ACL does not allow to write
+    if (Inkscape::IO::file_test(filename, G_FILE_TEST_EXISTS) && !Inkscape::IO::file_is_writable(filename)) {
+        g_free(fileName);
+        throw Output::file_read_only();
+    }
+
     Inkscape::XML::Node *repr = sp_document_repr_root(doc);
 
-    // remember attributes in case this is an unofficial save
+
+    // remember attributes in case this is an unofficial save and/or overwrite fails
+    gchar *saved_uri = g_strdup(doc->uri);
     bool saved_modified = false;
     gchar *saved_output_extension = NULL;
     gchar *saved_dataloss = NULL;
-    if (!official) {
-        saved_modified = doc->isModifiedSinceSave();
-        saved_output_extension = g_strdup(repr->attribute("inkscape:output_extension"));
-        saved_dataloss = g_strdup(repr->attribute("inkscape:dataloss"));
-    } else {
+    saved_modified = doc->isModifiedSinceSave();
+    saved_output_extension = g_strdup(get_file_save_extension(save_method).c_str());
+    saved_dataloss = g_strdup(repr->attribute("inkscape:dataloss"));
+    if (official) {
         /* The document is changing name/uri. */
         sp_document_change_uri_and_hrefs(doc, fileName);
     }
@@ -266,7 +278,7 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
         sp_document_set_undo_sensitive(doc, false);
         {
             // also save the extension for next use
-            repr->setAttribute("inkscape:output_extension", omod->get_id());
+            store_file_extension_in_prefs (omod->get_id(), save_method);
             // set the "dataloss" attribute if the chosen extension is lossy
             repr->setAttribute("inkscape:dataloss", NULL);
             if (omod->causes_dataloss()) {
@@ -277,14 +289,38 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
         doc->setModifiedSinceSave(false);
     }
 
-    omod->save(doc, fileName);
+    try {
+        omod->save(doc, fileName);
+    }
+    catch(...) {
+        // revert attributes in case of official and overwrite
+        if(check_overwrite && official) {
+            bool const saved = sp_document_get_undo_sensitive(doc);
+            sp_document_set_undo_sensitive(doc, false);
+            {
+                store_file_extension_in_prefs (saved_output_extension, save_method);
+                repr->setAttribute("inkscape:dataloss", saved_dataloss);
+            }
+            sp_document_set_undo_sensitive(doc, saved);
+            sp_document_change_uri_and_hrefs(doc, saved_uri);
+        }
+        doc->setModifiedSinceSave(saved_modified);
+        // free used ressources
+        g_free(saved_output_extension);
+        g_free(saved_dataloss);
+        g_free(saved_uri);
+
+        g_free(fileName);
+
+        throw Inkscape::Extension::Output::save_failed();
+    }
 
     // If it is an unofficial save, set the modified attributes back to what they were.
     if ( !official) {
         bool const saved = sp_document_get_undo_sensitive(doc);
         sp_document_set_undo_sensitive(doc, false);
         {
-            repr->setAttribute("inkscape:output_extension", saved_output_extension);
+            store_file_extension_in_prefs (saved_output_extension, save_method);
             repr->setAttribute("inkscape:dataloss", saved_dataloss);
         }
         sp_document_set_undo_sensitive(doc, saved);
@@ -519,6 +555,106 @@ build_from_mem(gchar const *buffer, Implementation::Implementation *in_imp)
     return ext;
 }
 
+/*
+ * TODO: Is it guaranteed that the returned extension is valid? If so, we can remove the check for
+ * filename_extension in sp_file_save_dialog().
+ */
+Glib::ustring
+get_file_save_extension (Inkscape::Extension::FileSaveMethod method) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    Glib::ustring extension;
+    switch (method) {
+        case FILE_SAVE_METHOD_SAVE_AS:
+        case FILE_SAVE_METHOD_TEMPORARY:
+            extension = prefs->getString("/dialogs/save_as/default");
+            break;
+        case FILE_SAVE_METHOD_SAVE_COPY:
+            extension = prefs->getString("/dialogs/save_copy/default");
+            break;
+        case FILE_SAVE_METHOD_INKSCAPE_SVG:
+            extension = SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE;
+            break;
+    }
+
+    if(extension.empty())
+        extension = SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE;
+
+    return extension;
+}
+
+Glib::ustring
+get_file_save_path (SPDocument *doc, FileSaveMethod method) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    Glib::ustring path;
+    switch (method) {
+        case FILE_SAVE_METHOD_SAVE_AS:
+        {
+            bool use_current_dir = prefs->getBool("/dialogs/save_as/use_current_dir");
+            if (doc->uri && use_current_dir) {
+                path = Glib::path_get_dirname(doc->uri);
+            } else {
+                path = prefs->getString("/dialogs/save_as/path");
+            }
+            break;
+        }
+        case FILE_SAVE_METHOD_TEMPORARY:
+            path = prefs->getString("/dialogs/save_as/path");
+            break;
+        case FILE_SAVE_METHOD_SAVE_COPY:
+            path = prefs->getString("/dialogs/save_copy/path");
+            break;
+        case FILE_SAVE_METHOD_INKSCAPE_SVG:
+            if (doc->uri) {
+                path = Glib::path_get_dirname(doc->uri);
+            } else {
+                // FIXME: should we use the save_as path here or something else? Maybe we should
+                // leave this as a choice to the user.
+                path = prefs->getString("/dialogs/save_as/path");
+            }
+    }
+
+    if(path.empty())
+        path = g_get_home_dir(); // Is this the most sensible solution? Note that we should avoid
+                                 // g_get_current_dir because this leads to problems on OS X where
+                                 // Inkscape opens the dialog inside application bundle when it is
+                                 // invoked for the first teim.
+
+    return path;
+}
+
+void
+store_file_extension_in_prefs (Glib::ustring extension, FileSaveMethod method) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    switch (method) {
+        case FILE_SAVE_METHOD_SAVE_AS:
+        case FILE_SAVE_METHOD_TEMPORARY:
+            prefs->setString("/dialogs/save_as/default", extension);
+            break;
+        case FILE_SAVE_METHOD_SAVE_COPY:
+            prefs->setString("/dialogs/save_copy/default", extension);
+            break;
+        case FILE_SAVE_METHOD_INKSCAPE_SVG:
+            // do nothing
+            break;
+    }
+}
+
+void
+store_save_path_in_prefs (Glib::ustring path, FileSaveMethod method) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    switch (method) {
+        case FILE_SAVE_METHOD_SAVE_AS:
+        case FILE_SAVE_METHOD_TEMPORARY:
+            prefs->setString("/dialogs/save_as/path", path);
+            break;
+        case FILE_SAVE_METHOD_SAVE_COPY:
+            prefs->setString("/dialogs/save_copy/path", path);
+            break;
+        case FILE_SAVE_METHOD_INKSCAPE_SVG:
+            // do nothing
+            break;
+    }
+}
 
 } } /* namespace Inkscape::Extension */
 

@@ -87,10 +87,10 @@ extensions = \
 	pathmodifier.py\
 	perfectboundcover.py \
 	perspective.py \
+	plt_output.py \
 	polyhedron_3d.py \
 	printing-marks.py \
 	ps2dxf.sh \
-	ps2epsi.sh \
 	ps2pdf-ext.py \
 	pturtle.py \
 	radiusrand.py \
@@ -101,16 +101,20 @@ extensions = \
 	rtree.py \
 	rubberstretch.py\
 	run_command.py \
+	scour.py \
+	scour.inkscape.py \
 	simplepath.py \
 	simplepath.rb \
 	simplestyle.py \
 	simpletransform.py \
+	sk1_output.py \
 	sk2svg.sh \
 	SpSVG.pm \
 	spirograph.py\
 	straightseg.py \
 	summersnight.py \
 	svgcalendar.py \
+	svg_regex.py \
 	svg_and_media_zip_output.py \
 	text_uppercase.py \
 	text_lowercase.py \
@@ -123,9 +127,12 @@ extensions = \
 	triangle.py \
 	txt2svg.pl \
 	uniconv-ext.py \
+	uniconv_output.py \
 	web-set-att.py \
 	web-transmit-att.py \
-	whirl.py
+	whirl.py \
+	wmf_output.py \
+	yocto_css.py
 
 otherstuff = \
 	aisvg.xslt \
@@ -136,7 +143,6 @@ otherstuff = \
 modules = \
 	addnodes.inx \
 	ai_input.inx \
-	ai_output.inx \
 	aisvg.inx \
 	ccx_input.inx \
 	cdr_input.inx\
@@ -172,7 +178,6 @@ modules = \
 	edge3d.inx \
 	embedimage.inx \
 	eps_input.inx \
-	epsi_output.inx \
 	eqtexsvg.inx \
 	export_gimp_palette.inx \
 	extractimage.inx \
@@ -221,6 +226,7 @@ modules = \
 	restack.inx \
 	rubberstretch.inx \
 	rtree.inx \
+	scour.inx \
 	sk_input.inx \
 	sk1_input.inx \
 	sk1_output.inx \
@@ -230,8 +236,6 @@ modules = \
 	svg2xaml.inx \
 	svg_and_media_zip_output.inx \
 	svgcalendar.inx \
-	svgz_input.inx \
-	svgz_output.inx \
 	text_uppercase.inx\
 	text_lowercase.inx \
 	text_sentencecase.inx \

@@ -1,4 +1,6 @@
-
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
 
 //#define DEBUG_LCMS
 
@@ -12,10 +14,14 @@
 
 #include <cstring>
 #include <string>
-// #ifdef WIN32
-// #include <windows.h>
-// #include <Icm.h>
-// #endif
+
+#ifdef WIN32
+#ifndef _WIN32_WINDOWS         // Allow use of features specific to Windows 98 or later. Required for correctly including icm.h
+#define _WIN32_WINDOWS 0x0410
+#endif
+#include <windows.h>
+#endif
+
 #include "xml/repr.h"
 #include "color-profile.h"
 #include "color-profile-fns.h"
@@ -27,6 +33,9 @@
 #include "dom/uri.h"
 #include "dom/util/digest.h"
 
+#ifdef WIN32
+#include <Icm.h>
+#endif // WIN32
 
 using Inkscape::ColorProfile;
 using Inkscape::ColorProfileClass;
@@ -263,14 +272,17 @@ void ColorProfile::set( SPObject *object, unsigned key, gchar const *value )
                         // Normal for files that have not yet been saved.
                         docbase = "";
                     }
+
+                    gchar* escaped = g_uri_escape_string(cprof->href, "!*'();:@=+$,/?#[]", TRUE);
+
                     //g_message("docbase:%s\n", docbase);
                     org::w3c::dom::URI docUri(docbase);
                     //# 2. Get href of icc file.  we don't care if it's rel or abs
-                    org::w3c::dom::URI hrefUri(cprof->href);
+                    org::w3c::dom::URI hrefUri(escaped);
                     //# 3.  Resolve the href according the docBase.  This follows
                     //      the w3c specs.  All absolute and relative issues are considered
                     org::w3c::dom::URI cprofUri = docUri.resolve(hrefUri);
-                    gchar* fullname = g_strdup((gchar *)cprofUri.getNativePath().c_str());
+                    gchar* fullname = g_uri_unescape_string(cprofUri.getNativePath().c_str(), "");
                     cprof->_clearProfile();
                     cprof->profHandle = cmsOpenProfileFromFile( fullname, "r" );
                     if ( cprof->profHandle ) {
@@ -280,6 +292,8 @@ void ColorProfile::set( SPObject *object, unsigned key, gchar const *value )
 #ifdef DEBUG_LCMS
                     DEBUG_MESSAGE( lcmsOne, "cmsOpenProfileFromFile( '%s'...) = %p", fullname, (void*)cprof->profHandle );
 #endif // DEBUG_LCMS
+                    g_free(escaped);
+                    escaped = 0;
                     g_free(fullname);
 #endif // ENABLE_LCMS
                 }
@@ -478,7 +492,7 @@ cmsHPROFILE Inkscape::colorprofile_get_handle( SPDocument* document, guint* inte
 
 cmsHTRANSFORM ColorProfile::getTransfToSRGB8()
 {
-    if ( !_transf ) {
+    if ( !_transf && profHandle ) {
         int intent = getLcmsIntent(rendering_intent);
         _transf = cmsCreateTransform( profHandle, _getInputFormat(_profileSpace), getSRGBProfile(), TYPE_RGBA_8, intent, 0 );
     }
@@ -487,7 +501,7 @@ cmsHTRANSFORM ColorProfile::getTransfToSRGB8()
 
 cmsHTRANSFORM ColorProfile::getTransfFromSRGB8()
 {
-    if ( !_revTransf ) {
+    if ( !_revTransf && profHandle ) {
         int intent = getLcmsIntent(rendering_intent);
         _revTransf = cmsCreateTransform( getSRGBProfile(), TYPE_RGBA_8, profHandle, _getInputFormat(_profileSpace), intent, 0 );
     }
@@ -604,21 +618,21 @@ std::list<Glib::ustring> ColorProfile::getProfileDirs() {
     }
 
 
-// #ifdef WIN32
-//     wchar_t pathBuf[MAX_PATH + 1];
-//     pathBuf[0] = 0;
-//     DWORD pathSize = sizeof(pathBuf);
-//     g_assert(sizeof(wchar_t) == sizeof(gunichar2));
-//     if ( GetColorDirectoryW( NULL, &pathBuf, &pathSize ) ) {
-//         gchar * utf8Path = g_utf16_to_utf8( (gunichar2*)(&pathBuf[0]), -1, NULL, NULL, NULL );
-//         if ( !g_utf8_validate(utf8Path, -1, NULL) ) {
-//             g_warning( "GetColorDirectoryW() resulted in invalid UTF-8" );
-//         } else {
-//             sources.pushback(utf8Path);
-//         }
-//         g_free( utf8Path );
-//     }
-// #endif // WIN32
+#ifdef WIN32
+    wchar_t pathBuf[MAX_PATH + 1];
+    pathBuf[0] = 0;
+    DWORD pathSize = sizeof(pathBuf);
+    g_assert(sizeof(wchar_t) == sizeof(gunichar2));
+    if ( GetColorDirectoryW( NULL, pathBuf, &pathSize ) ) {
+        gchar * utf8Path = g_utf16_to_utf8( (gunichar2*)(&pathBuf[0]), -1, NULL, NULL, NULL );
+        if ( !g_utf8_validate(utf8Path, -1, NULL) ) {
+            g_warning( "GetColorDirectoryW() resulted in invalid UTF-8" );
+        } else {
+            sources.push_back(utf8Path);
+        }
+        g_free( utf8Path );
+    }
+#endif // WIN32
 
     return sources;
 }

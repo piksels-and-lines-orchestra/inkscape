@@ -2384,8 +2384,10 @@ static void sp_stb_proportion_value_changed( GtkAdjustment *adj, GObject *dataKl
     SPDesktop *desktop = (SPDesktop *) g_object_get_data( dataKludge, "desktop" );
 
     if (sp_document_get_undo_sensitive(sp_desktop_document(desktop))) {
-        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        prefs->setDouble("/tools/shapes/star/proportion", adj->value);
+        if (!IS_NAN(adj->value)) {
+			Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+			prefs->setDouble("/tools/shapes/star/proportion", adj->value);
+        }
     }
 
     // quit if run by the attr_changed listener
@@ -4927,7 +4929,7 @@ sp_arctb_startend_value_changed(GtkAdjustment *adj, GObject *tbl, gchar const *v
 
     if (sp_document_get_undo_sensitive(sp_desktop_document(desktop))) {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        prefs->setDouble(Glib::ustring("/tools/shapes/arc") + value_name, (adj->value * M_PI)/ 180);
+        prefs->setDouble(Glib::ustring("/tools/shapes/arc/") + value_name, adj->value);
     }
 
     // quit if run by the attr_changed listener
@@ -5571,7 +5573,7 @@ static void sp_lpetool_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActi
         gtk_list_store_set( model, &iter,
                             0, _("All inactive"),
                             1, _("No geometric tool is active"),
-                            2, _("draw-geometry-inactive"),
+                            2, "draw-geometry-inactive",
                             -1 );
 
         Inkscape::LivePathEffect::EffectType type;
@@ -5695,7 +5697,7 @@ static void sp_lpetool_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActi
 static void sp_erc_width_value_changed( GtkAdjustment *adj, GObject *tbl )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/eraser/width", adj->value * 0.01 );
+    prefs->setDouble( "/tools/eraser/width", adj->value );
     update_presets_list(tbl);
 }
 
@@ -5735,7 +5737,7 @@ static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActio
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-eraser",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_erc_width_value_changed,  0.01, 0, 100 );
+                                                              sp_erc_width_value_changed, 1, 0);
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
@@ -5939,7 +5941,7 @@ sp_text_toolbox_selection_changed (Inkscape::Selection */*selection*/, GObject *
             GtkToggleButton *button = GTK_TOGGLE_BUTTON (g_object_get_data (G_OBJECT (tbl), "style-bold"));
 
             gboolean active = gtk_toggle_button_get_active (button);
-            gboolean check  = (query->font_weight.computed >= SP_CSS_FONT_WEIGHT_700);
+            gboolean check  = ((query->font_weight.computed >= SP_CSS_FONT_WEIGHT_700) && (query->font_weight.computed != SP_CSS_FONT_WEIGHT_NORMAL) && (query->font_weight.computed != SP_CSS_FONT_WEIGHT_LIGHTER));
 
             if (active != check)
             {
@@ -6087,8 +6089,8 @@ sp_text_toolbox_family_changed (GtkComboBoxEntry    *,
     // If querying returned nothing, set the default style of the tool (for new texts)
     if (result_fontspec == QUERY_STYLE_NOTHING)
     {
-    	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        prefs->mergeStyle("/tools/text/style", css);
         sp_text_edit_dialog_default_set_insensitive (); //FIXME: Replace trough a verb
     }
     else
@@ -6162,7 +6164,7 @@ sp_text_toolbox_anchoring_toggled (GtkRadioButton   *button,
     if (result_numbers == QUERY_STYLE_NOTHING)
     {
     	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_style_unref(query);
@@ -6206,17 +6208,31 @@ sp_text_toolbox_style_toggled (GtkToggleButton  *button,
         fontFromStyle->Unref();
     }
 
+    bool nochange = true;
     switch (prop)
     {
         case 0:
         {
             if (!fontSpec.empty()) {
                 newFontSpec = font_factory::Default()->FontSpecificationSetBold(fontSpec, active);
+                if (!newFontSpec.empty()) {
+                    // Don't even set the bold if the font didn't exist on the system
+                    sp_repr_css_set_property (css, "font-weight", active ? "bold" : "normal" );
+                    nochange = false;
+                }
             }
-            if (fontSpec != newFontSpec) {
-                // Don't even set the bold if the font didn't exist on the system
-                sp_repr_css_set_property (css, "font-weight", active ? "bold" : "normal" );
+            // set or reset the button according
+            if(nochange) {
+                gboolean check = gtk_toggle_button_get_active (button);
+
+                if (active != check)
+                {
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(1));
+                    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button), active);
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(0));
+                }
             }
+
             break;
         }
 
@@ -6224,10 +6240,21 @@ sp_text_toolbox_style_toggled (GtkToggleButton  *button,
         {
             if (!fontSpec.empty()) {
                 newFontSpec = font_factory::Default()->FontSpecificationSetItalic(fontSpec, active);
+                if (!newFontSpec.empty()) {
+                    // Don't even set the italic if the font didn't exist on the system
+                    sp_repr_css_set_property (css, "font-style", active ? "italic" : "normal");
+                    nochange = false;
+                }
             }
-            if (fontSpec != newFontSpec) {
-                // Don't even set the italic if the font didn't exist on the system
-                sp_repr_css_set_property (css, "font-style", active ? "italic" : "normal");
+            if(nochange) {
+                gboolean check = gtk_toggle_button_get_active (button);
+
+                if (active != check)
+                {
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(1));
+                    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button), active);
+                    g_object_set_data (G_OBJECT (button), "block", gpointer(0));
+                }
             }
             break;
         }
@@ -6241,7 +6268,7 @@ sp_text_toolbox_style_toggled (GtkToggleButton  *button,
     if (result_fontspec == QUERY_STYLE_NOTHING)
     {
     	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_style_unref(query);
@@ -6290,7 +6317,7 @@ sp_text_toolbox_orientation_toggled (GtkRadioButton  *button,
     if (result_numbers == QUERY_STYLE_NOTHING)
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_desktop_set_style (desktop, css, true, true);
@@ -6402,7 +6429,7 @@ sp_text_toolbox_size_changed  (GtkComboBox *cbox,
     if (result_numbers == QUERY_STYLE_NOTHING)
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    	prefs->setStyle("/tools/text/style", css);
+    	prefs->mergeStyle("/tools/text/style", css);
     }
 
     sp_style_unref(query);

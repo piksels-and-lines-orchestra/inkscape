@@ -634,6 +634,7 @@ inkscape_crash_handler (int /*signum*/)
             gchar * location = homedir_path(c);
             Inkscape::IO::dump_fopen_call(location, "E");
             file = Inkscape::IO::fopen_utf8name(location, "w");
+            g_snprintf (c, 1024, "%s", location); // we want the complete path to be stored in c (for reporting purposes)
             g_free(location);
             if (!file) {
                 // try saving to /tmp
@@ -643,9 +644,14 @@ inkscape_crash_handler (int /*signum*/)
             }
             if (!file) {
                 // try saving to the current directory
+                gchar *curdir = g_get_current_dir();
                 g_snprintf (c, 1024, "inkscape-%.256s.%s.%d.svg", docname, sptstr, count);
                 Inkscape::IO::dump_fopen_call(c, "F");
                 file = Inkscape::IO::fopen_utf8name(c, "w");
+                // store the complete path in c so that it can be reported later
+                gchar * location = g_build_filename(curdir, c, NULL);
+                g_snprintf (c, 1024, "%s", location);
+                g_free(location);
             }
             if (file) {
                 sp_repr_save_stream (repr->document(), file, SP_SVG_NS_URI);
@@ -799,8 +805,10 @@ inkscape_application_init (const gchar *argv0, gboolean use_gui)
         }
     }
 
-    inkscape_load_menus(inkscape);
-    sp_input_load_from_preferences();
+    if (use_gui) {
+        inkscape_load_menus(inkscape);
+        sp_input_load_from_preferences();
+    }
 
     /* set language for user interface according setting in preferences */
     Glib::ustring ui_language = prefs->getString("/ui/language");
@@ -1449,6 +1457,7 @@ profile_path(const char *filename)
             if (needsMigration) {
                 // TODO here is a point to hook in preference migration
                 g_warning("Preferences need to be migrated from 0.46 or older %s to %s", legacyDir, prefdir);
+                Inkscape::Preferences::migrate( legacyDir, prefdir );
             }
 
             bool needsRenameWarning = ( !Inkscape::IO::file_test( prefdir, G_FILE_TEST_EXISTS ) && Inkscape::IO::file_test( dev47Dir, G_FILE_TEST_EXISTS ) );
@@ -1474,6 +1483,13 @@ profile_path(const char *filename)
             if ( g_mkdir_with_parents(prefdir, mode) == -1 ) {
                 int problem = errno;
                 g_warning("Unable to create profile directory (%s) (%d)", g_strerror(problem), problem);
+            } else {
+                gchar const *userDirs[] = {"keys", "templates", "icons", "extensions", "palettes", NULL};
+                for (gchar const** name = userDirs; *name; ++name) {
+                    gchar *dir = g_build_filename(prefdir, *name, NULL);
+                    g_mkdir_with_parents(dir, mode);
+                    g_free(dir);
+                }
             }
         }
     }

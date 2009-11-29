@@ -206,13 +206,6 @@ Inkscape::SnappedPoint SnapManager::freeSnap(Inkscape::SnapPreferences::PointTyp
                                              bool first_point,
                                              Geom::OptRect const &bbox_to_snap) const
 {
-	if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-		g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-		// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
-	//std::cout << "SnapManager::freeSnap -> postponed: " << snapprefs.getSnapPostponedGlobally() << std::endl;
-
 	if (!someSnapperMightSnap()) {
         return Inkscape::SnappedPoint(p, source_type, Inkscape::SNAPTARGET_UNDEFINED, NR_HUGE, 0, false, false);
     }
@@ -371,12 +364,7 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::P
                                                     bool first_point,
                                                     Geom::OptRect const &bbox_to_snap) const
 {
-    if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-		g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-		// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
-	if (!someSnapperMightSnap()) {
+    if (!someSnapperMightSnap()) {
         return Inkscape::SnappedPoint(p, source_type, Inkscape::SNAPTARGET_UNDEFINED, NR_HUGE, 0, false, false);
     }
 
@@ -390,7 +378,10 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::P
         items_to_ignore = _items_to_ignore;
     }
 
+
+    // First project the mouse pointer onto the constraint
     Geom::Point pp = constraint.projection(p);
+    // Then try to snap the projected point
 
     SnappedConstraints sc;
     SnapperList const snappers = getSnappers();
@@ -402,7 +393,7 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::P
         delete items_to_ignore;
     }
 
-    return findBestSnap(p, source_type, sc, true);
+    return findBestSnap(pp, source_type, sc, true);
 }
 
 /**
@@ -417,13 +408,8 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapPreferences::P
  *  \param p Current position of the point on the guide that is to be snapped; will be overwritten by the position of the snap target if snapping has occurred
  *  \param guide_normal Vector normal to the guide line
  */
-void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal) const
+void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal, SPGuideDragType drag_type) const
 {
-    if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-			g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-			// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
     if (!snapprefs.getSnapEnabledGlobally() || snapprefs.getSnapPostponedGlobally()) {
         return;
     }
@@ -432,20 +418,27 @@ void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal)
         return;
     }
 
+    Inkscape::SnapSourceType source_type = Inkscape::SNAPSOURCE_GUIDE_ORIGIN;
+    if (drag_type == SP_DRAG_ROTATE) {
+    	source_type = Inkscape::SNAPSOURCE_GUIDE;
+    }
+
     // Snap to nodes
     SnappedConstraints sc;
     if (object.GuidesMightSnap()) {
         object.guideFreeSnap(sc, p, guide_normal);
     }
 
-    // Snap to guides
-    if (snapprefs.getSnapToGuides()) {
-        guide.freeSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, Inkscape::SNAPSOURCE_GUIDE, true, Geom::OptRect(), NULL, NULL);
-    }
+    // Snap to guides & grid lines
+    SnapperList snappers = getGridSnappers();
+    snappers.push_back(&guide);
+	for (SnapperList::const_iterator i = snappers.begin(); i != snappers.end(); i++) {
+		(*i)->freeSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, source_type, true, Geom::OptRect(), NULL, NULL);
+	}
 
-    // We won't snap to grids, what's the use?
+    // Snap to intersections of curves, but not to the curves themselves! (see _snapTranslatingGuideToNodes in object-snapper.cpp)
+    Inkscape::SnappedPoint const s = findBestSnap(p, source_type, sc, false, true);
 
-    Inkscape::SnappedPoint const s = findBestSnap(p, Inkscape::SNAPSOURCE_GUIDE, sc, false);
     s.getPoint(p);
 }
 
@@ -465,12 +458,7 @@ void SnapManager::guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal)
 
 void SnapManager::guideConstrainedSnap(Geom::Point &p, SPGuide const &guideline) const
 {
-	if (_desktop->event_context && _desktop->event_context->_snap_window_open == false) {
-			g_warning("The current tool tries to snap, but it hasn't yet opened the snap window. Please report this!");
-			// When the context goes into dragging-mode, then Inkscape should call this: sp_event_context_snap_window_open(event_context);
-	}
-
-    if (!snapprefs.getSnapEnabledGlobally() || snapprefs.getSnapPostponedGlobally()) {
+	if (!snapprefs.getSnapEnabledGlobally() || snapprefs.getSnapPostponedGlobally()) {
         return;
     }
 
@@ -478,21 +466,23 @@ void SnapManager::guideConstrainedSnap(Geom::Point &p, SPGuide const &guideline)
         return;
     }
 
+    Inkscape::SnapSourceType source_type = Inkscape::SNAPSOURCE_GUIDE_ORIGIN;
+
     // Snap to nodes or paths
     SnappedConstraints sc;
     Inkscape::Snapper::ConstraintLine cl(guideline.point_on_line, Geom::rot90(guideline.normal_to_line));
     if (object.ThisSnapperMightSnap()) {
-        object.constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, Inkscape::SNAPSOURCE_GUIDE_ORIGIN, true, Geom::OptRect(), cl, NULL);
+        object.constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, source_type, true, Geom::OptRect(), cl, NULL);
     }
 
-    // Snap to guides
-    if (snapprefs.getSnapToGuides()) {
-        guide.constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, Inkscape::SNAPSOURCE_GUIDE_ORIGIN, true, Geom::OptRect(), cl, NULL);
-    }
+    // Snap to guides & grid lines
+	SnapperList snappers = getGridSnappers();
+	snappers.push_back(&guide);
+	for (SnapperList::const_iterator i = snappers.begin(); i != snappers.end(); i++) {
+		(*i)->constrainedSnap(sc, Inkscape::SnapPreferences::SNAPPOINT_GUIDE, p, source_type, true, Geom::OptRect(), cl, NULL);
+	}
 
-    // We won't snap to grids, what's the use?
-
-    Inkscape::SnappedPoint const s = findBestSnap(p, Inkscape::SNAPSOURCE_GUIDE, sc, false);
+    Inkscape::SnappedPoint const s = findBestSnap(p, source_type, sc, false);
     s.getPoint(p);
 }
 
@@ -922,13 +912,15 @@ Inkscape::SnappedPoint SnapManager::constrainedSnapSkew(Inkscape::SnapPreference
  * \param source_type Detailed description of the source type, will be used by the snap indicator
  * \param sc A structure holding all snap targets that have been found so far
  * \param constrained True if the snap is constrained, e.g. for stretching or for purely horizontal translation.
+ * \param noCurves If true, then do consider snapping to intersections of curves, but not to the curves themself
  * \return An instance of the SnappedPoint class, which holds data on the snap source, snap target, and various metrics
  */
 
 Inkscape::SnappedPoint SnapManager::findBestSnap(Geom::Point const &p,
 											     Inkscape::SnapSourceType const source_type,
 											     SnappedConstraints &sc,
-											     bool constrained) const
+											     bool constrained,
+											     bool noCurves) const
 {
 
     /*
@@ -950,9 +942,11 @@ Inkscape::SnappedPoint SnapManager::findBestSnap(Geom::Point const &p,
     }
 
     // search for the closest snapped curve
-    Inkscape::SnappedCurve closestCurve;
-    if (getClosestCurve(sc.curves, closestCurve)) {
-        sp_list.push_back(Inkscape::SnappedPoint(closestCurve));
+    if (!noCurves) {
+		Inkscape::SnappedCurve closestCurve;
+		if (getClosestCurve(sc.curves, closestCurve)) {
+			sp_list.push_back(Inkscape::SnappedPoint(closestCurve));
+		}
     }
 
     if (snapprefs.getSnapIntersectionCS()) {

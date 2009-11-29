@@ -15,7 +15,7 @@
 # include <config.h>
 #endif
 
-#include <gtk/gtktreeview.h>
+#include <gtk/gtk.h>
 #include <gtkmm/cellrenderertext.h>
 #include <gtkmm/colorbutton.h>
 #include <gtkmm/messagedialog.h>
@@ -462,7 +462,7 @@ public:
     ColorMatrixValues()
         : AttrWidget(SP_ATTR_VALUES),
           // TRANSLATORS: this dialog is accessible via menu Filters - Filter editor
-          _matrix(SP_ATTR_VALUES, _("This matrix determines a linear transform on colour space. Each line affects one of the color components. Each column determines how much of each color component from the input is passed to the output. The last column does not depend on input colors, so can be used to adjust a constant component value.")),
+          _matrix(SP_ATTR_VALUES, _("This matrix determines a linear transform on color space. Each line affects one of the color components. Each column determines how much of each color component from the input is passed to the output. The last column does not depend on input colors, so can be used to adjust a constant component value.")),
           _saturation(0, 0, 1, 0.1, 0.01, 2, SP_ATTR_VALUES),
           _angle(0, 0, 360, 0.1, 0.01, 1, SP_ATTR_VALUES),
           _label(_("None"), Gtk::ALIGN_LEFT),
@@ -1315,7 +1315,7 @@ void FilterEffectsDialog::FilterModifier::add_filter()
 
     const int count = _model->children().size();
     std::ostringstream os;
-    os << "filter" << count;
+    os << _("filter") << count;
     filter->setLabel(os.str().c_str());
 
     update_filters();
@@ -2192,7 +2192,7 @@ void FilterEffectsDialog::init_settings_widgets()
     //TRANSLATORS: for info on "Kernel", see http://en.wikipedia.org/wiki/Kernel_(matrix)
     _convolve_matrix = _settings->add_matrix(SP_ATTR_KERNELMATRIX, _("Kernel:"), _("This matrix describes the convolve operation that is applied to the input image in order to calculate the pixel colors at the output. Different arrangements of values in this matrix result in various possible visual effects. An identity matrix would lead to a motion blur effect (parallel to the matrix diagonal) while a matrix filled with a constant non-zero value would lead to a common blur effect."));
     _convolve_order->signal_attr_changed().connect(sigc::mem_fun(*this, &FilterEffectsDialog::convolve_order_changed));
-    _settings->add_spinslider(0, SP_ATTR_DIVISOR, _("Divisor:"), 0, 20, 1, 0.1, 2, _("After applying the kernelMatrix to the input image to yield a number, that number is divided by divisor to yield the final destination color value. A divisor that is the sum of all the matrix values tends to have an evening effect on the overall color intensity of the result."));
+    _settings->add_spinslider(0, SP_ATTR_DIVISOR, _("Divisor:"), 0, 1000, 1, 0.1, 2, _("After applying the kernelMatrix to the input image to yield a number, that number is divided by divisor to yield the final destination color value. A divisor that is the sum of all the matrix values tends to have an evening effect on the overall color intensity of the result."));
     _settings->add_spinslider(0, SP_ATTR_BIAS, _("Bias:"), -10, 10, 1, 0.01, 1, _("This value is added to each component. This is useful to define a constant value as the zero response of the filter."));
     _settings->add_combo(CONVOLVEMATRIX_EDGEMODE_DUPLICATE, SP_ATTR_EDGEMODE, _("Edge Mode:"), ConvolveMatrixEdgeModeConverter, _("Determines how to extend the input image as necessary with color values so that the matrix operations can be applied when the kernel is positioned at or near the edge of the input image."));
     _settings->add_checkbutton(false, SP_ATTR_PRESERVEALPHA, _("Preserve Alpha"), "true", "false", _("If set, the alpha channel won't be altered by this filter primitive."));
@@ -2279,7 +2279,7 @@ void FilterEffectsDialog::update_primitive_infobox()
             break;
         case(NR_FILTER_COLORMATRIX):
             _infobox_icon.set_from_icon_name("feColorMatrix-icon", Gtk::ICON_SIZE_DIALOG);
-            _infobox_desc.set_markup(_("The <b>feColorMatrix</b> filter primitive applies a matrix transformation to colour of each rendered pixel. This allows for effects like turning object to grayscale, modifying colour saturation and changing colour hue."));
+            _infobox_desc.set_markup(_("The <b>feColorMatrix</b> filter primitive applies a matrix transformation to color of each rendered pixel. This allows for effects like turning object to grayscale, modifying color saturation and changing color hue."));
             break;
         case(NR_FILTER_COMPONENTTRANSFER):
             _infobox_icon.set_from_icon_name("feComponentTransfer-icon", Gtk::ICON_SIZE_DIALOG);
@@ -2319,7 +2319,7 @@ void FilterEffectsDialog::update_primitive_infobox()
             break;
         case(NR_FILTER_MORPHOLOGY):
             _infobox_icon.set_from_icon_name("feMorphology-icon", Gtk::ICON_SIZE_DIALOG);
-            _infobox_desc.set_markup(_("The <b>feMorphology</b> filter primitive provides erode and dilate effects. For single-colour objects erode makes the object thinner and dilate makes it thicker."));
+            _infobox_desc.set_markup(_("The <b>feMorphology</b> filter primitive provides erode and dilate effects. For single-color objects erode makes the object thinner and dilate makes it thicker."));
             break;
         case(NR_FILTER_OFFSET):
             _infobox_icon.set_from_icon_name("feOffset-icon", Gtk::ICON_SIZE_DIALOG);

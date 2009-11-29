@@ -46,35 +46,32 @@ namespace Geom {
 inline Coord subdivideArr(Coord t, Coord const *v, Coord *left, Coord *right, unsigned order) {
 /*
  *  Bernstein : 
- *	Evaluate a Bernstein function at a particular parameter value
+ *      Evaluate a Bernstein function at a particular parameter value
  *      Fill in control points for resulting sub-curves.
  * 
  */
 
     unsigned N = order+1;
-    std::valarray<Coord> vtemp(2*N);
+    std::valarray<Coord> row(N);
     for (unsigned i = 0; i < N; i++)
-        vtemp[i] = v[i];
+        row[i] = v[i];
 
     // Triangle computation
     const double omt = (1-t);
     if(left)
-        left[0] = vtemp[0];
+        left[0] = row[0];
     if(right)
-        right[order] = vtemp[order];
-    double *prev_row = &vtemp[0];
-    double *row = &vtemp[N];
+        right[order] = row[order];
     for (unsigned i = 1; i < N; i++) {
         for (unsigned j = 0; j < N - i; j++) {
-            row[j] = omt*prev_row[j] + t*prev_row[j+1];
+            row[j] = omt*row[j] + t*row[j+1];
         }
         if(left)
             left[i] = row[0];
         if(right)
             right[order-i] = row[order-i];
-        std::swap(prev_row, row);
     }
-    return (prev_row[0]);
+    return (row[0]);
 /*
     Coord vtemp[order+1][order+1];
 
@@ -95,6 +92,20 @@ inline Coord subdivideArr(Coord t, Coord const *v, Coord *left, Coord *right, un
             right[j] = vtemp[order-j][j];
 
             return (vtemp[order][0]);*/
+}
+
+template <typename T>
+inline T bernsteinValueAt(double t, T const *c_, unsigned n) {
+    double u = 1.0 - t;
+    double bc = 1;
+    double tn = 1;
+    T tmp = c_[0]*u;
+    for(unsigned i=1; i<n; i++){
+        tn = tn*t;
+        bc = bc*(n-i+1)/i;
+        tmp = (tmp + tn*bc*c_[i])*u;
+    }
+    return (tmp + tn*t*c_[n]);
 }
 
 
@@ -225,24 +236,34 @@ public:
     //inline Coord const &operator[](unsigned ix) const { return c_[ix]; }
     inline void setPoint(unsigned ix, double val) { c_[ix] = val; }
 
-    /* This is inelegant, as it uses several extra stores.  I think there might be a way to
-     * evaluate roughly in situ. */
-
+    /**
+    *  The size of the returned vector equals n_derivs+1.
+    */
     std::vector<Coord> valueAndDerivatives(Coord t, unsigned n_derivs) const {
-        std::vector<Coord> val_n_der;
+        /* This is inelegant, as it uses several extra stores.  I think there might be a way to
+         * evaluate roughly in situ. */
+
+         // initialize return vector with zeroes, such that we only need to replace the non-zero derivs
+        std::vector<Coord> val_n_der(n_derivs + 1, Coord(0.0));
+
+        // initialize temp storage variables
         std::valarray<Coord> d_(order()+1);
-        unsigned nn = n_derivs + 1; 	// the size of the result vector equals n_derivs+1 ...
-        if(nn > order())
-            nn = order()+1;		// .. but with a maximum of order() + 1!
-        for(unsigned i = 0; i < size(); i++)
+        for (unsigned i = 0; i < size(); i++) {
             d_[i] = c_[i];
-        for(unsigned di = 0; di < nn; di++) {
-            val_n_der.push_back(subdivideArr(t, &d_[0], NULL, NULL, order() - di));
-            for(unsigned i = 0; i < order() - di; i++) {
+        }
+
+        unsigned nn = n_derivs + 1;
+        if(n_derivs > order()) {
+            nn = order()+1; // only calculate the non zero derivs
+        }
+        for (unsigned di = 0; di < nn; di++) {
+            //val_n_der[di] = (subdivideArr(t, &d_[0], NULL, NULL, order() - di));
+            val_n_der[di] = bernsteinValueAt(t, &d_[0], order() - di);
+            for (unsigned i = 0; i < order() - di; i++) {
                 d_[i] = (order()-di)*(d_[i+1] - d_[i]);
             }
         }
-        val_n_der.resize(n_derivs);
+
         return val_n_der;
     }
 
@@ -255,6 +276,11 @@ public:
     std::vector<double> roots() const {
         std::vector<double> solutions;
         find_bernstein_roots(&const_cast<std::valarray<Coord>&>(c_)[0], order(), solutions, 0, 0.0, 1.0);
+        return solutions;
+    }
+    std::vector<double> roots(Interval const ivl) const {
+        std::vector<double> solutions;
+        find_bernstein_roots(&const_cast<std::valarray<Coord>&>(c_)[0], order(), solutions, 0, ivl[0], ivl[1]);
         return solutions;
     }
 };

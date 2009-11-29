@@ -1,12 +1,13 @@
 #!/bin/bash
 #
 # USAGE
-# osx-app [-s] [-py /path/to/python/modules] [-l /path/to/libraries] -b /path/to/bin/inkscape -p /path/to/Info.plist
+# osx-app [-s] [-l /path/to/libraries] -py /path/to/python/modules [-l /path/to/libraries] -b /path/to/bin/inkscape -p /path/to/Info.plist
 #
 # This script attempts to build an Inkscape.app package for OS X, resolving
-# dynamic libraries, etc.	 
-# It strips the executable and libraries if '-s' is given.
-# It adds python modules if the '-py option' is given
+# dynamic libraries, etc.
+# 
+# If the '-s' option is given, then the libraries and executable are stripped.
+# 
 # The Info.plist file can be found in the base inkscape directory once
 # configure has been run.
 #
@@ -16,8 +17,8 @@
 #		 Jean-Olivier Irisson <jo.irisson@gmail.com>
 # 
 # Copyright (C) 2005 Kees Cook
-# Copyright (C) 2005-2007 Michael Wybrow
-# Copyright (C) 2007 Jean-Olivier Irisson
+# Copyright (C) 2005-2009 Michael Wybrow
+# Copyright (C) 2007-2009 Jean-Olivier Irisson
 #
 # Released under GNU GPL, read the file 'COPYING' for more information
 #
@@ -49,7 +50,7 @@ echo -e "
 Create an app bundle for OS X
 
 \033[1mUSAGE\033[0m
-	$0 [-s] [-py /path/to/python/modules] [-l /path/to/libraries] -b /path/to/bin/inkscape -p /path/to/Info.plist
+	$0 [-s] [-l /path/to/libraries] -py /path/to/python/modules -b /path/to/bin/inkscape -p /path/to/Info.plist
 
 \033[1mOPTIONS\033[0m
 	\033[1m-h,--help\033[0m 
@@ -109,11 +110,42 @@ done
 echo -e "\n\033[1mCREATE INKSCAPE APP BUNDLE\033[0m\n"
 
 # Safety tests
-if [ ${add_python} = "true" ]; then
-	if [ ! -e "$python_dir" ]; then
-		echo "Cannot find the directory containing python modules: $python_dir" >&2
-		exit 1
-	fi
+
+if [ "x$binary" == "x" ]; then
+	echo "Inkscape binary path not specified." >&2
+	exit 1
+fi
+
+if [ ! -x "$binary" ]; then
+	echo "Inkscape executable not not found at $binary." >&2
+	exit 1
+fi
+
+if [ "x$plist" == "x" ]; then
+	echo "Info.plist file not specified." >&2
+	exit 1
+fi
+
+if [ ! -f "$plist" ]; then
+	echo "Info.plist file not found at $plist." >&2
+	exit 1
+fi
+
+PYTHONPACKURL="http://inkscape.modevia.com/macosx-snap/Python-packages.dmg"
+
+if [ "x$python_dir" == "x" ]; then
+	echo "Python modules directory not specified." >&2
+	echo "Python modules can be downloaded from:" >&2
+	echo "    $PYTHONPACKURL" >&2
+	exit 1
+fi
+
+if [ ! -e "$python_dir/i386" -o ! -e "$python_dir/ppc" ]; then
+	echo "Directory does not appear to contain the i386 and ppc python modules:" >&2
+	echo "    $python_dir" >&2
+	echo "Python modules can be downloaded from:" >&2
+	echo "    $PYTHONPACKURL" >&2
+	exit 1
 fi
 
 if [ ! -e "$LIBPREFIX" ]; then
@@ -131,24 +163,19 @@ if [ ! -e "$LIBPREFIX/lib/gnome-vfs-2.0" ]; then
 	exit 1
 fi
 
+if ! pkg-config --exists poppler; then
+	echo "Missing poppler -- please install poppler and try again." >&2
+	exit 1
+fi
+
+if ! pkg-config --modversion ImageMagick >/dev/null 2>&1; then
+	echo "Missing ImageMagick -- please install ImageMagick and try again." >&2
+	exit 1
+fi
+
 if [ ! -e "$LIBPREFIX/lib/aspell-0.60/en.dat" ]; then
 	echo "Missing aspell en dictionary -- please install at least 'aspell-dict-en', but" >&2
 	echo "preferably all dictionaries ('aspell-dict-*') and try again." >&2
-	exit 1
-fi
-
-if [ ! -f "$binary" ]; then
-	echo "Need Inkscape binary" >&2
-	exit 1
-fi
-
-if [ ! -f "$plist" ]; then
-	echo "Need plist file" >&2
-	exit 1
-fi
-
-if [ ! -x "$binary" ]; then
-	echo "Not executable: $binary" >&2
 	exit 1
 fi
 
@@ -246,6 +273,10 @@ cp -rp "$LIBPREFIX/share/mime" "$pkgresources/share/"
 # Icons and the rest of the script framework
 rsync -av --exclude ".svn" "$resdir"/Resources/* "$pkgresources/"
 
+# Update the ImageMagick path in startup script.
+IMAGEMAGICKVER=`pkg-config --modversion ImageMagick`
+sed -e "s,IMAGEMAGICKVER,$IMAGEMAGICKVER,g" -i "" $pkgbin/inkscape
+
 # Add python modules if requested
 if [ ${add_python} = "true" ]; then
 	# copy python site-packages. They need to be organized in a hierarchical set of directories, by architecture and python major+minor version, e.g. i386/2.3/ for Ptyhon 2.3 on Intel; ppc/2.4/ for Python 2.4 on PPC
@@ -294,6 +325,9 @@ cp -r $LIBPREFIX/lib/gtk-2.0/$gtk_version/* $pkglib/gtk-2.0/$gtk_version/
 mkdir -p $pkglib/gnome-vfs-2.0/modules
 cp $LIBPREFIX/lib/gnome-vfs-2.0/modules/*.so $pkglib/gnome-vfs-2.0/modules/
 
+cp -r "$LIBPREFIX/lib/ImageMagick-$IMAGEMAGICKVER" "$pkglib/"
+cp -r "$LIBPREFIX/share/ImageMagick-$IMAGEMAGICKVER" "$pkgresources/share/"
+
 # Copy aspell dictionary files:
 cp -r "$LIBPREFIX/lib/aspell-0.60" "$pkglib/"
 cp -r "$LIBPREFIX/share/aspell" "$pkgresources/share/"
@@ -305,7 +339,7 @@ nfiles=0
 endl=true
 while $endl; do
 	echo -e "\033[1mLooking for dependencies.\033[0m Round" $a
-	libs="`otool -L $pkglib/gtk-2.0/$gtk_version/{engines,immodules,loaders,printbackends}/*.{dylib,so} $pkglib/pango/$pango_version/modules/* $pkglib/gnome-vfs-2.0/modules/* $package/Contents/Resources/lib/* $binary 2>/dev/null | fgrep compatibility | cut -d\( -f1 | grep $LIBPREFIX | sort | uniq`"
+	libs="`otool -L $pkglib/gtk-2.0/$gtk_version/{engines,immodules,loaders,printbackends}/*.{dylib,so} $pkglib/pango/$pango_version/modules/* $pkglib/gnome-vfs-2.0/modules/* $package/Contents/Resources/lib/* $pkglib/ImageMagick-$IMAGEMAGICKVER/modules-Q16/{filters,coders}/*.so $binary 2>/dev/null | fgrep compatibility | cut -d\( -f1 | grep $LIBPREFIX | sort | uniq`"
 	cp -f $libs $package/Contents/Resources/lib
 	let "a+=1"	
 	nnfiles=`ls $package/Contents/Resources/lib | wc -l`
@@ -366,42 +400,85 @@ fixlib () {
 		done
 	fi
 }
-# 
-# Fix package deps
-# (cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/loaders"
-# for file in *.so; do
-# 	echo "Rewriting dylib paths for $file..."
-# 	fixlib "$file" "`pwd`"
-# done
-# )
-# (cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/engines"
-# for file in *.so; do
-# 	echo "Rewriting dylib paths for $file..."
-# 	fixlib "$file" "`pwd`"
-# done
-# )
-# (cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/immodules"
-# for file in *.so; do
-# 	echo "Rewriting dylib paths for $file..."
-# 	fixlib "$file" "`pwd`"
-# done
-# )
-# (cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/printbackends"
-# for file in *.so; do
-# 	echo "Rewriting dylib paths for $file..."
-# 	fixlib "$file" "`pwd`"
-# done
-# )
-# (cd "$package/Contents/Resources/bin"
-# for file in *; do
-# 	echo "Rewriting dylib paths for $file..."
-# 	fixlib "$file" "`pwd`"
-# done
-# cd ../lib
-# for file in *.dylib; do
-# 	echo "Rewriting dylib paths for $file..."
-# 	fixlib "$file" "`pwd`"
-# done
-# )
+
+rewritelibpaths () {
+	# 
+	# Fix package deps
+	(cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/loaders"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/engines"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/immodules"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/gtk-2.0/2.10.0/printbackends"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/gnome-vfs-2.0/modules"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/pango/1.6.0/modules"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/ImageMagick-$IMAGEMAGICKVER/modules-Q16/filters"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/lib/ImageMagick-$IMAGEMAGICKVER/modules-Q16/coders"
+	for file in *.so; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+	(cd "$package/Contents/Resources/bin"
+	for file in *; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	cd ../lib
+	for file in *.dylib; do
+		echo "Rewriting dylib paths for $file..."
+		fixlib "$file" "`pwd`"
+	done
+	)
+}
+
+PATHLENGTH=`echo $LIBPREFIX | wc -c`
+if [ "$PATHLENGTH" -ge "50" ]; then
+	# If the LIBPREFIX path is long enough to allow 
+	# path rewriting, then do this.
+	rewritelibpaths
+else
+	echo "Could not rewrite dylb paths for bundled libraries.  This requires" >&2
+	echo "Macports to be installed in a PREFIX of at least 50 characters in length." >&2
+	echo "" >&2
+	echo "The package will still work if the following line is uncommented in" >&2
+	echo "Inkscape.app/Contents/Resources/bin/inkscape:" >&2
+	echo '        export DYLD_LIBRARY_PATH="$TOP/lib"' >&2
+	exit 1
+
+fi
 
 exit 0

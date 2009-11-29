@@ -117,6 +117,11 @@ sp_node_context_dispose(GObject *object)
     SPEventContext *ec = SP_EVENT_CONTEXT(object);
 
     ec->enableGrDrag(false);
+	
+    if (nc->grabbed) {
+        sp_canvas_item_ungrab(nc->grabbed, GDK_CURRENT_TIME);
+        nc->grabbed = NULL;
+    }
 
     nc->sel_changed_connection.disconnect();
     nc->sel_changed_connection.~connection();
@@ -300,8 +305,6 @@ sp_node_context_root_handler(SPEventContext *event_context, GdkEvent *event)
         nc->remove_flash_counter--;
     }
 
-    sp_event_context_snap_window_open(event_context, false); // Just put the snap window open, bluntly. Will be closed when we have left the context
-
     gint ret = FALSE;
     switch (event->type) {
         case GDK_BUTTON_PRESS:
@@ -329,6 +332,17 @@ sp_node_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                                          event->button.y);
                 Geom::Point const button_dt(desktop->w2d(button_w));
                 Inkscape::Rubberband::get(desktop)->start(desktop, button_dt);
+
+                if (nc->grabbed) {
+                    sp_canvas_item_ungrab(nc->grabbed, event->button.time);
+                    nc->grabbed = NULL;
+                }
+				
+                sp_canvas_item_grab(SP_CANVAS_ITEM(desktop->acetate),
+                                    GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK,
+                                    NULL, event->button.time);
+				nc->grabbed = SP_CANVAS_ITEM(desktop->acetate);
+				
                 nc->current_state = SP_NODE_CONTEXT_INACTIVE;
                 desktop->updateNow();
                 ret = TRUE;
@@ -462,6 +476,10 @@ sp_node_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         desktop->updateNow();
                     }
                     Inkscape::Rubberband::get(desktop)->stop();
+                    if (nc->grabbed) {
+                        sp_canvas_item_ungrab(nc->grabbed, event->button.time);
+                        nc->grabbed = NULL;
+                    }
                     ret = TRUE;
                     break;
                 }
@@ -485,6 +503,12 @@ sp_node_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     }
                     ret = TRUE;
                     Inkscape::Rubberband::get(desktop)->stop();
+					
+					if (nc->grabbed) {
+						sp_canvas_item_ungrab(nc->grabbed, event->button.time);
+						nc->grabbed = NULL;
+					}
+					
                     desktop->updateNow();
                     nc->rb_escaped = false;
                     nc->drag = FALSE;

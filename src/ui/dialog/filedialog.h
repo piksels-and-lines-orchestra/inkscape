@@ -21,6 +21,10 @@
 #include <set>
 #include <gtkmm.h>
 
+#include "extension/system.h"
+
+class SPDocument;
+
 namespace Inkscape {
 namespace Extension {
 class Extension;
@@ -163,7 +167,8 @@ public:
                                   FileDialogType fileTypes,
                                   const char *title,
                                   const Glib::ustring &default_key,
-                                  const gchar *docTitle);
+                                  const gchar *docTitle,
+                                  const Inkscape::Extension::FileSaveMethod save_method);
 
 
     /**
@@ -223,7 +228,9 @@ protected:
 }; //FileSaveDialog
 
 
+//#define NEW_EXPORT_DIALOG
 
+#ifdef NEW_EXPORT_DIALOG
 
 /**
  * This class provides an implementation-independent API for
@@ -361,11 +368,12 @@ public:
 
 }; //FileExportDialog
 
+#endif // NEW_EXPORT_DIALOG
+
 
 } //namespace Dialog
 } //namespace UI
 } //namespace Inkscape
-
 
 #endif /* __FILE_DIALOG_H__ */
 

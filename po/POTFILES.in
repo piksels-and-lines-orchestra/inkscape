@@ -164,6 +164,7 @@ src/pencil-context.cpp
 src/pen-context.cpp
 src/persp3d.cpp
 src/preferences.cpp
+src/preferences-skeleton.h
 src/rdf.cpp
 src/rect-context.cpp
 src/select-context.cpp
@@ -208,7 +209,6 @@ src/ui/clipboard.cpp
 src/ui/context-menu.cpp
 src/ui/dialog/aboutbox.cpp
 src/ui/dialog/align-and-distribute.cpp
-src/ui/dialog/calligraphic-presets.h
 src/ui/dialog/calligraphic-profile-rename.cpp
 src/ui/dialog/debug.cpp
 src/ui/dialog/document-metadata.cpp
@@ -291,11 +291,11 @@ share/extensions/perspective.py
 share/extensions/polyhedron_3d.py
 share/extensions/summersnight.py
 share/extensions/svg_and_media_zip_output.py
+share/extensions/uniconv_output.py
 share/extensions/web-set-att.py
 share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/addnodes.inx
 [type: gettext/xml] share/extensions/ai_input.inx
-[type: gettext/xml] share/extensions/ai_output.inx
 [type: gettext/xml] share/extensions/aisvg.inx
 [type: gettext/xml] share/extensions/ccx_input.inx
 [type: gettext/xml] share/extensions/cdr_input.inx
@@ -331,7 +331,6 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/edge3d.inx
 [type: gettext/xml] share/extensions/embedimage.inx
 [type: gettext/xml] share/extensions/eps_input.inx
-[type: gettext/xml] share/extensions/epsi_output.inx
 [type: gettext/xml] share/extensions/eqtexsvg.inx
 [type: gettext/xml] share/extensions/export_gimp_palette.inx
 [type: gettext/xml] share/extensions/extractimage.inx
@@ -380,6 +379,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/restack.inx
 [type: gettext/xml] share/extensions/rtree.inx
 [type: gettext/xml] share/extensions/rubberstretch.inx
+[type: gettext/xml] share/extensions/scour.inx
 [type: gettext/xml] share/extensions/sk1_input.inx
 [type: gettext/xml] share/extensions/sk1_output.inx
 [type: gettext/xml] share/extensions/sk_input.inx
@@ -389,8 +389,6 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/svg2xaml.inx
 [type: gettext/xml] share/extensions/svg_and_media_zip_output.inx
 [type: gettext/xml] share/extensions/svgcalendar.inx
-[type: gettext/xml] share/extensions/svgz_input.inx
-[type: gettext/xml] share/extensions/svgz_output.inx
 [type: gettext/xml] share/extensions/text_braille.inx
 [type: gettext/xml] share/extensions/text_flipcase.inx
 [type: gettext/xml] share/extensions/text_lowercase.inx

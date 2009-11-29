@@ -13,6 +13,7 @@
 #endif
 #ifdef WIN32
 #include <io.h>
+#include <windows.h>
 #endif
 
 #include <gtkmm/stock.h>
@@ -31,7 +32,7 @@
 
 
 static void
-draw_page (GtkPrintOperation */*operation*/,
+draw_page (GtkPrintOperation *operation,
            GtkPrintContext   *context,
            gint               /*page_nr*/,
            gpointer           user_data)
@@ -106,6 +107,24 @@ draw_page (GtkPrintOperation */*operation*/,
         cairo_surface_t *surface = cairo_get_target(cr);
         cairo_matrix_t ctm;
         cairo_get_matrix(cr, &ctm);
+#ifdef WIN32
+        //Gtk+ does not take the non printable area into account
+        //http://bugzilla.gnome.org/show_bug.cgi?id=381371
+        //
+        // This workaround translates the origin from the top left of the
+        // printable area to the top left of the page.
+        GtkPrintSettings *settings = gtk_print_operation_get_print_settings(operation);
+        const gchar *printerName = gtk_print_settings_get_printer(settings);
+        HDC hdc = CreateDC("WINSPOOL", printerName, NULL, NULL);
+        if (hdc) {
+            cairo_matrix_t mat;
+            int x_off = GetDeviceCaps (hdc, PHYSICALOFFSETX);
+            int y_off = GetDeviceCaps (hdc, PHYSICALOFFSETY);
+            cairo_matrix_init_translate(&mat, -x_off, -y_off);
+            cairo_matrix_multiply (&ctm, &ctm, &mat);
+            DeleteDC(hdc);
+        }
+#endif             
         bool ret = ctx->setSurfaceTarget (surface, true, &ctm);
         if (ret) {
             ret = renderer.setupDocument (ctx, junk->_doc, TRUE, NULL);
@@ -169,12 +188,19 @@ Print::Print(SPDocument *doc, SPItem *base) :
     GtkPageSetup *page_setup = gtk_page_setup_new();
     gdouble doc_width = sp_document_width(_doc) * PT_PER_PX;
     gdouble doc_height = sp_document_height(_doc) * PT_PER_PX;
-    GtkPaperSize *paper_size = gtk_paper_size_new_custom("custom", "custom",
-                                doc_width, doc_height, GTK_UNIT_POINTS);
+    GtkPaperSize *paper_size;
+    if (doc_width > doc_height) {
+        gtk_page_setup_set_orientation (page_setup, GTK_PAGE_ORIENTATION_LANDSCAPE);
+        paper_size = gtk_paper_size_new_custom("custom", "custom",
+                                               doc_height, doc_width, GTK_UNIT_POINTS);
+    } else {
+        gtk_page_setup_set_orientation (page_setup, GTK_PAGE_ORIENTATION_PORTRAIT);
+        paper_size = gtk_paper_size_new_custom("custom", "custom",
+                                               doc_width, doc_height, GTK_UNIT_POINTS);
+    }
+
     gtk_page_setup_set_paper_size (page_setup, paper_size);
-#ifndef WIN32
     gtk_print_operation_set_default_page_setup (_printop, page_setup);
-#endif
     gtk_print_operation_set_use_full_page (_printop, TRUE);
 
     // set up signals

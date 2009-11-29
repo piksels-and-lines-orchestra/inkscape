@@ -320,6 +320,9 @@ sp_path_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML:
         repr = xml_doc->createElement("svg:path");
     }
 
+#ifdef PATH_VERBOSE
+g_message("sp_path_write writes 'd' attribute");
+#endif
     if ( shape->curve != NULL ) {
         gchar *str = sp_svg_write_path(shape->curve->get_pathvector());
         repr->setAttribute("d", str);
@@ -328,13 +331,15 @@ sp_path_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML:
         repr->setAttribute("d", NULL);
     }
 
-    SPPath *path = (SPPath *) object;
-    if ( path->original_curve != NULL ) {
-        gchar *str = sp_svg_write_path(path->original_curve->get_pathvector());
-        repr->setAttribute("inkscape:original-d", str);
-        g_free(str);
-    } else {
-        repr->setAttribute("inkscape:original-d", NULL);
+    if (flags & SP_OBJECT_WRITE_EXT) {
+        SPPath *path = (SPPath *) object;
+        if ( path->original_curve != NULL ) {
+            gchar *str = sp_svg_write_path(path->original_curve->get_pathvector());
+            repr->setAttribute("inkscape:original-d", str);
+            g_free(str);
+        } else {
+            repr->setAttribute("inkscape:original-d", NULL);
+        }
     }
 
     SP_PATH(shape)->connEndPair.writeRepr(repr);
@@ -377,7 +382,7 @@ sp_path_set_transform(SPItem *item, Geom::Matrix const &xform)
 
     // Transform the original-d path if this is a valid LPE item, other else the (ordinary) path
     if (path->original_curve && SP_IS_LPE_ITEM(item) && 
-                                sp_lpe_item_has_path_effect(SP_LPE_ITEM(item))) {
+                                sp_lpe_item_has_path_effect_recursive(SP_LPE_ITEM(item))) {
         path->original_curve->transform(xform);
     } else {
         shape->curve->transform(xform);
@@ -409,6 +414,10 @@ sp_path_update_patheffect(SPLPEItem *lpeitem, bool write)
     SPPath * const path = (SPPath *) lpeitem;
     Inkscape::XML::Node *repr = SP_OBJECT_REPR(shape);
 
+#ifdef PATH_VERBOSE
+g_message("sp_path_update_patheffect");
+#endif
+
     if (path->original_curve && sp_lpe_item_has_path_effect_recursive(lpeitem)) {
         SPCurve *curve = path->original_curve->copy();
         /* if a path does not have an lpeitem applied, then reset the curve to the original_curve.
@@ -418,6 +427,9 @@ sp_path_update_patheffect(SPLPEItem *lpeitem, bool write)
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM(shape), curve);
         if (success && write) {
             // could also do SP_OBJECT(shape)->updateRepr();  but only the d attribute needs updating.
+#ifdef PATH_VERBOSE
+g_message("sp_path_update_patheffect writes 'd' attribute");
+#endif
             if ( shape->curve != NULL ) {
                 gchar *str = sp_svg_write_path(shape->curve->get_pathvector());
                 repr->setAttribute("d", str);
@@ -425,7 +437,7 @@ sp_path_update_patheffect(SPLPEItem *lpeitem, bool write)
             } else {
                 repr->setAttribute("d", NULL);
             }
-        } else {
+        } else if (!success) {
             // LPE was unsuccesfull. Read the old 'd'-attribute.
             if (gchar const * value = repr->attribute("d")) {
                 Geom::PathVector pv = sp_svg_read_pathv(value);
@@ -487,7 +499,7 @@ SPCurve*
 sp_path_get_curve_for_edit (SPPath *path)
 {
     if (path->original_curve && SP_IS_LPE_ITEM(path) && 
-                                sp_lpe_item_has_path_effect(SP_LPE_ITEM(path))) {
+                                sp_lpe_item_has_path_effect_recursive(SP_LPE_ITEM(path))) {
         return sp_path_get_original_curve(path);
     } else {
         return sp_shape_get_curve( (SPShape *) path );
@@ -502,7 +514,7 @@ const SPCurve*
 sp_path_get_curve_reference (SPPath *path)
 {
     if (path->original_curve && SP_IS_LPE_ITEM(path) && 
-                                sp_lpe_item_has_path_effect(SP_LPE_ITEM(path))) {
+                                sp_lpe_item_has_path_effect_recursive(SP_LPE_ITEM(path))) {
         return path->original_curve;
     } else {
         return path->curve;

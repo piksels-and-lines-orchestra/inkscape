@@ -3,7 +3,7 @@
 #endif
 #include <math.h>
 #include <gtk/gtkbutton.h>
-#include <gtk/gtkcombobox.h>
+#include <gtk/gtk.h>
 #include <gtk/gtksignal.h>
 #include <gtk/gtklabel.h>
 #include <gtk/gtktable.h>
@@ -303,7 +303,7 @@ void ColorICCSelector::init()
 
 
     _profileSel = gtk_combo_box_new_text();
-    gtk_combo_box_append_text( GTK_COMBO_BOX(_profileSel), "<none>" );
+    gtk_combo_box_append_text( GTK_COMBO_BOX(_profileSel), _("<none>") );
     gtk_widget_show( _profileSel );
     gtk_combo_box_set_active( GTK_COMBO_BOX(_profileSel), 0 );
     gtk_table_attach( GTK_TABLE(t), _profileSel, 1, 2, row, row + 1, GTK_FILL, GTK_FILL, XPAD, YPAD );
@@ -576,7 +576,7 @@ void ColorICCSelector::_profilesChanged( std::string const & name )
         gtk_combo_box_remove_text( combo, 0 );
     }
 
-    gtk_combo_box_append_text( combo, "<none>");
+    gtk_combo_box_append_text( combo, _("<none>"));
 
     gtk_combo_box_set_active( combo, 0 );
 
@@ -637,14 +637,17 @@ void ColorICCSelector::_colorChanged()
             tmp[i] = val * 0x0ffff;
         }
         guchar post[4] = {0,0,0,0};
-        cmsDoTransform( _prof->getTransfToSRGB8(), tmp, post, 1 );
-        guint32 other = SP_RGBA32_U_COMPOSE(post[0], post[1], post[2], 255 );
-        if ( other != _color.toRGBA32(255) ) {
-            _fixupNeeded = other;
-            gtk_widget_set_sensitive( _fixupBtn, TRUE );
+        cmsHTRANSFORM trans = _prof->getTransfToSRGB8();
+        if ( trans ) {
+            cmsDoTransform( trans, tmp, post, 1 );
+            guint32 other = SP_RGBA32_U_COMPOSE(post[0], post[1], post[2], 255 );
+            if ( other != _color.toRGBA32(255) ) {
+                _fixupNeeded = other;
+                gtk_widget_set_sensitive( _fixupBtn, TRUE );
 #ifdef DEBUG_LCMS
-            g_message("Color needs to change 0x%06x to 0x%06x", _color.toRGBA32(255) >> 8, other >> 8 );
+                g_message("Color needs to change 0x%06x to 0x%06x", _color.toRGBA32(255) >> 8, other >> 8 );
 #endif // DEBUG_LCMS
+            }
         }
     }
 #else
@@ -753,7 +756,7 @@ void ColorICCSelector::_updateSliders( gint ignore )
             gtk_adjustment_set_value( _fooAdj[i], val );
         }
 
-        if ( _prof->getTransfToSRGB8() ) {
+        if ( _prof && _prof->getTransfToSRGB8() ) {
             for ( guint i = 0; i < _profChannelCount; i++ ) {
                 if ( static_cast<gint>(i) != ignore ) {
                     icUInt16Number* scratch = getScratch();
@@ -773,8 +776,11 @@ void ColorICCSelector::_updateSliders( gint ignore )
                         }
                     }
 
-                    cmsDoTransform( _prof->getTransfToSRGB8(), scratch, _fooMap[i], 1024 );
-                    sp_color_slider_set_map( SP_COLOR_SLIDER(_fooSlider[i]), _fooMap[i] );
+                    cmsHTRANSFORM trans = _prof->getTransfToSRGB8();
+                    if ( trans ) {
+                        cmsDoTransform( trans, scratch, _fooMap[i], 1024 );
+                        sp_color_slider_set_map( SP_COLOR_SLIDER(_fooSlider[i]), _fooMap[i] );
+                    }
                 }
             }
         }
@@ -840,7 +846,10 @@ void ColorICCSelector::_adjustmentChanged( GtkAdjustment *adjustment, SPColorICC
          }
          guchar post[4] = {0,0,0,0};
 
-         cmsDoTransform( iccSelector->_prof->getTransfToSRGB8(), tmp, post, 1 );
+         cmsHTRANSFORM trans = iccSelector->_prof->getTransfToSRGB8();
+         if ( trans ) {
+             cmsDoTransform( trans, tmp, post, 1 );
+         }
 
          SPColor other( SP_RGBA32_U_COMPOSE(post[0], post[1], post[2], 255) );
          other.icc = new SVGICCColor();

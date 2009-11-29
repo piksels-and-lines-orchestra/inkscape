@@ -132,7 +132,7 @@ class Effect:
             try:
                 stream = open(file,'r')
             except:
-                stream = open(self.args[-1],'r')
+                stream = open(self.svg_file,'r')
         except:
             stream = sys.stdin
         self.document = etree.parse(stream)
@@ -166,6 +166,14 @@ class Effect:
             for node in self.document.xpath(path, namespaces=NSS):
                 self.selected[i] = node
 
+    def getElementById(self, id):
+        path = '//*[@id="%s"]' % id
+        el_list = self.document.xpath(path, namespaces=NSS)
+        if el_list:
+          return el_list[0]
+        else:
+          return None
+
     def getdocids(self):
         docIdNodes = self.document.xpath('//@id', namespaces=NSS)
         for m in docIdNodes:
@@ -190,6 +198,7 @@ class Effect:
 
     def affect(self, args=sys.argv[1:], output=True):
         """Affect an SVG document with a callback effect"""
+        self.svg_file = args[-1]
         self.getoptions(args)
         self.parse()
         self.getposinlayer()
