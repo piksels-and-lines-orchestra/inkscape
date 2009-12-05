@@ -16,6 +16,7 @@
 #include "desktop-handles.h"
 #include "document.h"
 #include "message-stack.h"
+#include "preferences.h"
 #include "sp-path.h"
 #include "ui/tool/control-point-selection.h"
 #include "ui/tool/event-utils.h"
@@ -130,36 +131,48 @@ void MultiPathManipulator::cleanup()
     }
 }
 
-void MultiPathManipulator::setItems(std::map<SPPath*,
-    std::pair<Geom::Matrix, guint32> > const &items)
+void MultiPathManipulator::setItems(std::set<ShapeRecord> const &s)
 {
-    typedef std::map<SPPath*, std::pair<Geom::Matrix, guint32> > TransMap;
-    typedef std::set<SPPath*> ItemSet;
-    ItemSet to_remove, to_add, current, new_items;
+    std::set<ShapeRecord> shapes(s);
 
-    for (MapType::iterator i = _mmap.begin(); i != _mmap.end(); ++i) {
-        current.insert(i->first);
-    }
-    for (TransMap::const_iterator i = items.begin(); i != items.end(); ++i) {
-        new_items.insert(i->first);
+    // iterate over currently edited items, modifying / removing them as necessary
+    for (MapType::iterator i = _mmap.begin(); i != _mmap.end();) {
+        std::set<ShapeRecord>::iterator si = shapes.find(i->first);
+        if (si == shapes.end()) {
+            // This item is no longer supposed to be edited - remove its manipulator
+            _mmap.erase(i++);
+        } else {
+            ShapeRecord const &sr = i->first;
+            ShapeRecord const &sr_new = *si;
+            // if the shape record differs, replace the key only and modify other values
+            if (sr.edit_transform != sr_new.edit_transform ||
+                sr.role != sr_new.role)
+            {
+                boost::shared_ptr<PathManipulator> hold(i->second);
+                if (sr.edit_transform != sr_new.edit_transform)
+                    hold->setControlsTransform(sr_new.edit_transform);
+                if (sr.role != sr_new.role) {
+                    //hold->setOutlineColor(_getOutlineColor(sr_new.role));
+                }
+                _mmap.erase(sr);
+                _mmap.insert(std::make_pair(sr_new, hold));
+            }
+            shapes.erase(si); // remove the processed record
+            ++i;
+        }
     }
 
-    std::set_difference(current.begin(), current.end(), new_items.begin(), new_items.end(),
-        std::inserter(to_remove, to_remove.end()));
-    std::set_difference(new_items.begin(), new_items.end(), current.begin(), current.end(),
-        std::inserter(to_add, to_add.end()));
-
-    for (ItemSet::iterator i = to_remove.begin(); i != to_remove.end(); ++i) {
-        _mmap.erase(*i);
-    }
-    for (ItemSet::iterator i = to_add.begin(); i != to_add.end(); ++i) {
-        boost::shared_ptr<PathManipulator> pm;
-        TransMap::const_iterator f = items.find(*i);
-        pm.reset(new PathManipulator(_path_data, *i, f->second.first, f->second.second));
-        pm->showHandles(_show_handles);
-        pm->showOutline(_show_outline);
-        pm->showPathDirection(_show_path_direction);
-        _mmap.insert(std::make_pair(*i, pm));
+    // add newly selected items
+    for (std::set<ShapeRecord>::iterator i = shapes.begin(); i != shapes.end(); ++i) {
+        ShapeRecord const &r = *i;
+        if (!SP_IS_PATH(r.item)) continue;
+        boost::shared_ptr<PathManipulator> newpm(new PathManipulator(_path_data, (SPPath*) r.item,
+            r.edit_transform, _getOutlineColor(r.role)));
+        newpm->showHandles(_show_handles);
+        // always show outlines for clips and masks
+        newpm->showOutline(_show_outline || r.role != SHAPE_ROLE_NORMAL);
+        newpm->showPathDirection(_show_path_direction);
+        _mmap.insert(std::make_pair(r, newpm));
     }
 }
 
@@ -369,7 +382,10 @@ void MultiPathManipulator::move(Geom::Point const &delta)
 
 void MultiPathManipulator::showOutline(bool show)
 {
-    invokeForAll(&PathManipulator::showOutline, show);
+    for (MapType::iterator i = _mmap.begin(); i != _mmap.end(); ++i) {
+        // always show outlines for clipping paths and masks
+        i->second->showOutline(show || i->first.role != SHAPE_ROLE_NORMAL);
+    }
     _show_outline = show;
 }
 
@@ -383,6 +399,13 @@ void MultiPathManipulator::showPathDirection(bool show)
 {
     invokeForAll(&PathManipulator::showPathDirection, show);
     _show_path_direction = show;
+}
+
+void MultiPathManipulator::updateOutlineColors()
+{
+    //for (MapType::iterator i = _mmap.begin(); i != _mmap.end(); ++i) {
+    //    i->second->setOutlineColor(_getOutlineColor(i->first.role));
+    //}
 }
 
 bool MultiPathManipulator::event(GdkEvent *event)
@@ -551,6 +574,22 @@ void MultiPathManipulator::_doneWithCleanup(gchar const *reason) {
     _done(reason);
     cleanup();
     _changed.unblock();
+}
+
+guint32 MultiPathManipulator::_getOutlineColor(ShapeRole role)
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    switch(role) {
+    case SHAPE_ROLE_CLIPPING_PATH:
+        return prefs->getColor("/tools/nodes/clipping_path_color", 0x00ff00ff);
+    case SHAPE_ROLE_MASK:
+        return prefs->getColor("/tools/nodes/mask_color", 0x0000ffff);
+    case SHAPE_ROLE_LPE_PARAM:
+        return prefs->getColor("/tools/nodes/lpe_param_color", 0xb700ffff);
+    case SHAPE_ROLE_NORMAL:
+    default:
+        return prefs->getColor("/tools/nodes/outline_color", 0xff0000ff);
+    }
 }
 
 } // namespace UI

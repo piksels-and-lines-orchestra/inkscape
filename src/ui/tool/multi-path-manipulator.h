@@ -14,9 +14,10 @@
 #include <sigc++/connection.h>
 #include "display/display-forward.h"
 #include "forward.h"
+#include "ui/tool/commit-events.h"
 #include "ui/tool/manipulator.h"
 #include "ui/tool/node-types.h"
-#include "ui/tool/commit-events.h"
+#include "ui/tool/shape-record.h"
 
 struct SPCanvasGroup;
 
@@ -40,7 +41,8 @@ public:
     bool empty() { return _mmap.empty(); }
     unsigned size() { return _mmap.empty(); }
     // TODO fix this garbage!
-    void setItems(std::map<SPPath*, std::pair<Geom::Matrix, guint32> > const &items);
+    void setItems(std::set<ShapeRecord> const &);
+    //std::map<SPPath*, std::pair<Geom::Matrix, guint32> > const &items);
     void clear() { _mmap.clear(); }
     void cleanup();
 
@@ -71,12 +73,12 @@ public:
     void showOutline(bool show);
     void showHandles(bool show);
     void showPathDirection(bool show);
-    void setOutlineTransform(SPPath *item, Geom::Matrix const &t);
+    void updateOutlineColors();
     
     sigc::signal<void> signal_coords_changed;
 private:
-    typedef std::pair<SPPath*, boost::shared_ptr<PathManipulator> > MapPair;
-    typedef std::map<SPPath*, boost::shared_ptr<PathManipulator> > MapType;
+    typedef std::pair<ShapeRecord, boost::shared_ptr<PathManipulator> > MapPair;
+    typedef std::map<ShapeRecord, boost::shared_ptr<PathManipulator> > MapType;
 
     template <typename R>
     void invokeForAll(R (PathManipulator::*method)()) {
@@ -106,7 +108,7 @@ private:
     void _commit(CommitEvent cps);
     void _done(gchar const *);
     void _doneWithCleanup(gchar const *);
-    void _storeClipMaskItems(SPObject *obj, std::set<SPPath*> &, bool);
+    guint32 _getOutlineColor(ShapeRole role);
 
     MapType _mmap;
     PathSharedData const &_path_data;

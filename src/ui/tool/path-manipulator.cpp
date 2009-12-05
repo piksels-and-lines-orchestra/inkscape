@@ -690,6 +690,18 @@ void PathManipulator::showPathDirection(bool show)
     _updateOutline();
 }
 
+void PathManipulator::setControlsTransform(Geom::Matrix const &tnew)
+{
+    Geom::Matrix delta = _i2d_transform.inverse() * _edit_transform.inverse() * tnew * _i2d_transform;
+    _edit_transform = tnew;
+    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
+        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
+            j->transform(delta);
+        }
+    }
+    _createGeometryFromControlPoints();
+}
+
 /** Insert a node in the segment beginning with the supplied iterator,
  * at the given time value */
 NodeList::iterator PathManipulator::subdivideSegment(NodeList::iterator first, double t)

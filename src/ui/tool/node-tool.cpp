@@ -32,6 +32,7 @@
 #include "ui/tool/multi-path-manipulator.h"
 #include "ui/tool/path-manipulator.h"
 #include "ui/tool/selector.h"
+#include "ui/tool/shape-record.h"
 
 #include "pixmaps/cursor-node.xpm"
 #include "pixmaps/cursor-node-d.xpm"
@@ -108,6 +109,7 @@ void ink_node_tool_init(InkNodeTool *nt)
     event_context->hot_y = 1;
 
     new (&nt->_selection_changed_connection) sigc::connection();
+    new (&nt->_selection_modified_connection) sigc::connection();
     new (&nt->_mouseover_changed_connection) sigc::connection();
     //new (&nt->_mgroup) Inkscape::UI::ManipulatorGroup(nt->desktop);
     new (&nt->_selected_nodes) CSelPtr();
@@ -123,6 +125,7 @@ void ink_node_tool_dispose(GObject *object)
     nt->enableGrDrag(false);
 
     nt->_selection_changed_connection.disconnect();
+    nt->_selection_modified_connection.disconnect();
     nt->_mouseover_changed_connection.disconnect();
     nt->_multipath.~MultiPathPtr();
     nt->_selected_nodes.~CSelPtr();
@@ -138,6 +141,7 @@ void ink_node_tool_dispose(GObject *object)
     
     nt->_path_data.~PathSharedDataPtr();
     nt->_selection_changed_connection.~connection();
+    nt->_selection_modified_connection.~connection();
     nt->_mouseover_changed_connection.~connection();
 
     if (nt->_node_message_context) {
@@ -183,6 +187,12 @@ void ink_node_tool_setup(SPEventContext *ec)
             sigc::bind<0>(
                 sigc::ptr_fun(&ink_node_tool_selection_changed),
                 nt));
+    nt->_selection_modified_connection.disconnect();
+    nt->_selection_modified_connection =
+        selection->connectModified(
+            sigc::hide(sigc::bind<0>(
+                sigc::ptr_fun(&ink_node_tool_selection_changed),
+                nt)));
     nt->_mouseover_changed_connection.disconnect();
     nt->_mouseover_changed_connection = 
         Inkscape::UI::ControlPoint::signal_mouseover_change.connect(
@@ -298,6 +308,36 @@ void store_clip_mask_items(SPItem *clipped, SPObject *obj, std::map<SPItem*,
     }
 }
 
+/** Recursively collect ShapeRecords */
+void gather_items(InkNodeTool *nt, SPItem *base, SPObject *obj, Inkscape::UI::ShapeRole role,
+    std::set<Inkscape::UI::ShapeRecord> &s)
+{
+    using namespace Inkscape::UI;
+    if (!obj) return;
+    if (role != SHAPE_ROLE_NORMAL && (SP_IS_GROUP(obj) || SP_IS_OBJECTGROUP(obj))) {
+        for (SPObject *c = obj->children; c; c = c->next) {
+            gather_items(nt, base, c, role, s);
+        }
+    } else if (SP_IS_ITEM(obj)) {
+        SPItem *item = static_cast<SPItem*>(obj);
+        ShapeRecord r;
+        r.item = item;
+        // TODO add support for objectBoundingBox
+        r.edit_transform = base ? sp_item_i2doc_affine(base) : Geom::identity();
+        r.role = role;
+        r.edit_original = false;
+        if (s.insert(r).second) {
+            // this item was encountered the first time
+            if (nt->edit_clipping_paths && item->clip_ref) {
+                gather_items(nt, item, item->clip_ref->getObject(), SHAPE_ROLE_CLIPPING_PATH, s);
+            }
+            if (nt->edit_masks && item->mask_ref) {
+                gather_items(nt, item, item->mask_ref->getObject(), SHAPE_ROLE_MASK, s);
+            }
+        }
+    }
+}
+
 struct IsPath {
     bool operator()(SPItem *i) const { return SP_IS_PATH(i); }
 };
@@ -305,41 +345,28 @@ struct IsPath {
 void ink_node_tool_selection_changed(InkNodeTool *nt, Inkscape::Selection *sel)
 {
     using namespace Inkscape::UI;
+
+    std::set<ShapeRecord> shapes;
+
     // TODO this is ugly!!!
-    typedef std::map<SPItem*, std::pair<Geom::Matrix, guint32> > TransMap;
-    typedef std::map<SPPath*, std::pair<Geom::Matrix, guint32> > PathMap;
+    //typedef std::map<SPItem*, std::pair<Geom::Matrix, guint32> > TransMap;
+    //typedef std::map<SPPath*, std::pair<Geom::Matrix, guint32> > PathMap;
     GSList const *ilist = sel->itemList();
-    TransMap items;
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     for (GSList *i = const_cast<GSList*>(ilist); i; i = i->next) {
         SPObject *obj = static_cast<SPObject*>(i->data);
         if (SP_IS_ITEM(obj)) {
-            items.insert(std::make_pair(SP_ITEM(obj),
-                std::make_pair(Geom::identity(),
-                prefs->getColor("/tools/nodes/outline_color", 0xff0000ff))));
-            if (nt->edit_clipping_paths && SP_ITEM(i->data)->clip_ref) {
-                store_clip_mask_items(SP_ITEM(i->data),
-                    SP_OBJECT(SP_ITEM(i->data)->clip_ref->getObject()), items,
-                    nt->desktop->dt2doc(),
-                    prefs->getColor("/tools/nodes/clipping_path_color", 0x00ff00ff));
-            }
-            if (nt->edit_masks && SP_ITEM(i->data)->mask_ref) {
-                store_clip_mask_items(SP_ITEM(i->data),
-                    SP_OBJECT(SP_ITEM(i->data)->mask_ref->getObject()), items,
-                    nt->desktop->dt2doc(),
-                    prefs->getColor("/tools/nodes/mask_color", 0x0000ffff));
-            }
+            gather_items(nt, NULL, static_cast<SPItem*>(obj), SHAPE_ROLE_NORMAL, shapes);
         }
     }
 
     // ugly hack: set the first editable non-path item for knotholder
     // maybe use multiple ShapeEditors for now, to allow editing many shapes at once?
     bool something_set = false;
-    for (TransMap::iterator i = items.begin(); i != items.end(); ++i) {
-        SPItem *obj = i->first;
-        if (SP_IS_SHAPE(obj) && !SP_IS_PATH(obj)) {
-            nt->shape_editor->set_item(obj, SH_KNOTHOLDER);
+    for (std::set<ShapeRecord>::iterator i = shapes.begin(); i != shapes.end(); ++i) {
+        ShapeRecord const &r = *i;
+        if (SP_IS_SHAPE(r.item) && !SP_IS_PATH(r.item)) {
+            nt->shape_editor->set_item(r.item, SH_KNOTHOLDER);
             something_set = true;
             break;
         }
@@ -347,16 +374,8 @@ void ink_node_tool_selection_changed(InkNodeTool *nt, Inkscape::Selection *sel)
     if (!something_set) {
         nt->shape_editor->unset_item(SH_KNOTHOLDER);
     }
-    
-    PathMap p;
-    for (TransMap::iterator i = items.begin(); i != items.end(); ++i) {
-        if (SP_IS_PATH(i->first)) {
-            p.insert(std::make_pair(SP_PATH(i->first),
-                std::make_pair(i->second.first, i->second.second)));
-        }
-    }
 
-    nt->_multipath->setItems(p);
+    nt->_multipath->setItems(shapes);
     ink_node_tool_update_tip(nt, NULL);
     nt->desktop->updateNow();
 }

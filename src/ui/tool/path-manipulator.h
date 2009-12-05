@@ -80,7 +80,7 @@ public:
     void showOutline(bool show);
     void showHandles(bool show);
     void showPathDirection(bool show);
-    void setOutlineTransform(Geom::Matrix const &);
+    void setControlsTransform(Geom::Matrix const &);
 
     NodeList::iterator subdivideSegment(NodeList::iterator after, double t);
 
