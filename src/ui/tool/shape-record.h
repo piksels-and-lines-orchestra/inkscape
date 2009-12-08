@@ -12,6 +12,7 @@
 #ifndef SEEN_UI_TOOL_SHAPE_RECORD_H
 #define SEEN_UI_TOOL_SHAPE_RECORD_H
 
+#include <glibmm/ustring.h>
 #include <boost/operators.hpp>
 #include <2geom/matrix.h>
 
@@ -33,7 +34,7 @@ struct ShapeRecord :
     SPItem *item; // SP node for the edited shape
     Geom::Matrix edit_transform; // how to transform controls - used for clipping paths and masks
     ShapeRole role;
-    bool edit_original; // whether to use original-d instead of d for editing
+    Glib::ustring lpe_key; // This is LPE brain damage that I do not want to speak of
 
     inline bool operator==(ShapeRecord const &o) const { return item == o.item; }
     inline bool operator<(ShapeRecord const &o) const { return item < o.item; }

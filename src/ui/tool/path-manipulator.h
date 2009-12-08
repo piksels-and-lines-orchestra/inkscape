@@ -25,6 +25,7 @@
 struct SPCanvasItem;
 
 namespace Inkscape {
+namespace XML { class Node; }
 namespace UI {
 
 class PathManipulator;
@@ -48,8 +49,8 @@ class PathManipulator : public PointManipulator {
 public:
     typedef SPPath *ItemType;
 
-    PathManipulator(PathSharedData const &data, SPPath *path,
-        Geom::Matrix const &edit_trans, guint32 outline_color);
+    PathManipulator(PathSharedData const &data, SPPath *path, Geom::Matrix const &edit_trans,
+        guint32 outline_color, Glib::ustring lpe_key);
     ~PathManipulator();
     virtual bool event(GdkEvent *);
 
@@ -81,6 +82,7 @@ public:
     void showHandles(bool show);
     void showPathDirection(bool show);
     void setControlsTransform(Geom::Matrix const &);
+    void hideDragPoint();
 
     NodeList::iterator subdivideSegment(NodeList::iterator after, double t);
 
@@ -94,6 +96,10 @@ private:
     std::string _createTypeString();
     void _updateOutline();
     //void _setOutline(Geom::PathVector const &);
+    void _getGeometry();
+    void _setGeometry();
+    Glib::ustring _nodetypesKey();
+    Inkscape::XML::Node *_getXMLNode();
 
     void _attachNodeHandlers(Node *n);
     void _removeNodeHandlers(Node *n);
@@ -124,6 +130,7 @@ private:
     bool _show_handles;
     bool _show_outline;
     bool _show_path_direction;
+    Glib::ustring _lpe_key;
 
     friend class PathManipulatorObserver;
     friend class CurveDragPoint;

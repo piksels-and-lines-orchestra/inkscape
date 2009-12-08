@@ -352,7 +352,7 @@ Inkscape::NodePath::Path *sp_nodepath_new(SPDesktop *desktop, SPObject *object, 
 
             Inkscape::LivePathEffect::Effect* lpe = sp_lpe_item_get_current_lpe(SP_LPE_ITEM(np->object));
             if (lpe) {
-                lpe->setup_nodepath(np);
+                //lpe->setup_nodepath(np);
             }
         } else {
             np->repr_key = g_strdup("d");

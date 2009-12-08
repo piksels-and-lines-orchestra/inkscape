@@ -15,6 +15,7 @@
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "document.h"
+#include "live_effects/lpeobject.h"
 #include "message-stack.h"
 #include "preferences.h"
 #include "sp-path.h"
@@ -131,6 +132,9 @@ void MultiPathManipulator::cleanup()
     }
 }
 
+/** @brief Change the set of items to edit.
+ *
+ * This method attempts to preserve as much of the state as possible. */
 void MultiPathManipulator::setItems(std::set<ShapeRecord> const &s)
 {
     std::set<ShapeRecord> shapes(s);
@@ -165,9 +169,9 @@ void MultiPathManipulator::setItems(std::set<ShapeRecord> const &s)
     // add newly selected items
     for (std::set<ShapeRecord>::iterator i = shapes.begin(); i != shapes.end(); ++i) {
         ShapeRecord const &r = *i;
-        if (!SP_IS_PATH(r.item)) continue;
+        if (!SP_IS_PATH(r.item) && !IS_LIVEPATHEFFECT(r.item)) continue;
         boost::shared_ptr<PathManipulator> newpm(new PathManipulator(_path_data, (SPPath*) r.item,
-            r.edit_transform, _getOutlineColor(r.role)));
+            r.edit_transform, _getOutlineColor(r.role), r.lpe_key));
         newpm->showHandles(_show_handles);
         // always show outlines for clips and masks
         newpm->showOutline(_show_outline || r.role != SHAPE_ROLE_NORMAL);
@@ -241,6 +245,7 @@ void MultiPathManipulator::insertNodes()
 
 void MultiPathManipulator::joinNodes()
 {
+    invokeForAll(&PathManipulator::hideDragPoint);
     // Node join has two parts. In the first one we join two subpaths by fusing endpoints
     // into one. In the second we fuse nodes in each subpath.
     IterPairList joins;
@@ -585,7 +590,7 @@ guint32 MultiPathManipulator::_getOutlineColor(ShapeRole role)
     case SHAPE_ROLE_MASK:
         return prefs->getColor("/tools/nodes/mask_color", 0x0000ffff);
     case SHAPE_ROLE_LPE_PARAM:
-        return prefs->getColor("/tools/nodes/lpe_param_color", 0xb700ffff);
+        return prefs->getColor("/tools/nodes/lpe_param_color", 0x009000ff);
     case SHAPE_ROLE_NORMAL:
     default:
         return prefs->getColor("/tools/nodes/outline_color", 0xff0000ff);

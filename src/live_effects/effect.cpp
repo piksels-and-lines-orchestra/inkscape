@@ -665,13 +665,6 @@ Effect::resetDefaults(SPItem * /*item*/)
 }
 
 void
-Effect::setup_nodepath(Inkscape::NodePath::Path *np)
-{
-    np->helperpath_rgba = 0xff0000ff;
-    np->helperpath_width = 1.0;
-}
-
-void
 Effect::transform_multiply(Geom::Matrix const& postmul, bool set)
 {
     // cycle through all parameters. Most parameters will not need transformation, but path and point params do.

@@ -81,13 +81,6 @@ LPEConstructGrid::doEffect_path (std::vector<Geom::Path> const & path_in)
     }
 }
 
-void
-LPEConstructGrid::setup_nodepath(Inkscape::NodePath::Path *np)
-{
-    Effect::setup_nodepath(np);
-    sp_nodepath_make_straight_path(np);
-}
-
 } //namespace LivePathEffect
 } /* namespace Inkscape */
 

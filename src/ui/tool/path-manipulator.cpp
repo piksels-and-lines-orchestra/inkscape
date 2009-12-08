@@ -26,6 +26,9 @@
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
 #include "document.h"
+#include "live_effects/effect.h"
+#include "live_effects/lpeobject.h"
+#include "live_effects/parameter/path.h"
 #include "sp-path.h"
 #include "helper/geom.h"
 #include "preferences.h"
@@ -59,13 +62,15 @@ public:
     virtual void notifyAttributeChanged(Inkscape::XML::Node &, GQuark attr,
         Util::ptr_shared<char>, Util::ptr_shared<char>)
     {
-        GQuark path_d = g_quark_from_static_string("d");
-        GQuark path_transform = g_quark_from_static_string("transform");
         // do nothing if blocked
         if (_blocked) return;
 
+        GQuark path_d = g_quark_from_static_string("d");
+        GQuark path_transform = g_quark_from_static_string("transform");
+        GQuark lpe_quark = _pm->_lpe_key.empty() ? 0 : g_quark_from_string(_pm->_lpe_key.data());
+
         // only react to "d" (path data) and "transform" attribute changes
-        if (attr == path_d) {
+        if (attr == lpe_quark || attr == path_d) {
             _pm->_externalChange(PATH_CHANGE_D);
         } else if (attr == path_transform) {
             _pm->_externalChange(PATH_CHANGE_TRANSFORM);
@@ -81,21 +86,28 @@ private:
 void build_segment(Geom::PathBuilder &, Node *, Node *);
 
 PathManipulator::PathManipulator(PathSharedData const &data, SPPath *path,
-        Geom::Matrix const &et, guint32 outline_color)
+        Geom::Matrix const &et, guint32 outline_color, Glib::ustring lpe_key)
     : PointManipulator(data.node_data.desktop, *data.node_data.selection)
     , _path_data(data)
     , _path(path)
-    , _spcurve(sp_path_get_curve_for_edit(path))
+    , _spcurve(NULL)
     , _dragpoint(new CurveDragPoint(*this))
     , _observer(new PathManipulatorObserver(this))
     , _edit_transform(et)
     , _show_handles(true)
     , _show_outline(false)
+    , _lpe_key(lpe_key)
 {
     /* Because curve drag point is always created first, it does not cover nodes */
-    _i2d_transform = sp_item_i2d_affine(SP_ITEM(path));
+    if (_lpe_key.empty()) {
+        _i2d_transform = sp_item_i2d_affine(SP_ITEM(path));
+    } else {
+        _i2d_transform = Geom::identity();
+    }
     _d2i_transform = _i2d_transform.inverse();
     _dragpoint->setVisible(false);
+
+    _getGeometry();
 
     _outline = sp_canvas_bpath_new(_path_data.outline_group, NULL);
     sp_canvas_item_hide(_outline);
@@ -127,7 +139,7 @@ PathManipulator::~PathManipulator()
     if (_path) _path->repr->removeObserver(*_observer);
     delete _observer;
     gtk_object_destroy(_outline);
-    _spcurve->unref();
+    if (_spcurve) _spcurve->unref();
     clear();
 }
 
@@ -163,11 +175,11 @@ void PathManipulator::writeXML()
     if (!_path) return;
     _observer->block();
     if (!empty()) {
-        _path->updateRepr();
-        _path->repr->setAttribute("sodipodi:nodetypes", _createTypeString().data());
+        SP_OBJECT(_path)->updateRepr();
+        _getXMLNode()->setAttribute(_nodetypesKey().data(), _createTypeString().data());
     } else {
         // this manipulator will have to be destroyed right after this call
-        _path->repr->removeObserver(*_observer);
+        _getXMLNode()->removeObserver(*_observer);
         sp_object_ref(_path);
         _path->deleteObject(true, true);
         sp_object_unref(_path);
@@ -333,6 +345,9 @@ void PathManipulator::insertNodes()
 /** Replace contiguous selections of nodes in each subpath with one node. */
 void PathManipulator::weldNodes(NodeList::iterator const &preserve_pos)
 {
+    if (!_num_selected) return;
+    _dragpoint->setVisible(false);
+
     bool pos_valid = preserve_pos;
     for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
         SubpathPtr sp = *i;
@@ -458,7 +473,8 @@ void PathManipulator::breakNodes()
 void PathManipulator::deleteNodes(bool keep_shape)
 {
     if (!_num_selected) return;
-
+    hideDragPoint();
+    
     unsigned const samples_per_segment = 10;
     double const t_step = 1.0 / samples_per_segment;
 
@@ -472,7 +488,10 @@ void PathManipulator::deleteNodes(bool keep_shape)
             if (j->selected()) ++num_selected;
             else ++num_unselected;
         }
-        if (num_selected == 0) continue;
+        if (num_selected == 0) {
+            ++i;
+            continue;
+        }
         if (sp->closed() ? (num_unselected < 1) : (num_unselected < 2)) {
             _subpaths.erase(i++);
             continue;
@@ -500,8 +519,8 @@ void PathManipulator::deleteNodes(bool keep_shape)
             // 2. we are deleting at the end or beginning of an open path
             // if !sel_end then sel_beg.prev() must be valid, otherwise the entire subpath
             // would be deleted before we get here
-            if (keep_shape || !sel_end) sel_beg.prev()->setType(NODE_CUSP, false);
-            if (keep_shape || !sel_beg.prev()) sel_end->setType(NODE_CUSP, false);
+            if ((keep_shape || !sel_end) && sel_beg.prev()) sel_beg.prev()->setType(NODE_CUSP, false);
+            if ((keep_shape || !sel_beg.prev()) && sel_end) sel_end->setType(NODE_CUSP, false);
 
             if (keep_shape && sel_beg.prev() && sel_end) {
                 // Fill fit data
@@ -520,7 +539,7 @@ void PathManipulator::deleteNodes(bool keep_shape)
                 // Fill last point
                 bezier_data[num_samples - 1] = sel_end->position();
                 // Compute replacement bezier curve
-                // TODO find out optimal error value
+                // TODO the fitting algorithm sucks - rewrite it to be awesome
                 bezier_fit_cubic(result, bezier_data, num_samples, 0.5);
                 delete[] bezier_data;
 
@@ -544,6 +563,8 @@ void PathManipulator::deleteNodes(bool keep_shape)
 void PathManipulator::deleteSegments()
 {
     if (_num_selected == 0) return;
+    hideDragPoint();
+
     for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end();) {
         SubpathPtr sp = *i;
         bool has_unselected = false;
@@ -702,6 +723,12 @@ void PathManipulator::setControlsTransform(Geom::Matrix const &tnew)
     _createGeometryFromControlPoints();
 }
 
+void PathManipulator::hideDragPoint()
+{
+    _dragpoint->setVisible(false);
+    _dragpoint->setIterator(NodeList::iterator());
+}
+
 /** Insert a node in the segment beginning with the supplied iterator,
  * at the given time value */
 NodeList::iterator PathManipulator::subdivideSegment(NodeList::iterator first, double t)
@@ -749,8 +776,7 @@ void PathManipulator::_externalChange(unsigned type)
 {
     switch (type) {
     case PATH_CHANGE_D: {
-        _spcurve->unref();
-        _spcurve = sp_path_get_curve_for_edit(_path);
+        _getGeometry();
 
         // ugly: stored offsets of selected nodes in a vector
         // vector<bool> should be specialized so that it takes only 1 bit per value
@@ -851,7 +877,7 @@ void PathManipulator::_createControlPointsFromGeometry()
     // we need to set the nodetypes after all the handles are in place,
     // so that pickBestType works correctly
     // TODO maybe migrate to inkscape:node-types?
-    gchar const *nts_raw = _path ? _path->repr->attribute("sodipodi:nodetypes") : 0;
+    gchar const *nts_raw = _path ? _path->repr->attribute(_nodetypesKey().data()) : 0;
     std::string nodetype_string = nts_raw ? nts_raw : "";
     /* Calculate the needed length of the nodetype string.
      * For closed paths, the entry is duplicated for the starting node,
@@ -913,7 +939,7 @@ void PathManipulator::_createGeometryFromControlPoints()
     builder.finish();
     _spcurve->set_pathvector(builder.peek() * (_edit_transform * _i2d_transform).inverse());
     _updateOutline();
-    if (!empty()) sp_shape_set_curve(SP_SHAPE(_path), _spcurve, false);
+    _setGeometry();
 }
 
 /** Build one segment of the geometric representation.
@@ -988,6 +1014,63 @@ void PathManipulator::_updateOutline()
     sp_canvas_bpath_set_bpath(SP_CANVAS_BPATH(_outline), _hc);
     sp_canvas_item_show(_outline);
     _hc->unref();
+}
+
+/** Retrieve the geometry of the edited object from the object tree */
+void PathManipulator::_getGeometry()
+{
+    using namespace Inkscape::LivePathEffect;
+    if (!_lpe_key.empty()) {
+        Effect *lpe = LIVEPATHEFFECT(_path)->get_lpe();
+        if (lpe) {
+            PathParam *pathparam = dynamic_cast<PathParam *>(lpe->getParameter(_lpe_key.data()));
+            if (!_spcurve)
+                _spcurve = new SPCurve(pathparam->get_pathvector());
+            else
+                _spcurve->set_pathvector(pathparam->get_pathvector());
+        }
+    } else {
+        if (_spcurve) _spcurve->unref();
+        _spcurve = sp_path_get_curve_for_edit(_path);
+    }
+}
+
+/** Set the geometry of the edited object in the object tree, but do not commit to XML */
+void PathManipulator::_setGeometry()
+{
+    using namespace Inkscape::LivePathEffect;
+    if (empty()) return;
+
+    if (!_lpe_key.empty()) {
+        // LPE brain damage follows - copied from nodepath.cpp
+        // NOTE: if we are editing an LPE param, _path is not actually an SPPath, it is
+        // a LivePathEffectObject.
+        Effect *lpe = LIVEPATHEFFECT(_path)->get_lpe();
+        if (lpe) {
+            PathParam *pathparam = dynamic_cast<PathParam *>(lpe->getParameter(_lpe_key.data()));
+            pathparam->set_new_value(_spcurve->get_pathvector(), false);
+            LIVEPATHEFFECT(_path)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+        }
+    } else {
+        if (_path->repr->attribute("inkscape:original-d"))
+            sp_path_set_original_curve(_path, _spcurve, true, false);
+        else
+            sp_shape_set_curve(SP_SHAPE(_path), _spcurve, false);
+    }
+}
+
+/** LPE brain damage */
+Glib::ustring PathManipulator::_nodetypesKey()
+{
+    if (_lpe_key.empty()) return "sodipodi:nodetypes";
+    return _lpe_key + "-nodetypes";
+}
+
+/** LPE brain damage */
+Inkscape::XML::Node *PathManipulator::_getXMLNode()
+{
+    if (_lpe_key.empty()) return _path->repr;
+    return LIVEPATHEFFECT(_path)->repr;
 }
 
 void PathManipulator::_attachNodeHandlers(Node *node)

@@ -16,6 +16,7 @@
 #include "display/curve.h"
 #include "display/sp-canvas.h"
 #include "document.h"
+#include "live_effects/lpeobject.h"
 #include "message-context.h"
 #include "selection.h"
 #include "shape-editor.h" // temporary!
@@ -187,12 +188,12 @@ void ink_node_tool_setup(SPEventContext *ec)
             sigc::bind<0>(
                 sigc::ptr_fun(&ink_node_tool_selection_changed),
                 nt));
-    nt->_selection_modified_connection.disconnect();
+    /*nt->_selection_modified_connection.disconnect();
     nt->_selection_modified_connection =
         selection->connectModified(
             sigc::hide(sigc::bind<0>(
-                sigc::ptr_fun(&ink_node_tool_selection_changed),
-                nt)));
+                sigc::ptr_fun(&ink_node_tool_selection_modified),
+                nt)));*/
     nt->_mouseover_changed_connection.disconnect();
     nt->_mouseover_changed_connection = 
         Inkscape::UI::ControlPoint::signal_mouseover_change.connect(
@@ -293,28 +294,20 @@ void ink_node_tool_set(SPEventContext *ec, Inkscape::Preferences::Entry *value)
     }
 }
 
-void store_clip_mask_items(SPItem *clipped, SPObject *obj, std::map<SPItem*,
-    std::pair<Geom::Matrix, guint32> > &s, Geom::Matrix const &postm, guint32 color)
-{
-    if (!obj) return;
-    if (SP_IS_GROUP(obj) || SP_IS_OBJECTGROUP(obj)) {
-        //TODO is checking for obj->children != NULL above better?
-        for (SPObject *c = obj->children; c; c = c->next) {
-            store_clip_mask_items(clipped, c, s, postm, color);
-        }
-    } else if (SP_IS_ITEM(obj)) {
-        s.insert(std::make_pair(SP_ITEM(obj),
-            std::make_pair(sp_item_i2d_affine(clipped) * postm, color)));
-    }
-}
-
 /** Recursively collect ShapeRecords */
 void gather_items(InkNodeTool *nt, SPItem *base, SPObject *obj, Inkscape::UI::ShapeRole role,
     std::set<Inkscape::UI::ShapeRecord> &s)
 {
     using namespace Inkscape::UI;
     if (!obj) return;
-    if (role != SHAPE_ROLE_NORMAL && (SP_IS_GROUP(obj) || SP_IS_OBJECTGROUP(obj))) {
+
+    if (SP_IS_PATH(obj) && obj->repr->attribute("inkscape:original-d") != NULL) {
+        ShapeRecord r;
+        r.item = static_cast<SPItem*>(obj);
+        r.edit_transform = Geom::identity(); // TODO wrong?
+        r.role = SHAPE_ROLE_LPE_PARAM;
+        s.insert(r);
+    } else if (role != SHAPE_ROLE_NORMAL && (SP_IS_GROUP(obj) || SP_IS_OBJECTGROUP(obj))) {
         for (SPObject *c = obj->children; c; c = c->next) {
             gather_items(nt, base, c, role, s);
         }
@@ -325,7 +318,6 @@ void gather_items(InkNodeTool *nt, SPItem *base, SPObject *obj, Inkscape::UI::Sh
         // TODO add support for objectBoundingBox
         r.edit_transform = base ? sp_item_i2doc_affine(base) : Geom::identity();
         r.role = role;
-        r.edit_original = false;
         if (s.insert(r).second) {
             // this item was encountered the first time
             if (nt->edit_clipping_paths && item->clip_ref) {
