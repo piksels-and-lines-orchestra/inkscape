@@ -395,12 +395,10 @@ gint ink_node_tool_root_handler(SPEventContext *event_context, GdkEvent *event)
     case GDK_MOTION_NOTIFY:
         // create outline
         if (prefs->getBool("/tools/nodes/pathflash_enabled")) {
-            if (prefs->getBool("/tools/nodes/pathflash_unselected") && !nt->_multipath->empty())
-                break;
-
             SPItem *over_item = sp_event_context_find_item (desktop, event_point(event->button),
                 FALSE, TRUE);
             if (over_item == nt->flashed_item) break;
+            if (!prefs->getBool("/tools/nodes/pathflash_selected") && selection->includes(over_item)) break;
             if (nt->flash_tempitem) {
                 desktop->remove_temporary_canvasitem(nt->flash_tempitem);
                 nt->flash_tempitem = NULL;
