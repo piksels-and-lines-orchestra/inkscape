@@ -7,7 +7,7 @@ AC_PREREQ(2.53)
 # `dpkg --compare-versions'.  (ii) We don't always know what the next
 # version is going to be called until about the time we release it
 # (whereas we always know what the previous version was called).
-AC_INIT(inkscape, 0.46+devel)
+AC_INIT(inkscape, 0.47+devel)
 
 AC_CANONICAL_HOST
 AC_CONFIG_SRCDIR([src/main.cpp])
@@ -32,6 +32,9 @@ AC_PROG_RANLIB
 AC_PROG_INTLTOOL(0.22)
 AC_HEADER_STDC
 INK_SVN_SNAPSHOT_BUILD
+
+dnl If automake 1.11 shave the output to look nice
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
 dnl These next few lines are needed only while libcroco is in our source tree.
 AC_PROG_CC
@@ -981,6 +984,13 @@ share/filters/Makefile
 share/fonts/Makefile
 share/gradients/Makefile
 share/icons/Makefile
+share/icons/application/Makefile
+share/icons/application/16x16/Makefile
+share/icons/application/22x22/Makefile
+share/icons/application/24x24/Makefile
+share/icons/application/32x32/Makefile
+share/icons/application/48x48/Makefile
+share/icons/application/256x256/Makefile
 share/keys/Makefile
 share/markers/Makefile
 share/palettes/Makefile

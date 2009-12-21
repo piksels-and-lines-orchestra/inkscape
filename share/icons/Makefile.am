@@ -1,6 +1,13 @@
+SUBDIRS = application
+
 iconsdir = $(datadir)/inkscape/icons
 
 pixmaps = \
+	too-much-ink-icon.png \
+	too-much-ink-icon.svg \
+	out-of-gamut-icon.png \
+	out-of-gamut-icon.svg \
+	color-management-icon.png \
 	remove-color.png \
 	remove-color.svg \
     ticotico.jpg \

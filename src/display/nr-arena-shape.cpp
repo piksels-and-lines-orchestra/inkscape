@@ -35,6 +35,7 @@
 #include "display/nr-filter.h"
 #include <typeinfo>
 #include <cairo.h>
+#include "preferences.h"
 
 #include <glib.h>
 #include "svg/svg.h"
@@ -831,7 +832,6 @@ cairo_arena_shape_render_stroke(NRArenaItem *item, NRRectL *area, NRPixBlock *pb
     pb->empty = FALSE;
 }
 
-
 /**
  * Renders the item.  Markers are just composed into the parent buffer.
  */
@@ -844,6 +844,7 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
     if (!shape->style) return item->state;
 
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
+    bool print_colors_preview = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW);
 
     if (outline) { // cairo outline rendering
 
@@ -874,6 +875,7 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
     }
 
     SPStyle const *style = shape->style;
+
     if (shape->fill_shp) {
         NRPixBlock m;
         guint32 rgba;
@@ -893,12 +895,18 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         if (shape->_fill.paint.type() == NRArenaShape::Paint::NONE) {
             // do not render fill in any way
         } else if (shape->_fill.paint.type() == NRArenaShape::Paint::COLOR) {
+
+            const SPColor* fill_color = &shape->_fill.paint.color();
             if ( item->render_opacity ) {
-                rgba = shape->_fill.paint.color().toRGBA32( shape->_fill.opacity *
-                                                            SP_SCALE24_TO_FLOAT(style->opacity.value) );
+                rgba = fill_color->toRGBA32( shape->_fill.opacity *
+                                        SP_SCALE24_TO_FLOAT(style->opacity.value) );
             } else {
-                rgba = shape->_fill.paint.color().toRGBA32( shape->_fill.opacity );
+                rgba = fill_color->toRGBA32( shape->_fill.opacity );
             }
+
+            if (print_colors_preview)
+                nr_arena_separate_color_plates(&rgba);
+
             nr_blit_pixblock_mask_rgba32(pb, &m, rgba);
             pb->empty = FALSE;
         } else if (shape->_fill.paint.type() == NRArenaShape::Paint::SERVER) {
@@ -929,14 +937,19 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         nr_pixblock_render_shape_mask_or(m, shape->stroke_shp);
         m.empty = FALSE;
 
-            if ( item->render_opacity ) {
-                rgba = shape->_stroke.paint.color().toRGBA32( shape->_stroke.opacity *
-                                                              SP_SCALE24_TO_FLOAT(style->opacity.value) );
-            } else {
-                rgba = shape->_stroke.paint.color().toRGBA32( shape->_stroke.opacity );
-            }
-            nr_blit_pixblock_mask_rgba32(pb, &m, rgba);
-            pb->empty = FALSE;
+        const SPColor* stroke_color = &shape->_stroke.paint.color();
+        if ( item->render_opacity ) {
+            rgba = stroke_color->toRGBA32( shape->_stroke.opacity *
+                                    SP_SCALE24_TO_FLOAT(style->opacity.value) );
+        } else {
+            rgba = stroke_color->toRGBA32( shape->_stroke.opacity );
+        }
+
+        if (print_colors_preview)
+            nr_arena_separate_color_plates(&rgba);
+
+        nr_blit_pixblock_mask_rgba32(pb, &m, rgba);
+        pb->empty = FALSE;
 
         nr_pixblock_release(&m);
 

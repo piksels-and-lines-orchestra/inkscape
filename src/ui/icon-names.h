@@ -56,10 +56,18 @@
     "color-picker"
 #define INKSCAPE_ICON_COLOR_REMOVE \
     "color-remove"
+#define INKSCAPE_ICON_CONNECTOR_EDIT \
+    "connector-edit"
 #define INKSCAPE_ICON_CONNECTOR_AVOID \
     "connector-avoid"
 #define INKSCAPE_ICON_CONNECTOR_IGNORE \
     "connector-ignore"
+#define INKSCAPE_ICON_CONNECTOR_ORTHOGONAL \
+    "connector-orthogonal"
+#define INKSCAPE_ICON_CONNECTOR_NEW_CONNPOINT \
+    "connector-new-connpoint"
+#define INKSCAPE_ICON_CONNECTOR_REMOVE_CONNPOINT \
+    "connector-remove-connpoint"
 #define INKSCAPE_ICON_DIALOG_ALIGN_AND_DISTRIBUTE \
     "dialog-align-and-distribute"
 #define INKSCAPE_ICON_DIALOG_FILL_AND_STROKE \
@@ -456,6 +464,14 @@
     "snap-nodes-smooth"
 #define INKSCAPE_ICON_SNAP_PAGE \
     "snap-page"
+#define INKSCAPE_ICON_SPRAY_COPY_MODE \
+    "spray-copy-mode"
+#define INKSCAPE_ICON_SPRAY_CLONE_MODE \
+    "spray-clone-mode"
+#define INKSCAPE_ICON_SPRAY_UNION_MODE \
+    "spray-union-mode"
+#define INKSCAPE_ICON_DIALOG_SPRAY_OPTIONS \
+    "dialog-spray-options"
 #define INKSCAPE_ICON_STROKE_CAP_BUTT \
     "stroke-cap-butt"
 #define INKSCAPE_ICON_STROKE_CAP_ROUND \
@@ -488,6 +504,8 @@
     "tool-pointer"
 #define INKSCAPE_ICON_TOOL_TWEAK \
     "tool-tweak"
+#define INKSCAPE_ICON_TOOL_SPRAY \
+    "tool-spray"
 #define INKSCAPE_ICON_TRANSFORM_AFFECT_GRADIENT \
     "transform-affect-gradient"
 #define INKSCAPE_ICON_TRANSFORM_AFFECT_PATTERN \

@@ -449,6 +449,12 @@ void InkscapePreferences::initPageTools()
     AddSelcueCheckbox(_page_tweak, "/tools/tweak", true);
     AddGradientCheckbox(_page_tweak, "/tools/tweak", false);
 
+ //Spray
+    this->AddPage(_page_spray, _("Spray"), iter_tools, PREFS_PAGE_TOOLS_SPRAY);
+    this->AddNewObjectsStyle(_page_spray, "/tools/spray", _("Paint objects with:"));
+    AddSelcueCheckbox(_page_spray, "/tools/spray", true);
+    AddGradientCheckbox(_page_spray, "/tools/spray", false);
+
     //Zoom
     this->AddPage(_page_zoom, _("Zoom"), iter_tools, PREFS_PAGE_TOOLS_ZOOM);
     AddSelcueCheckbox(_page_zoom, "/tools/zoom", true);
@@ -470,15 +476,15 @@ void InkscapePreferences::initPageTools()
     this->AddNewObjectsStyle(_page_3dbox, "/tools/shapes/3dbox");
     this->AddConvertGuidesCheckbox(_page_3dbox, "/tools/shapes/3dbox", true);
 
-    //ellipse
+    //Ellipse
     this->AddPage(_page_ellipse, _("Ellipse"), iter_shapes, PREFS_PAGE_TOOLS_SHAPES_ELLIPSE);
     this->AddNewObjectsStyle(_page_ellipse, "/tools/shapes/arc");
 
-    //star
+    //Star
     this->AddPage(_page_star, _("Star"), iter_shapes, PREFS_PAGE_TOOLS_SHAPES_STAR);
     this->AddNewObjectsStyle(_page_star, "/tools/shapes/star");
 
-    //spiral
+    //Spiral
     this->AddPage(_page_spiral, _("Spiral"), iter_shapes, PREFS_PAGE_TOOLS_SHAPES_SPIRAL);
     this->AddNewObjectsStyle(_page_spiral, "/tools/shapes/spiral");
 
@@ -522,6 +528,11 @@ void InkscapePreferences::initPageTools()
     this->AddPage(_page_text, _("Text"), iter_tools, PREFS_PAGE_TOOLS_TEXT);
     this->AddSelcueCheckbox(_page_text, "/tools/text", true);
     this->AddGradientCheckbox(_page_text, "/tools/text", true);
+    {
+    PrefCheckButton* cb = Gtk::manage( new PrefCheckButton);
+    cb->init ( _("Show font samples in the drop-down list"), "/tools/text/show_sample_in_list", 1);
+    _page_text.add_line( false, "", *cb, "", _("Show font samples alongside font names in the drop-down list in Text bar"));
+    }
     this->AddNewObjectsStyle(_page_text, "/tools/text");
 
     //Gradient
@@ -729,6 +740,11 @@ void InkscapePreferences::initPageFilters()
     _show_filters_info_box.init( _("Show filter primitives infobox"), "/options/showfiltersinfobox/value", true);
     _page_filters.add_line(true, "", _show_filters_info_box, "",
                         _("Show icons and descriptions for the filter primitives available at the filter effects dialog."));
+
+    /* threaded blur */ //related comments/widgets/functions should be renamed and option should be moved elsewhere when inkscape is fully multi-threaded
+    _filter_multi_threaded.init("/options/threading/numthreads", 1.0, 8.0, 1.0, 2.0, 4.0, true, false);
+    _page_filters.add_line( false, _("Number of Threads:"), _filter_multi_threaded, _("(requires restart)"),
+                           _("Configure number of processors/threads to use with rendering of gaussian blur."), false);
 
     this->AddPage(_page_filters, _("Filters"), PREFS_PAGE_FILTERS);
 }

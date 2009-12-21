@@ -2,7 +2,7 @@
  * feConvolveMatrix filter primitive renderer
  *
  * Authors:
- *   Felipe Corrêa da Silva Sanches <felipe.sanches@gmail.com>
+ *   Felipe Corrêa da Silva Sanches <juca@members.fsf.org>
  *   Jasper van de Gronde <th.v.d.gronde@hccnet.nl>
  *
  * Copyright (C) 2007,2009 authors
@@ -41,7 +41,7 @@ static inline void convolve2D_XY(unsigned int const x, unsigned int const y, uns
     unsigned int jEnd   = X_UPPER ? width+targetX-x : orderX;
 
     for (unsigned int i=iBegin; i<iEnd; i++){
-        for (int j=jBegin; j<jEnd; j++){
+        for (unsigned int j=jBegin; j<jEnd; j++){
             unsigned int index = 4*( x - targetX + j + width*(y - targetY + i) );
             unsigned int kernel_index = orderX-j-1 + orderX*(orderY-i-1);
             double k = PREMULTIPLIED ? kernel[kernel_index] : in_data[index+3] * kernel[kernel_index];

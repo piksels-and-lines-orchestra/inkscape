@@ -31,18 +31,18 @@
 ## P R O J E C T   :   I N K S C A P E
 ########################################################################
 -->
-<project name="Inkscape" default="dist-inkscape" basedir=".">
+<project name="Inkscape" default="dist-all" basedir=".">
     <description>
         Build file for the Inkscape SVG editor.  This file
         was written for GTK-2.10 on Win32, but it should work
         well for other types of builds with only minor adjustments.
-        Note that the default target is 'dist'.  You can execute other
+        Note that the default target is 'dist-all'.  You can execute other
         targets instead, by "btool {target}",  like  "btool compile", if
-        you want to save time.
+        you want to save time, or "dist-inkscape" if you don't want inkview.
     </description>
 
   <!-- set global properties for this build -->
-  <property name="version"       value="0.46+devel"/>
+  <property name="version"       value="0.47+devel"/>
   <property name="src"           location="src"/>
   <property name="lib"           location="lib"/>
   <property name="build"         location="build"/>
@@ -101,9 +101,14 @@
     <copy file="${src}/helper/sp-marshal.cpp.mingw"
           tofile="${src}/helper/sp-marshal.cpp"/>
           
-    <makefile file="${src}/inkscape-version.cpp">
+    <!--makefile file="${src}/inkscape-version.cpp">
         namespace Inkscape {
             char const *version_string = "${version} ${svn.revision}";
+        }
+    </makefile-->
+    <makefile file="${src}/inkscape-version.cpp">
+        namespace Inkscape {
+            char const *version_string = "${version}";
         }
     </makefile>
     <makefile file="config.h">
@@ -183,7 +188,7 @@
         #define ENABLE_SVG_FONTS              1
 
         /* Do we want experimental, unsupported, unguaranteed, etc., LivePathEffects enabled? */
-        // #define LPE_ENABLE_TEST_EFFECTS    1
+        #define LPE_ENABLE_TEST_EFFECTS    1
 
         #define HAVE_ASPELL                   1
 
@@ -207,6 +212,7 @@
             <include name="color-profile-test.h"/>
             <include name="dir-util-test.h"/>
             <include name="extract-uri-test.h"/>
+            <include name="marker-test.h"/>
             <include name="mod360-test.h"/>
             <include name="preferences-test.h"/>
             <include name="round-test.h"/>
@@ -471,7 +477,7 @@
               stripcommand="${archutil}strip"
               objcopycommand="${archutil}objcopy">
        <flags>
-           -mwindows
+           -mconsole
            -mthreads
        </flags>
        <fileset dir="${build}">
@@ -528,7 +534,7 @@
               stripcommand="${archutil}strip"
               objcopycommand="${archutil}objcopy">
        <flags>
-           -mwindows
+           -mconsole
            -mthreads
        </flags>
        <fileset dir="${build}">

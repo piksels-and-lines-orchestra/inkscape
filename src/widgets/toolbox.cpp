@@ -86,6 +86,7 @@
 #include "../svg/css-ostringstream.h"
 #include "../tools-switch.h"
 #include "../tweak-context.h"
+#include "../spray-context.h"
 #include "../ui/dialog/calligraphic-profile-rename.h"
 #include "../ui/icon-names.h"
 #include "../ui/widget/style-swatch.h"
@@ -107,6 +108,7 @@ typedef void (*UpdateFunction)(SPDesktop *desktop, SPEventContext *eventcontext,
 
 static void       sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_tweak_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
+static void       sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_zoom_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_star_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_arc_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
@@ -146,6 +148,7 @@ static struct {
     { "SPSelectContext",   "select_tool",    SP_VERB_CONTEXT_SELECT,  SP_VERB_CONTEXT_SELECT_PREFS},
     { "SPNodeContext",     "node_tool",      SP_VERB_CONTEXT_NODE, SP_VERB_CONTEXT_NODE_PREFS },
     { "SPTweakContext",    "tweak_tool",     SP_VERB_CONTEXT_TWEAK, SP_VERB_CONTEXT_TWEAK_PREFS },
+    { "SPSprayContext",    "spray_tool",     SP_VERB_CONTEXT_SPRAY, SP_VERB_CONTEXT_SPRAY_PREFS },
     { "SPZoomContext",     "zoom_tool",      SP_VERB_CONTEXT_ZOOM, SP_VERB_CONTEXT_ZOOM_PREFS },
     { "SPRectContext",     "rect_tool",      SP_VERB_CONTEXT_RECT, SP_VERB_CONTEXT_RECT_PREFS },
     { "Box3DContext",      "3dbox_tool",     SP_VERB_CONTEXT_3DBOX, SP_VERB_CONTEXT_3DBOX_PREFS },
@@ -181,6 +184,8 @@ static struct {
       SP_VERB_INVALID, 0, 0},
     { "SPTweakContext",   "tweak_toolbox",   0, sp_tweak_toolbox_prep,              "TweakToolbar",
       SP_VERB_CONTEXT_TWEAK_PREFS, "/tools/tweak", N_("Color/opacity used for color tweaking")},
+    { "SPSprayContext",   "spray_toolbox",   0, sp_spray_toolbox_prep,              "SprayToolbar",
+      SP_VERB_CONTEXT_SPRAY_PREFS, "/tools/spray", N_("Color/opacity used for color spraying")},
     { "SPZoomContext",   "zoom_toolbox",   0, sp_zoom_toolbox_prep,              "ZoomToolbar",
       SP_VERB_INVALID, 0, 0},
     { "SPStarContext",   "star_toolbox",   0, sp_star_toolbox_prep,              "StarToolbar",
@@ -297,6 +302,21 @@ static gchar const * ui_descr =
         "    <toolitem action='TweakDoS' />"
         "    <toolitem action='TweakDoL' />"
         "    <toolitem action='TweakDoO' />"
+        "  </toolbar>"
+
+  "  <toolbar name='SprayToolbar'>"
+        "    <toolitem action='SprayModeAction' />"
+        "    <separator />"
+        "    <toolitem action='SprayWidthAction' />"
+        "    <separator />"
+        "    <toolitem action='SprayPressureAction' />"
+        "    <separator />"
+        "    <toolitem action='SprayPopulationAction' />"
+        "    <separator />"
+        "    <toolitem action='SprayMeanAction' />"
+        "    <toolitem action='SprayStandard_deviationAction' />"
+        "    <separator />"
+        "    <toolitem action='DialogSprayOption' />"
         "  </toolbar>"
 
         "  <toolbar name='ZoomToolbar'>"
@@ -450,13 +470,18 @@ static gchar const * ui_descr =
         "  </toolbar>"
 
         "  <toolbar name='ConnectorToolbar'>"
+        "    <toolitem action='ConnectorEditModeAction' />"
         "    <toolitem action='ConnectorAvoidAction' />"
         "    <toolitem action='ConnectorIgnoreAction' />"
+        "    <toolitem action='ConnectorOrthogonalAction' />"
+        "    <toolitem action='ConnectorCurvatureAction' />"
         "    <toolitem action='ConnectorSpacingAction' />"
         "    <toolitem action='ConnectorGraphAction' />"
         "    <toolitem action='ConnectorLengthAction' />"
         "    <toolitem action='ConnectorDirectedAction' />"
         "    <toolitem action='ConnectorOverlapAction' />"
+        "    <toolitem action='ConnectorNewConnPointAction' />"
+        "    <toolitem action='ConnectorRemoveConnPointAction' />"
         "  </toolbar>"
 
         "</ui>"
@@ -718,6 +743,7 @@ Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* desktop )
         //SP_VERB_EDIT_TILE,
         //SP_VERB_EDIT_UNTILE,
         SP_VERB_DIALOG_ALIGN_DISTRIBUTE,
+        SP_VERB_DIALOG_SPRAY_OPTION,
         SP_VERB_DIALOG_DISPLAY,
         SP_VERB_DIALOG_FILL_STROKE,
         SP_VERB_DIALOG_NAMEDVIEW,
@@ -1627,6 +1653,7 @@ setup_tool_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
         "    <toolitem action='ToolSelector' />"
         "    <toolitem action='ToolNode' />"
         "    <toolitem action='ToolTweak' />"
+        "    <toolitem action='ToolSpray' />"
         "    <toolitem action='ToolZoom' />"
         "    <toolitem action='ToolRect' />"
         "    <toolitem action='Tool3DBox' />"
@@ -4372,6 +4399,200 @@ static void sp_tweak_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
 
 
 //########################
+//##       Spray        ##
+//########################
+
+static void sp_spray_width_value_changed( GtkAdjustment *adj, GObject */*tbl*/ )
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setDouble( "/tools/spray/width", adj->value );
+}
+
+/*
+static void sp_spray_force_value_changed( GtkAdjustment * / *adj* /, GObject * / *tbl* / )
+{
+    //Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    //prefs->setDouble( "/tools/spray/force", adj->value * 0.01 );
+}
+*/
+
+static void sp_spray_mean_value_changed( GtkAdjustment *adj, GObject */*tbl*/ )
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setDouble( "/tools/spray/mean", adj->value );
+}
+
+static void sp_spray_standard_deviation_value_changed( GtkAdjustment *adj, GObject */*tbl*/ )
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setDouble( "/tools/spray/standard_deviation", adj->value );
+}
+
+static void sp_spray_pressure_state_changed( GtkToggleAction *act, gpointer /*data*/ )
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/tools/spray/usepressure", gtk_toggle_action_get_active(act));
+}
+
+static void sp_spray_mode_changed( EgeSelectOneAction *act, GObject */*tbl*/ )
+{
+    int mode = ege_select_one_action_get_active( act );
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setInt("/tools/spray/mode", mode);
+}
+
+static void sp_spray_population_value_changed( GtkAdjustment *adj, GObject */*tbl*/ )
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setDouble( "/tools/spray/population", adj->value );
+}
+
+/*static void spray_toggle_doh (GtkToggleAction *act, gpointer ) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/tools/spray/doh", gtk_toggle_action_get_active(act));
+}
+static void spray_toggle_dos (GtkToggleAction *act, gpointer ) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/tools/spray/dos", gtk_toggle_action_get_active(act));
+}
+static void spray_toggle_dol (GtkToggleAction *act, gpointer ) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/tools/spray/dol", gtk_toggle_action_get_active(act));
+}
+static void spray_toggle_doo (GtkToggleAction *act, gpointer ) {
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/tools/spray/doo", gtk_toggle_action_get_active(act));
+}
+*/
+static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder)
+{
+    Inkscape::IconSize secondarySize = prefToSize("/toolbox/secondary", 1);
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+
+    {
+        /* Width */
+        gchar const* labels[] = {_("(narrow spray)"), 0, 0, 0, _("(default)"), 0, 0, 0, 0, _("(broad spray)")};
+        gdouble values[] = {1, 3, 5, 10, 15, 20, 30, 50, 75, 100};
+        EgeAdjustmentAction *eact = create_adjustment_action( "SprayWidthAction",
+                                                              _("Width"), _("Width:"), _("The width of the spray area (relative to the visible canvas area)"),
+                                                              "/tools/spray/width", 15,
+                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-spray",
+                                                              1, 100, 1.0, 10.0,
+                                                              labels, values, G_N_ELEMENTS(labels),
+                                                              sp_spray_width_value_changed,  1, 0 );
+        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+    }
+
+    {
+        /* Mean */
+        gchar const* labels[] = {_("(minimum mean)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum mean)")};
+        gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
+        EgeAdjustmentAction *eact = create_adjustment_action( "SprayMeanAction",
+                                                              _("Mean"), _("Mean:"), _("The mean of the spray action"),
+                                                              "/tools/spray/mean", 20,
+                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-mean",
+                                                              1, 100, 1.0, 10.0,
+                                                              labels, values, G_N_ELEMENTS(labels),
+                                                              sp_spray_mean_value_changed,  1, 0 );
+        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+    }
+
+    {
+        /* Standard_deviation */
+        gchar const* labels[] = {_("(minimum standard_deviation)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum standard_deviation)")};
+        gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
+        EgeAdjustmentAction *eact = create_adjustment_action( "SprayStandard_deviationAction",
+                                                              _("SD"), _("SD:"), _("The standard deviation of the spray action"),
+                                                              "/tools/spray/standard_deviation", 20,
+                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-standard_deviation",
+                                                              1, 100, 1.0, 10.0,
+                                                              labels, values, G_N_ELEMENTS(labels),
+                                                              sp_spray_standard_deviation_value_changed,  1, 0 );
+        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+    }
+
+    /* Mode */
+    {
+        GtkListStore* model = gtk_list_store_new( 3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING );
+
+        GtkTreeIter iter;
+        gtk_list_store_append( model, &iter );
+        gtk_list_store_set( model, &iter,
+                            0, _("Spray with copies"),
+                            1, _("Spray copies of the initial selection"),
+                            2, INKSCAPE_ICON_SPRAY_COPY_MODE,
+                            -1 );
+
+        gtk_list_store_append( model, &iter );
+        gtk_list_store_set( model, &iter,
+                            0, _("Spray with clones"),
+                            1, _("Spray clones of the initial selection"),
+                            2, INKSCAPE_ICON_SPRAY_CLONE_MODE,
+                            -1 );
+
+        gtk_list_store_append( model, &iter );
+        gtk_list_store_set( model, &iter,
+                            0, _("Spray single path"),
+                            1, _("Spray objects in a single path"),
+                            2, INKSCAPE_ICON_SPRAY_UNION_MODE,
+                            -1 );
+
+        EgeSelectOneAction* act = ege_select_one_action_new( "SprayModeAction", _("Mode"), (""), NULL, GTK_TREE_MODEL(model) );
+        g_object_set( act, "short_label", _("Mode:"), NULL );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
+        g_object_set_data( holder, "mode_action", act );
+
+        ege_select_one_action_set_appearance( act, "full" );
+        ege_select_one_action_set_radio_action_type( act, INK_RADIO_ACTION_TYPE );
+        g_object_set( G_OBJECT(act), "icon-property", "iconId", NULL );
+        ege_select_one_action_set_icon_column( act, 2 );
+        ege_select_one_action_set_icon_size( act, secondarySize );
+        ege_select_one_action_set_tooltip_column( act, 1  );
+
+        gint mode = prefs->getInt("/tools/spray/mode", 0);
+        ege_select_one_action_set_active( act, mode );
+        g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(sp_spray_mode_changed), holder );
+
+        g_object_set_data( G_OBJECT(holder), "spray_tool_mode", act);
+    }
+
+    {   /* Population */
+        gchar const* labels[] = {_("(low population)"), 0, 0, _("(default)"), 0, 0, _("(high population)")};
+        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
+        EgeAdjustmentAction *eact = create_adjustment_action( "SprayPopulationAction",
+                                                              _("Population"), _("Population:"),
+                                                              _("This setting adjusts the number of items sprayed"),
+                                                              "/tools/spray/population", 50,
+                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-population",
+                                                              1, 100, 1.0, 10.0,
+                                                              labels, values, G_N_ELEMENTS(labels),
+                                                              sp_spray_population_value_changed,  1, 0 );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+        g_object_set_data( holder, "spray_population", eact );
+    }
+
+    /* Use Pressure button */
+    {
+        InkToggleAction* act = ink_toggle_action_new( "SprayPressureAction",
+                                                      _("Pressure"),
+                                                      _("Use the pressure of the input device to alter the force of spray action"),
+                                                      "use_pressure",
+                                                      Inkscape::ICON_SIZE_DECORATION );
+        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_spray_pressure_state_changed), NULL);
+        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), prefs->getBool("/tools/spray/usepressure", true) );
+    }
+}
+
+
+//########################
 //##     Calligraphy    ##
 //########################
 static void update_presets_list (GObject *tbl)
@@ -4718,7 +4939,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-calligraphy",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
-                                                              sp_ddc_width_value_changed,  1, 0);
+                                                              sp_ddc_width_value_changed,  1, 0 );
         ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
@@ -6352,7 +6573,7 @@ sp_text_toolbox_family_keypress (GtkWidget */*w*/, GdkEventKey *event, GObject *
 }
 
 gboolean
-sp_text_toolbox_family_list_keypress (GtkWidget *w, GdkEventKey *event, GObject */*tbl*/)
+sp_text_toolbox_family_list_keypress (GtkWidget */*w*/, GdkEventKey *event, GObject */*tbl*/)
 {
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
     if (!desktop) return FALSE;
@@ -6519,27 +6740,35 @@ cell_data_func  (GtkCellLayout */*cell_layout*/,
     gtk_tree_model_get(tree_model, iter, 0, &family, -1);
     gchar *const family_escaped = g_markup_escape_text(family, -1);
 
-    static char const *const sample = _("AaBbCcIiPpQq12369$\342\202\254\302\242?.;/()");
-    gchar *const sample_escaped = g_markup_escape_text(sample, -1);
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    int show_sample = prefs->getInt("/tools/text/show_sample_in_list", 1);
+    if (show_sample) {
+
+        Glib::ustring sample = prefs->getString("/tools/text/font_sample");
+        gchar *const sample_escaped = g_markup_escape_text(sample.data(), -1);
 
     std::stringstream markup;
     markup << family_escaped << "  <span foreground='darkgray' font_family='"
            << family_escaped << "'>" << sample_escaped << "</span>";
     g_object_set (G_OBJECT (cell), "markup", markup.str().c_str(), NULL);
 
+        g_free(sample_escaped);
+    } else {
+        g_object_set (G_OBJECT (cell), "markup", family_escaped, NULL);
+    }
+
     g_free(family);
     g_free(family_escaped);
-    g_free(sample_escaped);
 }
 
-gboolean            text_toolbox_completion_match_selected    (GtkEntryCompletion *widget,
-                                                        GtkTreeModel       *model,
-                                                        GtkTreeIter        *iter,
-                                                        GObject *tbl)
+gboolean text_toolbox_completion_match_selected(GtkEntryCompletion */*widget*/,
+                                                GtkTreeModel       *model,
+                                                GtkTreeIter        *iter,
+                                                GObject            *tbl)
 {
     // We intercept this signal so as to fire family_changed at once (without it, you'd have to
     // press Enter again after choosing a completion)
-    gchar *family;
+    gchar *family = 0;
     gtk_tree_model_get(model, iter, 0, &family, -1);
 
     GtkEntry *entry = GTK_ENTRY (g_object_get_data (G_OBJECT (tbl), "family-entry"));
@@ -6572,9 +6801,9 @@ cbe_add_completion (GtkComboBoxEntry *cbe, GObject *tbl){
     g_object_unref(completion);
 }
 
-void        sp_text_toolbox_family_popnotify          (GtkComboBox *widget,
-                                                       void *property,
-                                                        GObject *tbl)
+void sp_text_toolbox_family_popnotify(GtkComboBox *widget,
+                                      void */*property*/,
+                                      GObject *tbl)
 {
   // while the drop-down is open, we disable font family changing, reenabling it only when it closes
 
@@ -6659,7 +6888,7 @@ sp_text_toolbox_new (SPDesktop *desktop)
     // expand the field a bit so as to view more of the previews in the drop-down
     GtkRequisition req;
     gtk_widget_size_request (GTK_WIDGET (font_sel->gobj()), &req);
-    gtk_widget_set_size_request  (GTK_WIDGET (font_sel->gobj()), req.width + 40, -1);
+    gtk_widget_set_size_request  (GTK_WIDGET (font_sel->gobj()), MIN(req.width + 50, 500), -1);
 
     GtkWidget* entry = (GtkWidget*) font_sel->get_entry()->gobj();
     g_signal_connect (G_OBJECT (entry), "activate", G_CALLBACK (sp_text_toolbox_family_changed), tbl);
@@ -6854,6 +7083,13 @@ sp_text_toolbox_new (SPDesktop *desktop)
 //##      Connector      ##
 //#########################
 
+static void sp_connector_mode_toggled( GtkToggleAction* act, GtkObject */*tbl*/ )
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setBool("/tools/connector/mode",
+                gtk_toggle_action_get_active( act ));
+}
+
 static void sp_connector_path_set_avoid(void)
 {
     cc_selection_set_avoid(true);
@@ -6865,6 +7101,106 @@ static void sp_connector_path_set_ignore(void)
     cc_selection_set_avoid(false);
 }
 
+static void sp_connector_orthogonal_toggled( GtkToggleAction* act, GObject *tbl )
+{
+    SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
+    Inkscape::Selection * selection = sp_desktop_selection(desktop);
+    SPDocument *doc = sp_desktop_document(desktop);
+
+    if (!sp_document_get_undo_sensitive(doc))
+    {
+        return;
+    }
+
+
+    // quit if run by the _changed callbacks
+    if (g_object_get_data( tbl, "freeze" )) {
+        return;
+    }
+
+    // in turn, prevent callbacks from responding
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+
+    bool is_orthog = gtk_toggle_action_get_active( act );
+    gchar orthog_str[] = "orthogonal";
+    gchar polyline_str[] = "polyline";
+    gchar *value = is_orthog ? orthog_str : polyline_str ;
+
+    bool modmade = false;
+    GSList *l = (GSList *) selection->itemList();
+    while (l) {
+        SPItem *item = (SPItem *) l->data;
+
+        if (cc_item_is_connector(item)) {
+            sp_object_setAttribute(item, "inkscape:connector-type",
+                    value, false);
+            item->avoidRef->handleSettingChange();
+            modmade = true;
+        }
+        l = l->next;
+    }
+
+    if (!modmade)
+    {
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        prefs->setBool("/tools/connector/orthogonal", is_orthog);
+    }
+
+    sp_document_done(doc, SP_VERB_CONTEXT_CONNECTOR,
+            is_orthog ? _("Set connector type: orthogonal"): _("Set connector type: polyline"));
+
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
+}
+
+static void connector_curvature_changed(GtkAdjustment *adj, GObject* tbl)
+{
+    SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
+    Inkscape::Selection * selection = sp_desktop_selection(desktop);
+    SPDocument *doc = sp_desktop_document(desktop);
+
+    if (!sp_document_get_undo_sensitive(doc))
+    {
+        return;
+    }
+
+
+    // quit if run by the _changed callbacks
+    if (g_object_get_data( tbl, "freeze" )) {
+        return;
+    }
+
+    // in turn, prevent callbacks from responding
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+
+    gdouble newValue = gtk_adjustment_get_value(adj);
+    gchar value[G_ASCII_DTOSTR_BUF_SIZE];
+    g_ascii_dtostr(value, G_ASCII_DTOSTR_BUF_SIZE, newValue);
+
+    bool modmade = false;
+    GSList *l = (GSList *) selection->itemList();
+    while (l) {
+        SPItem *item = (SPItem *) l->data;
+
+        if (cc_item_is_connector(item)) {
+            sp_object_setAttribute(item, "inkscape:connector-curvature",
+                    value, false);
+            item->avoidRef->handleSettingChange();
+            modmade = true;
+        }
+        l = l->next;
+    }
+
+    if (!modmade)
+    {
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        prefs->setDouble(Glib::ustring("/tools/connector/curvature"), newValue);
+    }
+
+    sp_document_done(doc, SP_VERB_CONTEXT_CONNECTOR,
+            _("Change connector curvature"));
+
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
+}
 
 
 static void connector_spacing_changed(GtkAdjustment *adj, GObject* tbl)
@@ -6946,7 +7282,7 @@ static void sp_nooverlaps_graph_layout_toggled( GtkToggleAction* act, GtkObject 
 }
 
 
-static void connector_length_changed(GtkAdjustment *adj, GObject* tbl)
+static void connector_length_changed(GtkAdjustment *adj, GObject* /*tbl*/)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     prefs->setDouble("/tools/connector/length", adj->value);
@@ -6961,21 +7297,37 @@ static void connector_tb_event_attr_changed(Inkscape::XML::Node *repr,
     if (g_object_get_data(G_OBJECT(tbl), "freeze")) {
         return;
     }
-    if (strcmp(name, "inkscape:connector-spacing") != 0) {
-        return;
+    if (strcmp(name, "inkscape:connector-spacing") == 0)
+    {
+        GtkAdjustment *adj = (GtkAdjustment*)
+                gtk_object_get_data(GTK_OBJECT(tbl), "spacing");
+        gdouble spacing = defaultConnSpacing;
+        sp_repr_get_double(repr, "inkscape:connector-spacing", &spacing);
+
+        gtk_adjustment_set_value(adj, spacing);
+        gtk_adjustment_value_changed(adj);
     }
-
-    GtkAdjustment *adj = (GtkAdjustment*)
-            gtk_object_get_data(GTK_OBJECT(tbl), "spacing");
-    gdouble spacing = defaultConnSpacing;
-    sp_repr_get_double(repr, "inkscape:connector-spacing", &spacing);
-
-    gtk_adjustment_set_value(adj, spacing);
-    gtk_adjustment_value_changed(adj);
 
     spinbutton_defocus(GTK_OBJECT(tbl));
 }
 
+static void sp_connector_new_connection_point(GtkWidget *, GObject *tbl)
+{
+    SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
+    SPConnectorContext* cc = SP_CONNECTOR_CONTEXT(desktop->event_context);
+
+    if (cc->mode == SP_CONNECTOR_CONTEXT_EDITING_MODE)
+        cc_create_connection_point(cc);
+}
+
+static void sp_connector_remove_connection_point(GtkWidget *, GObject *tbl)
+{
+    SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
+    SPConnectorContext* cc = SP_CONNECTOR_CONTEXT(desktop->event_context);
+
+    if (cc->mode == SP_CONNECTOR_CONTEXT_EDITING_MODE)
+        cc_remove_connection_point(cc);
+}
 
 static Inkscape::XML::NodeEventVector connector_tb_repr_events = {
     NULL, /* child_added */
@@ -6985,11 +7337,41 @@ static Inkscape::XML::NodeEventVector connector_tb_repr_events = {
     NULL  /* order_changed */
 };
 
+static void sp_connector_toolbox_selection_changed(Inkscape::Selection *selection, GObject *tbl)
+{
+    GtkAdjustment *adj = GTK_ADJUSTMENT( g_object_get_data( tbl, "curvature" ) );
+    GtkToggleAction *act = GTK_TOGGLE_ACTION( g_object_get_data( tbl, "orthogonal" ) );
+    SPItem *item = selection->singleItem();
+    if (SP_IS_PATH(item))
+    {
+        gdouble curvature = SP_PATH(item)->connEndPair.getCurvature();
+        bool is_orthog = SP_PATH(item)->connEndPair.isOrthogonal();
+        gtk_toggle_action_set_active(act, is_orthog);
+        gtk_adjustment_set_value(adj, curvature);
+    }
+
+}
 
 static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     Inkscape::IconSize secondarySize = prefToSize("/toolbox/secondary", 1);
+
+    // Editing mode toggle button
+    {
+        InkToggleAction* act = ink_toggle_action_new( "ConnectorEditModeAction",
+                                                      _("EditMode"),
+                                                      _("Switch between connection point editing and connector drawing mode"),
+                                                      INKSCAPE_ICON_CONNECTOR_EDIT,
+                                                      Inkscape::ICON_SIZE_DECORATION );
+        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
+
+        bool tbuttonstate = prefs->getBool("/tools/connector/mode");
+        gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act), ( tbuttonstate ? TRUE : FALSE ));
+        g_object_set_data( holder, "mode", act );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_connector_mode_toggled), holder );
+    }
+
 
     {
         InkAction* inky = ink_action_new( "ConnectorAvoidAction",
@@ -7011,17 +7393,42 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
     }
 
+    // Orthogonal connectors toggle button
+    {
+        InkToggleAction* act = ink_toggle_action_new( "ConnectorOrthogonalAction",
+                                                      _("Orthogonal"),
+                                                      _("Make connector orthogonal or polyline"),
+                                                      INKSCAPE_ICON_CONNECTOR_ORTHOGONAL,
+                                                      Inkscape::ICON_SIZE_DECORATION );
+        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
+
+        bool tbuttonstate = prefs->getBool("/tools/connector/orthogonal");
+        gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act), ( tbuttonstate ? TRUE : FALSE ));
+        g_object_set_data( holder, "orthogonal", act );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_connector_orthogonal_toggled), holder );
+    }
+
     EgeAdjustmentAction* eact = 0;
+    // Curvature spinbox
+    eact = create_adjustment_action( "ConnectorCurvatureAction",
+                                    _("Connector Curvature"), _("Curvature:"),
+                                    _("The amount of connectors curvature"),
+                                    "/tools/connector/curvature", defaultConnCurvature,
+                                    GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "inkscape:connector-curvature",
+                                    0, 100, 1.0, 10.0,
+                                    0, 0, 0,
+                                    connector_curvature_changed, 1, 0 );
+    gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
 
     // Spacing spinbox
     eact = create_adjustment_action( "ConnectorSpacingAction",
-                                     _("Connector Spacing"), _("Spacing:"),
-                                     _("The amount of space left around objects by auto-routing connectors"),
-                                     "/tools/connector/spacing", defaultConnSpacing,
-                                     GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "inkscape:connector-spacing",
-                                     0, 100, 1.0, 10.0,
-                                     0, 0, 0,
-                                     connector_spacing_changed, 1, 0 );
+                                    _("Connector Spacing"), _("Spacing:"),
+                                    _("The amount of space left around objects by auto-routing connectors"),
+                                    "/tools/connector/spacing", defaultConnSpacing,
+                                    GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "inkscape:connector-spacing",
+                                    0, 100, 1.0, 10.0,
+                                    0, 0, 0,
+                                    connector_spacing_changed, 1, 0 );
     gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
 
     // Graph (connector network) layout
@@ -7060,6 +7467,8 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act), ( tbuttonstate ? TRUE : FALSE ));
 
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_directed_graph_layout_toggled), holder );
+        sigc::connection *connection = new sigc::connection(sp_desktop_selection(desktop)->connectChanged(sigc::bind(sigc::ptr_fun(sp_connector_toolbox_selection_changed), (GObject *)holder))
+        );
     }
 
     // Avoid overlaps toggle button
@@ -7076,6 +7485,31 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
 
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_nooverlaps_graph_layout_toggled), holder );
     }
+
+
+    // New connection point button
+    {
+        InkAction* inky = ink_action_new( "ConnectorNewConnPointAction",
+                                          _("New connection point"),
+                                          _("Add a new connection point to the currently selected item"),
+                                          INKSCAPE_ICON_CONNECTOR_NEW_CONNPOINT,
+                                          secondarySize );
+        g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_new_connection_point), holder );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
+    }
+
+    // Remove selected connection point button
+
+    {
+        InkAction* inky = ink_action_new( "ConnectorRemoveConnPointAction",
+                                          _("Remove connection point"),
+                                          _("Remove the currently selected connection point"),
+                                          INKSCAPE_ICON_CONNECTOR_REMOVE_CONNPOINT,
+                                          secondarySize );
+        g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_remove_connection_point), holder );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
+    }
+
 
     // Code to watch for changes to the connector-spacing attribute in
     // the XML.

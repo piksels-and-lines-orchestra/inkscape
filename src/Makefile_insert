@@ -20,6 +20,7 @@ ink_common_sources +=	\
 	composite-undo-stack-observer.cpp				\
 	composite-undo-stack-observer.h					\
 	conditions.cpp conditions.h					\
+	connection-points.cpp connection-points.h			\
 	conn-avoid-ref.cpp conn-avoid-ref.h				\
 	connection-pool.h						\
 	connector-context.cpp connector-context.h			\
@@ -222,6 +223,7 @@ ink_common_sources +=	\
 	sp-tspan.cpp sp-tspan.h			\
 	sp-use.cpp sp-use.h			\
 	sp-use-reference.cpp sp-use-reference.h	\
+	spray-context.cpp spray-context.h	\
 	star-context.cpp star-context.h		\
 	streq.h					\
 	strneq.h				\
@@ -269,6 +271,7 @@ CXXTEST_TESTSUITES +=			\
 	$(srcdir)/color-profile-test.h	\
 	$(srcdir)/dir-util-test.h	\
 	$(srcdir)/extract-uri-test.h	\
+	$(srcdir)/marker-test.h		\
 	$(srcdir)/mod360-test.h		\
 	$(srcdir)/round-test.h		\
 	$(srcdir)/preferences-test.h	\
