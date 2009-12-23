@@ -91,8 +91,7 @@
 #include "widgets/desktop-widget.h"
 #include "box3d-context.h"
 
-// TODO those includes are only for the braindead quick zoom implementation.
-// Remove them after fixing this.
+// TODO those includes are only for node tool quick zoom. Remove them after fixing it.
 #include "ui/tool/node-tool.h"
 #include "ui/tool/control-point-selection.h"
 
@@ -894,9 +893,8 @@ SPDesktop::zoom_quick (bool enable)
         _quick_zoom_stored_area = get_display_area();
         bool zoomed = false;
 
-        // TODO This is brain damage. This needs to migrate into the node tool,
-        // but currently the design of this method is sufficiently broken
-        // to prevent this.
+        // TODO This needs to migrate into the node tool, but currently the design
+        // of this method is sufficiently wrong to prevent this.
         if (!zoomed && INK_IS_NODE_TOOL(event_context)) {
             InkNodeTool *nt = static_cast<InkNodeTool*>(event_context);
             if (!nt->_selected_nodes->empty()) {

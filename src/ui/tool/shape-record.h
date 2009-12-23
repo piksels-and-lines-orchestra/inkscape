@@ -34,7 +34,7 @@ struct ShapeRecord :
     SPItem *item; // SP node for the edited shape
     Geom::Matrix edit_transform; // how to transform controls - used for clipping paths and masks
     ShapeRole role;
-    Glib::ustring lpe_key; // This is LPE brain damage that I do not want to speak of
+    Glib::ustring lpe_key; // name of LPE shape param being edited
 
     inline bool operator==(ShapeRecord const &o) const { return item == o.item; }
     inline bool operator<(ShapeRecord const &o) const { return item < o.item; }

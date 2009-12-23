@@ -1042,9 +1042,9 @@ void PathManipulator::_setGeometry()
     if (empty()) return;
 
     if (!_lpe_key.empty()) {
-        // LPE brain damage follows - copied from nodepath.cpp
+        // copied from nodepath.cpp
         // NOTE: if we are editing an LPE param, _path is not actually an SPPath, it is
-        // a LivePathEffectObject.
+        // a LivePathEffectObject. (mad laughter)
         Effect *lpe = LIVEPATHEFFECT(_path)->get_lpe();
         if (lpe) {
             PathParam *pathparam = dynamic_cast<PathParam *>(lpe->getParameter(_lpe_key.data()));
@@ -1059,14 +1059,15 @@ void PathManipulator::_setGeometry()
     }
 }
 
-/** LPE brain damage */
+/** Figure out in what attribute to store the nodetype string. */
 Glib::ustring PathManipulator::_nodetypesKey()
 {
     if (_lpe_key.empty()) return "sodipodi:nodetypes";
     return _lpe_key + "-nodetypes";
 }
 
-/** LPE brain damage */
+/** Return the XML node we are editing.
+ * This method is wrong but necessary at the moment. */
 Inkscape::XML::Node *PathManipulator::_getXMLNode()
 {
     if (_lpe_key.empty()) return _path->repr;
