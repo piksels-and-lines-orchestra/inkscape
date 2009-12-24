@@ -14,8 +14,6 @@
 #include <2geom/bezier-to-sbasis.h>
 #include <2geom/path.h>
 
-#include "nodepath.h"
-
 using std::vector;
 using namespace Geom;
 

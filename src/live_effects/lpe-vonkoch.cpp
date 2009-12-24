@@ -8,7 +8,6 @@
 
 #include <cstdio>
 #include "live_effects/lpe-vonkoch.h"
-#include "nodepath.h"
 #include <2geom/transforms.h>
 
 //using std::vector;

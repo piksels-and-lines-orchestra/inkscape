@@ -16,8 +16,6 @@
 #include <2geom/path.h>
 #include <2geom/transforms.h>
 
-#include "nodepath.h"
-
 namespace Inkscape {
 namespace LivePathEffect {
 

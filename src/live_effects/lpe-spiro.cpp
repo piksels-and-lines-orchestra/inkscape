@@ -7,7 +7,6 @@
 #include "live_effects/lpe-spiro.h"
 
 #include "display/curve.h"
-#include "nodepath.h"
 #include <typeinfo>
 #include <2geom/pathvector.h>
 #include <2geom/matrix.h>

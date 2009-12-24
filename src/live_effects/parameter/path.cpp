@@ -28,10 +28,8 @@
 // needed for on-canvas editting:
 #include "tools-switch.h"
 #include "shape-editor.h"
-#include "node-context.h"
 #include "desktop-handles.h"
 #include "selection.h"
-#include "nodepath.h"
 // clipboard support
 #include "ui/clipboard.h"
 // required for linking to other paths
