@@ -24,7 +24,7 @@
 #include "ui/tool/transform-handle-set.h"
 
 // FIXME BRAIN DAMAGE WARNING: this is a global variable in select-context.cpp
-// Should be moved to a location where it can be accessed globally
+// It should be moved to a header
 extern GdkPixbuf *handles[];
 GType sp_select_context_get_type();
 

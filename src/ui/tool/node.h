@@ -39,6 +39,7 @@ namespace Inkscape {
 namespace UI {
 
 class PathManipulator;
+class MultiPathManipulator;
 
 class Node;
 class Handle;
@@ -136,6 +137,7 @@ public:
 
     static char const *node_type_to_localized_string(NodeType type);
 protected:
+    virtual bool _eventHandler(GdkEvent *event);
     virtual void _setState(State state);
     virtual Glib::ustring _getTip(unsigned state);
     virtual Glib::ustring _getDragTip(GdkEventMotion *event);
@@ -294,12 +296,13 @@ class SubpathList : public std::list< boost::shared_ptr<NodeList> > {
 public:
     typedef std::list< boost::shared_ptr<NodeList> > list_type;
 
-    SubpathList() {}
+    SubpathList(PathManipulator &pm) : _path_manipulator(pm) {}
 
     sigc::signal<void, Node *> signal_insert_node;
     sigc::signal<void, Node *> signal_remove_node;
 private:
     list_type _nodelists;
+    PathManipulator &_path_manipulator;
     friend class NodeList;
     friend class Node;
     friend class Handle;

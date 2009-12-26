@@ -37,8 +37,7 @@ typedef std::unordered_set<NodeList::iterator> IterSet;
 typedef std::multimap<double, IterPair> DistanceMap;
 typedef std::pair<double, IterPair> DistanceMapItem;
 
-/** Find two selected endnodes.
- * @returns -1 if not enough endnodes selected, 1 if too many, 0 if OK */
+/** Find pairs of selected endnodes suitable for joining. */
 void find_join_iterators(ControlPointSelection &sel, IterPairList &pairs)
 {
     IterSet join_iters;
@@ -105,12 +104,11 @@ bool prepare_join(IterPair &join_iters)
 } // anonymous namespace
 
 
-MultiPathManipulator::MultiPathManipulator(PathSharedData const &data, sigc::connection &chg)
+MultiPathManipulator::MultiPathManipulator(PathSharedData &data, sigc::connection &chg)
     : PointManipulator(data.node_data.desktop, *data.node_data.selection)
     , _path_data(data)
     , _changed(chg)
 {
-    //
     _selection.signal_commit.connect(
         sigc::mem_fun(*this, &MultiPathManipulator::_commit));
     _selection.signal_point_changed.connect(
@@ -170,7 +168,7 @@ void MultiPathManipulator::setItems(std::set<ShapeRecord> const &s)
     for (std::set<ShapeRecord>::iterator i = shapes.begin(); i != shapes.end(); ++i) {
         ShapeRecord const &r = *i;
         if (!SP_IS_PATH(r.item) && !IS_LIVEPATHEFFECT(r.item)) continue;
-        boost::shared_ptr<PathManipulator> newpm(new PathManipulator(_path_data, (SPPath*) r.item,
+        boost::shared_ptr<PathManipulator> newpm(new PathManipulator(*this, (SPPath*) r.item,
             r.edit_transform, _getOutlineColor(r.role), r.lpe_key));
         newpm->showHandles(_show_handles);
         // always show outlines for clips and masks
@@ -202,6 +200,39 @@ void MultiPathManipulator::selectArea(Geom::Rect const &area, bool take)
 void MultiPathManipulator::shiftSelection(int dir)
 {
     invokeForAll(&PathManipulator::shiftSelection, dir);
+}
+void MultiPathManipulator::spatialGrow(NodeList::iterator origin, int dir)
+{
+    double extr_dist = dir > 0 ? HUGE_VAL : -HUGE_VAL;
+    NodeList::iterator target;
+
+    do { // this substitutes for goto
+        if ((dir > 0 && !origin->selected())) {
+            target = origin;
+            break;
+        }
+
+        bool closest = dir > 0; // when growing, find closest node
+        bool selected = dir < 0; // when growing, consider only unselected nodes
+
+        for (MapType::iterator i = _mmap.begin(); i != _mmap.end(); ++i) {
+            NodeList::iterator t = i->second->extremeNode(origin, selected, !selected, closest);
+            if (!t) continue;
+            double dist = Geom::distance(*t, *origin);
+            bool cond = closest ? (dist < extr_dist) : (dist > extr_dist);
+            if (cond) {
+                extr_dist = dist;
+                target = t;
+            }
+        }
+    } while (0);
+
+    if (!target) return;
+    if (dir > 0) {
+        _selection.insert(target.ptr());
+    } else {
+        _selection.erase(target.ptr());
+    }
 }
 void MultiPathManipulator::invertSelection()
 {
@@ -343,7 +374,7 @@ void MultiPathManipulator::joinSegment()
         }
     }
 
-    _doneWithCleanup("Join segment");
+    _doneWithCleanup("Join segments");
 }
 
 void MultiPathManipulator::deleteSegments()
@@ -505,6 +536,8 @@ bool MultiPathManipulator::event(GdkEvent *event)
     return false;
 }
 
+/** Commit changes to XML and add undo stack entry based on the action that was done. Invoked
+ * by sub-manipulators, for example TransformHandleSet and ControlPointSelection. */
 void MultiPathManipulator::_commit(CommitEvent cps)
 {
     gchar const *reason = NULL;
@@ -581,6 +614,7 @@ void MultiPathManipulator::_doneWithCleanup(gchar const *reason) {
     _changed.unblock();
 }
 
+/** Get an outline color based on the shape's role (normal, mask, LPE parameter, etc.). */
 guint32 MultiPathManipulator::_getOutlineColor(ShapeRole role)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();

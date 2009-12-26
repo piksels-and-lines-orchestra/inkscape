@@ -27,6 +27,7 @@ class ControlPointSelection;
 
 /**
  * @brief Tool component that processes events and does something in response to them.
+ * Note: this class is probably redundant.
  */
 class Manipulator {
 friend class ManipulatorGroup;
@@ -38,15 +39,13 @@ public:
     
     /// Handle input event. Returns true if handled.
     virtual bool event(GdkEvent *)=0;
-    /// Commits changes to XML (repr).
-    //virtual void commitToXML();
-    //Manipulator *_parent;
 protected:
     SPDesktop *const _desktop;
 };
 
 /**
  * @brief Tool component that edits something on the canvas using selectable control points.
+ * Note: this class is probably redundant.
  */
 class PointManipulator : public Manipulator, public sigc::trackable {
 public:
@@ -61,7 +60,9 @@ protected:
 /** Manipulator that aggregates several manipulators of the same type.
  * The order of invoking events on the member manipulators is undefined.
  * To make this class more useful, derive from it and add actions that can be performed
- * on all manipulators in the set. */
+ * on all manipulators in the set.
+ *
+ * This is not used at the moment and is probably useless. */
 template <typename T>
 class MultiManipulator : public PointManipulator {
 public:
@@ -146,26 +147,6 @@ protected:
     virtual bool _isItemType(void *item) = 0;
     MapType _mmap;
 };
-
-/*
- * @brief Set of manipulators. Takes care of routing events to appropriate manipulators.
- */
-/*class ManipulatorGroup : private std::list<boost::shared_ptr<Manipulator> > {
-friend class Manipulator;
-public:
-    ManipulatorGroup(SPDesktop *d);
-    ~ManipulatorGroup();
-    void add(boost::shared_ptr<Manipulator> m);
-    void remove(boost::shared_ptr<Manipulator> m);
-    void clear();
-    bool event(GdkEvent *);
-private:
-    void _grabEvents(boost::shared_ptr<Manipulator> m);
-    void _ungrabEvents(boost::shared_ptr<Manipulator> m);
-
-    SPDesktop *_desktop;
-    boost::shared_ptr<Manipulator> _grab;
-};*/
 
 } // namespace UI
 } // namespace Inkscape

@@ -26,6 +26,7 @@ struct SPCanvasItem;
 
 namespace Inkscape {
 namespace XML { class Node; }
+
 namespace UI {
 
 class PathManipulator;
@@ -33,6 +34,8 @@ class ControlPointSelection;
 class PathManipulatorObserver;
 class CurveDragPoint;
 class PathCanvasGroups;
+class MultiPathManipulator;
+class Node;
 
 struct PathSharedData {
     NodeSharedData node_data;
@@ -49,7 +52,7 @@ class PathManipulator : public PointManipulator {
 public:
     typedef SPPath *ItemType;
 
-    PathManipulator(PathSharedData const &data, SPPath *path, Geom::Matrix const &edit_trans,
+    PathManipulator(MultiPathManipulator &mpm, SPPath *path, Geom::Matrix const &edit_trans,
         guint32 outline_color, Glib::ustring lpe_key);
     ~PathManipulator();
     virtual bool event(GdkEvent *);
@@ -64,13 +67,12 @@ public:
     void selectAll();
     void selectArea(Geom::Rect const &);
     void shiftSelection(int dir);
-    void linearGrow(int dir);
-    void spatialGrow(int dir);
+    void linearGrow(NodeList::iterator center, int dir);
     void invertSelection();
     void invertSelectionInSubpaths();
 
     void insertNodes();
-    void weldNodes(NodeList::iterator const &preserve_pos = NodeList::iterator());
+    void weldNodes(NodeList::iterator preserve_pos = NodeList::iterator());
     void weldSegments();
     void breakNodes();
     void deleteNodes(bool keep_shape = true);
@@ -85,6 +87,8 @@ public:
     void hideDragPoint();
 
     NodeList::iterator subdivideSegment(NodeList::iterator after, double t);
+    NodeList::iterator extremeNode(NodeList::iterator origin, bool search_selected,
+        bool search_unselected, bool closest);
 
     static bool is_item_type(void *item);
 private:
@@ -117,7 +121,7 @@ private:
     double _getStrokeTolerance();
 
     SubpathList _subpaths;
-    PathSharedData const &_path_data;
+    MultiPathManipulator &_multi_path_manipulator;
     SPPath *_path;
     SPCurve *_spcurve; // in item coordinates
     SPCanvasItem *_outline;
@@ -134,6 +138,7 @@ private:
 
     friend class PathManipulatorObserver;
     friend class CurveDragPoint;
+    friend class Node;
 };
 
 } // namespace UI

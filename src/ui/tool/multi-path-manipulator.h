@@ -16,6 +16,7 @@
 #include "forward.h"
 #include "ui/tool/commit-events.h"
 #include "ui/tool/manipulator.h"
+#include "ui/tool/node.h"
 #include "ui/tool/node-types.h"
 #include "ui/tool/shape-record.h"
 
@@ -30,19 +31,16 @@ struct PathSharedData;
 
 /**
  * Manipulator that manages multiple path manipulators active at the same time.
- * It functions like a boost::ptr_set - manipulators added via insert() are retained.
  */
 class MultiPathManipulator : public PointManipulator {
 public:
-    MultiPathManipulator(PathSharedData const &data, sigc::connection &chg);
+    MultiPathManipulator(PathSharedData &data, sigc::connection &chg);
     virtual ~MultiPathManipulator();
     virtual bool event(GdkEvent *event);
 
     bool empty() { return _mmap.empty(); }
     unsigned size() { return _mmap.empty(); }
-    // TODO fix this garbage!
     void setItems(std::set<ShapeRecord> const &);
-    //std::map<SPPath*, std::pair<Geom::Matrix, guint32> > const &items);
     void clear() { _mmap.clear(); }
     void cleanup();
 
@@ -50,8 +48,7 @@ public:
     void selectAll();
     void selectArea(Geom::Rect const &area, bool take);
     void shiftSelection(int dir);
-    void linearGrow(int dir);
-    void spatialGrow(int dir);
+    void spatialGrow(NodeList::iterator center, int dir);
     void invertSelection();
     void invertSelectionInSubpaths();
     void deselect();
@@ -75,7 +72,8 @@ public:
     void showPathDirection(bool show);
     void updateOutlineColors();
     
-    sigc::signal<void> signal_coords_changed;
+    sigc::signal<void> signal_coords_changed; /// Emitted whenever the coordinates
+        /// shown in the status bar need updating
 private:
     typedef std::pair<ShapeRecord, boost::shared_ptr<PathManipulator> > MapPair;
     typedef std::map<ShapeRecord, boost::shared_ptr<PathManipulator> > MapType;
@@ -111,11 +109,15 @@ private:
     guint32 _getOutlineColor(ShapeRole role);
 
     MapType _mmap;
+public:
     PathSharedData const &_path_data;
+private:
     sigc::connection &_changed;
     bool _show_handles;
     bool _show_outline;
     bool _show_path_direction;
+
+    friend class PathManipulator;
 };
 
 } // namespace UI

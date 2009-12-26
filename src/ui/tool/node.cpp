@@ -15,7 +15,9 @@
 #include <glib/gi18n.h>
 #include <2geom/transforms.h>
 #include "ui/tool/event-utils.h"
+#include "ui/tool/multi-path-manipulator.h"
 #include "ui/tool/node.h"
+#include "ui/tool/path-manipulator.h"
 #include "display/sp-ctrlline.h"
 #include "display/sp-canvas.h"
 #include "display/sp-canvas-util.h"
@@ -409,37 +411,38 @@ void Node::_fixNeighbors(Geom::Point const &old_pos, Geom::Point const &new_pos)
 
     if (_type == NODE_SMOOTH && !handle->isDegenerate()) {
         handle->setDirection(other->position(), new_pos);
-        /*Geom::Point handle_delta = handle->position() - position();
-        Geom::Point new_delta = Geom::unit_vector(new_direction) * handle_delta.length();
-        handle->setPosition(position() + new_delta);*/
     }
     // also update the handle on the other end of the segment
     if (other->_type == NODE_SMOOTH && !other_handle->isDegenerate()) {
         other_handle->setDirection(new_pos, other->position());
-        /*
-        Geom::Point handle_delta2 = other_handle->position() - other->position();
-        Geom::Point new_delta2 = Geom::unit_vector(new_direction) * handle_delta2.length();
-        other_handle->setPosition(other->position() + new_delta2);*/
     }
 }
 
 void Node::_updateAutoHandles()
 {
     // Recompute the position of automatic handles.
-    if (!_prev() || !_next()) {
+    // For endnodes, retract both handles. (It's only possible to create an end auto node
+    // through the XML editor.)
+    if (isEndNode()) {
         _front.retract();
         _back.retract();
         return;
     }
-    // TODO describe in detail what the code below does
+
+    // Auto nodes automaticaly adjust their handles to give an appearance of smoothness,
+    // no matter what their surroundings are.
     Geom::Point vec_next = _next()->position() - position();
     Geom::Point vec_prev = _prev()->position() - position();
     double len_next = vec_next.length(), len_prev = vec_prev.length();
     if (len_next > 0 && len_prev > 0) {
+        // "dir" is an unit vector perpendicular to the bisector of the angle created
+        // by the previous node, this auto node and the next node.
         Geom::Point dir = Geom::unit_vector((len_prev / len_next) * vec_next - vec_prev);
+        // Handle lengths are equal to 1/3 of the distance from the adjacent node.
         _back.setRelativePos(-dir * (len_prev / 3));
         _front.setRelativePos(dir * (len_next / 3));
     } else {
+        // If any of the adjacent nodes coincides, retract both handles.
         _front.retract();
         _back.retract();
     }
@@ -618,6 +621,33 @@ NodeType Node::parse_nodetype(char x)
     }
 }
 
+bool Node::_eventHandler(GdkEvent *event)
+{
+    static NodeList::iterator origin;
+    static int dir;
+
+    switch (event->type)
+    {
+    case GDK_SCROLL:
+        if (event->scroll.direction == GDK_SCROLL_UP) {
+            dir = 1;
+        } else if (event->scroll.direction == GDK_SCROLL_DOWN) {
+            dir = -1;
+        } else break;
+        origin = NodeList::get_iterator(this);
+
+        if (held_control(event->scroll)) {
+            list()->_list._path_manipulator._multi_path_manipulator.spatialGrow(origin, dir);
+        } else {
+            list()->_list._path_manipulator.linearGrow(origin, dir);
+        }
+        return true;
+    default:
+        break;
+    }
+    return ControlPoint::_eventHandler(event);
+}
+
 void Node::_setState(State state)
 {
     // change node size to match type and selection state
@@ -673,29 +703,31 @@ bool Node::_grabbedHandler(GdkEventMotion *event)
 
 void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
 {
-    if (!held_control(*event)) return;
-    if (held_alt(*event)) {
-        // with Ctrl+Alt, constrain to handle lines
-        // project the new position onto a handle line that is closer
-        Geom::Point origin = _last_drag_origin();
-        Geom::Line line_front(origin, origin + _front.relativePos());
-        Geom::Line line_back(origin, origin + _back.relativePos());
-        double dist_front, dist_back;
-        dist_front = Geom::distance(new_pos, line_front);
-        dist_back = Geom::distance(new_pos, line_back);
-        if (dist_front < dist_back) {
-            new_pos = Geom::projection(new_pos, line_front);
+    if (held_control(*event)) {
+        if (held_alt(*event)) {
+            // with Ctrl+Alt, constrain to handle lines
+            // project the new position onto a handle line that is closer
+            Geom::Point origin = _last_drag_origin();
+            Geom::Line line_front(origin, origin + _front.relativePos());
+            Geom::Line line_back(origin, origin + _back.relativePos());
+            double dist_front, dist_back;
+            dist_front = Geom::distance(new_pos, line_front);
+            dist_back = Geom::distance(new_pos, line_back);
+            if (dist_front < dist_back) {
+                new_pos = Geom::projection(new_pos, line_front);
+            } else {
+                new_pos = Geom::projection(new_pos, line_back);
+            }
         } else {
-            new_pos = Geom::projection(new_pos, line_back);
+            // with Ctrl, constrain to axes
+            // TODO maybe add diagonals when the distance from origin is large enough?
+            Geom::Point origin = _last_drag_origin();
+            Geom::Point delta = new_pos - origin;
+            Geom::Dim2 d = (fabs(delta[Geom::X]) < fabs(delta[Geom::Y])) ? Geom::X : Geom::Y;
+            new_pos[d] = origin[d];
         }
     } else {
-        // with Ctrl, constrain to axes
-        // TODO this probably has to be separated into an AxisConstrainablePoint class
-        // TODO maybe add diagonals when the distance from origin is large enough?
-        Geom::Point origin = _last_drag_origin();
-        Geom::Point delta = new_pos - origin;
-        Geom::Dim2 d = (fabs(delta[Geom::X]) < fabs(delta[Geom::Y])) ? Geom::X : Geom::Y;
-        new_pos[d] = origin[d];
+        // snapping?
     }
 }
 
@@ -711,7 +743,7 @@ Glib::ustring Node::_getTip(unsigned state)
             return C_("Path node tip",
                 "<b>Shift:</b> drag out a handle, click to toggle selection");
         }
-        return C_("Path node statusbar tip", "<b>Shift:</b> click to toggle selection");
+        return C_("Path node tip", "<b>Shift:</b> click to toggle selection");
     }
 
     if (state_held_control(state)) {
@@ -733,7 +765,7 @@ Glib::ustring Node::_getDragTip(GdkEventMotion *event)
     Geom::Point dist = position() - _last_drag_origin();
     GString *x = SP_PX_TO_METRIC_STRING(dist[Geom::X], _desktop->namedview->getDefaultMetric());
     GString *y = SP_PX_TO_METRIC_STRING(dist[Geom::Y], _desktop->namedview->getDefaultMetric());
-    Glib::ustring ret = format_tip(C_("Path node statusbar tip", "Move by %s, %s"),
+    Glib::ustring ret = format_tip(C_("Path node tip", "Move by %s, %s"),
         x->str, y->str);
     g_string_free(x, TRUE);
     g_string_free(y, TRUE);
@@ -915,7 +947,7 @@ void NodeList::clear()
 
 NodeList::iterator NodeList::erase(iterator i)
 {
-    // some acrobatics are required to ensure that the node is valid when deleted;
+    // some gymnastics are required to ensure that the node is valid when deleted;
     // otherwise the code that updates handle visibility will break
     Node *rm = static_cast<Node*>(i._node);
     ListNode *rmnext = rm->next, *rmprev = rm->prev;
@@ -927,6 +959,8 @@ NodeList::iterator NodeList::erase(iterator i)
     return i;
 }
 
+// TODO this method is nasty and ugly!
+// converting SubpathList to an intrusive list might allow us to get rid of it
 void NodeList::kill()
 {
     for (SubpathList::iterator i = _list.begin(); i != _list.end(); ++i) {

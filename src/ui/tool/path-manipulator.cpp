@@ -85,10 +85,11 @@ private:
 
 void build_segment(Geom::PathBuilder &, Node *, Node *);
 
-PathManipulator::PathManipulator(PathSharedData const &data, SPPath *path,
+PathManipulator::PathManipulator(MultiPathManipulator &mpm, SPPath *path,
         Geom::Matrix const &et, guint32 outline_color, Glib::ustring lpe_key)
-    : PointManipulator(data.node_data.desktop, *data.node_data.selection)
-    , _path_data(data)
+    : PointManipulator(mpm._path_data.node_data.desktop, *mpm._path_data.node_data.selection)
+    , _subpaths(*this)
+    , _multi_path_manipulator(mpm)
     , _path(path)
     , _spcurve(NULL)
     , _dragpoint(new CurveDragPoint(*this))
@@ -109,7 +110,7 @@ PathManipulator::PathManipulator(PathSharedData const &data, SPPath *path,
 
     _getGeometry();
 
-    _outline = sp_canvas_bpath_new(_path_data.outline_group, NULL);
+    _outline = sp_canvas_bpath_new(_multi_path_manipulator._path_data.outline_group, NULL);
     sp_canvas_item_hide(_outline);
     sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(_outline), outline_color, 1.0,
         SP_STROKE_LINEJOIN_MITER, SP_STROKE_LINECAP_BUTT);
@@ -297,6 +298,11 @@ void PathManipulator::shiftSelection(int dir)
     }
 }
 
+void PathManipulator::linearGrow(NodeList::iterator center, int dir)
+{
+    g_message("linearGrow unimplemented");
+}
+
 /** Invert selection in the entire path. */
 void PathManipulator::invertSelection()
 {
@@ -343,7 +349,7 @@ void PathManipulator::insertNodes()
 }
 
 /** Replace contiguous selections of nodes in each subpath with one node. */
-void PathManipulator::weldNodes(NodeList::iterator const &preserve_pos)
+void PathManipulator::weldNodes(NodeList::iterator preserve_pos)
 {
     if (!_num_selected) return;
     _dragpoint->setVisible(false);
@@ -453,7 +459,7 @@ void PathManipulator::breakNodes()
                 ins = new_sp;
             }
 
-            Node *n = new Node(_path_data.node_data, cur->position());
+            Node *n = new Node(_multi_path_manipulator._path_data.node_data, cur->position());
             ins->insert(ins->end(), n);
             cur->setType(NODE_CUSP, false);
             n->back()->setRelativePos(cur->back()->relativePos());
@@ -747,7 +753,7 @@ NodeList::iterator PathManipulator::subdivideSegment(NodeList::iterator first, d
     NodeList::iterator inserted;
     if (first->front()->isDegenerate() && second->back()->isDegenerate()) {
         // for a line segment, insert a cusp node
-        Node *n = new Node(_path_data.node_data,
+        Node *n = new Node(_multi_path_manipulator._path_data.node_data,
             Geom::lerp(t, first->position(), second->position()));
         n->setType(NODE_CUSP, false);
         inserted = list.insert(insert_at, n);
@@ -759,7 +765,7 @@ NodeList::iterator PathManipulator::subdivideSegment(NodeList::iterator first, d
         std::vector<Geom::Point> seg1 = div.first.points(), seg2 = div.second.points();
 
         // set new handle positions
-        Node *n = new Node(_path_data.node_data, seg2[0]);
+        Node *n = new Node(_multi_path_manipulator._path_data.node_data, seg2[0]);
         n->back()->setPosition(seg1[2]);
         n->front()->setPosition(seg2[1]);
         n->setType(NODE_SMOOTH, false);
@@ -769,6 +775,38 @@ NodeList::iterator PathManipulator::subdivideSegment(NodeList::iterator first, d
         second->back()->move(seg2[2]);
     }
     return inserted;
+}
+
+/** Find the node that is closest/farthest from the origin
+ * @param origin Point of reference
+ * @param search_selected Consider selected nodes
+ * @param search_unselected Consider unselected nodes
+ * @param closest If true, return closest node, if false, return farthest
+ * @return The matching node, or an empty iterator if none found
+ */
+NodeList::iterator PathManipulator::extremeNode(NodeList::iterator origin, bool search_selected,
+    bool search_unselected, bool closest)
+{
+    NodeList::iterator match;
+    double extr_dist = closest ? HUGE_VAL : -HUGE_VAL;
+    if (_num_selected == 0 && !search_unselected) return match;
+
+    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
+        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
+            if(j->selected()) {
+                if (!search_selected) continue;
+            } else {
+                if (!search_unselected) continue;
+            }
+            double dist = Geom::distance(*j, *origin);
+            bool cond = closest ? (dist < extr_dist) : (dist > extr_dist);
+            if (cond) {
+                match = j;
+                extr_dist = dist;
+            }
+        }
+    }
+    return match;
 }
 
 /** Called by the XML observer when something else than us modifies the path. */
@@ -839,7 +877,7 @@ void PathManipulator::_createControlPointsFromGeometry()
         SubpathPtr subpath(new NodeList(_subpaths));
         _subpaths.push_back(subpath);
 
-        Node *previous_node = new Node(_path_data.node_data, pit->initialPoint());
+        Node *previous_node = new Node(_multi_path_manipulator._path_data.node_data, pit->initialPoint());
         subpath->push_back(previous_node);
         Geom::Curve const &cseg = pit->back_closed();
         bool fuse_ends = pit->closed()
@@ -856,7 +894,7 @@ void PathManipulator::_createControlPointsFromGeometry()
                 /* regardless of segment type, create a new node at the end
                  * of this segment (unless this is the last segment of a closed path
                  * with a degenerate closing segment */
-                current_node = new Node(_path_data.node_data, pos);
+                current_node = new Node(_multi_path_manipulator._path_data.node_data, pos);
                 subpath->push_back(current_node);
             }
             // if this is a bezier segment, move handles appropriately
