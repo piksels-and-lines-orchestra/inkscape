@@ -148,6 +148,7 @@ private:
     void _draggedHandler(Geom::Point &, GdkEventMotion *);
     void _fixNeighbors(Geom::Point const &old_pos, Geom::Point const &new_pos);
     void _updateAutoHandles();
+    void _linearGrow(int dir);
     Node *_next();
     Node *_prev();
     static SPCtrlShapeType _node_type_to_shape(NodeType type);

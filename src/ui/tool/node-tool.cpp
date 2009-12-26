@@ -38,6 +38,50 @@
 #include "pixmaps/cursor-node.xpm"
 #include "pixmaps/cursor-node-d.xpm"
 
+/** @struct InkNodeTool
+ *
+ * Node tool event context.
+ *
+ * @par Architectural overview of the tool
+ * @par
+ * Here's a breakdown of what each object does.
+ * - Handle: shows a handle and keeps the node type constraint (smooth / symmetric) by updating
+ *   the other handle's position when dragged. Its move() method cannot violate the constraints.
+ * - Node: keeps node type constraints for auto nodes and smooth nodes at ends of linear segments.
+ *   Its move() method cannot violate constraints. Handles linear grow and dispatches spatial grow
+ *   to MultiPathManipulator. Keeps a reference to its NodeList.
+ * - NodeList: exposes an iterator-based interface to nodes. It is possible to obtain an iterator
+ *   to a node from the node. Keeps a reference to its SubpathList.
+ * - SubpathList: list of NodeLists that represents an editable pathvector. Keeps a reference
+ *   to its PathManipulator.
+ * - PathManipulator: performs most of the single-path actions like reverse subpaths,
+ *   delete segment, shift selection, etc. Keeps a reference to MultiPathManipulator.
+ * - MultiPathManipulator: performs additional operations for actions that are not per-path,
+ *   for example node joins and segment joins. Tracks the control transforms for PMs that edit
+ *   clipping paths and masks. It is more or less equivalent to ShapeEditor and in the future
+ *   it might handle all shapes. Handles XML commit of actions that affect all paths or
+ *   the node selection and removes PathManipulators that have no nodes left after e.g. node
+ *   deletes.
+ * - ControlPointSelection: keeps track of node selection. Performs actions that require no
+ *   knowledge about the path, only about the nodes, like dragging and transforms. It is not
+ *   specific to nodes and can accomodate any control point derived from SelectableControlPoint.
+ *   Transforms nodes in response to transform handle events.
+ * - TransformHandleSet: displays nodeset transform handles and emits transform events. The aim
+ *   is to eventually use a common class for object and control point transforms.
+ * 
+ * @par Plans for the future
+ * @par
+ * - MultiPathManipulator should become a generic shape editor that manages all active manipulator,
+ *   more or less like the old ShapeEditor.
+ * - Knotholder should be rewritten into one manipulator class per shape, using the control point
+ *   classes. Interesting features like dragging rectangle sides could be added along the way.
+ * - Better handling of clip and mask editing, particularly in response to undo.
+ * - High level refactoring of the event context hierarchy. All aspects of tools, like toolbox
+ *   controls, icons, event handling should be collected in one class, though each aspect
+ *   of a tool might be in an separate class for better modularity. The long term goal is to allow
+ *   tools to be defined in extensions or shared library plugins.
+ */
+
 namespace {
 SPCanvasGroup *create_control_group(SPDesktop *d);
 void ink_node_tool_class_init(InkNodeToolClass *klass);

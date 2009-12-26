@@ -44,14 +44,14 @@ protected:
         ControlPointSelection &sel, ColorSet *cset = 0, SPCanvasGroup *group = 0);
 
     virtual void _setState(State state);
+
+    ControlPointSelection &_selection;
 private:
     void _connectHandlers();
     void _takeSelection();
     
     bool _clickedHandler(GdkEventButton *);
     void _grabbedHandler(GdkEventMotion *);
-    
-    ControlPointSelection &_selection;
 };
 
 } // namespace UI

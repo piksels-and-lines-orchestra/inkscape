@@ -298,11 +298,6 @@ void PathManipulator::shiftSelection(int dir)
     }
 }
 
-void PathManipulator::linearGrow(NodeList::iterator center, int dir)
-{
-    g_message("linearGrow unimplemented");
-}
-
 /** Invert selection in the entire path. */
 void PathManipulator::invertSelection()
 {

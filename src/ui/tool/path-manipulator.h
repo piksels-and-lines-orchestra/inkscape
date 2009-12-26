@@ -67,7 +67,6 @@ public:
     void selectAll();
     void selectArea(Geom::Rect const &);
     void shiftSelection(int dir);
-    void linearGrow(NodeList::iterator center, int dir);
     void invertSelection();
     void invertSelectionInSubpaths();
 

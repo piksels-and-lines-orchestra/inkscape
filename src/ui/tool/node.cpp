@@ -13,11 +13,9 @@
 #include <boost/utility.hpp>
 #include <glib.h>
 #include <glib/gi18n.h>
+#include <2geom/bezier-utils.h>
 #include <2geom/transforms.h>
-#include "ui/tool/event-utils.h"
-#include "ui/tool/multi-path-manipulator.h"
-#include "ui/tool/node.h"
-#include "ui/tool/path-manipulator.h"
+
 #include "display/sp-ctrlline.h"
 #include "display/sp-canvas.h"
 #include "display/sp-canvas-util.h"
@@ -26,6 +24,11 @@
 #include "preferences.h"
 #include "sp-metrics.h"
 #include "sp-namedview.h"
+#include "ui/tool/control-point-selection.h"
+#include "ui/tool/event-utils.h"
+#include "ui/tool/multi-path-manipulator.h"
+#include "ui/tool/node.h"
+#include "ui/tool/path-manipulator.h"
 
 namespace Inkscape {
 namespace UI {   
@@ -621,6 +624,7 @@ NodeType Node::parse_nodetype(char x)
     }
 }
 
+/** Customized event handler to catch scroll events needed for selection grow/shrink. */
 bool Node::_eventHandler(GdkEvent *event)
 {
     static NodeList::iterator origin;
@@ -639,13 +643,131 @@ bool Node::_eventHandler(GdkEvent *event)
         if (held_control(event->scroll)) {
             list()->_list._path_manipulator._multi_path_manipulator.spatialGrow(origin, dir);
         } else {
-            list()->_list._path_manipulator.linearGrow(origin, dir);
+            _linearGrow(dir);
         }
         return true;
     default:
         break;
     }
     return ControlPoint::_eventHandler(event);
+}
+
+// TODO Move this to 2Geom
+static double bezier_length (Geom::Point a0, Geom::Point a1, Geom::Point a2, Geom::Point a3)
+{
+    double lower = Geom::distance(a0, a3);
+    double upper = Geom::distance(a0, a1) + Geom::distance(a1, a2) + Geom::distance(a2, a3);
+
+    // TODO maybe EPSILON is this is too big in this case?
+    if (upper - lower < Geom::EPSILON) return (lower + upper)/2;
+
+    Geom::Point // Casteljau subdivision
+        b0 = a0,
+        c0 = a3,
+        b1 = 0.5*(a0 + a1),
+        t0 = 0.5*(a1 + a2),
+        c1 = 0.5*(a2 + a3),
+        b2 = 0.5*(b1 + t0),
+        c2 = 0.5*(t0 + c1),
+        b3 = 0.5*(b2 + c2); // == c3
+    return bezier_length(b0, b1, b2, b3) + bezier_length(b3, c2, c1, c0);
+}
+
+/** Select or deselect a node in this node's subpath based on its path distance from this node.
+ * @param dir If negative, shrink selection by one node; if positive, grow by one node */
+void Node::_linearGrow(int dir)
+{
+    // Interestingly, we do not need any help from PathManipulator when doing linear grow.
+    // First handle the trivial case of growing over an unselected node.
+    if (!selected() && dir > 0) {
+        _selection.insert(this);
+        return;
+    }
+
+    NodeList::iterator this_iter = NodeList::get_iterator(this);
+    NodeList::iterator fwd = this_iter, rev = this_iter;
+    double distance_back = 0, distance_front = 0;
+
+    // Linear grow is simple. We find the first unselected nodes in each direction
+    // and compare the linear distances to them.
+    if (dir > 0) {
+        if (!selected()) {
+            _selection.insert(this);
+            return;
+        }
+
+        // find first unselected nodes on both sides
+        while (fwd && fwd->selected()) {
+            NodeList::iterator n = fwd.next();
+            distance_front += bezier_length(*fwd, fwd->_front, n->_back, *n);
+            fwd = n;
+            if (fwd == this_iter)
+                // there is no unselected node in this cyclic subpath
+                return;
+        }
+        // do the same for the second direction. Do not check for equality with
+        // this node, because there is at least one unselected node in the subpath,
+        // so we are guaranteed to stop.
+        while (rev && rev->selected()) {
+            NodeList::iterator p = rev.prev();
+            distance_back += bezier_length(*rev, rev->_back, p->_front, *p);
+            rev = p;
+        }
+
+        NodeList::iterator t; // node to select
+        if (fwd && rev) {
+            if (distance_front <= distance_back) t = fwd;
+            else t = rev;
+        } else {
+            if (fwd) t = fwd;
+            if (rev) t = rev;
+        }
+        if (t) _selection.insert(t.ptr());
+
+    // Linear shrink is more complicated. We need to find the farthest selected node.
+    // This means we have to check the entire subpath. We go in the direction in which
+    // the distance we traveled is lower. We do this until we run out of nodes (ends of path)
+    // or the two iterators meet. On the way, we store the last selected node and its distance
+    // in each direction (if any). At the end, we choose the one that is farther and deselect it.
+    } else {
+        // both iterators that store last selected nodes are initially empty
+        NodeList::iterator last_fwd, last_rev;
+        double last_distance_back, last_distance_front;
+
+        while (rev || fwd) {
+            if (fwd && (!rev || distance_front <= distance_back)) {
+                if (fwd->selected()) {
+                    last_fwd = fwd;
+                    last_distance_front = distance_front;
+                }
+                NodeList::iterator n = fwd.next();
+                distance_front += bezier_length(*fwd, fwd->_front, n->_back, *n);
+                fwd = n;
+            } else if (rev && (!fwd || distance_front > distance_back)) {
+                if (rev->selected()) {
+                    last_rev = rev;
+                    last_distance_back = distance_back;
+                }
+                NodeList::iterator p = rev.prev();
+                distance_back += bezier_length(*rev, rev->_back, p->_front, *p);
+                rev = p;
+            }
+            // Check whether we walked the entire cyclic subpath.
+            // This is initially true because both iterators start from this node,
+            // so this check cannot go in the while condition.
+            if (fwd == rev) break;
+        }
+
+        NodeList::iterator t;
+        if (last_fwd && last_rev) {
+            if (last_distance_front >= last_distance_back) t = last_fwd;
+            else t = last_rev;
+        } else {
+            if (last_fwd) t = last_fwd;
+            if (last_rev) t = last_rev;
+        }
+        if (t) _selection.erase(t.ptr());
+    }
 }
 
 void Node::_setState(State state)
@@ -667,14 +789,14 @@ void Node::_setState(State state)
 
 bool Node::_grabbedHandler(GdkEventMotion *event)
 {
-    // dragging out handles
+    // Dragging out handles with Shift + drag on a node.
     if (!held_shift(*event)) return false;
 
     Handle *h;
     Geom::Point evp = event_point(*event);
     Geom::Point rel_evp = evp - _last_click_event_point();
 
-    // this should work even if dragtolerance is zero and evp coincides with node position
+    // This should work even if dragtolerance is zero and evp coincides with node position.
     double angle_next = HUGE_VAL;
     double angle_prev = HUGE_VAL;
     bool has_degenerate = false;
@@ -727,7 +849,7 @@ void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
             new_pos[d] = origin[d];
         }
     } else {
-        // snapping?
+        // TODO snapping?
     }
 }
 
@@ -813,8 +935,6 @@ SPCtrlShapeType Node::_node_type_to_shape(NodeType type)
  * It can optionally be cyclic to represent a closed path.
  * The list has iterators that act like plain node iterators, but can also be used
  * to obtain shared pointers to nodes.
- *
- * @todo Manage geometric representation to improve speed
  */
 
 NodeList::NodeList(SubpathList &splist)
@@ -959,7 +1079,7 @@ NodeList::iterator NodeList::erase(iterator i)
     return i;
 }
 
-// TODO this method is nasty and ugly!
+// TODO this method is very ugly!
 // converting SubpathList to an intrusive list might allow us to get rid of it
 void NodeList::kill()
 {
