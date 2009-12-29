@@ -141,7 +141,7 @@ double NormalDistribution(double mu,double sigma)
 
 }
 
-//Fin de la création de NormalDistribution
+//End of NormalDistribution
 
 GtkType sp_spray_context_get_type(void)
 {
