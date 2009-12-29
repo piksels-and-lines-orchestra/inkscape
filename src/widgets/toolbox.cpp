@@ -4441,13 +4441,13 @@ static void sp_spray_population_value_changed( GtkAdjustment *adj, GObject */*tb
 static void sp_spray_rotation_value_changed( GtkAdjustment *adj, GObject */*tbl*/ )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/spray/rotation", adj->value );
+    prefs->setDouble( "/tools/spray/rotation_variation", adj->value );
 }
 
 static void sp_spray_scale_value_changed( GtkAdjustment *adj, GObject */*tbl*/ )
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setDouble( "/tools/spray/scale", adj->value );
+    prefs->setDouble( "/tools/spray/scale_variation", adj->value );
 }
 
 

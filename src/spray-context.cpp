@@ -226,12 +226,10 @@ static void sp_spray_context_init(SPSprayContext *tc)
     tc->ratio = 0;
     tc->tilt=0;
     tc->mean = 0.2;
-    tc->rot_min=0;
-    tc->rot_max=0;
+    tc->rot_variation=0;
     tc->standard_deviation=0.2;
     tc->scale=1;
-    tc->scale_min = 1;
-    tc->scale_max=1;
+    tc->scale_variation = 1;
     tc->pressure = TC_DEFAULT_PRESSURE;
 
     tc->is_dilating = false;
@@ -337,18 +335,14 @@ static void sp_spray_context_setup(SPEventContext *ec)
     sp_event_context_read(ec, "width");
     sp_event_context_read(ec, "ratio");
     sp_event_context_read(ec, "tilt");
-    sp_event_context_read(ec, "rot_min");
-    sp_event_context_read(ec, "rot_max");
-    sp_event_context_read(ec, "scale_min");
-    sp_event_context_read(ec, "scale_max");
+    sp_event_context_read(ec, "rot_variation");
+    sp_event_context_read(ec, "scale_variation");
     sp_event_context_read(ec, "mode");
     sp_event_context_read(ec, "population");
     sp_event_context_read(ec, "force");
     sp_event_context_read(ec, "mean");
     sp_event_context_read(ec, "standard_deviation");
     sp_event_context_read(ec, "usepressure");
-    sp_event_context_read(ec, "Rotation min");
-    sp_event_context_read(ec, "Rotation max");
     sp_event_context_read(ec, "Scale");
     sp_event_context_read(ec, "doh");
     sp_event_context_read(ec, "dol");
@@ -387,14 +381,10 @@ static void sp_spray_context_set(SPEventContext *ec, Inkscape::Preferences::Entr
         tc->ratio = CLAMP(val->getDouble(), 0.0, 0.9);
     } else if (path == "force") {
         tc->force = CLAMP(val->getDouble(1.0), 0, 1.0);
-    } else if (path == "rot_min") {
-        tc->rot_min = CLAMP(val->getDouble(0), 0, 10.0);
-    } else if (path == "rot_max") {
-        tc->rot_max = CLAMP(val->getDouble(0), 0, 10.0);
-    } else if (path == "scale_min") {
-        tc->scale_min = CLAMP(val->getDouble(1.0), 0, 10.0);
-    } else if (path == "scale_max") {
-        tc->scale_max = CLAMP(val->getDouble(1.0), 0, 10.0);
+    } else if (path == "rotation_variation") {
+        tc->rot_variation = CLAMP(val->getDouble(0), 0, 10.0);
+    } else if (path == "scale_variation") {
+        tc->scale_variation = CLAMP(val->getDouble(1.0), 0, 10.0);
     } else if (path == "mean") {
         tc->mean = 0.01 * CLAMP(val->getInt(10), 1, 100);
     } else if (path == "standard_deviation") {
@@ -507,15 +497,13 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
                                double /*force*/,
                                double population,
                                double &scale,
-                               double scale_min,
-                               double scale_max,
+                               double scale_variation,
                                bool /*reverse*/,
                                double mean,
                                double standard_deviation,
                                double ratio,
                                double tilt,
-                               double rot_min,
-                               double rot_max,
+                               double rotation_variation,
                                gint _distrib )
 {
 
@@ -529,28 +517,6 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
         selection->add(item);
     }
 
-/*if (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item)) {
-        GSList *items = g_slist_prepend (NULL, item);
-        GSList *selected = NULL;
-        GSList *to_select = NULL;
-        SPDocument *doc = SP_OBJECT_DOCUMENT(item);
-        sp_item_list_to_curves (items, &selected, &to_select);
-        g_slist_free (items);
-        SPObject* newObj = doc->getObjectByRepr((Inkscape::XML::Node *) to_select->data);
-        g_slist_free (to_select);
-        item = (SPItem *) newObj;
-      //  selection->add(item);
-    }
-*/
-   /*if (SP_IS_GROUP(item) && !SP_IS_BOX3D(item)) {
-        for (SPObject *child = sp_object_first_child(SP_OBJECT(item)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
-            if (SP_IS_ITEM(child)) {
-                if (sp_spray_dilate_recursive (desktop,selection, SP_ITEM(child), p, vector, mode, radius, force, population, scale, scale_min, scale_max, reverse, mean, standard_deviation,ratio,tilt, rot_min, rot_max,_distrib))
-                    did = true;
-            }
-        }
-
-    } else {*/
         if (mode == SPRAY_MODE_COPY) {
 
             Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
@@ -560,8 +526,8 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
                 dr=dr*radius;
                 double _fid = g_random_double_range(0,1);
                 SPItem *item_copied;
-                double angle = g_random_double_range(rot_min, rot_max);
-                double _scale = g_random_double_range(scale_min, scale_max);
+                double angle = g_random_double_range(1.0 - rotation_variation/2.0, 1.0 + rotation_variation/2.0);
+                double _scale = g_random_double_range( 1.0 - scale_variation/2.0, 1.0 + scale_variation/2.0);
                 if(_fid<=population)
                 {
                           // duplicate
@@ -624,8 +590,8 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
                 random_position(dr,dp,mean,standard_deviation,_distrib);
                 dr=dr*radius;
                 double _fid = g_random_double_range(0,1);
-                double angle = (g_random_double_range(rot_min, rot_max));
-                double _scale = g_random_double_range(scale_min, scale_max);
+                double angle = g_random_double_range(1.0 - rotation_variation/2.0, 1.0 + rotation_variation/2.0);
+                double _scale = g_random_double_range( 1.0 - scale_variation/2.0, 1.0 + scale_variation/2.0);
                 if (i==2) {
                     Inkscape::XML::Node *copy1 = old_repr->duplicate(xml_doc);
                     parent->appendChild(copy1);
@@ -669,8 +635,8 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
                 random_position(dr,dp,mean,standard_deviation,_distrib);
                 dr=dr*radius;
                 double _fid = g_random_double_range(0,1);
-                double angle = (g_random_double_range(rot_min, rot_max));
-                double _scale = g_random_double_range(scale_min, scale_max);
+                double angle = g_random_double_range(1.0 - rotation_variation/2.0, 1.0 + rotation_variation/2.0);
+                double _scale = g_random_double_range( 1.0 - scale_variation/2.0, 1.0 + scale_variation/2.0);
 
         if(_fid<=population)
                 {
@@ -786,10 +752,10 @@ bool sp_spray_dilate(SPSprayContext *tc, Geom::Point /*event_p*/, Geom::Point p,
         SPItem *item = (SPItem *) items->data;
 
         if (is_transform_modes(tc->mode)) {
-            if (sp_spray_dilate_recursive (desktop,selection, item, p, vector, tc->mode, radius, move_force, tc->population,tc->scale, tc->scale_min, tc->scale_max, reverse, move_mean, move_standard_deviation,tc->ratio,tc->tilt, tc->rot_min, tc->rot_max, tc->distrib))
+            if (sp_spray_dilate_recursive (desktop,selection, item, p, vector, tc->mode, radius, move_force, tc->population,tc->scale, tc->scale_variation, reverse, move_mean, move_standard_deviation,tc->ratio,tc->tilt, tc->rot_variation, tc->distrib))
                 did = true;
         } else {
-            if (sp_spray_dilate_recursive (desktop,selection, item, p, vector, tc->mode, radius, path_force, tc->population,tc->scale, tc->scale_min, tc->scale_max, reverse, path_mean, path_standard_deviation,tc->ratio,tc->tilt, tc->rot_min, tc->rot_max, tc->distrib))
+            if (sp_spray_dilate_recursive (desktop,selection, item, p, vector, tc->mode, radius, path_force, tc->population,tc->scale, tc->scale_variation, reverse, path_mean, path_standard_deviation,tc->ratio,tc->tilt, tc->rot_variation, tc->distrib))
                 did = true;
         }
     }
