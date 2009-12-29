@@ -593,13 +593,10 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
         } else if (mode == SPRAY_MODE_SINGLE_PATH) {
 
 
-            SPItem *Pere; //Objet initial
-            SPItem *item_copied;//Objet projeté
-            SPItem *Union;//Union précédente
-            SPItem *fils;//Copie du père
-
-           // GSList *items = g_slist_copy((GSList *) selection->itemList()); //Récupère la liste des objects sélectionnés
-//Pere = (SPItem *) items->data;//Le premier objet est le père du spray
+            SPItem *father; //initial Object
+            SPItem *item_copied;//Projected Object
+            SPItem *unionResult;//previous union
+            SPItem *son;//father copy
 
             int i=1;
             for (GSList *items = g_slist_copy((GSList *) selection->itemList());
@@ -608,20 +605,20 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
 
                 SPItem *item1 = (SPItem *) items->data;
                 if (i==1) {
-                    Pere=item1;
+                    father=item1;
                 }
                 if (i==2) {
-                    Union=item1;
+                    unionResult=item1;
                 }
                 i++;
             }
-            SPDocument *doc = SP_OBJECT_DOCUMENT(Pere);
+            SPDocument *doc = SP_OBJECT_DOCUMENT(father);
             Inkscape::XML::Document* xml_doc = sp_document_repr_doc(doc);
-            Inkscape::XML::Node *old_repr = SP_OBJECT_REPR(Pere);
+            Inkscape::XML::Node *old_repr = SP_OBJECT_REPR(father);
             //SPObject *old_obj = doc->getObjectByRepr(old_repr);
             Inkscape::XML::Node *parent = old_repr->parent();
 
-            Geom::OptRect a = Pere->getBounds(sp_item_i2doc_affine(Pere));
+            Geom::OptRect a = father->getBounds(sp_item_i2doc_affine(father));
             if (a) {
                 double dr; double dp; //initialisation des variables
                 random_position(dr,dp,mean,standard_deviation,_distrib);
@@ -633,8 +630,8 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
                     Inkscape::XML::Node *copy1 = old_repr->duplicate(xml_doc);
                     parent->appendChild(copy1);
                     SPObject *new_obj1 = doc->getObjectByRepr(copy1);
-                    fils = (SPItem *) new_obj1;   //conversion object->item
-                    Union=fils;
+                    son = (SPItem *) new_obj1;   //conversion object->item
+                    unionResult=son;
                     Inkscape::GC::release(copy1);
                    }
 
@@ -647,18 +644,18 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
 
                     Geom::Point move = (Geom::Point(cos(tilt)*cos(dp)*dr/(1-ratio)+sin(tilt)*sin(dp)*dr/(1+ratio),-sin(tilt)*cos(dp)*dr/(1-ratio)+cos(tilt)*sin(dp)*dr/(1+ratio)))+(p-a->midpoint());//Move around the cursor
 
-                            Geom::Point center=Pere->getCenter();
+                            Geom::Point center=father->getCenter();
                             sp_spray_scale_rel(center,desktop,item_copied, Geom::Scale(_scale,_scale));
                             sp_spray_scale_rel(center,desktop,item_copied, Geom::Scale(scale,scale));
                             sp_spray_rotate_rel(center,desktop,item_copied, Geom::Rotate(angle));
                             sp_item_move_rel(item_copied, Geom::Translate(move[Geom::X], -move[Geom::Y]));
 
-//UNION et surduplication
+//unionResult and duplication
                     selection->clear();
                     selection->add(item_copied);
-                    selection->add(Union);
+                    selection->add(unionResult);
                     sp_selected_path_union(selection->desktop());
-                    selection->add(Pere);
+                    selection->add(father);
                     Inkscape::GC::release(copy2);
                     did = true;
                 }
@@ -685,8 +682,8 @@ bool sp_spray_dilate_recursive(SPDesktop *desktop,
 
                             //Creation of the clone
                             Inkscape::XML::Node *clone = xml_doc->createElement("svg:use");
-                            parent->appendChild(clone); //Ajout du clone à la liste d'enfants du père (selection initiale
-                            clone->setAttribute("xlink:href", g_strdup_printf("#%s", old_repr->attribute("id")), false); //Génère le lien entre les attributs du père et du fils
+                            parent->appendChild(clone); // Ad the clone to the list of the father's sons
+                            clone->setAttribute("xlink:href", g_strdup_printf("#%s", old_repr->attribute("id")), false); // Generates the link between father and son attributes
 
                             SPObject *clone_object = doc->getObjectByRepr(clone);
                             item_copied = (SPItem *) clone_object;//conversion object->item
@@ -751,23 +748,6 @@ bool sp_spray_dilate(SPSprayContext *tc, Geom::Point /*event_p*/, Geom::Point p,
     guint32 stroke_goal = sp_desktop_get_color_tool(desktop, "/tools/spray", false, &do_stroke);
     double opacity_goal = sp_desktop_get_master_opacity_tool(desktop, "/tools/spray", &do_opacity);
     if (reverse) {
-#if 0
-        // HSL inversion
-        float hsv[3];
-        float rgb[3];
-        sp_color_rgb_to_hsv_floatv (hsv,
-                                    SP_RGBA32_R_F(fill_goal),
-                                    SP_RGBA32_G_F(fill_goal),
-                                    SP_RGBA32_B_F(fill_goal));
-        sp_color_hsv_to_rgb_floatv (rgb, hsv[0]<.5? hsv[0]+.5 : hsv[0]-.5, 1 - hsv[1], 1 - hsv[2]);
-        fill_goal = SP_RGBA32_F_COMPOSE(rgb[0], rgb[1], rgb[2], 1);
-        sp_color_rgb_to_hsv_floatv (hsv,
-                                    SP_RGBA32_R_F(stroke_goal),
-                                    SP_RGBA32_G_F(stroke_goal),
-                                    SP_RGBA32_B_F(stroke_goal));
-        sp_color_hsv_to_rgb_floatv (rgb, hsv[0]<.5? hsv[0]+.5 : hsv[0]-.5, 1 - hsv[1], 1 - hsv[2]);
-        stroke_goal = SP_RGBA32_F_COMPOSE(rgb[0], rgb[1], rgb[2], 1);
-#else
         // RGB inversion
         fill_goal = SP_RGBA32_U_COMPOSE(
             (255 - SP_RGBA32_R_U(fill_goal)),
@@ -779,7 +759,6 @@ bool sp_spray_dilate(SPSprayContext *tc, Geom::Point /*event_p*/, Geom::Point p,
             (255 - SP_RGBA32_G_U(stroke_goal)),
             (255 - SP_RGBA32_B_U(stroke_goal)),
             (255 - SP_RGBA32_A_U(stroke_goal)));
-#endif
         opacity_goal = 1 - opacity_goal;
     }
 
@@ -806,17 +785,7 @@ bool sp_spray_dilate(SPSprayContext *tc, Geom::Point /*event_p*/, Geom::Point p,
 
         SPItem *item = (SPItem *) items->data;
 
-        /*if (is_color_modes (tc->mode)) {
-            if (do_fill || do_stroke || do_opacity) {
-                if (sp_spray_color_recursive (tc->mode, item, item_at_point,
-                                          fill_goal, do_fill,
-                                          stroke_goal, do_stroke,
-                                          opacity_goal, do_opacity,
-                                          tc->mode == SPRAY_MODE_BLUR, reverse,
-                                          p, radius, color_force, tc->do_h, tc->do_s, tc->do_l, tc->do_o))
-                did = true;
-            }
-        }else*/ if (is_transform_modes(tc->mode)) {
+        if (is_transform_modes(tc->mode)) {
             if (sp_spray_dilate_recursive (desktop,selection, item, p, vector, tc->mode, radius, move_force, tc->population,tc->scale, tc->scale_min, tc->scale_max, reverse, move_mean, move_standard_deviation,tc->ratio,tc->tilt, tc->rot_min, tc->rot_max, tc->distrib))
                 did = true;
         } else {

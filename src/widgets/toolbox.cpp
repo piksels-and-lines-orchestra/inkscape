@@ -4478,7 +4478,7 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayMeanAction",
                                                               _("Focus"), _("Focus:"), _("0 to spray a spot. Increase to enlarge the ring radius."),
-                                                              "/tools/spray/mean", 20,
+                                                              "/tools/spray/mean", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-mean",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
@@ -4494,7 +4494,7 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayStandard_deviationAction",
                                                               _("Scatter"), _("Scatter:"), _("Increase to scatter sprayed objects."),
-                                                              "/tools/spray/standard_deviation", 20,
+                                                              "/tools/spray/standard_deviation", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-standard_deviation",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
@@ -4542,7 +4542,7 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         ege_select_one_action_set_icon_size( act, secondarySize );
         ege_select_one_action_set_tooltip_column( act, 1  );
 
-        gint mode = prefs->getInt("/tools/spray/mode", 0);
+        gint mode = prefs->getInt("/tools/spray/mode", 1);
         ege_select_one_action_set_active( act, mode );
         g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(sp_spray_mode_changed), holder );
 
@@ -4555,7 +4555,7 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayPopulationAction",
                                                               _("Amount"), _("Amount:"),
                                                               _("Adjusts the number of items sprayed per clic."),
-                                                              "/tools/spray/population", 50,
+                                                              "/tools/spray/population", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-population",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
@@ -4583,7 +4583,7 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayRotationAction",
                                                               _("Rotation"), _("Rotation:"),
                                                               _("Variation of the rotation of the sprayed objects. 0% for the same rotation than the original object."),
-                                                              "/tools/spray/rotation", 50,
+                                                              "/tools/spray/rotation", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-rotation",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
@@ -4599,7 +4599,7 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayScaleAction",
                                                               _("Scale"), _("Scale:"),
                                                               _("Variation in the scale of the sprayed objects. 0% for the same scale than the original object."),
-                                                              "/tools/spray/scale", 50,
+                                                              "/tools/spray/scale", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-scale",
                                                               1, 100, 1.0, 10.0,
                                                               labels, values, G_N_ELEMENTS(labels),
