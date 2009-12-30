@@ -71,7 +71,7 @@ struct SPSprayContext
     double width;
     double ratio;
     double tilt;
-    double rot_variation;
+    double rotation_variation;
     double force;
     double population;
     double scale_variation;
