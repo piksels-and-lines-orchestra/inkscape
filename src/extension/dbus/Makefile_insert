@@ -10,7 +10,7 @@ ink_common_sources +=	\
 
 ## Slightly concerned about this.
 ## Would use += but it has to be set first.
-BUILT_SOURCES =   \
+BUILT_SOURCES += \
 	extension/dbus/application-server-glue.h   \
 	extension/dbus/document-server-glue.h   \
 	extension/dbus/document-client-glue.h

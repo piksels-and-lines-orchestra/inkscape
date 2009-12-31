@@ -54,6 +54,8 @@ ink_common_sources =
 inkscape_SOURCES =
 # Add Inkview-only sources here.
 inkview_SOURCES =
+# Add sources that are built from meta files
+BUILT_SOURCES =
 
 INCLUDES =	\
 	$(PERL_CFLAGS) $(PYTHON_CFLAGS)	\
