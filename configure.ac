@@ -620,12 +620,26 @@ AC_SUBST(LIBWPG_LIBS)
 AC_SUBST(LIBWPG_CFLAGS)
 
 dnl ******************************
+dnl Support doing a local install
+dnl   (mostly for distcheck)
+dnl ******************************
+
+with_localinstall="no"
+AC_ARG_ENABLE(localinstall, AS_HELP_STRING([--enable-localinstall], [install system files in the local path (for distcheck)]), with_localinstall=$enableval, with_localinstall=no)
+
+dnl ******************************
 dnl Check for dbus functionality
 dnl ******************************
 
 PKG_CHECK_MODULES(DBUS, dbus-glib-1, with_dbus=yes, with_dbus=no)
 if test "x$with_dbus" = "xyes"; then
 	AC_DEFINE(WITH_DBUS,1,[Build in dbus])
+	if test "x$with_localinstall" = "xyes"; then
+		DBUSSERVICEDIR="${datadir}/dbus-1/services/"
+	else
+		DBUSSERVICEDIR=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`
+	fi
+	AC_SUBST(DBUSSERVICEDIR)
 fi
 AM_CONDITIONAL(WITH_DBUS, test "x$with_dbus" = "xyes")
 
@@ -1035,4 +1049,5 @@ Configuration:
         Enable Poppler-Cairo:     ${enable_poppler_cairo}
         ImageMagick Magick++:     ${magick_ok}
         Libwpg:                   ${with_libwpg}
+        Doing Local Install:      ${with_localinstall}
 "
