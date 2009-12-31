@@ -30,7 +30,7 @@ extension/dbus/document-client-glue.h: extension/dbus/document-interface.xml
 #	ld -shared -soname libinkdbus.so.1 -o extension/dbus/wrapper/libinkdbus.so.1.0 -lc extension/dbus/wrapper/inkscape-dbus-wrapper.o
 
 # Dbus service file
-servicedir = "/usr/share/dbus-1/services"
+servicedir = $(DBUSSERVICEDIR)
 service_in_files = extension/dbus/org.inkscape.service.in
 service_DATA = $(service_in_files:.service.in=.service)
 
