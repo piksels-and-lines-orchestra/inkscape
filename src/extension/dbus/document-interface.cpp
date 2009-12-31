@@ -862,7 +862,7 @@ document_interface_save_as (DocumentInterface *object,
 
     try {
         Inkscape::Extension::save(NULL, doc, filename,
-                 false, false, true);
+                 false, false, true, Inkscape::Extension::FILE_SAVE_METHOD_SAVE_AS);
     } catch (...) {
         //SP_ACTIVE_DESKTOP->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("Document not saved."));
         return false;
