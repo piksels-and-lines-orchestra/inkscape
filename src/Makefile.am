@@ -56,6 +56,8 @@ inkscape_SOURCES =
 inkview_SOURCES =
 # Add sources that are built from meta files
 BUILT_SOURCES =
+# Extra files to distribute
+EXTRA_DIST =
 
 INCLUDES =	\
 	$(PERL_CFLAGS) $(PYTHON_CFLAGS)	\
@@ -147,7 +149,7 @@ include trace/Makefile_insert
 include 2geom/Makefile_insert
 
 # Extra files not mentioned as sources to include in the source tarball
-EXTRA_DIST =	\
+EXTRA_DIST +=	\
 	$(top_srcdir)/Doxyfile	\
 	sp-skeleton.cpp sp-skeleton.h	\
 	algorithms/makefile.in	\
