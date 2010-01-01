@@ -34,10 +34,11 @@ dbus_get_proxy(DBusGConnection *connection) {
                 DBUS_INTERFACE_DBUS);
 }
 
+#if 0
 /* PRIVATE register an object on a bus */
 static gpointer
 dbus_register_object (DBusGConnection *connection,
-                      DBusGProxy *proxy,
+                      DBusGProxy * proxy,
                       GType object_type,
                       const DBusGObjectInfo *info,
                       const gchar *path)
@@ -47,6 +48,7 @@ dbus_register_object (DBusGConnection *connection,
         dbus_g_connection_register_g_object (connection, path, object);
         return object;
 }
+#endif
 
 /****************************************************************************
      DOCUMENT INTERFACE CLASS STUFF
@@ -229,7 +231,7 @@ inkscape_document_get_width (DocumentInterface *doc, GError **error)
 {
   gdouble OUT_val;
   DBusGProxy *proxy = doc->proxy;
-  org_inkscape_document_document_document_get_width (proxy, &OUT_val, error);
+  org_inkscape_document_document_get_width (proxy, &OUT_val, error);
   return OUT_val;
 }
 
@@ -239,7 +241,7 @@ inkscape_document_get_height (DocumentInterface *doc, GError **error)
 {
   gdouble OUT_val;
   DBusGProxy *proxy = doc->proxy;
-  org_inkscape_document_document_document_get_height (proxy, &OUT_val, error);
+  org_inkscape_document_document_get_height (proxy, &OUT_val, error);
   return OUT_val;
 }
 
@@ -249,7 +251,7 @@ inkscape_document_get_css (DocumentInterface *doc, GError **error)
 {
   char * OUT_css;
   DBusGProxy *proxy = doc->proxy;
-  org_inkscape_document_document_document_get_css (proxy, &OUT_css, error);
+  org_inkscape_document_document_get_css (proxy, &OUT_css, error);
   return OUT_css;
 }
 
@@ -258,7 +260,7 @@ gboolean
 inkscape_document_set_css (DocumentInterface *doc, const char * IN_stylestring, GError **error)
 {
   DBusGProxy *proxy = doc->proxy;
-  return org_inkscape_document_document_document_set_css (proxy, IN_stylestring, error);
+  return org_inkscape_document_document_set_css (proxy, IN_stylestring, error);
 }
 
 //static
@@ -266,7 +268,7 @@ gboolean
 inkscape_document_merge_css (DocumentInterface *doc, const char * IN_stylestring, GError **error)
 {
   DBusGProxy *proxy = doc->proxy;
-  return org_inkscape_document_document_document_merge_css (proxy, IN_stylestring, error);
+  return org_inkscape_document_document_merge_css (proxy, IN_stylestring, error);
 }
 
 //static
@@ -274,7 +276,7 @@ gboolean
 inkscape_document_resize_to_fit_selection (DocumentInterface *doc, GError **error)
 {
   DBusGProxy *proxy = doc->proxy;
-  return org_inkscape_document_document_document_resize_to_fit_selection (proxy, error);
+  return org_inkscape_document_document_resize_to_fit_selection (proxy, error);
 }
 
 //static
