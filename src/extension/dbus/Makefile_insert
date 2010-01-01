@@ -1,5 +1,9 @@
 ## Makefile.am fragment sourced by src/Makefile.am.
 
+#############################
+# Sources for DBus interface
+#############################
+
 ink_common_sources +=	\
 	extension/dbus/dbus-init.cpp  \
 	extension/dbus/dbus-init.h  \
@@ -8,13 +12,9 @@ ink_common_sources +=	\
 	extension/dbus/document-interface.cpp  \
 	extension/dbus/document-interface.h
 
-## Slightly concerned about this.
-## Would use += but it has to be set first.
-BUILT_SOURCES += \
-	extension/dbus/application-server-glue.h   \
-	extension/dbus/document-server-glue.h   \
-	extension/dbus/document-client-glue.h
-#	extension/dbus/wrapper/libinkdbus.so.1.0 this probably belongs somewhere else
+###########################
+# Build DBus wrapper files
+###########################
 
 extension/dbus/application-server-glue.h: extension/dbus/application-interface.xml
 	dbus-binding-tool --mode=glib-server --output=$@ --prefix=application_interface $^
@@ -25,13 +25,22 @@ extension/dbus/document-server-glue.h: extension/dbus/document-interface.xml
 extension/dbus/document-client-glue.h: extension/dbus/document-interface.xml
 	dbus-binding-tool --mode=glib-client --output=$@ --prefix=document_interface $^
 
+BUILT_SOURCES += \
+	extension/dbus/application-server-glue.h   \
+	extension/dbus/document-server-glue.h   \
+	extension/dbus/document-client-glue.h
+
+###########################
+# Distribut DBus interface
+###########################
+
 EXTRA_DIST += \
 	extension/dbus/application-interface.xml \
 	extension/dbus/document-interface.xml
 
-#extension/dbus/wrapper/libinkdbus.so.1.0: extension/dbus/wrapper/inkscape-dbus-wrapper.c extension/dbus/wrapper/inkscape-dbus-wrapper.h extension/dbus/document-interface.xml
-#	gcc -fPIC -c extension/dbus/wrapper/inkscape-dbus-wrapper.c -o extension/dbus/wrapper/inkscape-dbus-wrapper.o $(shell pkg-config --cflags --libs glib-2.0 gobject-2.0 dbus-glib-1)
-#	ld -shared -soname libinkdbus.so.1 -o extension/dbus/wrapper/libinkdbus.so.1.0 -lc extension/dbus/wrapper/inkscape-dbus-wrapper.o
+###########################
+# DBus Activation Service
+###########################
 
 # Dbus service file
 servicedir = $(DBUSSERVICEDIR)
