@@ -51,3 +51,31 @@ service_DATA = $(service_in_files:.service.in=.service)
 $(service_DATA): $(service_in_files) Makefile
 	@sed -e "s|bindir|$(prefix)|" $<> $@
 
+############################
+# DBus Interface Helper Lib
+############################
+
+lib_LTLIBRARIES = \
+	libinkdbus.la
+
+libinkdbusincludedir = $(includedir)/libinkdbus-0.48/libinkdbus
+libinkdbusinclude_HEADERS = \
+	extension/dbus/wrapper/inkscape-dbus-wrapper.h
+
+libinkdbus_la_SOURCES = \
+	extension/dbus/wrapper/inkscape-dbus-wrapper.h \
+	extension/dbus/wrapper/inkscape-dbus-wrapper.c
+
+libinkdbus_la_LDFLAGS = \
+	-version-info 0:0:0 \
+	-no-undefined \
+	-export-symbols-regex "^[^_d].*"
+
+libinkdbus_la_CFLAGS = \
+	$(DBUS_CFLAGS) \
+	$(INKSCAPE_CFLAGS) \
+	-Wall -Werror
+
+libinkdbus_la_LIBADD = \
+	$(DBUS_LIBS) \
+	$(INKSCAPE_LIBS)

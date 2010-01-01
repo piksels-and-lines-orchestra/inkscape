@@ -152,7 +152,7 @@ test $TEST_TYPE $FILE || {
 if test -z "$ACLOCAL_FLAGS"; then
 
     acdir=`$ACLOCAL --print-ac-dir`
-    m4list="glib-2.0.m4 glib-gettext.m4 gtk-2.0.m4 intltool.m4 pkg.m4"
+    m4list="glib-2.0.m4 glib-gettext.m4 gtk-2.0.m4 intltool.m4 pkg.m4 libtool.m4"
 
     for file in $m4list
     do
@@ -179,6 +179,7 @@ attempt_command 'underquoted definition of|[\)\#]Extending' \
 	attempt_command '' autoheader
 }
 
+attempt_command '' libtoolize
 attempt_command '' $AUTOMAKE --copy --force --add-missing
 attempt_command '' autoconf
 attempt_command '^(Please add the files|  codeset|  progtest|from the|or directly|You will also|ftp://ftp.gnu.org|$)' \
