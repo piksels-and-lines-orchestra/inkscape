@@ -74,6 +74,7 @@ libinkdbus_la_LDFLAGS = \
 libinkdbus_la_CFLAGS = \
 	$(DBUS_CFLAGS) \
 	$(INKSCAPE_CFLAGS) \
+	-I$(builddir)/extension/dbus \
 	-Wall -Werror
 
 libinkdbus_la_LIBADD = \

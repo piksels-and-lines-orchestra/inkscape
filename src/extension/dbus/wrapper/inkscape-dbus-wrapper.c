@@ -5,7 +5,7 @@
 
 
 
-#include "../document-client-glue.h"
+#include "document-client-glue.h"
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus.h>
 
