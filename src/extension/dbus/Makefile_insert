@@ -80,3 +80,11 @@ libinkdbus_la_CFLAGS = \
 libinkdbus_la_LIBADD = \
 	$(DBUS_LIBS) \
 	$(INKSCAPE_LIBS)
+
+############################
+# DBus Pkgconfig file
+############################
+
+pkgconfig_DATA = extension/dbus/wrapper/inkdbus.pc
+pkgconfigdir = $(libdir)/pkgconfig
+
