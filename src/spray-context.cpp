@@ -100,25 +100,6 @@ static gint sp_spray_context_root_handler(SPEventContext *ec, GdkEvent *event);
 static SPEventContextClass *parent_class = 0;
 
 
-/*
-   RAND is a macro which returns a pseudo-random numbers from a uniform
-   distribution on the interval [0 1]
-*/
-#define RAND ((double) rand())/((double) RAND_MAX)
-
-/*
-    TWOPI = 2.0*pi
-*/
-#define TWOPI 2.0*3.141592653589793238462643383279502884197169399375
-
-/*
-   RANDN is a macro which returns a pseudo-random numbers from a normal
-   distribution with mean zero and standard deviation one. This macro uses Box
-   Muller's algorithm
-*/
-#define RANDN sqrt(-2.0*log(RAND))*cos(TWOPI*RAND)
-
-
 /**
  * This function returns pseudo-random numbers from a normal distribution
  * @param mu : mean
@@ -126,7 +107,8 @@ static SPEventContextClass *parent_class = 0;
  */
 inline double NormalDistribution(double mu,double sigma)
 {
-  return (mu+sigma*RANDN);
+  // use Box Muller's algorithm
+  return mu + sigma * sqrt( -2.0 * log(g_random_double_range(0, 1)) ) * cos( 2.0*M_PI*g_random_double_range(0, 1) );
 }
 
 
@@ -442,27 +424,20 @@ double get_move_standard_deviation(SPSprayContext *tc)
  */
 void random_position( double &radius, double &angle, double &a, double &s, int choice)
 {
-    angle = g_random_double_range(0, M_PI*2);
+    // angle is taken from an uniform distribution
+    angle = g_random_double_range(0, M_PI*2.0);
 
-    choice = 0;
-
-    switch(choice) { 
-
-        case 0: // 0 : uniform repartition
-            radius = ( 1 - pow( g_random_double_range( 0, 1 ), 2 ) );
-            //radius = g_random_double_range( 0, 1 );
-            break;
-
-        case 1: // 1 : gaussian repartition
-            // generates a number following a normal distribution
-            double radius_temp =-1;
-            while(!((radius_temp>=0)&&(radius_temp<=1)))
-            {
-                radius_temp = NormalDistribution( a, s );
-            }
-            radius = radius_temp;
-            break;
+    // radius is taken from a Normal Distribution
+    double radius_temp =-1;
+    while(!((radius_temp>=0)&&(radius_temp<=1)))
+    {
+        radius_temp = NormalDistribution( a, s );
     }
+    // Because we are in polar coordinates, a special treatment has to be done to the radius.
+    // Otherwise, positions taken from an uniform repartition on radius and angle will not seam to 
+    // be uniformily distributed on the disk (more at the center and less at the boundary).
+    // We counter this effect with a 0.5 exponent. This is empiric.
+    radius = pow( radius_temp, 0.5);
 
 }
 
