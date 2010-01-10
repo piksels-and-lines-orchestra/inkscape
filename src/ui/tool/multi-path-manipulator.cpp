@@ -181,70 +181,20 @@ void MultiPathManipulator::setItems(std::set<ShapeRecord> const &s)
 void MultiPathManipulator::selectSubpaths()
 {
     if (_selection.empty()) {
-        invokeForAll(&PathManipulator::selectAll);
+        _selection.selectAll();
     } else {
         invokeForAll(&PathManipulator::selectSubpaths);
     }
-}
-void MultiPathManipulator::selectAll()
-{
-    invokeForAll(&PathManipulator::selectAll);
-}
-
-void MultiPathManipulator::selectArea(Geom::Rect const &area, bool take)
-{
-    if (take) _selection.clear();
-    invokeForAll(&PathManipulator::selectArea, area);
 }
 
 void MultiPathManipulator::shiftSelection(int dir)
 {
     invokeForAll(&PathManipulator::shiftSelection, dir);
 }
-void MultiPathManipulator::spatialGrow(NodeList::iterator origin, int dir)
-{
-    double extr_dist = dir > 0 ? HUGE_VAL : -HUGE_VAL;
-    NodeList::iterator target;
 
-    do { // this substitutes for goto
-        if ((dir > 0 && !origin->selected())) {
-            target = origin;
-            break;
-        }
-
-        bool closest = dir > 0; // when growing, find closest node
-        bool selected = dir < 0; // when growing, consider only unselected nodes
-
-        for (MapType::iterator i = _mmap.begin(); i != _mmap.end(); ++i) {
-            NodeList::iterator t = i->second->extremeNode(origin, selected, !selected, closest);
-            if (!t) continue;
-            double dist = Geom::distance(*t, *origin);
-            bool cond = closest ? (dist < extr_dist) : (dist > extr_dist);
-            if (cond) {
-                extr_dist = dist;
-                target = t;
-            }
-        }
-    } while (0);
-
-    if (!target) return;
-    if (dir > 0) {
-        _selection.insert(target.ptr());
-    } else {
-        _selection.erase(target.ptr());
-    }
-}
-void MultiPathManipulator::invertSelection()
-{
-    invokeForAll(&PathManipulator::invertSelection);
-}
 void MultiPathManipulator::invertSelectionInSubpaths()
 {
     invokeForAll(&PathManipulator::invertSelectionInSubpaths);
-}
-void MultiPathManipulator::deselect()
-{
-    _selection.clear();
 }
 
 void MultiPathManipulator::setNodeType(NodeType type)

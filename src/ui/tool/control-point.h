@@ -90,6 +90,9 @@ public:
     static sigc::signal<void, ControlPoint*> signal_mouseover_change;
     static Glib::ustring format_tip(char const *format, ...) G_GNUC_PRINTF(1,2);
 
+    // temporarily public, until snapping is refactored a little
+    virtual bool _eventHandler(GdkEvent *event);
+
 protected:
     ControlPoint(SPDesktop *d, Geom::Point const &initial_pos, Gtk::AnchorType anchor,
         SPCtrlShapeType shape, unsigned int size, ColorSet *cset = 0, SPCanvasGroup *group = 0);
@@ -112,14 +115,13 @@ protected:
     void _setPixbuf(Glib::RefPtr<Gdk::Pixbuf>);
     /// @}
 
-    virtual bool _eventHandler(GdkEvent *event);
     virtual Glib::ustring _getTip(unsigned state) { return ""; }
     virtual Glib::ustring _getDragTip(GdkEventMotion *event) { return ""; }
     virtual bool _hasDragTips() { return false; }
 
     SPDesktop *const _desktop; ///< The desktop this control point resides on.
     SPCanvasItem * _canvas_item; ///< Visual representation of the control point.
-    ColorSet *_cset; ///< Describes the colors used to represent the point
+    ColorSet *_cset; ///< Colors used to represent the point
     State _state;
 
     static int const _grab_event_mask;

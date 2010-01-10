@@ -57,6 +57,7 @@
 #include "rubberband.h"
 #include "selcue.h"
 #include "lpe-tool-context.h"
+#include "ui/tool/control-point.h"
 
 static void sp_event_context_class_init(SPEventContextClass *klass);
 static void sp_event_context_init(SPEventContext *event_context);
@@ -1238,6 +1239,7 @@ void sp_event_context_snap_delay_handler(SPEventContext *ec, SPItem* const item,
 
 gboolean sp_event_context_snap_watchdog_callback(gpointer data)
 {
+    if (!data) return FALSE;
 	// Snap NOW! For this the "postponed" flag will be reset and the last motion event will be repeated
 	DelayedSnapEvent *dse = reinterpret_cast<DelayedSnapEvent*>(data);
 
@@ -1276,6 +1278,11 @@ gboolean sp_event_context_snap_watchdog_callback(gpointer data)
 				}
 			}
 			break;
+            case DelayedSnapEvent::CONTROL_POINT_HANDLER: {
+                using Inkscape::UI::ControlPoint;
+                ControlPoint *point = reinterpret_cast<ControlPoint*>(dse->getKnot());
+                point->_eventHandler(dse->getEvent());
+            } break;
 		default:
 			g_warning("Origin of snap-delay event has not been defined!;");
 			break;

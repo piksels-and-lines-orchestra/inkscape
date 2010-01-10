@@ -79,6 +79,7 @@
 #include "ui/dialog/layers.h"
 #include "ui/dialog/swatches.h"
 #include "ui/icon-names.h"
+#include "ui/tool/control-point-selection.h"
 #include "ui/tool/multi-path-manipulator.h"
 #include "ui/tool/node-tool.h"
 
@@ -937,7 +938,7 @@ EditVerb::perform(SPAction *action, void *data, void */*pdata*/)
         case SP_VERB_EDIT_SELECT_ALL_IN_ALL_LAYERS:
             if (tools_isactive(dt, TOOLS_NODES)) {
                 InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
-                nt->_multipath->selectAll();
+                nt->_selected_nodes->selectAll();
             } else {
                 sp_edit_select_all_in_all_layers(dt);
             }
@@ -945,7 +946,7 @@ EditVerb::perform(SPAction *action, void *data, void */*pdata*/)
         case SP_VERB_EDIT_INVERT_IN_ALL_LAYERS:
             if (tools_isactive(dt, TOOLS_NODES)) {
                 InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
-                nt->_multipath->invertSelection();
+                nt->_selected_nodes->invertSelection();
             } else {
                 sp_edit_invert_in_all_layers(dt);
             }
@@ -977,7 +978,7 @@ EditVerb::perform(SPAction *action, void *data, void */*pdata*/)
         case SP_VERB_EDIT_DESELECT:
             if (tools_isactive(dt, TOOLS_NODES)) {
                 InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
-                nt->_multipath->deselect();
+                nt->_selected_nodes->clear();
             } else {
                 sp_desktop_selection(dt)->clear();
             }

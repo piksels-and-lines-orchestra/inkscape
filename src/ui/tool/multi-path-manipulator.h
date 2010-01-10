@@ -45,13 +45,8 @@ public:
     void cleanup();
 
     void selectSubpaths();
-    void selectAll();
-    void selectArea(Geom::Rect const &area, bool take);
     void shiftSelection(int dir);
-    void spatialGrow(NodeList::iterator center, int dir);
-    void invertSelection();
     void invertSelectionInSubpaths();
-    void deselect();
 
     void setNodeType(NodeType t);
     void setSegmentType(SegmentType t);

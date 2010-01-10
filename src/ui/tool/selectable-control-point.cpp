@@ -50,10 +50,12 @@ SelectableControlPoint::SelectableControlPoint(SPDesktop *d, Geom::Point const &
 SelectableControlPoint::~SelectableControlPoint()
 {
     _selection.erase(this);
+    _selection.allPoints().erase(this);
 }
 
 void SelectableControlPoint::_connectHandlers()
 {
+    _selection.allPoints().insert(this);
     signal_clicked.connect(
         sigc::mem_fun(*this, &SelectableControlPoint::_clickedHandler));
     signal_grabbed.connect(

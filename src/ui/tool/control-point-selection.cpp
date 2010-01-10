@@ -140,7 +140,60 @@ void ControlPointSelection::clear()
         erase(i++);
 }
 
-/** Transform all selected control points by the supplied affine transformation. */
+/** Select all points that this selection can contain. */
+void ControlPointSelection::selectAll()
+{
+    for (set_type::iterator i = _all_points.begin(); i != _all_points.end(); ++i) {
+        insert(*i);
+    }
+}
+/** Select all points inside the given rectangle (in desktop coordinates). */
+void ControlPointSelection::selectArea(Geom::Rect const &r)
+{
+    for (set_type::iterator i = _all_points.begin(); i != _all_points.end(); ++i) {
+        if (r.contains(**i))
+            insert(*i);
+    }
+}
+/** Unselect all selected points and select all unselected points. */
+void ControlPointSelection::invertSelection()
+{
+    for (set_type::iterator i = _all_points.begin(); i != _all_points.end(); ++i) {
+        if ((*i)->selected()) erase(*i);
+        else insert(*i);
+    }
+}
+void ControlPointSelection::spatialGrow(SelectableControlPoint *origin, int dir)
+{
+    bool grow = (dir > 0);
+    Geom::Point p = origin->position();
+    double best_dist = grow ? HUGE_VAL : 0;
+    SelectableControlPoint *match = NULL;
+    for (set_type::iterator i = _all_points.begin(); i != _all_points.end(); ++i) {
+        bool selected = (*i)->selected();
+        if (grow && !selected) {
+            double dist = Geom::distance((*i)->position(), p);
+            if (dist < best_dist) {
+                best_dist = dist;
+                match = *i;
+            }
+        }
+        if (!grow && selected) {
+            double dist = Geom::distance((*i)->position(), p);
+            // use >= to also deselect the origin node when it's the last one selected
+            if (dist >= best_dist) {
+                best_dist = dist;
+                match = *i;
+            }
+        }
+    }
+    if (match) {
+        if (grow) insert(match);
+        else erase(match);
+    }
+}
+
+/** Transform all selected control points by the given affine transformation. */
 void ControlPointSelection::transform(Geom::Matrix const &m)
 {
     for (iterator i = _points.begin(); i != _points.end(); ++i) {

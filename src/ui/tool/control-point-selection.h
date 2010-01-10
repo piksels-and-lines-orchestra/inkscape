@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <tr1/unordered_map>
+#include <tr1/unordered_set>
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
 #include <boost/optional.hpp>
@@ -43,12 +44,12 @@ public:
     typedef std::list<sigc::connection> connlist_type;
     typedef std::unordered_map< SelectableControlPoint *,
         boost::shared_ptr<connlist_type> > map_type;
+    typedef std::unordered_set< SelectableControlPoint * > set_type;
+    typedef set_type Set; // convenience alias
 
-    // boilerplate typedefs
     typedef map_type::iterator iterator;
     typedef map_type::const_iterator const_iterator;
     typedef map_type::size_type size_type;
-
     typedef SelectableControlPoint *value_type;
     typedef SelectableControlPoint *key_type;
 
@@ -79,6 +80,15 @@ public:
 
     // find
     iterator find(const key_type &k) { return _points.find(k); }
+
+    // Sometimes it is very useful to keep a list of all selectable points.
+    set_type const &allPoints() const { return _all_points; }
+    set_type &allPoints() { return _all_points; }
+    // ...for example in these methods. Another useful case is snapping.
+    void selectAll();
+    void selectArea(Geom::Rect const &);
+    void invertSelection();
+    void spatialGrow(SelectableControlPoint *origin, int dir);
 
     virtual bool event(GdkEvent *);
 
@@ -113,6 +123,7 @@ private:
     void _keyboardTransform(Geom::Matrix const &);
     void _commitTransform(CommitEvent ce);
     map_type _points;
+    set_type _all_points;
     boost::optional<double> _rot_radius;
     TransformHandleSet *_handles;
     SelectableControlPoint *_grabbed_point;

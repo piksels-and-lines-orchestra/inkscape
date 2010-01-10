@@ -64,10 +64,7 @@ public:
     SPPath *item() { return _path; }
 
     void selectSubpaths();
-    void selectAll();
-    void selectArea(Geom::Rect const &);
     void shiftSelection(int dir);
-    void invertSelection();
     void invertSelectionInSubpaths();
 
     void insertNodes();

@@ -214,42 +214,6 @@ void PathManipulator::selectSubpaths()
     }
 }
 
-/** Select all nodes in the path. */
-void PathManipulator::selectAll()
-{
-    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            _selection.insert(j.ptr());
-        }
-    }
-}
-
-/** Select points inside the given rectangle. If all points inside it are already selected,
- * they will be deselected.
- * @param area Area to select
- */
-void PathManipulator::selectArea(Geom::Rect const &area)
-{
-    bool nothing_selected = true;
-    std::vector<Node*> in_area;
-    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            if (area.contains(j->position())) {
-                in_area.push_back(j.ptr());
-                if (!j->selected()) {
-                    _selection.insert(j.ptr());
-                    nothing_selected = false;
-                }
-            }
-        }
-    }
-    if (nothing_selected) {
-        for (std::vector<Node*>::iterator i = in_area.begin(); i != in_area.end(); ++i) {
-            _selection.erase(*i);
-        }
-    }
-}
-
 /** Move the selection forward or backward by one node in each subpath, based on the sign
  * of the parameter. */
 void PathManipulator::shiftSelection(int dir)
@@ -294,17 +258,6 @@ void PathManipulator::shiftSelection(int dir)
         for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
             if (sels[num]) _selection.insert(j.ptr());
             ++num;
-        }
-    }
-}
-
-/** Invert selection in the entire path. */
-void PathManipulator::invertSelection()
-{
-    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            if (j->selected()) _selection.erase(j.ptr());
-            else _selection.insert(j.ptr());
         }
     }
 }
@@ -724,6 +677,7 @@ void PathManipulator::setControlsTransform(Geom::Matrix const &tnew)
     _createGeometryFromControlPoints();
 }
 
+/** Hide the curve drag point until the next motion event. */
 void PathManipulator::hideDragPoint()
 {
     _dragpoint->setVisible(false);

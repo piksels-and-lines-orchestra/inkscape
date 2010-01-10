@@ -12,13 +12,14 @@
 #include <gdkmm.h>
 #include <gtkmm.h>
 #include <2geom/point.h>
-#include "ui/tool/control-point.h"
-#include "ui/tool/event-utils.h"
-#include "preferences.h"
 #include "desktop.h"
 #include "desktop-handles.h"
+#include "display/snap-indicator.h"
 #include "event-context.h"
 #include "message-context.h"
+#include "preferences.h"
+#include "ui/tool/control-point.h"
+#include "ui/tool/event-utils.h"
 
 namespace Inkscape {
 namespace UI {
@@ -397,6 +398,7 @@ bool ControlPoint::_eventHandler(GdkEvent *event)
         
     case GDK_MOTION_NOTIFY:
         if (held_button<1>(event->motion) && !_desktop->event_context->space_panning) {
+            _desktop->snapindicator->remove_snaptarget(); 
             bool transferred = false;
             if (!_drag_initiated) {
                 bool t = fabs(event->motion.x - _drag_event_origin[Geom::X]) <= drag_tolerance &&
@@ -414,48 +416,57 @@ bool ControlPoint::_eventHandler(GdkEvent *event)
                     _drag_initiated = true;
                 }
             }
-            if (transferred) return true;
-            // the point was moved beyond the drag tolerance
-            Geom::Point new_pos = _desktop->w2d(event_point(event->motion)) + pointer_offset;
-            
-            // the new position is passed by reference and can be changed in the handlers.
-            signal_dragged.emit(_position, new_pos, &event->motion);
-            move(new_pos);
-            _updateDragTip(&event->motion); // update dragging tip after moving to new position
-            
-            _desktop->scroll_to_point(new_pos);
-            _desktop->set_coordinate_status(_position);
+            if (!transferred) {
+                // dragging in progress
+                Geom::Point new_pos = _desktop->w2d(event_point(event->motion)) + pointer_offset;
+                
+                // the new position is passed by reference and can be changed in the handlers.
+                signal_dragged.emit(_position, new_pos, &event->motion);
+                move(new_pos);
+                _updateDragTip(&event->motion); // update dragging tip after moving to new position
+                
+                _desktop->scroll_to_point(new_pos);
+                _desktop->set_coordinate_status(_position);
+                sp_event_context_snap_delay_handler(_desktop->event_context, NULL,
+                    reinterpret_cast<SPKnot*>(this), &event->motion,
+                    DelayedSnapEvent::CONTROL_POINT_HANDLER);
+            }
             return true;
         }
         break;
         
     case GDK_BUTTON_RELEASE:
-        if (_event_grab) {
-            sp_canvas_item_ungrab(_canvas_item, event->button.time);
-            _setMouseover(this, event->button.state);
-            _event_grab = false;
+        if (!_event_grab) break;
 
-            if (_drag_initiated) {
-                sp_canvas_end_forced_full_redraws(_desktop->canvas);
-            }
+        // TODO I think this "feature" is wrong.
+        // sp_event_context_snap_watchdog_callback(_desktop->event_context->_delayed_snap_event);
+        sp_event_context_discard_delayed_snap_event(_desktop->event_context);
+        _desktop->snapindicator->remove_snaptarget();
 
-            if (event->button.button == next_release_doubleclick) {
-                _drag_initiated = false;
-                return signal_doubleclicked.emit(&event->button);
-            }
-            if (event->button.button == 1) {
-                if (_drag_initiated) {
-                    // it is the end of a drag
-                    signal_ungrabbed.emit(&event->button);
-                    _drag_initiated = false;
-                    return true;
-                } else {
-                    // it is the end of a click
-                    return signal_clicked.emit(&event->button);
-                }
-            }
-            _drag_initiated = false;
+        sp_canvas_item_ungrab(_canvas_item, event->button.time);
+        _setMouseover(this, event->button.state);
+        _event_grab = false;
+
+        if (_drag_initiated) {
+            sp_canvas_end_forced_full_redraws(_desktop->canvas);
         }
+
+        if (event->button.button == next_release_doubleclick) {
+            _drag_initiated = false;
+            return signal_doubleclicked.emit(&event->button);
+        }
+        if (event->button.button == 1) {
+            if (_drag_initiated) {
+                // it is the end of a drag
+                signal_ungrabbed.emit(&event->button);
+                _drag_initiated = false;
+                return true;
+            } else {
+                // it is the end of a click
+                return signal_clicked.emit(&event->button);
+            }
+        }
+        _drag_initiated = false;
         break;
 
     case GDK_ENTER_NOTIFY:

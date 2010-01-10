@@ -22,6 +22,8 @@
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "preferences.h"
+#include "snap.h"
+#include "snap-preferences.h"
 #include "sp-metrics.h"
 #include "sp-namedview.h"
 #include "ui/tool/control-point-selection.h"
@@ -638,10 +640,8 @@ bool Node::_eventHandler(GdkEvent *event)
         } else if (event->scroll.direction == GDK_SCROLL_DOWN) {
             dir = -1;
         } else break;
-        origin = NodeList::get_iterator(this);
-
         if (held_control(event->scroll)) {
-            list()->_list._path_manipulator._multi_path_manipulator.spatialGrow(origin, dir);
+            _selection.spatialGrow(this, dir);
         } else {
             _linearGrow(dir);
         }
@@ -658,7 +658,6 @@ static double bezier_length (Geom::Point a0, Geom::Point a1, Geom::Point a2, Geo
     double lower = Geom::distance(a0, a3);
     double upper = Geom::distance(a0, a1) + Geom::distance(a1, a2) + Geom::distance(a2, a3);
 
-    // TODO maybe EPSILON is this is too big in this case?
     if (upper - lower < Geom::EPSILON) return (lower + upper)/2;
 
     Geom::Point // Casteljau subdivision
@@ -732,7 +731,7 @@ void Node::_linearGrow(int dir)
     } else {
         // both iterators that store last selected nodes are initially empty
         NodeList::iterator last_fwd, last_rev;
-        double last_distance_back, last_distance_front;
+        double last_distance_back = 0, last_distance_front = 0;
 
         while (rev || fwd) {
             if (fwd && (!rev || distance_front <= distance_back)) {
@@ -741,7 +740,7 @@ void Node::_linearGrow(int dir)
                     last_distance_front = distance_front;
                 }
                 NodeList::iterator n = fwd.next();
-                distance_front += bezier_length(*fwd, fwd->_front, n->_back, *n);
+                if (n) distance_front += bezier_length(*fwd, fwd->_front, n->_back, *n);
                 fwd = n;
             } else if (rev && (!fwd || distance_front > distance_back)) {
                 if (rev->selected()) {
@@ -749,13 +748,27 @@ void Node::_linearGrow(int dir)
                     last_distance_back = distance_back;
                 }
                 NodeList::iterator p = rev.prev();
-                distance_back += bezier_length(*rev, rev->_back, p->_front, *p);
+                if (p) distance_back += bezier_length(*rev, rev->_back, p->_front, *p);
                 rev = p;
             }
             // Check whether we walked the entire cyclic subpath.
             // This is initially true because both iterators start from this node,
             // so this check cannot go in the while condition.
-            if (fwd == rev) break;
+            // When this happens, we need to check the last node, pointed to by the iterators.
+            if (fwd && fwd == rev) {
+                if (!fwd->selected()) break;
+                NodeList::iterator fwdp = fwd.prev(), revn = rev.next();
+                double df = distance_front + bezier_length(*fwdp, fwdp->_front, fwd->_back, *fwd);
+                double db = distance_back + bezier_length(*revn, revn->_back, rev->_front, *rev);
+                if (df > db) {
+                    last_fwd = fwd;
+                    last_distance_front = df;
+                } else {
+                    last_rev = rev;
+                    last_distance_back = db;
+                }
+                break;
+            }
         }
 
         NodeList::iterator t;
@@ -825,32 +838,95 @@ bool Node::_grabbedHandler(GdkEventMotion *event)
 
 void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
 {
+    // For a note on how snapping is implemented in Inkscape, see snap.h.
+    SnapManager &sm = _desktop->namedview->snap_manager;
+    Inkscape::SnapPreferences::PointType t = Inkscape::SnapPreferences::SNAPPOINT_NODE;
+    bool snap = sm.someSnapperMightSnap();
+    std::vector< std::pair<Geom::Point, int> > unselected;
+    if (snap) {
+        // setup
+        // TODO we are doing this every time a snap happens. It should once be done only once
+        //      per drag - maybe in the grabbed handler?
+        // TODO "unselected" must be valid during the snap run, because it is not copied.
+        //      Fix this in snap.h and snap.cpp, then the above.
+
+        // Build the list of unselected nodes.
+        typedef ControlPointSelection::Set Set;
+        Set nodes = _selection.allPoints();
+        for (Set::iterator i = nodes.begin(); i != nodes.end(); ++i) {
+            if (!(*i)->selected()) {
+                Node *n = static_cast<Node*>(*i);
+                unselected.push_back(std::make_pair((*i)->position(), (int) n->_snapTargetType()));
+            }
+        }
+        sm.setupIgnoreSelection(_desktop, true, &unselected);
+    }
+
     if (held_control(*event)) {
+        Geom::Point origin = _last_drag_origin();
         if (held_alt(*event)) {
             // with Ctrl+Alt, constrain to handle lines
             // project the new position onto a handle line that is closer
-            Geom::Point origin = _last_drag_origin();
-            Geom::Line line_front(origin, origin + _front.relativePos());
-            Geom::Line line_back(origin, origin + _back.relativePos());
-            double dist_front, dist_back;
-            dist_front = Geom::distance(new_pos, line_front);
-            dist_back = Geom::distance(new_pos, line_back);
-            if (dist_front < dist_back) {
-                new_pos = Geom::projection(new_pos, line_front);
+            Inkscape::Snapper::ConstraintLine line_front(origin, _front.relativePos());
+            Inkscape::Snapper::ConstraintLine line_back(origin, _back.relativePos());
+
+            // TODO: combine these two branches by modifying snap.h / snap.cpp
+            if (snap) {
+                Inkscape::SnappedPoint fp, bp;
+                fp = sm.constrainedSnap(t, position(), _snapSourceType(), line_front);
+                bp = sm.constrainedSnap(t, position(), _snapSourceType(), line_back);
+
+                if (fp.isOtherSnapBetter(bp, false)) {
+                    bp.getPoint(new_pos);
+                } else {
+                    fp.getPoint(new_pos);
+                }
             } else {
-                new_pos = Geom::projection(new_pos, line_back);
+                Geom::Point p_front = line_front.projection(new_pos);
+                Geom::Point p_back = line_back.projection(new_pos);
+                if (Geom::distance(new_pos, p_front) < Geom::distance(new_pos, p_back)) {
+                    new_pos = p_front;
+                } else {
+                    new_pos = p_back;
+                }
             }
         } else {
             // with Ctrl, constrain to axes
-            // TODO maybe add diagonals when the distance from origin is large enough?
-            Geom::Point origin = _last_drag_origin();
-            Geom::Point delta = new_pos - origin;
-            Geom::Dim2 d = (fabs(delta[Geom::X]) < fabs(delta[Geom::Y])) ? Geom::X : Geom::Y;
-            new_pos[d] = origin[d];
+            // TODO combine the two branches
+            if (snap) {
+                Inkscape::SnappedPoint fp, bp;
+                Inkscape::Snapper::ConstraintLine line_x(origin, Geom::Point(1, 0));
+                Inkscape::Snapper::ConstraintLine line_y(origin, Geom::Point(0, 1));
+                fp = sm.constrainedSnap(t, position(), _snapSourceType(), line_x);
+                bp = sm.constrainedSnap(t, position(), _snapSourceType(), line_y);
+
+                if (fp.isOtherSnapBetter(bp, false)) {
+                    fp = bp;
+                }
+                fp.getPoint(new_pos);
+            } else {
+                Geom::Point origin = _last_drag_origin();
+                Geom::Point delta = new_pos - origin;
+                Geom::Dim2 d = (fabs(delta[Geom::X]) < fabs(delta[Geom::Y])) ? Geom::X : Geom::Y;
+                new_pos[d] = origin[d];
+            }
         }
-    } else {
-        // TODO snapping?
+    } else if (snap) {
+        sm.freeSnapReturnByRef(Inkscape::SnapPreferences::SNAPPOINT_NODE, new_pos, _snapSourceType());
     }
+}
+
+Inkscape::SnapSourceType Node::_snapSourceType()
+{
+    if (_type == NODE_SMOOTH || _type == NODE_AUTO)
+        return SNAPSOURCE_NODE_SMOOTH;
+    return SNAPSOURCE_NODE_CUSP;
+}
+Inkscape::SnapTargetType Node::_snapTargetType()
+{
+    if (_type == NODE_SMOOTH || _type == NODE_AUTO)
+        return SNAPTARGET_NODE_SMOOTH;
+    return SNAPTARGET_NODE_CUSP;
 }
 
 Glib::ustring Node::_getTip(unsigned state)

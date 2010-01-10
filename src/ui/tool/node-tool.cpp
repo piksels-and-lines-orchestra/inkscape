@@ -62,12 +62,15 @@
  *   it might handle all shapes. Handles XML commit of actions that affect all paths or
  *   the node selection and removes PathManipulators that have no nodes left after e.g. node
  *   deletes.
- * - ControlPointSelection: keeps track of node selection. Performs actions that require no
+ * - ControlPointSelection: keeps track of node selection and a set of nodes that can potentially
+ *   be selected. There can be more than one selection. Performs actions that require no
  *   knowledge about the path, only about the nodes, like dragging and transforms. It is not
  *   specific to nodes and can accomodate any control point derived from SelectableControlPoint.
  *   Transforms nodes in response to transform handle events.
  * - TransformHandleSet: displays nodeset transform handles and emits transform events. The aim
  *   is to eventually use a common class for object and control point transforms.
+ * - SelectableControlPoint: base for any type of selectable point. It can belong to only one
+ *   selection.
  * 
  * @par Plans for the future
  * @par
@@ -384,9 +387,6 @@ void ink_node_tool_selection_changed(InkNodeTool *nt, Inkscape::Selection *sel)
 
     std::set<ShapeRecord> shapes;
 
-    // TODO this is ugly!!!
-    //typedef std::map<SPItem*, std::pair<Geom::Matrix, guint32> > TransMap;
-    //typedef std::map<SPPath*, std::pair<Geom::Matrix, guint32> > PathMap;
     GSList const *ilist = sel->itemList();
 
     for (GSList *i = const_cast<GSList*>(ilist); i; i = i->next) {
@@ -477,7 +477,7 @@ gint ink_node_tool_root_handler(SPEventContext *event_context, GdkEvent *event)
         case GDK_a:
             if (held_control(event->key)) {
                 if (held_alt(event->key)) {
-                    nt->_multipath->selectAll();
+                    nt->_selected_nodes->selectAll();
                 } else {
                     // select all nodes in subpaths that have something selected
                     // if nothing is selected, select everything
@@ -554,7 +554,7 @@ void ink_node_tool_select_area(InkNodeTool *nt, Geom::Rect const &sel, GdkEventB
         selection->setList(items);
         g_slist_free(items);
     } else {
-        nt->_multipath->selectArea(sel, !held_shift(*event));
+        nt->_selected_nodes->selectArea(sel);
     }
 }
 void ink_node_tool_select_point(InkNodeTool *nt, Geom::Point const &sel, GdkEventButton *event)

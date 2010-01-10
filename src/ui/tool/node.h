@@ -19,6 +19,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
 #include <boost/operators.hpp>
+#include "snapped-point.h"
 #include "ui/tool/selectable-control-point.h"
 #include "ui/tool/node-types.h"
 
@@ -136,8 +137,9 @@ public:
     void sink();
 
     static char const *node_type_to_localized_string(NodeType type);
-protected:
+    // temporarily public
     virtual bool _eventHandler(GdkEvent *event);
+protected:
     virtual void _setState(State state);
     virtual Glib::ustring _getTip(unsigned state);
     virtual Glib::ustring _getDragTip(GdkEventMotion *event);
@@ -151,6 +153,8 @@ private:
     void _linearGrow(int dir);
     Node *_next();
     Node *_prev();
+    Inkscape::SnapSourceType _snapSourceType();
+    Inkscape::SnapTargetType _snapTargetType();
     static SPCtrlShapeType _node_type_to_shape(NodeType type);
     static bool _is_line_segment(Node *first, Node *second);
 
