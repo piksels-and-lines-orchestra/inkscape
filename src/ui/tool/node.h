@@ -171,6 +171,28 @@ private:
     friend class NodeIterator<Node const>;
 };
 
+/// Iterator for editable nodes
+/** Use this class for all operations that require some knowledge about the node's
+ * neighbors. It works like a bidirectional iterator.
+ *
+ * Because paths can be cyclic, node iterators have two different ways to
+ * increment and decrement them. Nodes can be iterated over either in the
+ * sequence order, which always has a beginning and an end, or in the path order,
+ * which can be cyclic (moving to the next node never yields the end iterator).
+ *
+ * When @a i is a node iterator, then:
+ * - <code>++i</code> moves the iterator to the next node in sequence order;
+ * - <code>--i</code> moves the iterator to the previous node in sequence order;
+ * - <code>i.next()</code> returns the next node with wrap-around if the path is cyclic;
+ * - <code>i.prev()</code> returns the previous node with wrap-around if the path is cyclic.
+ *
+ * next() and prev() do not change their iterator. They can return the end iterator
+ * if the path is open.
+ *
+ * Unlike most other iterators, you can check whether a node iterator is invalid
+ * (is an end iterator) without having access to the iterator's container.
+ * Simply use <code>if (i) { ...</code>
+ * */
 template <typename N>
 class NodeIterator
     : public boost::bidirectional_iterator_helper<NodeIterator<N>, N, std::ptrdiff_t,
@@ -194,7 +216,9 @@ public:
     bool operator==(self const &other) const { return _node == other._node; }
     N &operator*() const { return *static_cast<N*>(_node); }
     inline operator bool() const; // define after NodeList
+    /// Get a pointer to the underlying node. Equivalent to <code>&*i</code>.
     N *get_pointer() const { return static_cast<N*>(_node); }
+    /// @see get_pointer()
     N *ptr() const { return static_cast<N*>(_node); }
 
     self next() const;

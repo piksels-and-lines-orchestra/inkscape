@@ -171,7 +171,7 @@ protected:
 double ScaleHandle::_last_scale_x = 1.0;
 double ScaleHandle::_last_scale_y = 1.0;
 
-/** Corner scaling handle for node transforms */
+/// Corner scaling handle for node transforms
 class ScaleCornerHandle : public ScaleHandle {
 public:
     ScaleCornerHandle(TransformHandleSet &th, unsigned corner)
@@ -225,7 +225,7 @@ private:
     unsigned _corner;
 };
 
-/** Side scaling handle for node transforms */
+/// Side scaling handle for node transforms
 class ScaleSideHandle : public ScaleHandle {
 public:
     ScaleSideHandle(TransformHandleSet &th, unsigned side)
@@ -281,7 +281,7 @@ private:
     unsigned _side;
 };
 
-/** Rotation handle for nodes */
+/// Rotation handle for node transforms
 class RotateHandle : public TransformHandle {
 public:
     RotateHandle(TransformHandleSet &th, unsigned corner)
@@ -339,15 +339,6 @@ private:
         default: return Glib::wrap(handles[4], true);
         }
     }
-    /*
-    static Geom::Point _corner_to_offset_unit(unsigned c) {
-        switch (c % 4) {
-        case 0: return Geom::Point(-1, 1);
-        case 1: return Geom::Point(1, 1);
-        case 2: return Geom::Point(1, -1);
-        default: return Geom::Point(-1, -1);
-        }
-    }*/
     Geom::Point _rot_center;
     Geom::Point _rot_opposite;
     unsigned _corner;

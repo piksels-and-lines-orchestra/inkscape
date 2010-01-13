@@ -71,7 +71,10 @@ static Geom::Point direction(Geom::Point const &first, Geom::Point const &second
 
 /**
  * @class Handle
- * Represents a control point of a cubic Bezier curve in a path.
+ * @brief Control point of a cubic Bezier curve in a path.
+ *
+ * Handle keeps the node type invariant only for the opposite handle of the same node.
+ * Keeping the invariant on node moves is left to the %Node class.
  */
 
 double Handle::_saved_length = 0.0;
@@ -320,7 +323,9 @@ Glib::ustring Handle::_getDragTip(GdkEventMotion *event)
 
 /**
  * @class Node
- * Represents a curve endpoint in an editable path.
+ * @brief Curve endpoint in an editable path.
+ *
+ * The method move() keeps node type invariants during translations.
  */
 
 Node::Node(NodeSharedData const &data, Geom::Point const &initial_pos)
@@ -554,6 +559,8 @@ void Node::setType(NodeType type, bool update_handles)
     updateState();
 }
 
+/** Pick the best type for this node, based on the position of its handles.
+ * This is what assigns types to nodes created using the pen tool. */
 void Node::pickBestType()
 {
     _type = NODE_CUSP;
@@ -652,7 +659,7 @@ bool Node::_eventHandler(GdkEvent *event)
     return ControlPoint::_eventHandler(event);
 }
 
-// TODO Move this to 2Geom
+// TODO Move this to 2Geom!
 static double bezier_length (Geom::Point a0, Geom::Point a1, Geom::Point a2, Geom::Point a3)
 {
     double lower = Geom::distance(a0, a3);
@@ -844,11 +851,12 @@ void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
     bool snap = sm.someSnapperMightSnap();
     std::vector< std::pair<Geom::Point, int> > unselected;
     if (snap) {
-        // setup
-        // TODO we are doing this every time a snap happens. It should once be done only once
-        //      per drag - maybe in the grabbed handler?
-        // TODO "unselected" must be valid during the snap run, because it is not copied.
-        //      Fix this in snap.h and snap.cpp, then the above.
+        /* setup
+         * TODO We are doing this every time a snap happens. It should once be done only once
+         *      per drag - maybe in the grabbed handler?
+         * TODO Unselected nodes vector must be valid during the snap run, because it is not
+         *      copied. Fix this in snap.h and snap.cpp, then the above.
+         * TODO Snapping to unselected segments of selected paths doesn't work. */
 
         // Build the list of unselected nodes.
         typedef ControlPointSelection::Set Set;
