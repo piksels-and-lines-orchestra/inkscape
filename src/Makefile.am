@@ -226,21 +226,19 @@ inkview_LDADD = $(all_libs)
 
 libinkversion_a_SOURCES = inkscape-version.cpp inkscape-version.h
 
-if USE_SVN_VERSION
-inkscape_version_deps = $(top_srcdir)/.svn/entries
+if USE_BZR_VERSION
+inkscape_version_deps = $(top_srcdir)/.bzr/branch/last-revision
 endif
 
-# If this is an SVN snapshot build, regenerate this file every time
-# someone updates the SVN working directory.
+# If this is an BZR snapshot build, regenerate this file every time
+# someone updates the BZR working directory.
 inkscape-version.cpp: $(inkscape_version_deps)
-	VER_PREFIX="$(VERSION)"; \
-	if test -x "$(srcdir)/.svn" -a ! -z `which svn`; then \
-	    VER_SVNREV=" r`LANG=en svn info $(srcdir) | sed -n -e '/^Revision:/s/Revision: \(.*\)/\1/p'`"; \
-	    if test ! -z "`svn status -q $(srcdir)`"; then \
-	         VER_CUSTOM=" custom"; \
-	    fi; \
+	VER_PREFIX="$(VERSION)";\
+	VER_BZRREV=" r`bzr revno`"; \
+	if test ! -z "`bzr status -S -V $(srcdir)`"; then \
+	    VER_CUSTOM=" custom"; \
 	fi; \
-	VERSION="$$VER_PREFIX$$VER_SVNREV$$VER_CUSTOM"; \
+	VERSION="$$VER_PREFIX$$VER_BZRREV$$VER_CUSTOM"; \
 	echo "namespace Inkscape { " \
 	     "char const *version_string = \"$$VERSION\"; " \
 	     "}" > inkscape-version.new.cpp; \
@@ -267,7 +265,7 @@ check_PROGRAMS = cxxtests
 
 # List of all tests to be run.
 TESTS = $(check_PROGRAMS) ../share/extensions/test/run-all-extension-tests
-# XFAIL_TESTS = $(check_PROGRAMS) ../share/extensions/test/run-all-extension-tests
+XFAIL_TESTS = $(check_PROGRAMS) ../share/extensions/test/run-all-extension-tests
 
 # including the the testsuites here ensures that they get distributed
 cxxtests_SOURCES = cxxtests.cpp libnr/nr-compose-reference.cpp $(CXXTEST_TESTSUITES)

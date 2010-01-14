@@ -74,7 +74,7 @@ static void sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &t
 static NRArenaItem *sp_text_show (SPItem *item, NRArena *arena, unsigned key, unsigned flags);
 static void sp_text_hide (SPItem *item, unsigned key);
 static char *sp_text_description (SPItem *item);
-static void sp_text_snappoints(SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const *snapprefs);
+static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 static Geom::Matrix sp_text_set_transform(SPItem *item, Geom::Matrix const &xform);
 static void sp_text_print (SPItem *item, SPPrintContext *gpc);
 
@@ -421,20 +421,29 @@ sp_text_description(SPItem *item)
 
     GString *xs = SP_PX_TO_METRIC_STRING(style->font_size.computed, sp_desktop_namedview(SP_ACTIVE_DESKTOP)->getDefaultMetric());
 
+    char *trunc = "";
+    Inkscape::Text::Layout const *layout = te_get_layout((SPItem *) item);
+    if (layout && layout->inputTruncated()) {
+        trunc = _(" [truncated]");
+    }
+
     char *ret = ( SP_IS_TEXT_TEXTPATH(item)
-                  ? g_strdup_printf(_("<b>Text on path</b> (%s, %s)"), n, xs->str)
-                  : g_strdup_printf(_("<b>Text</b> (%s, %s)"), n, xs->str) );
+                  ? g_strdup_printf(_("<b>Text on path</b>%s (%s, %s)"), trunc, n, xs->str)
+                  : g_strdup_printf(_("<b>Text</b>%s (%s, %s)"), trunc, n, xs->str) );
     g_free(n);
     return ret;
 }
 
-static void sp_text_snappoints(SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const */*snapprefs*/)
+static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const */*snapprefs*/)
 {
-    // the baseline anchor of the first char
+    // Choose a point on the baseline for snapping from or to, with the horizontal position
+    // of this point depending on the text alignment (left vs. right)
     Inkscape::Text::Layout const *layout = te_get_layout((SPItem *) item);
-    if(layout != NULL) {
-        int type = target ? int(Inkscape::SNAPTARGET_TEXT_BASELINE) : int(Inkscape::SNAPSOURCE_TEXT_BASELINE);
-    	p.push_back(std::make_pair(layout->characterAnchorPoint(layout->begin()) * sp_item_i2d_affine(item), type));
+    if (layout != NULL && layout->outputExists()) {
+        boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
+        if (pt) {
+            p.push_back(Inkscape::SnapCandidatePoint((*pt) * sp_item_i2d_affine(item), Inkscape::SNAPSOURCE_TEXT_BASELINE, Inkscape::SNAPTARGET_TEXT_BASELINE));
+        }
     }
 }
 

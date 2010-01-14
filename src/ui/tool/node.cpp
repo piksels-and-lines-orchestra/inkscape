@@ -849,14 +849,14 @@ void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
     SnapManager &sm = _desktop->namedview->snap_manager;
     Inkscape::SnapPreferences::PointType t = Inkscape::SnapPreferences::SNAPPOINT_NODE;
     bool snap = sm.someSnapperMightSnap();
-    std::vector< std::pair<Geom::Point, int> > unselected;
+    std::vector<Inkscape::SnapCandidatePoint> unselected;
     if (snap) {
         /* setup
          * TODO We are doing this every time a snap happens. It should once be done only once
          *      per drag - maybe in the grabbed handler?
          * TODO Unselected nodes vector must be valid during the snap run, because it is not
          *      copied. Fix this in snap.h and snap.cpp, then the above.
-         * TODO Snapping to unselected segments of selected paths doesn't work. */
+         * TODO Snapping to unselected segments of selected paths doesn't work yet. */
 
         // Build the list of unselected nodes.
         typedef ControlPointSelection::Set Set;
@@ -864,7 +864,8 @@ void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
         for (Set::iterator i = nodes.begin(); i != nodes.end(); ++i) {
             if (!(*i)->selected()) {
                 Node *n = static_cast<Node*>(*i);
-                unselected.push_back(std::make_pair((*i)->position(), (int) n->_snapTargetType()));
+                Inkscape::SnapCandidatePoint p(n->position(), n->_snapSourceType(), n->_snapTargetType());
+                unselected.push_back(p);
             }
         }
         sm.setupIgnoreSelection(_desktop, true, &unselected);
@@ -881,8 +882,8 @@ void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
             // TODO: combine these two branches by modifying snap.h / snap.cpp
             if (snap) {
                 Inkscape::SnappedPoint fp, bp;
-                fp = sm.constrainedSnap(t, position(), _snapSourceType(), line_front);
-                bp = sm.constrainedSnap(t, position(), _snapSourceType(), line_back);
+                fp = sm.constrainedSnap(t, Inkscape::SnapCandidatePoint(position(), _snapSourceType()), line_front);
+                bp = sm.constrainedSnap(t, Inkscape::SnapCandidatePoint(position(), _snapSourceType()), line_back);
 
                 if (fp.isOtherSnapBetter(bp, false)) {
                     bp.getPoint(new_pos);
@@ -905,8 +906,8 @@ void Node::_draggedHandler(Geom::Point &new_pos, GdkEventMotion *event)
                 Inkscape::SnappedPoint fp, bp;
                 Inkscape::Snapper::ConstraintLine line_x(origin, Geom::Point(1, 0));
                 Inkscape::Snapper::ConstraintLine line_y(origin, Geom::Point(0, 1));
-                fp = sm.constrainedSnap(t, position(), _snapSourceType(), line_x);
-                bp = sm.constrainedSnap(t, position(), _snapSourceType(), line_y);
+                fp = sm.constrainedSnap(t, Inkscape::SnapCandidatePoint(position(), _snapSourceType()), line_x);
+                bp = sm.constrainedSnap(t, Inkscape::SnapCandidatePoint(position(), _snapSourceType()), line_y);
 
                 if (fp.isOtherSnapBetter(bp, false)) {
                     fp = bp;

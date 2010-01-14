@@ -221,6 +221,35 @@ Geom::Point Layout::characterAnchorPoint(iterator const &it) const
     }
 }
 
+boost::optional<Geom::Point> Layout::baselineAnchorPoint() const
+{
+    iterator pos = this->begin();
+    Geom::Point left_pt = this->characterAnchorPoint(pos);
+    pos.thisEndOfLine();
+    Geom::Point right_pt = this->characterAnchorPoint(pos);
+
+    if (this->_blockProgression() == LEFT_TO_RIGHT || this->_blockProgression() == RIGHT_TO_LEFT) {
+        left_pt = Geom::Point(left_pt[Geom::Y], left_pt[Geom::X]);
+        right_pt = Geom::Point(right_pt[Geom::Y], right_pt[Geom::X]);
+    }
+
+    switch (this->paragraphAlignment(pos)) {
+        case LEFT:
+        case FULL:
+            return left_pt;
+            break;
+        case CENTER:
+            return (left_pt + right_pt)/2; // middle point
+            break;
+        case RIGHT:
+            return right_pt;
+            break;
+        default:
+            return boost::optional<Geom::Point>();
+            break;
+    }
+}
+
 Geom::Point Layout::chunkAnchorPoint(iterator const &it) const
 {
     unsigned chunk_index;
@@ -705,7 +734,7 @@ bool Layout::iterator::nextLineCursor(int n)
     unsigned line_index = _parent_layout->_characters[_char_index].chunk(_parent_layout).in_line;
     if (line_index == _parent_layout->_lines.size() - 1) 
         return false; // nowhere to go
-		else
+    else
         n = MIN (n, static_cast<int>(_parent_layout->_lines.size() - 1 - line_index));
     if (_parent_layout->_lines[line_index + n].in_shape != _parent_layout->_lines[line_index].in_shape) {
         // switching between shapes: adjust the stored x to compensate
@@ -728,7 +757,7 @@ bool Layout::iterator::prevLineCursor(int n)
         line_index = _parent_layout->_characters[_char_index].chunk(_parent_layout).in_line;
     if (line_index == 0) 
         return false; // nowhere to go
-		else 
+    else
         n = MIN (n, static_cast<int>(line_index));
     if (_parent_layout->_lines[line_index - n].in_shape != _parent_layout->_lines[line_index].in_shape) {
         // switching between shapes: adjust the stored x to compensate

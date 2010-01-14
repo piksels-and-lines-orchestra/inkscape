@@ -48,24 +48,30 @@
 #include "sp-image.h"
 #include "sp-item.h"
 #include "sp-namedview.h"
-#include "toolbox.h"
 #include "ui/dialog/dialog-manager.h"
 #include "ui/dialog/swatches.h"
 #include "ui/icon-names.h"
 #include "ui/widget/dock.h"
 #include "ui/widget/layer-selector.h"
 #include "ui/widget/selected-style.h"
-#include "widgets/button.h"
-#include "widgets/ruler.h"
-#include "widgets/spinbutton-events.h"
-#include "widgets/spw-utilities.h"
-#include "widgets/toolbox.h"
-#include "widgets/widget-sizes.h"
+#include "ui/uxmanager.h"
+
+// We're in the "widgets" directory, so no need to explicitly prefix these:
+#include "button.h"
+#include "ruler.h"
+#include "spinbutton-events.h"
+#include "spw-utilities.h"
+#include "toolbox.h"
+#include "widget-sizes.h"
 
 #if defined (SOLARIS) && (SOLARIS == 8)
 #include "round.h"
 using Inkscape::round;
 #endif
+
+
+using Inkscape::UI::UXManager;
+using Inkscape::UI::ToolboxFactory;
 
 #ifdef WITH_INKBOARD
 #endif
@@ -85,7 +91,6 @@ enum {
 /* SPDesktopWidget */
 
 static void sp_desktop_widget_class_init (SPDesktopWidgetClass *klass);
-static void sp_desktop_widget_init (SPDesktopWidget *widget);
 static void sp_desktop_widget_destroy (GtkObject *object);
 
 static void sp_desktop_widget_size_allocate (GtkWidget *widget, GtkAllocation *allocation);
@@ -97,7 +102,6 @@ static void sp_dtw_color_profile_event(EgeColorProfTracker *widget, SPDesktopWid
 static void cms_adjust_toggled( GtkWidget *button, gpointer data );
 static void cms_adjust_set_sensitive( SPDesktopWidget *dtw, bool enabled );
 static void sp_desktop_widget_adjustment_value_changed (GtkAdjustment *adj, SPDesktopWidget *dtw);
-static void sp_desktop_widget_namedview_modified (SPObject *obj, guint flags, SPDesktopWidget *dtw);
 
 static gdouble sp_dtw_zoom_value_to_display (gdouble value);
 static gdouble sp_dtw_zoom_display_to_value (gdouble value);
@@ -241,7 +245,7 @@ SPDesktopWidget::window_get_pointer()
 /**
  * Registers SPDesktopWidget class and returns its type number.
  */
-GType sp_desktop_widget_get_type(void)
+GType SPDesktopWidget::getType(void)
 {
     static GtkType type = 0;
     if (!type) {
@@ -254,7 +258,7 @@ GType sp_desktop_widget_get_type(void)
             0, // class_data
             sizeof(SPDesktopWidget),
             0, // n_preallocs
-            (GInstanceInitFunc)sp_desktop_widget_init,
+            (GInstanceInitFunc)SPDesktopWidget::init,
             0 // value_table
         };
         type = g_type_register_static(SP_TYPE_VIEW_WIDGET, "SPDesktopWidget", &info, static_cast<GTypeFlags>(0));
@@ -282,14 +286,12 @@ sp_desktop_widget_class_init (SPDesktopWidgetClass *klass)
 /**
  * Callback for SPDesktopWidget object initialization.
  */
-static void
-sp_desktop_widget_init (SPDesktopWidget *dtw)
+void SPDesktopWidget::init( SPDesktopWidget *dtw )
 {
     GtkWidget *widget;
     GtkWidget *tbl;
     GtkWidget *canvas_tbl;
 
-    GtkWidget *hbox;
     GtkWidget *eventbox;
     GtkStyle *style;
 
@@ -320,24 +322,26 @@ sp_desktop_widget_init (SPDesktopWidget *dtw)
         gtk_box_pack_end( GTK_BOX( dtw->vbox ), GTK_WIDGET(dtw->panels->gobj()), FALSE, TRUE, 0 );
     }
 
-    hbox = gtk_hbox_new (FALSE, 0);
-    gtk_box_pack_end (GTK_BOX (dtw->vbox), hbox, TRUE, TRUE, 0);
-    gtk_widget_show (hbox);
+    dtw->hbox = gtk_hbox_new(FALSE, 0);
+    gtk_box_pack_end( GTK_BOX (dtw->vbox), dtw->hbox, TRUE, TRUE, 0 );
+    gtk_widget_show(dtw->hbox);
 
-    dtw->aux_toolbox = sp_aux_toolbox_new ();
+    dtw->aux_toolbox = ToolboxFactory::createAuxToolbox();
     gtk_box_pack_end (GTK_BOX (dtw->vbox), dtw->aux_toolbox, FALSE, TRUE, 0);
 
-    dtw->snap_toolbox = sp_snap_toolbox_new ();
-    gtk_box_pack_end (GTK_BOX (dtw->vbox), dtw->snap_toolbox, FALSE, TRUE, 0);
+    dtw->snap_toolbox = ToolboxFactory::createSnapToolbox();
+    ToolboxFactory::setOrientation( dtw->snap_toolbox, GTK_ORIENTATION_VERTICAL );
+    gtk_box_pack_end( GTK_BOX(dtw->hbox), dtw->snap_toolbox, FALSE, TRUE, 0 );
 
-    dtw->commands_toolbox = sp_commands_toolbox_new ();
+    dtw->commands_toolbox = ToolboxFactory::createCommandsToolbox();
     gtk_box_pack_end (GTK_BOX (dtw->vbox), dtw->commands_toolbox, FALSE, TRUE, 0);
 
-    dtw->tool_toolbox = sp_tool_toolbox_new ();
-    gtk_box_pack_start (GTK_BOX (hbox), dtw->tool_toolbox, FALSE, TRUE, 0);
+    dtw->tool_toolbox = ToolboxFactory::createToolToolbox();
+    ToolboxFactory::setOrientation( dtw->tool_toolbox, GTK_ORIENTATION_VERTICAL );
+    gtk_box_pack_start( GTK_BOX(dtw->hbox), dtw->tool_toolbox, FALSE, TRUE, 0 );
 
     tbl = gtk_table_new (2, 3, FALSE);
-    gtk_box_pack_start (GTK_BOX (hbox), tbl, TRUE, TRUE, 1);
+    gtk_box_pack_start( GTK_BOX(dtw->hbox), tbl, TRUE, TRUE, 1 );
 
     canvas_tbl = gtk_table_new (3, 3, FALSE);
 
@@ -567,6 +571,8 @@ sp_desktop_widget_destroy (GtkObject *object)
 {
     SPDesktopWidget *dtw = SP_DESKTOP_WIDGET (object);
 
+    UXManager::getInstance()->delTrack(dtw);
+
     if (dtw->desktop) {
         if ( watcher ) {
             watcher->remove(dtw);
@@ -613,12 +619,20 @@ SPDesktopWidget::updateTitle(gchar const* uri)
         if (this->desktop->number > 1) {
             if (this->desktop->getMode() == Inkscape::RENDERMODE_OUTLINE) {
                 g_string_printf (name, _("%s: %d (outline) - Inkscape"), fname, this->desktop->number);
+            } else if (this->desktop->getMode() == Inkscape::RENDERMODE_NO_FILTERS) {
+                g_string_printf (name, _("%s: %d (no filters) - Inkscape"), fname, this->desktop->number);
+            } else if (this->desktop->getMode() == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW) {
+                g_string_printf (name, _("%s: %d (print colors preview) - Inkscape"), fname, this->desktop->number);
             } else {
                 g_string_printf (name, _("%s: %d - Inkscape"), fname, this->desktop->number);
             }
         } else {
             if (this->desktop->getMode() == Inkscape::RENDERMODE_OUTLINE) {
                 g_string_printf (name, _("%s (outline) - Inkscape"), fname);
+            } else if (this->desktop->getMode() == Inkscape::RENDERMODE_NO_FILTERS) {
+                g_string_printf (name, _("%s (no filters) - Inkscape"), fname);
+            } else if (this->desktop->getMode() == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW) {
+                g_string_printf (name, _("%s (print colors preview) - Inkscape"), fname);
             } else {
                 g_string_printf (name, _("%s - Inkscape"), fname);
             }
@@ -699,23 +713,22 @@ sp_desktop_widget_realize (GtkWidget *widget)
 
     dtw->desktop->set_display_area (d.x0, d.y0, d.x1, d.y1, 10);
 
-    sp_desktop_widget_update_namedview(dtw);
+    dtw->updateNamedview();
 }
 
 /* This is just to provide access to common functionality from sp_desktop_widget_realize() above
    as well as from SPDesktop::change_document() */
-void
-sp_desktop_widget_update_namedview (SPDesktopWidget *dtw) {
-    g_return_if_fail(dtw);
-
-    /* Listen on namedview modification */
+void SPDesktopWidget::updateNamedview()
+{
+    // Listen on namedview modification
     // originally (prior to the sigc++ conversion) the signal was simply
     // connected twice rather than disconnecting the first connection
-    dtw->modified_connection.disconnect();
-    dtw->modified_connection = dtw->desktop->namedview->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_desktop_widget_namedview_modified), dtw));
-    sp_desktop_widget_namedview_modified (dtw->desktop->namedview, SP_OBJECT_MODIFIED_FLAG, dtw);
+    modified_connection.disconnect();
 
-    dtw->updateTitle(SP_DOCUMENT_NAME (dtw->desktop->doc()));
+    modified_connection = desktop->namedview->connectModified(sigc::mem_fun(*this, &SPDesktopWidget::namedviewModified));
+    namedviewModified(desktop->namedview, SP_OBJECT_MODIFIED_FLAG);
+
+    updateTitle(SP_DOCUMENT_NAME (desktop->doc()));
 }
 
 /**
@@ -1191,18 +1204,18 @@ sp_desktop_widget_fullscreen(SPDesktopWidget *dtw)
 /**
  * Hide whatever the user does not want to see in the window
  */
-void
-sp_desktop_widget_layout (SPDesktopWidget *dtw)
+void SPDesktopWidget::layoutWidgets()
 {
+    SPDesktopWidget *dtw = this;
     Glib::ustring pref_root;
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     if (dtw->desktop->is_focusMode()) {
-	    pref_root = "/focus/";
+        pref_root = "/focus/";
     } else if (dtw->desktop->is_fullscreen()) {
-	    pref_root = "/fullscreen/";
+        pref_root = "/fullscreen/";
     } else {
-	    pref_root = "/window/";
+        pref_root = "/window/";
     }
 
 #ifndef GDK_WINDOWING_QUARTZ
@@ -1220,17 +1233,17 @@ sp_desktop_widget_layout (SPDesktopWidget *dtw)
     }
 
     if (!prefs->getBool(pref_root + "snaptoolbox/state", true)) {
-		gtk_widget_hide_all (dtw->snap_toolbox);
-	} else {
-		gtk_widget_show_all (dtw->snap_toolbox);
-	}
+        gtk_widget_hide_all (dtw->snap_toolbox);
+    } else {
+        gtk_widget_show_all (dtw->snap_toolbox);
+    }
 
     if (!prefs->getBool(pref_root + "toppanel/state", true)) {
         gtk_widget_hide_all (dtw->aux_toolbox);
     } else {
         // we cannot just show_all because that will show all tools' panels;
         // this is a function from toolbox.cpp that shows only the current tool's panel
-        show_aux_toolbox (dtw->aux_toolbox);
+        ToolboxFactory::showAuxToolbox(dtw->aux_toolbox);
     }
 
     if (!prefs->getBool(pref_root + "toolbox/state", true)) {
@@ -1328,8 +1341,57 @@ SPDesktopWidget::isToolboxButtonActive (const gchar* id)
     return isActive;
 }
 
-SPViewWidget *
-sp_desktop_widget_new (SPNamedView *namedview)
+void SPDesktopWidget::setToolboxPosition(Glib::ustring const& id, GtkPositionType pos)
+{
+    // Note - later on these won't be individual member variables.
+    GtkWidget* toolbox = 0;
+    if (id == "ToolToolbar") {
+        toolbox = tool_toolbox;
+    } else if (id == "AuxToolbar") {
+        toolbox = aux_toolbox;
+    } else if (id == "CommandsToolbar") {
+        toolbox = commands_toolbox;
+    } else if (id == "SnapToolbar") {
+        toolbox = snap_toolbox;
+    }
+
+
+    if (toolbox) {
+        switch(pos) {
+            case GTK_POS_TOP:
+            case GTK_POS_BOTTOM:
+                if ( gtk_widget_is_ancestor(toolbox, hbox) ) {
+                    gtk_widget_reparent( toolbox, vbox );
+                    gtk_box_set_child_packing(GTK_BOX(vbox), toolbox, FALSE, TRUE, 0, GTK_PACK_START);
+                }
+                ToolboxFactory::setOrientation(toolbox, GTK_ORIENTATION_HORIZONTAL);
+                break;
+            case GTK_POS_LEFT:
+            case GTK_POS_RIGHT:
+                if ( !gtk_widget_is_ancestor(toolbox, hbox) ) {
+                    gtk_widget_reparent( toolbox, hbox );
+                    gtk_box_set_child_packing(GTK_BOX(hbox), toolbox, FALSE, TRUE, 0, GTK_PACK_START);
+                    if (pos == GTK_POS_LEFT) {
+                        gtk_box_reorder_child( GTK_BOX(hbox), toolbox, 0 );
+                    }
+                }
+                ToolboxFactory::setOrientation(toolbox, GTK_ORIENTATION_VERTICAL);
+                break;
+        }
+    }
+}
+
+
+SPViewWidget *sp_desktop_widget_new( SPNamedView *namedview )
+{
+    SPDesktopWidget* dtw = SPDesktopWidget::createInstance(namedview);
+
+    UXManager::getInstance()->addTrack(dtw);
+
+    return SP_VIEW_WIDGET(dtw);
+}
+
+SPDesktopWidget* SPDesktopWidget::createInstance(SPNamedView *namedview)
 {
     SPDesktopWidget *dtw = (SPDesktopWidget*)g_object_new(SP_TYPE_DESKTOP_WIDGET, NULL);
 
@@ -1354,7 +1416,7 @@ sp_desktop_widget_new (SPNamedView *namedview)
     sp_view_widget_set_view (SP_VIEW_WIDGET (dtw), dtw->desktop);
 
     /* Listen on namedview modification */
-    dtw->modified_connection = namedview->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_desktop_widget_namedview_modified), dtw));
+    dtw->modified_connection = namedview->connectModified(sigc::mem_fun(*dtw, &SPDesktopWidget::namedviewModified));
 
     dtw->layer_selector->setDesktop(dtw->desktop);
 
@@ -1364,16 +1426,18 @@ sp_desktop_widget_new (SPNamedView *namedview)
     gtk_box_pack_start (GTK_BOX (dtw->vbox), dtw->menubar, FALSE, FALSE, 0);
 #endif
 
-    sp_desktop_widget_layout (dtw);
+    dtw->layoutWidgets();
 
-    sp_tool_toolbox_set_desktop (dtw->tool_toolbox, dtw->desktop);
-    sp_aux_toolbox_set_desktop (dtw->aux_toolbox, dtw->desktop);
-    sp_commands_toolbox_set_desktop (dtw->commands_toolbox, dtw->desktop);
-    sp_snap_toolbox_set_desktop (dtw->snap_toolbox, dtw->desktop);
+    std::vector<GtkWidget *> toolboxes;
+    toolboxes.push_back(dtw->tool_toolbox);
+    toolboxes.push_back(dtw->aux_toolbox);
+    toolboxes.push_back(dtw->commands_toolbox);
+    toolboxes.push_back(dtw->snap_toolbox);
+    UXManager::getInstance()->connectToDesktop( toolboxes, dtw->desktop );
 
     dtw->panels->setDesktop( dtw->desktop );
 
-    return SP_VIEW_WIDGET (dtw);
+    return dtw;
 }
 
 void
@@ -1428,22 +1492,22 @@ sp_desktop_widget_update_vruler (SPDesktopWidget *dtw)
 }
 
 
-static void
-sp_desktop_widget_namedview_modified (SPObject *obj, guint flags, SPDesktopWidget *dtw)
+void SPDesktopWidget::namedviewModified(SPObject *obj, guint flags)
 {
     SPNamedView *nv=SP_NAMEDVIEW(obj);
+
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
-    	dtw->dt2r = 1.0 / nv->doc_units->unittobase;
-        dtw->ruler_origin = Geom::Point(0,0); //nv->gridorigin;   Why was the grid origin used here?
+        this->dt2r = 1.0 / nv->doc_units->unittobase;
+        this->ruler_origin = Geom::Point(0,0); //nv->gridorigin;   Why was the grid origin used here?
 
-        sp_ruler_set_metric (GTK_RULER (dtw->vruler), nv->getDefaultMetric());
-        sp_ruler_set_metric (GTK_RULER (dtw->hruler), nv->getDefaultMetric());
+        sp_ruler_set_metric(GTK_RULER (this->vruler), nv->getDefaultMetric());
+        sp_ruler_set_metric(GTK_RULER (this->hruler), nv->getDefaultMetric());
 
-        gtk_tooltips_set_tip (dtw->tt, dtw->hruler_box, gettext(sp_unit_get_plural (nv->doc_units)), NULL);
-        gtk_tooltips_set_tip (dtw->tt, dtw->vruler_box, gettext(sp_unit_get_plural (nv->doc_units)), NULL);
+        gtk_tooltips_set_tip(this->tt, this->hruler_box, gettext(sp_unit_get_plural (nv->doc_units)), NULL);
+        gtk_tooltips_set_tip(this->tt, this->vruler_box, gettext(sp_unit_get_plural (nv->doc_units)), NULL);
 
-        sp_desktop_widget_update_rulers (dtw);
-        update_snap_toolbox(dtw->desktop, NULL, dtw->snap_toolbox);
+        sp_desktop_widget_update_rulers(this);
+        ToolboxFactory::updateSnapToolbox(this->desktop, 0, this->snap_toolbox);
     }
 }
 

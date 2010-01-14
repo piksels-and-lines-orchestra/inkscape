@@ -14,8 +14,8 @@
 #include "preferences.h"
 
 // overloaded constructor
-Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &fully_constrained)
-    : _point(p), _source(source), _target(target), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a)
+Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, long source_num, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &fully_constrained)
+    : _point(p), _source(source), _source_num(source_num), _target(target), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a)
 {
     // tolerance should never be smaller than 1 px, as it is used for normalization in isOtherSnapBetter. We don't want a division by zero.
     _at_intersection = false;
@@ -25,22 +25,42 @@ Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const 
     _second_always_snap = false;
     _transformation = Geom::Point(1,1);
     _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::Rect();
 }
 
-Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &at_intersection, bool const &fully_constrained, Geom::Coord const &d2, Geom::Coord const &t2, bool const &a2)
-    : _point(p), _source(source), _target(target), _at_intersection(at_intersection), _fully_constrained(fully_constrained), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a),
+Inkscape::SnappedPoint::SnappedPoint(Inkscape::SnapCandidatePoint const &p, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &fully_constrained)
+    : _target(target), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a)
+{
+    _point = p.getPoint();
+    _source = p.getSourceType();
+    _source_num = p.getSourceNum();
+    _at_intersection = false;
+    _fully_constrained = fully_constrained;
+    _second_distance = NR_HUGE;
+    _second_tolerance = 1;
+    _second_always_snap = false;
+    _transformation = Geom::Point(1,1);
+    _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::Rect();
+
+}
+
+Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, long source_num, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &at_intersection, bool const &fully_constrained, Geom::Coord const &d2, Geom::Coord const &t2, bool const &a2)
+    : _point(p), _source(source), _source_num(source_num), _target(target), _at_intersection(at_intersection), _fully_constrained(fully_constrained), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a),
     _second_distance(d2), _second_tolerance(std::max(t2,1.0)), _second_always_snap(a2)
 {
     // tolerance should never be smaller than 1 px, as it is used for normalization in
     // isOtherSnapBetter. We don't want a division by zero.
     _transformation = Geom::Point(1,1);
     _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::Rect();
 }
 
 Inkscape::SnappedPoint::SnappedPoint()
 {
     _point = Geom::Point(0,0);
     _source = SNAPSOURCE_UNDEFINED,
+    _source_num = 0,
     _target = SNAPTARGET_UNDEFINED,
     _at_intersection = false;
     _fully_constrained = false;
@@ -52,6 +72,26 @@ Inkscape::SnappedPoint::SnappedPoint()
     _second_always_snap = false;
     _transformation = Geom::Point(1,1);
     _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::Rect();
+}
+
+Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p)
+{
+    _point = p;
+    _source = SNAPSOURCE_UNDEFINED,
+    _source_num = 0,
+    _target = SNAPTARGET_UNDEFINED,
+    _at_intersection = false;
+    _fully_constrained = false;
+    _distance = NR_HUGE;
+    _tolerance = 1;
+    _always_snap = false;
+    _second_distance = NR_HUGE;
+    _second_tolerance = 1;
+    _second_always_snap = false;
+    _transformation = Geom::Point(1,1);
+    _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::Rect();
 }
 
 Inkscape::SnappedPoint::~SnappedPoint()
@@ -68,12 +108,12 @@ void Inkscape::SnappedPoint::getPoint(Geom::Point &p) const
 }
 
 // search for the closest snapped point
-bool getClosestSP(std::list<Inkscape::SnappedPoint> &list, Inkscape::SnappedPoint &result)
+bool getClosestSP(std::list<Inkscape::SnappedPoint> const &list, Inkscape::SnappedPoint &result)
 {
     bool success = false;
 
     for (std::list<Inkscape::SnappedPoint>::const_iterator i = list.begin(); i != list.end(); i++) {
-    	if ((i == list.begin()) || (*i).getSnapDistance() < result.getSnapDistance()) {
+        if ((i == list.begin()) || (*i).getSnapDistance() < result.getSnapDistance()) {
             result = *i;
             success = true;
         }
@@ -85,6 +125,10 @@ bool getClosestSP(std::list<Inkscape::SnappedPoint> &list, Inkscape::SnappedPoin
 bool Inkscape::SnappedPoint::isOtherSnapBetter(Inkscape::SnappedPoint const &other_one, bool weighted) const
 {
 
+    if (!other_one.getSnapped()) {
+        return false;
+    }
+
     double dist_other = other_one.getSnapDistance();
     double dist_this = getSnapDistance();
 
@@ -93,9 +137,9 @@ bool Inkscape::SnappedPoint::isOtherSnapBetter(Inkscape::SnappedPoint const &oth
     // (both the snap distance and the pointer distance are measured in document pixels, not in screen pixels)
     if (weighted) {
 
-    	Geom::Coord const dist_pointer_other = other_one.getPointerDistance();
-    	Geom::Coord const dist_pointer_this = getPointerDistance();
-    	// Weight factor: controls which node should be preferred for snapping, which is either
+        Geom::Coord const dist_pointer_other = other_one.getPointerDistance();
+        Geom::Coord const dist_pointer_this = getPointerDistance();
+        // Weight factor: controls which node should be preferred for snapping, which is either
         // the node with the closest snap (w = 0), or the node closest to the mousepointer (w = 1)
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         double w = prefs->getDoubleLimited("/options/snapweight/value", 0.5, 0, 1);
@@ -103,21 +147,21 @@ bool Inkscape::SnappedPoint::isOtherSnapBetter(Inkscape::SnappedPoint const &oth
             w = 1;
         }
         if (w > 0) {
-        	if (!(w == 1 && dist_pointer_this == dist_pointer_other)) {
-        		// When accounting for the distance to the mouse pointer, then at least one of the snapped points should
-				// have that distance set. If not, then this is a bug. Either "weighted" must be set to false, or the
-				// mouse pointer distance must be set.
-				g_assert(dist_pointer_this != NR_HUGE || dist_pointer_other != NR_HUGE);
-				// The snap distance will always be smaller than the tolerance set for the snapper. The pointer distance can
-				// however be very large. To compare these in a fair way, we will have to normalize these metrics first
-				// The closest pointer distance will be normalized to 1.0; the other one will be > 1.0
-				// The snap distance will be normalized to 1.0 if it's equal to the snapper tolerance
-				double const norm_p = std::min(dist_pointer_this, dist_pointer_other);
-				double const norm_t_other = std::min(50.0, other_one.getTolerance());
-				double const norm_t_this = std::min(50.0, getTolerance());
-				dist_other = w * dist_pointer_other / norm_p + (1-w) * dist_other / norm_t_other;
-				dist_this = w * dist_pointer_this / norm_p + (1-w) * dist_this / norm_t_this;
-	    	}
+            if (!(w == 1 && dist_pointer_this == dist_pointer_other)) {
+                // When accounting for the distance to the mouse pointer, then at least one of the snapped points should
+                // have that distance set. If not, then this is a bug. Either "weighted" must be set to false, or the
+                // mouse pointer distance must be set.
+                g_assert(dist_pointer_this != NR_HUGE || dist_pointer_other != NR_HUGE);
+                // The snap distance will always be smaller than the tolerance set for the snapper. The pointer distance can
+                // however be very large. To compare these in a fair way, we will have to normalize these metrics first
+                // The closest pointer distance will be normalized to 1.0; the other one will be > 1.0
+                // The snap distance will be normalized to 1.0 if it's equal to the snapper tolerance
+                double const norm_p = std::min(dist_pointer_this, dist_pointer_other);
+                double const norm_t_other = std::min(50.0, other_one.getTolerance());
+                double const norm_t_this = std::min(50.0, getTolerance());
+                dist_other = w * dist_pointer_other / norm_p + (1-w) * dist_other / norm_t_other;
+                dist_this = w * dist_pointer_this / norm_p + (1-w) * dist_this / norm_t_this;
+            }
         }
     }
 

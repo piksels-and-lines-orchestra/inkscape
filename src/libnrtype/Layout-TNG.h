@@ -212,6 +212,10 @@ public:
     bool inputExists() const
         {return !_input_stream.empty();}
 
+    bool _input_truncated;
+    bool inputTruncated() const
+        {return _input_truncated;}
+
     /** adds a new piece of text to the end of the current list of text to
     be processed. This method can only add text of a consistent style.
     To add lots of different styles, call it lots of times.
@@ -479,6 +483,10 @@ public:
 
     /** For latin text, the left side of the character, on the baseline */
     Geom::Point characterAnchorPoint(iterator const &it) const;
+
+    /** For left aligned text, the leftmost end of the baseline
+    For rightmost text, the rightmost... you probably got it by now ;-)*/
+    boost::optional<Geom::Point> baselineAnchorPoint() const;
 
     /** This is that value to apply to the x,y attributes of tspan role=line
     elements, and hence it takes alignment into account. */

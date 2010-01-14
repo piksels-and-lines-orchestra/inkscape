@@ -40,17 +40,16 @@ SnapIndicator::~SnapIndicator()
 }
 
 void
-SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
+SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const &p)
 {
     remove_snaptarget(); //only display one snaptarget at a time
 
     g_assert(_desktop != NULL);
 
-    /* Commented out for now, because this might hide any snapping bug!
     if (!p.getSnapped()) {
-       return; // If we haven't snapped, then it is of no use to draw a snapindicator
+        g_warning("No snapping took place, so no snap target will be displayed");
+        return; // If we haven't snapped, then it is of no use to draw a snapindicator
     }
-    */
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     bool value = prefs->getBool("/options/snapindicator/value", true);
@@ -98,9 +97,6 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
             case SNAPTARGET_BBOX_EDGE:
                 target_name = _("bounding box side");
                 break;
-            case SNAPTARGET_GRADIENTS_PARENT_BBOX:
-                target_name = _("bounding box");
-                break;
             case SNAPTARGET_PAGE_BORDER:
                 target_name = _("page border");
                 break;
@@ -139,6 +135,9 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
                 break;
             case SNAPTARGET_TEXT_BASELINE:
                 target_name = _("text baseline");
+                break;
+            case SNAPTARGET_CONSTRAINED_ANGLE:
+                target_name = _("constrained angle");
                 break;
             default:
                 g_warning("Snap target has not yet been defined!");
@@ -265,7 +264,7 @@ SnapIndicator::remove_snaptarget()
 }
 
 void
-SnapIndicator::set_new_snapsource(std::pair<Geom::Point, int> const p)
+SnapIndicator::set_new_snapsource(Inkscape::SnapCandidatePoint const &p)
 {
     remove_snapsource();
 
@@ -285,7 +284,7 @@ SnapIndicator::set_new_snapsource(std::pair<Geom::Point, int> const p)
                                                         "shape", SP_KNOT_SHAPE_CIRCLE,
                                                         NULL );
 
-        SP_CTRL(canvasitem)->moveto(p.first);
+        SP_CTRL(canvasitem)->moveto(p.getPoint());
         _snapsource = _desktop->add_temporary_canvasitem(canvasitem, 1000);
     }
 }

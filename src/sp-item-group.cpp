@@ -67,10 +67,9 @@ static void sp_group_set(SPObject *object, unsigned key, char const *value);
 static void sp_group_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
 static void sp_group_print (SPItem * item, SPPrintContext *ctx);
 static gchar * sp_group_description (SPItem * item);
-static Geom::Matrix sp_group_set_transform(SPItem *item, Geom::Matrix const &xform);
 static NRArenaItem *sp_group_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
 static void sp_group_hide (SPItem * item, unsigned int key);
-static void sp_group_snappoints (SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const *snapprefs);
+static void sp_group_snappoints (SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 
 static void sp_group_update_patheffect(SPLPEItem *lpeitem, bool write);
 static void sp_group_perform_patheffect(SPGroup *group, SPGroup *topgroup, bool write);
@@ -129,7 +128,6 @@ sp_group_class_init (SPGroupClass *klass)
     item_class->bbox = sp_group_bbox;
     item_class->print = sp_group_print;
     item_class->description = sp_group_description;
-        item_class->set_transform = sp_group_set_transform;
     item_class->show = sp_group_show;
     item_class->hide = sp_group_hide;
     item_class->snappoints = sp_group_snappoints;
@@ -291,24 +289,6 @@ static gchar * sp_group_description (SPItem * item)
     return SP_GROUP(item)->group->getDescription();
 }
 
-static Geom::Matrix
-sp_group_set_transform(SPItem *item, Geom::Matrix const &xform)
-{
-    Inkscape::Selection *selection = sp_desktop_selection(inkscape_active_desktop());
-    persp3d_split_perspectives_according_to_selection(selection);
-
-    Geom::Matrix last_trans;
-    sp_svg_transform_read(SP_OBJECT_REPR(item)->attribute("transform"), &last_trans);
-    Geom::Matrix inc_trans = last_trans.inverse()*xform;
-
-    std::list<Persp3D *> plist = selection->perspList();
-    for (std::list<Persp3D *>::iterator i = plist.begin(); i != plist.end(); ++i) {
-        persp3d_apply_affine_transformation(*i, inc_trans);
-    }
-
-    return xform;
-}
-
 static void sp_group_set(SPObject *object, unsigned key, char const *value) {
     SPGroup *group = SP_GROUP(object);
 
@@ -340,14 +320,14 @@ sp_group_hide (SPItem *item, unsigned int key)
     SP_GROUP(item)->group->hide(key);
 }
 
-static void sp_group_snappoints (SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const *snapprefs)
+static void sp_group_snappoints (SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs)
 {
     for (SPObject const *o = sp_object_first_child(SP_OBJECT(item));
          o != NULL;
          o = SP_OBJECT_NEXT(o))
     {
         if (SP_IS_ITEM(o)) {
-            sp_item_snappoints(SP_ITEM(o), target, p, snapprefs);
+            sp_item_snappoints(SP_ITEM(o), p, snapprefs);
         }
     }
 }

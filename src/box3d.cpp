@@ -127,10 +127,8 @@ box3d_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
     // TODO: Create/link to the correct perspective
 
     SPDocument *doc = SP_OBJECT_DOCUMENT(box);
-    if (!doc) {
-        g_print ("No document for the box!!!!\n");
+    if (!doc)
         return;
-    }
 
     box->persp_ref->changedSignal().connect(sigc::bind(sigc::ptr_fun(box3d_ref_changed), box));
 
@@ -150,13 +148,33 @@ box3d_release(SPObject *object)
     if (box->persp_href) {
         g_free(box->persp_href);
     }
+
+    // We have to store this here because the Persp3DReference gets destroyed below, but we need to
+    // access it to call persp3d_remove_box(), which cannot be called earlier because the reference
+    // needs to be destroyed first.
+    Persp3D *persp = box3d_get_perspective(box);
+
     if (box->persp_ref) {
         box->persp_ref->detach();
         delete box->persp_ref;
         box->persp_ref = NULL;
     }
 
-    //persp3d_remove_box (box3d_get_perspective(box), box);
+    if (persp) {
+        persp3d_remove_box (persp, box);
+        /*
+        // TODO: This deletes a perspective when the last box referring to it is gone. Eventually,
+        // it would be nice to have this but currently it crashes when undoing/redoing box deletion
+        // Reason: When redoing a box deletion, the associated perspective is deleted twice, first
+        // by the following code and then again by the redo mechanism! Perhaps we should perform
+        // deletion of the perspective from another location "outside" the undo/redo mechanism?
+        if (persp->perspective_impl->boxes.empty()) {
+            SPDocument *doc = SP_OBJECT_DOCUMENT(box);
+            persp->deleteObject();
+            doc->setCurrentPersp3D(persp3d_document_first_persp(doc));
+        }
+        */
+    }
 
     if (((SPObjectClass *) parent_class)->release)
         ((SPObjectClass *) parent_class)->release(object);
@@ -226,16 +244,10 @@ box3d_ref_changed(SPObject *old_ref, SPObject *ref, SPBox3D *box)
     if (old_ref) {
         sp_signal_disconnect_by_data(old_ref, box);
         persp3d_remove_box (SP_PERSP3D(old_ref), box);
-        /* Note: This sometimes leads to attempts to remove boxes twice from the list of selected/transformed
-           boxes in a perspectives, but this should be uncritical. */
-        persp3d_remove_box_transform (SP_PERSP3D(old_ref), box);
     }
     if ( SP_IS_PERSP3D(ref) && ref != box ) // FIXME: Comparisons sane?
     {
         persp3d_add_box (SP_PERSP3D(ref), box);
-        /* Note: This sometimes leads to attempts to add boxes twice to the list of selected/transformed
-           boxes in a perspectives, but this should be uncritical. */
-        persp3d_add_box_transform (SP_PERSP3D(ref), box);
     }
 }
 
@@ -278,7 +290,7 @@ static Inkscape::XML::Node *box3d_write(SPObject *object, Inkscape::XML::Documen
                 repr->setAttribute("inkscape:perspectiveID", uri_string);
                 g_free(uri_string);
             } else {
-                Inkscape::XML::Node *persp_repr = SP_OBJECT_REPR(doc->current_persp3d);
+                Inkscape::XML::Node *persp_repr = SP_OBJECT_REPR(doc->getCurrentPersp3D());
                 const gchar *persp_id = persp_repr->attribute("id");
                 gchar *href = g_strdup_printf("#%s", persp_id);
                 repr->setAttribute("inkscape:perspectiveID", href);
@@ -331,37 +343,8 @@ box3d_set_transform(SPItem *item, Geom::Matrix const &xform)
 {
     SPBox3D *box = SP_BOX3D(item);
 
-    /* check whether we need to unlink any boxes from their perspectives */
-    Persp3D *persp = box3d_get_perspective(box);
-    Persp3D *transf_persp;
-
-    if (sp_desktop_document(inkscape_active_desktop()) == SP_OBJECT_DOCUMENT(item) && 
-        !persp3d_has_all_boxes_in_selection (persp)) {
-        std::list<SPBox3D *> selboxes = sp_desktop_selection(inkscape_active_desktop())->box3DList();
-
-        /* create a new perspective as a copy of the current one and link the selected boxes to it */
-        transf_persp = persp3d_create_xml_element (SP_OBJECT_DOCUMENT(persp), persp);
-
-        for (std::list<SPBox3D *>::iterator b = selboxes.begin(); b != selboxes.end(); ++b) {
-            box3d_switch_perspectives(*b, persp, transf_persp);
-        }
-    } else {
-        transf_persp = persp;
-    }
-
-    /* only transform the perspective once, even if it has several selected boxes */
-    if(!persp3d_was_transformed (transf_persp)) {
-        /* concatenate the affine transformation with the perspective mapping; this
-           function also triggers repr updates of boxes and the perspective itself */
-        persp3d_apply_affine_transformation(transf_persp, xform);
-    }
-
-    box3d_mark_transformed(box);
-
-    if (persp3d_all_transformed(transf_persp)) {
-        /* all boxes were transformed; make perspective sensitive for further transformations */
-        persp3d_unset_transforms(transf_persp);
-    }
+    // We don't apply the transform to the box directly but instead to its perspective (which is
+    // done in sp_selection_apply_affine). Here we only adjust strokes, patterns, etc.
 
     Geom::Matrix ret(Geom::Matrix(xform).without_translation());
     gdouble const sw = hypot(ret[0], ret[1]);
@@ -412,9 +395,9 @@ box3d_get_corner_screen (SPBox3D const *box, guint id, bool item_coords) {
     }
     Geom::Matrix const i2d (sp_item_i2d_affine (SP_ITEM(box)));
     if (item_coords) {
-        return box3d_get_perspective(box)->tmat.image(proj_corner).affine() * i2d.inverse();
+        return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_corner).affine() * i2d.inverse();
     } else {
-        return box3d_get_perspective(box)->tmat.image(proj_corner).affine();
+        return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_corner).affine();
     }
 }
 
@@ -435,7 +418,7 @@ box3d_get_center_screen (SPBox3D *box) {
         return Geom::Point (NR_HUGE, NR_HUGE);
     }
     Geom::Matrix const i2d (sp_item_i2d_affine (SP_ITEM(box)));
-    return box3d_get_perspective(box)->tmat.image(proj_center).affine() * i2d.inverse();
+    return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_center).affine() * i2d.inverse();
 }
 
 /*
@@ -461,13 +444,13 @@ box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &sta
     Proj::Pt3 D_proj (x_coord,          y_coord + diff_y, z_coord, 1.0);
     Proj::Pt3 E_proj (x_coord - diff_x, y_coord + diff_y, z_coord, 1.0);
 
-    Persp3D *persp = box3d_get_perspective(box);
-    Geom::Point A = persp->tmat.image(A_proj).affine();
-    Geom::Point B = persp->tmat.image(B_proj).affine();
-    Geom::Point C = persp->tmat.image(C_proj).affine();
-    Geom::Point D = persp->tmat.image(D_proj).affine();
-    Geom::Point E = persp->tmat.image(E_proj).affine();
-    Geom::Point pt = persp->tmat.image(pt_proj).affine();
+    Persp3DImpl *persp_impl = box3d_get_perspective(box)->perspective_impl;
+    Geom::Point A = persp_impl->tmat.image(A_proj).affine();
+    Geom::Point B = persp_impl->tmat.image(B_proj).affine();
+    Geom::Point C = persp_impl->tmat.image(C_proj).affine();
+    Geom::Point D = persp_impl->tmat.image(D_proj).affine();
+    Geom::Point E = persp_impl->tmat.image(E_proj).affine();
+    Geom::Point pt = persp_impl->tmat.image(pt_proj).affine();
 
     // TODO: Replace these lines between corners with lines from a corner to a vanishing point
     //       (this might help to prevent rounding errors if the box is small)
@@ -523,7 +506,7 @@ box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &sta
         remember_snap_index = snap_index;
         result = snap_pts[snap_index];
     }
-    return box3d_get_perspective(box)->tmat.preimage (result, z_coord, Proj::Z);
+    return box3d_get_perspective(box)->perspective_impl->tmat.preimage (result, z_coord, Proj::Z);
 }
 
 void
@@ -535,8 +518,9 @@ box3d_set_corner (SPBox3D *box, const guint id, Geom::Point const &new_pos, cons
 
     /* update corners 0 and 7 according to which handle was moved and to the axes of movement */
     if (!(movement & Box3D::Z)) {
-        Proj::Pt3 pt_proj (box3d_get_perspective(box)->tmat.preimage (new_pos, (id < 4) ? box->orig_corner0[Proj::Z] :
-                                                                      box->orig_corner7[Proj::Z], Proj::Z));
+        Persp3DImpl *persp_impl = box3d_get_perspective(box)->perspective_impl;
+        Proj::Pt3 pt_proj (persp_impl->tmat.preimage (new_pos, (id < 4) ? box->orig_corner0[Proj::Z] :
+                                                      box->orig_corner7[Proj::Z], Proj::Z));
         if (constrained) {
             pt_proj = box3d_snap (box, id, pt_proj, box3d_get_proj_corner (id, box->save_corner0, box->save_corner7));
         }
@@ -553,13 +537,14 @@ box3d_set_corner (SPBox3D *box, const guint id, Geom::Point const &new_pos, cons
                                        1.0);
     } else {
         Persp3D *persp = box3d_get_perspective(box);
-        Box3D::PerspectiveLine pl(persp->tmat.image(
+        Persp3DImpl *persp_impl = box3d_get_perspective(box)->perspective_impl;
+        Box3D::PerspectiveLine pl(persp_impl->tmat.image(
                                       box3d_get_proj_corner (id, box->save_corner0, box->save_corner7)).affine(),
                                   Proj::Z, persp);
         Geom::Point new_pos_snapped(pl.closest_to(new_pos));
-        Proj::Pt3 pt_proj (persp->tmat.preimage (new_pos_snapped,
-                                          box3d_get_proj_corner (box, id)[(movement & Box3D::Y) ? Proj::X : Proj::Y],
-                                          (movement & Box3D::Y) ? Proj::X : Proj::Y));
+        Proj::Pt3 pt_proj (persp_impl->tmat.preimage (new_pos_snapped,
+                                      box3d_get_proj_corner (box, id)[(movement & Box3D::Y) ? Proj::X : Proj::Y],
+                                                      (movement & Box3D::Y) ? Proj::X : Proj::Y));
         bool corner0_move_x = !(id & Box3D::X) && (movement & Box3D::X);
         bool corner0_move_y = !(id & Box3D::Y) && (movement & Box3D::Y);
         bool corner7_move_x =  (id & Box3D::X) && (movement & Box3D::X);
@@ -590,9 +575,9 @@ void box3d_set_center (SPBox3D *box, Geom::Point const &new_pos, Geom::Point con
         double radx = (box->orig_corner7[Proj::X] - box->orig_corner0[Proj::X]) / 2;
         double rady = (box->orig_corner7[Proj::Y] - box->orig_corner0[Proj::Y]) / 2;
 
-        Proj::Pt3 pt_proj (persp->tmat.preimage (new_pos, coord, Proj::Z));
+        Proj::Pt3 pt_proj (persp->perspective_impl->tmat.preimage (new_pos, coord, Proj::Z));
         if (constrained) {
-            Proj::Pt3 old_pos_proj (persp->tmat.preimage (old_pos, coord, Proj::Z));
+            Proj::Pt3 old_pos_proj (persp->perspective_impl->tmat.preimage (old_pos, coord, Proj::Z));
             old_pos_proj.normalize();
             pt_proj = box3d_snap (box, -1, pt_proj, old_pos_proj);
         }
@@ -612,7 +597,7 @@ void box3d_set_center (SPBox3D *box, Geom::Point const &new_pos, Geom::Point con
 
         Box3D::PerspectiveLine pl(old_pos, Proj::Z, persp);
         Geom::Point new_pos_snapped(pl.closest_to(new_pos));
-        Proj::Pt3 pt_proj (persp->tmat.preimage (new_pos_snapped, coord, Proj::X));
+        Proj::Pt3 pt_proj (persp->perspective_impl->tmat.preimage (new_pos_snapped, coord, Proj::X));
 
         /* normalizing pt_proj is essential because we want to mingle affine coordinates */
         pt_proj.normalize();
@@ -636,6 +621,7 @@ void box3d_corners_for_PLs (const SPBox3D * box, Proj::Axis axis,
 {
     Persp3D *persp = box3d_get_perspective(box);
     g_return_if_fail (persp);
+    Persp3DImpl *persp_impl = persp->perspective_impl;
     //box->orig_corner0.normalize();
     //box->orig_corner7.normalize();
     double coord = (box->orig_corner0[axis] > box->orig_corner7[axis]) ?
@@ -666,10 +652,10 @@ void box3d_corners_for_PLs (const SPBox3D * box, Proj::Axis axis,
         default:
             return;
     }
-    corner1 = persp->tmat.image(c1).affine();
-    corner2 = persp->tmat.image(c2).affine();
-    corner3 = persp->tmat.image(c3).affine();
-    corner4 = persp->tmat.image(c4).affine();
+    corner1 = persp_impl->tmat.image(c1).affine();
+    corner2 = persp_impl->tmat.image(c2).affine();
+    corner3 = persp_impl->tmat.image(c3).affine();
+    corner4 = persp_impl->tmat.image(c4).affine();
 }
 
 /* Auxiliary function: Checks whether the half-line from A to B crosses the line segment joining C and D */
@@ -1027,7 +1013,7 @@ box3d_recompute_z_orders (SPBox3D *box) {
     Geom::Point dirs[3];
     for (int i = 0; i < 3; ++i) {
         dirs[i] = persp3d_get_PL_dir_from_pt(persp, c3, Box3D::toProj(Box3D::axes[i]));
-        if (persp3d_VP_is_finite(persp, Proj::axes[i])) {
+        if (persp3d_VP_is_finite(persp->perspective_impl, Proj::axes[i])) {
             num_finite++;
             axis_finite = Box3D::axes[i];
         } else {
@@ -1212,7 +1198,7 @@ box3d_pt_lies_in_PL_sector (SPBox3D const *box, Geom::Point const &pt, int id1, 
     Geom::Point c2(box3d_get_corner_screen(box, id2, false));
 
     int ret = 0;
-    if (persp3d_VP_is_finite(persp, Box3D::toProj(axis))) {
+    if (persp3d_VP_is_finite(persp->perspective_impl, Box3D::toProj(axis))) {
         Geom::Point vp(persp3d_get_VP(persp, Box3D::toProj(axis)).affine());
         Geom::Point v1(c1 - vp);
         Geom::Point v2(c2 - vp);
@@ -1239,7 +1225,7 @@ int
 box3d_VP_lies_in_PL_sector (SPBox3D const *box, Proj::Axis vpdir, int id1, int id2, Box3D::Axis axis) {
     Persp3D *persp = box3d_get_perspective(box);
 
-    if (!persp3d_VP_is_finite(persp, vpdir)) {
+    if (!persp3d_VP_is_finite(persp->perspective_impl, vpdir)) {
         return 0;
     } else {
         return box3d_pt_lies_in_PL_sector(box, persp3d_get_VP(persp, vpdir).affine(), id1, id2, axis);
@@ -1302,31 +1288,6 @@ box3d_check_for_swapped_coords(SPBox3D *box) {
     box3d_exchange_coords(box);
 }
 
-void
-box3d_add_to_selection(SPBox3D *box) {
-    Persp3D *persp = box3d_get_perspective(box);
-    g_return_if_fail(persp);
-    persp3d_add_box_transform(persp, box);
-}
-
-void
-box3d_remove_from_selection(SPBox3D *box) {
-    Persp3D *persp = box3d_get_perspective(box);
-    if (!persp) {
-        /* this can happen if a box is deleted through undo and the persp_ref is already detached;
-           should we rebuild the boxes of each perspective in this case or is it safe to leave it alone? */
-        return;
-    }
-    persp3d_remove_box_transform(persp, box);
-}
-
-void
-box3d_mark_transformed(SPBox3D *box) {
-    Persp3D *persp = box3d_get_perspective(box);
-    g_return_if_fail(persp);
-    persp3d_set_box_transformed(persp, box, true);
-}
-
 static void
 box3d_extract_boxes_rec(SPObject *obj, std::list<SPBox3D *> &boxes) {
     if (SP_IS_BOX3D(obj)) {
@@ -1360,15 +1321,12 @@ box3d_switch_perspectives(SPBox3D *box, Persp3D *old_persp, Persp3D *new_persp, 
         Geom::Point corner0_screen = box3d_get_corner_screen(box, 0, false);
         Geom::Point corner7_screen = box3d_get_corner_screen(box, 7, false);
 
-        box->orig_corner0 = new_persp->tmat.preimage(corner0_screen, z0, Proj::Z);
-        box->orig_corner7 = new_persp->tmat.preimage(corner7_screen, z7, Proj::Z);
+        box->orig_corner0 = new_persp->perspective_impl->tmat.preimage(corner0_screen, z0, Proj::Z);
+        box->orig_corner7 = new_persp->perspective_impl->tmat.preimage(corner7_screen, z7, Proj::Z);
     }
 
     persp3d_remove_box (old_persp, box);
     persp3d_add_box (new_persp, box);
-
-    persp3d_remove_box_transform (old_persp, box);
-    persp3d_add_box_transform (new_persp, box);
 
     gchar *href = g_strdup_printf("#%s", SP_OBJECT_REPR(new_persp)->attribute("id"));
     SP_OBJECT_REPR(box)->setAttribute("inkscape:perspectiveID", href);

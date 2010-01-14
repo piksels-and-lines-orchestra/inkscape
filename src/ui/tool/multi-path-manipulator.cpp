@@ -280,8 +280,12 @@ void MultiPathManipulator::joinNodes()
         }
         _selection.insert(i->first.ptr());
     }
-    // Second part replaces contiguous selections of nodes with single nodes
-    invokeForAll(&PathManipulator::weldNodes, preserve_pos);
+
+    if (joins.empty()) {
+        // Second part replaces contiguous selections of nodes with single nodes
+        invokeForAll(&PathManipulator::weldNodes, preserve_pos);
+    }
+
     _doneWithCleanup(_("Join nodes"));
 }
 

@@ -20,6 +20,7 @@
 #include "snapped-line.h"
 #include "snapped-curve.h"
 #include "snap-preferences.h"
+#include "snap-candidate.h"
 
 struct SnappedConstraints {
     std::list<Inkscape::SnappedPoint> points;
@@ -34,14 +35,13 @@ struct SPItem;
 
 namespace Inkscape
 {
-
 /// Parent for classes that can snap points to something
 class Snapper
 {
 public:
-	Snapper() {}
-	Snapper(SnapManager *sm, ::Geom::Coord const t);
-	virtual ~Snapper() {}
+    Snapper() {}
+    Snapper(SnapManager *sm, ::Geom::Coord const t);
+    virtual ~Snapper() {}
 
     virtual Geom::Coord getSnapperTolerance() const = 0; //returns the tolerance of the snapper in screen pixels (i.e. independent of zoom)
     virtual bool getSnapperAlwaysSnap() const = 0; //if true, then the snapper will always snap, regardless of its tolerance
@@ -53,18 +53,16 @@ public:
 
     // These four methods are only used for grids, for which snapping can be enabled individually
     void setEnabled(bool s);
-	void setSnapVisibleOnly(bool s);
+    void setSnapVisibleOnly(bool s);
     bool getEnabled() const {return _snap_enabled;}
     bool getSnapVisibleOnly() const {return _snap_visible_only;}
 
     virtual void freeSnap(SnappedConstraints &/*sc*/,
                           SnapPreferences::PointType const &/*t*/,
-                          Geom::Point const &/*p*/,
-                          SnapSourceType const &/*source_type*/,
-                          bool const &/*first_point*/,
+                          Inkscape::SnapCandidatePoint const &/*p*/,
                           Geom::OptRect const &/*bbox_to_snap*/,
                           std::vector<SPItem const *> const */*it*/,
-                          std::vector<std::pair<Geom::Point, int> > */*unselected_nodes*/) const {};
+                          std::vector<SnapCandidatePoint> */*unselected_nodes*/) const {};
 
     class ConstraintLine
     {
@@ -91,9 +89,9 @@ public:
         }
 
         Geom::Point projection(Geom::Point const &p) const { // returns the projection of p on this constraintline
-        	Geom::Point const p1_on_cl = _has_point ? _point : p;
-			Geom::Point const p2_on_cl = p1_on_cl + _direction;
-        	return Geom::projection(p, Geom::Line(p1_on_cl, p2_on_cl));
+            Geom::Point const p1_on_cl = _has_point ? _point : p;
+            Geom::Point const p2_on_cl = p1_on_cl + _direction;
+            return Geom::projection(p, Geom::Line(p1_on_cl, p2_on_cl));
         }
 
     private:
@@ -104,20 +102,18 @@ public:
     };
 
     virtual void constrainedSnap(SnappedConstraints &/*sc*/,
-    							 SnapPreferences::PointType const &/*t*/,
-                                 Geom::Point const &/*p*/,
-                                 SnapSourceType const &/*source_type*/,
-                                 bool const &/*first_point*/,
+                                 SnapPreferences::PointType const &/*t*/,
+                                 Inkscape::SnapCandidatePoint const &/*p*/,
                                  Geom::OptRect const &/*bbox_to_snap*/,
                                  ConstraintLine const &/*c*/,
                                  std::vector<SPItem const *> const */*it*/) const {};
 
 protected:
-	SnapManager *_snapmanager;
+    SnapManager *_snapmanager;
 
-	// This is only used for grids, for which snapping can be enabled individually
-	bool _snap_enabled; ///< true if this snapper is enabled, otherwise false
-	bool _snap_visible_only;
+    // This is only used for grids, for which snapping can be enabled individually
+    bool _snap_enabled; ///< true if this snapper is enabled, otherwise false
+    bool _snap_visible_only;
 };
 
 }

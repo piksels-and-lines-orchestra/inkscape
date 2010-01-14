@@ -229,11 +229,14 @@ public:
     ///      method for that
     GSList const *reprList();
 
-    /* list of all perspectives which have a 3D box in the current selection
+    /** @brief Returns a list of all perspectives which have a 3D box in the current selection
        (these may also be nested in groups) */
     std::list<Persp3D *> const perspList();
 
-    std::list<SPBox3D *> const box3DList();
+    /** @brief Returns a list of all 3D boxes in the current selection which are associated to @c
+       persp. If @c pers is @c NULL, return all selected boxes.
+    */
+    std::list<SPBox3D *> const box3DList(Persp3D *persp = NULL);
 
     /** @brief Returns the number of layers in which there are selected objects */
     guint numberOfLayers();
@@ -269,13 +272,13 @@ public:
      * @brief Gets the selection's snap points.
      * @return Selection's snap points
      */
-    std::vector<std::pair<Geom::Point, int> > getSnapPoints(SnapPreferences const *snapprefs) const;
+    std::vector<Inkscape::SnapCandidatePoint> getSnapPoints(SnapPreferences const *snapprefs) const;
 
     /**
      * @brief Gets the snap points of a selection that form a convex hull.
      * @return Selection's convex hull points
      */
-    std::vector<std::pair<Geom::Point, int> > getSnapPointsConvexHull(SnapPreferences const *snapprefs) const;
+    std::vector<Inkscape::SnapCandidatePoint> getSnapPointsConvexHull(SnapPreferences const *snapprefs) const;
 
     /**
      * @brief Connects a slot to be notified of selection changes
@@ -351,7 +354,6 @@ private:
     void remove_box_perspective(SPBox3D *box);
     void remove_3D_boxes_recursively(SPObject *obj);
 
-    std::map<Persp3D *, unsigned int> _persps;
     std::list<SPBox3D *> _3dboxes;
 
     GC::soft_ptr<SPDesktop> _desktop;

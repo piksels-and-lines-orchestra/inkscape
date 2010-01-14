@@ -4,9 +4,6 @@ AUTOMAKE_OPTIONS = foreign
 
 SUBDIRS = src doc share po
 
-appicondir = $(datadir)/pixmaps
-appicon_DATA = inkscape.png
-
 Graphicsdir = $(datadir)/applications
 Graphics_in_files = inkscape.desktop.in
 Graphics_DATA = $(Graphics_in_files:.desktop.in=.desktop)
@@ -185,7 +182,6 @@ EXTRA_DIST = \
 	packaging/win32/welcomefinish.bmp	\
 	packaging/win32/welcomefinish.svg	\
 	packaging/win32/portable/help.html \
-	packaging/win32/portable/portable.7z \
 	packaging/win32/portable/readme.packaging.txt \
 	packaging/win32/portable/App/readme.txt \
 	packaging/win32/portable/App/AppInfo/appicon.ico \

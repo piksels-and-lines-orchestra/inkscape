@@ -222,7 +222,7 @@ DocumentProperties::build_page()
     Gtk::Label* label_bor = manage (new Gtk::Label);
     label_bor->set_markup (_("<b>Border</b>"));
     Gtk::Label *label_for = manage (new Gtk::Label);
-    label_for->set_markup (_("<b>Format</b>"));
+    label_for->set_markup (_("<b>Page Size</b>"));
     _page_sizer.init();
 
     Gtk::Widget *const widget_array[] =
@@ -353,6 +353,7 @@ DocumentProperties::populate_available_profiles(){
                 while ((filename = (gchar *)g_dir_read_name(directory)) != NULL) {
                     gchar* full = g_build_filename(it->c_str(), filename, NULL);
                     if ( !Inkscape::IO::file_test( full, G_FILE_TEST_IS_DIR ) ) {
+                        cmsErrorAction( LCMS_ERROR_SHOW );
                         cmsHPROFILE hProfile = cmsOpenProfileFromFile(full, "r");
                         if (hProfile != NULL){
                             const gchar* name;
@@ -414,7 +415,8 @@ static void sanitizeName( Glib::ustring& str )
     }
 }
 
-void DocumentProperties::linkSelectedProfile()
+void
+DocumentProperties::linkSelectedProfile()
 {
 //store this profile in the SVG document (create <color-profile> element in the XML)
     // TODO remove use of 'active' desktop

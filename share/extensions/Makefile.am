@@ -96,6 +96,7 @@ extensions = \
 	radiusrand.py \
 	restack.py \
 	render_barcode.py \
+	render_barcode_datamatrix.py \
 	render_alphabetsoup.py \
 	render_alphabetsoup_config.py \
 	rtree.py \
@@ -131,6 +132,7 @@ extensions = \
 	web-set-att.py \
 	web-transmit-att.py \
 	whirl.py \
+	wireframe_sphere.py \
 	wmf_output.py \
 	yocto_css.py
 
@@ -222,6 +224,7 @@ modules = \
 	ps_input.inx \
 	radiusrand.inx \
 	render_barcode.inx \
+	render_barcode_datamatrix.inx \
 	render_alphabetsoup.inx \
 	restack.inx \
 	rubberstretch.inx \
@@ -249,6 +252,7 @@ modules = \
 	web-set-att.inx \
 	web-transmit-att.inx \
 	whirl.inx \
+	wireframe_sphere.inx \
 	wmf_input.inx \
 	wmf_output.inx \
 	xaml2svg.inx

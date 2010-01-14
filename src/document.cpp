@@ -63,10 +63,16 @@
 #include "xml/repr.h"
 #include "xml/rebase-hrefs.h"
 
-#define SP_DOCUMENT_UPDATE_PRIORITY (G_PRIORITY_HIGH_IDLE - 1)
+// Higher number means lower priority.
+#define SP_DOCUMENT_UPDATE_PRIORITY (G_PRIORITY_HIGH_IDLE - 2)
+
+// Should have a lower priority than SP_DOCUMENT_UPDATE_PRIORITY,
+// since we want it to happen when there are no more updates.
+#define SP_DOCUMENT_REROUTING_PRIORITY (G_PRIORITY_HIGH_IDLE - 1)
 
 
 static gint sp_document_idle_handler(gpointer data);
+static gint sp_document_rerouting_handler(gpointer data);
 
 gboolean sp_document_resource_list_free(gpointer key, gpointer value, gpointer data);
 
@@ -88,15 +94,16 @@ SPDocument::SPDocument() :
     priv(0), // reset in ctor
     actionkey(0),
     modified_id(0),
+    rerouting_handler_id(0),
     profileManager(0), // deferred until after other initialization
-    router(new Avoid::Router()),
-    perspectives(0),
-    current_persp3d(0),
+    router(new Avoid::Router(Avoid::PolyLineRouting|Avoid::OrthogonalRouting)),
     _collection_queue(0),
-    oldSignalsConnected(false)
+    oldSignalsConnected(false),
+    current_persp3d(0)
 {
-    // Don't use the Consolidate moves optimisation.
-    router->ConsolidateMoves = false;
+    // Penalise libavoid for choosing paths with needless extra segments.
+    // This results in much better looking orthogonal connector paths.
+    router->setRoutingPenalty(Avoid::segmentPenalty);
 
     SPDocumentPrivate *p = new SPDocumentPrivate();
 
@@ -130,6 +137,11 @@ SPDocument::~SPDocument() {
     if ( profileManager ) {
         delete profileManager;
         profileManager = 0;
+    }
+
+    if (router) {
+        delete router;
+        router = NULL;
     }
 
     if (priv) {
@@ -177,8 +189,13 @@ SPDocument::~SPDocument() {
     }
 
     if (modified_id) {
-        gtk_idle_remove(modified_id);
+        g_source_remove(modified_id);
         modified_id = 0;
+    }
+
+    if (rerouting_handler_id) {
+        g_source_remove(rerouting_handler_id);
+        rerouting_handler_id = 0;
     }
 
     if (oldSignalsConnected) {
@@ -195,35 +212,46 @@ SPDocument::~SPDocument() {
         keepalive = FALSE;
     }
 
-    if (router) {
-        delete router;
-        router = NULL;
-    }
-
     //delete this->_whiteboard_session_manager;
-
 }
 
-void SPDocument::add_persp3d (Persp3D * const /*persp*/)
-{
+Persp3D *
+SPDocument::getCurrentPersp3D() {
+    // Check if current_persp3d is still valid
+    std::vector<Persp3D*> plist;
+    getPerspectivesInDefs(plist);
+    for (unsigned int i = 0; i < plist.size(); ++i) {
+        if (current_persp3d == plist[i])
+            return current_persp3d;
+    }
+
+    // If not, return the first perspective in defs (which may be NULL of none exists)
+    current_persp3d = persp3d_document_first_persp (this);
+
+    return current_persp3d;
+}
+
+Persp3DImpl *
+SPDocument::getCurrentPersp3DImpl() {
+    return current_persp3d_impl;
+}
+
+void
+SPDocument::setCurrentPersp3D(Persp3D * const persp) {
+    current_persp3d = persp;
+    //current_persp3d_impl = persp->perspective_impl;
+}
+
+void
+SPDocument::getPerspectivesInDefs(std::vector<Persp3D*> &list) {
     SPDefs *defs = SP_ROOT(this->root)->defs;
     for (SPObject *i = sp_object_first_child(SP_OBJECT(defs)); i != NULL; i = SP_OBJECT_NEXT(i) ) {
-        if (SP_IS_PERSP3D(i)) {
-            g_print ("Encountered a Persp3D in defs\n");
-        }
+        if (SP_IS_PERSP3D(i))
+            list.push_back(SP_PERSP3D(i));
     }
-
-    g_print ("Adding Persp3D to defs\n");
-    persp3d_create_xml_element (this);
 }
 
-void SPDocument::remove_persp3d (Persp3D * const /*persp*/)
-{
-    // TODO: Delete the repr, maybe perform a check if any boxes are still linked to the perspective.
-    //       Anything else?
-    g_print ("Please implement deletion of perspectives here.\n");
-}
-
+/**
 void SPDocument::initialize_current_persp3d()
 {
     this->current_persp3d = persp3d_document_first_persp(this);
@@ -231,6 +259,7 @@ void SPDocument::initialize_current_persp3d()
         this->current_persp3d = persp3d_create_xml_element(this);
     }
 }
+**/
 
 unsigned long SPDocument::serial() const {
     return priv->serial;
@@ -378,10 +407,14 @@ sp_document_create(Inkscape::XML::Document *rdoc,
         inkscape_ref();
     }
 
-    // Remark: Here, we used to create a "currentpersp3d" element in the document defs.
-    // But this is probably a bad idea since we need to adapt it for every change of selection, which will
-    // completely clutter the undo history. Maybe rather save it to prefs on exit and re-read it on startup?
-    document->initialize_current_persp3d();
+    // Check if the document already has a perspective (e.g., when opening an existing
+    // document). If not, create a new one and set it as the current perspective.
+    document->setCurrentPersp3D(persp3d_document_first_persp(document));
+    if (!document->getCurrentPersp3D()) {
+        //document->setCurrentPersp3D(persp3d_create_xml_element (document));
+        Persp3DImpl *persp_impl = new Persp3DImpl();
+        document->setCurrentPersp3DImpl(persp_impl);
+    }
 
     sp_document_set_undo_sensitive(document, true);
 
@@ -582,26 +615,101 @@ Geom::Point sp_document_dimensions(SPDocument *doc)
 }
 
 /**
+ * Gets page fitting margin information from the namedview node in the XML.
+ * \param nv_repr reference to this document's namedview
+ * \param key the same key used by the RegisteredScalarUnit in
+ *        ui/widget/page-sizer.cpp
+ * \param margin_units units for the margin
+ * \param return_units units to return the result in
+ * \param width width in px (for percentage margins)
+ * \param height height in px (for percentage margins)
+ * \param use_width true if the this key is left or right margins, false
+ *        otherwise.  Used for percentage margins.
+ * \return the margin size in px, else 0.0 if anything is invalid.
+ */
+static double getMarginLength(Inkscape::XML::Node * const nv_repr,
+                             gchar const * const key,
+                             SPUnit const * const margin_units,
+                             SPUnit const * const return_units,
+                             double const width,
+                             double const height,
+                             bool const use_width)
+{
+    double value;
+    if (!sp_repr_get_double (nv_repr, key, &value)) {
+        return 0.0;
+    }
+    if (margin_units == &sp_unit_get_by_id (SP_UNIT_PERCENT)) {
+        return (use_width)? width * value : height * value; 
+    }
+    if (!sp_convert_distance (&value, margin_units, return_units)) {
+        return 0.0;
+    }
+    return value;
+}
+
+/**
  * Given a Geom::Rect that may, for example, correspond to the bbox of an object,
  * this function fits the canvas to that rect by resizing the canvas
  * and translating the document root into position.
+ * \param rect fit document size to this
+ * \param with_margins add margins to rect, by taking margins from this
+ *        document's namedview (<sodipodi:namedview> "fit-margin-..."
+ *        attributes, and "units")
  */
-void SPDocument::fitToRect(Geom::Rect const &rect)
+void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
 {
     double const w = rect.width();
     double const h = rect.height();
 
     double const old_height = sp_document_height(this);
     SPUnit const &px(sp_unit_get_by_id(SP_UNIT_PX));
-    sp_document_set_width(this, w, &px);
-    sp_document_set_height(this, h, &px);
-
-    Geom::Translate const tr(Geom::Point(0, (old_height - h))
-                             - to_2geom(rect.min()));
-    SP_GROUP(root)->translateChildItems(tr);
+    
+    /* in px */
+    double margin_top = 0.0;
+    double margin_left = 0.0;
+    double margin_right = 0.0;
+    double margin_bottom = 0.0;
+    
     SPNamedView *nv = sp_document_namedview(this, 0);
+    
+    if (with_margins && nv) {
+        Inkscape::XML::Node *nv_repr = SP_OBJECT_REPR (nv);
+        if (nv_repr != NULL) {
+            gchar const * const units_abbr = nv_repr->attribute("units");
+            SPUnit const *margin_units = NULL;
+            if (units_abbr != NULL) {
+                margin_units = sp_unit_get_by_abbreviation(units_abbr);
+            }
+            if (margin_units == NULL) {
+                margin_units = &sp_unit_get_by_id(SP_UNIT_PX);
+            }
+            margin_top = getMarginLength(nv_repr, "fit-margin-top",
+                                         margin_units, &px, w, h, false);
+            margin_left = getMarginLength(nv_repr, "fit-margin-left",
+                                          margin_units, &px, w, h, true);
+            margin_right = getMarginLength(nv_repr, "fit-margin-right",
+                                           margin_units, &px, w, h, true);
+            margin_bottom = getMarginLength(nv_repr, "fit-margin-bottom",
+                                            margin_units, &px, w, h, false);
+        }
+    }
+    
+    Geom::Rect const rect_with_margins(
+            rect.min() - Geom::Point(margin_left, margin_bottom),
+            rect.max() + Geom::Point(margin_right, margin_top));
+    
+    
+    sp_document_set_width(this, rect_with_margins.width(), &px);
+    sp_document_set_height(this, rect_with_margins.height(), &px);
+
+    Geom::Translate const tr(
+            Geom::Point(0, old_height - rect_with_margins.height())
+            - to_2geom(rect_with_margins.min()));
+    SP_GROUP(root)->translateChildItems(tr);
+
     if(nv) {
-        Geom::Translate tr2(-rect.min());
+        Geom::Translate tr2(-rect_with_margins.min());
         nv->translateGuides(tr2);
 
         // update the viewport so the drawing appears to stay where it was
@@ -734,11 +842,13 @@ SPDocument::emitReconstructionFinish(void)
 {
     // printf("Finishing Reconstruction\n");
     priv->_reconstruction_finish_signal.emit();
-    
+
+/**    
     // Reference to the old persp3d object is invalid after reconstruction.
     initialize_current_persp3d();
     
     return;
+**/
 }
 
 sigc::connection SPDocument::connectCommit(SPDocument::CommitSignal::slot_type slot)
@@ -852,7 +962,12 @@ void
 sp_document_request_modified(SPDocument *doc)
 {
     if (!doc->modified_id) {
-        doc->modified_id = gtk_idle_add_priority(SP_DOCUMENT_UPDATE_PRIORITY, sp_document_idle_handler, doc);
+        doc->modified_id = g_idle_add_full(SP_DOCUMENT_UPDATE_PRIORITY, 
+                sp_document_idle_handler, doc, NULL);
+    }
+    if (!doc->rerouting_handler_id) {
+        doc->rerouting_handler_id = g_idle_add_full(SP_DOCUMENT_REROUTING_PRIORITY, 
+                sp_document_rerouting_handler, doc, NULL);
     }
 }
 
@@ -908,25 +1023,48 @@ SPDocument::_updateDocument()
  * Repeatedly works on getting the document updated, since sometimes
  * it takes more than one pass to get the document updated.  But it
  * usually should not take more than a few loops, and certainly never
- * more than 64 iterations.  So we bail out if we hit 64 iterations,
+ * more than 32 iterations.  So we bail out if we hit 32 iterations,
  * since this typically indicates we're stuck in an update loop.
  */
 gint
 sp_document_ensure_up_to_date(SPDocument *doc)
 {
-    int counter = 64;
-    while (!doc->_updateDocument()) {
-        if (counter == 0) {
-            g_warning("More than 64 iteration while updating document '%s'", doc->uri? doc->uri:"<unknown URI, probably clipboard>");
+    // Bring the document up-to-date, specifically via the following:
+    //   1a) Process all document updates.
+    //   1b) When completed, process connector routing changes.
+    //   2a) Process any updates resulting from connector reroutings.
+    int counter = 32;
+    for (unsigned int pass = 1; pass <= 2; ++pass) {
+        // Process document updates.
+        while (!doc->_updateDocument()) {
+            if (counter == 0) {
+                g_warning("More than 32 iteration while updating document '%s'", doc->uri);
+                break;
+            }
+            counter--;
+        }
+        if (counter == 0)
+        {
             break;
         }
-        counter--;
-    }
 
+        // After updates on the first pass we get libavoid to process all the 
+        // changed objects and provide new routings.  This may cause some objects
+            // to be modified, hence the second update pass.
+        if (pass == 1) {
+            doc->router->processTransaction();
+        }
+    }
+    
     if (doc->modified_id) {
         /* Remove handler */
-        gtk_idle_remove(doc->modified_id);
+        g_source_remove(doc->modified_id);
         doc->modified_id = 0;
+    }
+    if (doc->rerouting_handler_id) {
+        /* Remove handler */
+        g_source_remove(doc->rerouting_handler_id);
+        doc->rerouting_handler_id = 0;
     }
     return counter>0;
 }
@@ -945,6 +1083,24 @@ sp_document_idle_handler(gpointer data)
     } else {
         return true;
     }
+}
+
+/**
+ * An idle handler to reroute connectors in the document.  
+ */
+static gint
+sp_document_rerouting_handler(gpointer data)
+{
+    // Process any queued movement actions and determine new routings for 
+    // object-avoiding connectors.  Callbacks will be used to update and 
+    // redraw affected connectors.
+    SPDocument *doc = static_cast<SPDocument *>(data);
+    doc->router->processTransaction();
+    
+    // We don't need to handle rerouting again until there are further 
+    // diagram updates.
+    doc->rerouting_handler_id = 0;
+    return false;
 }
 
 static bool is_within(Geom::Rect const &area, Geom::Rect const &box)

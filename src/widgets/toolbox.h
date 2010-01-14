@@ -7,6 +7,7 @@
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Frank Felfe <innerspace@iname.com>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 1999-2002 Authors
  * Copyright (C) 2001-2002 Ximian, Inc.
@@ -16,38 +17,45 @@
 
 #include <gtk/gtkstyle.h>
 #include <gtk/gtktooltips.h>
+#include <glibmm/ustring.h>
 
 #include "forward.h"
 #include "icon-size.h"
 
-GtkWidget *sp_tool_toolbox_new ();
-void sp_tool_toolbox_set_desktop(GtkWidget *toolbox, SPDesktop *desktop);
+namespace Inkscape {
+namespace UI {
 
-GtkWidget *sp_aux_toolbox_new ();
-void sp_aux_toolbox_set_desktop(GtkWidget *toolbox, SPDesktop *desktop);
+class ToolboxFactory
+{
+public:
+    static void setToolboxDesktop(GtkWidget *toolbox, SPDesktop *desktop);
+    static void setOrientation(GtkWidget* toolbox, GtkOrientation orientation);
+    static void showAuxToolbox(GtkWidget* toolbox);
 
-GtkWidget *sp_commands_toolbox_new ();
-void sp_commands_toolbox_set_desktop(GtkWidget *toolbox, SPDesktop *desktop);
+    static GtkWidget *createToolToolbox();
+    static GtkWidget *createAuxToolbox();
+    static GtkWidget *createCommandsToolbox();
+    static GtkWidget *createSnapToolbox();
 
-GtkWidget *sp_snap_toolbox_new ();
-void sp_snap_toolbox_set_desktop(GtkWidget *toolbox, SPDesktop *desktop);
-void update_snap_toolbox(SPDesktop *desktop, SPEventContext *eventcontext, GtkWidget *toolbox);
-void setup_snap_toolbox (GtkWidget *toolbox, SPDesktop *desktop);
+    static Glib::ustring getToolboxName(GtkWidget* toolbox);
 
-void show_aux_toolbox(GtkWidget *toolbox);
+    static void updateSnapToolbox(SPDesktop *desktop, SPEventContext *eventcontext, GtkWidget *toolbox);
 
-GtkWidget *sp_toolbox_button_normal_new_from_verb(GtkWidget *t,
-                                                  Inkscape::IconSize size,
-                                                  Inkscape::Verb * verb,
-                                                  Inkscape::UI::View::View *view,
-                                                  GtkTooltips *tt);
+    static Inkscape::IconSize prefToSize(Glib::ustring const &path, int base = 0 );
 
-void aux_toolbox_space(GtkWidget *tb, gint space);
+private:
+    ToolboxFactory();
+};
+
+} // namespace UI
+} // namespace Inkscape
+
 
 // utility
+
+// TODO remove this:
 void sp_toolbox_add_label(GtkWidget *tbl, gchar const *title, bool wide = true);
 
-Inkscape::IconSize prefToSize(Glib::ustring const &path, int base = 0 );
 
 #endif /* !SEEN_TOOLBOX_H */
 

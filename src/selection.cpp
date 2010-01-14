@@ -162,24 +162,12 @@ void Selection::add(SPObject *obj, bool persist_selection_context/* = false */) 
     _emitChanged(persist_selection_context);
 }
 
-void Selection::add_box_perspective(SPBox3D *box) {
-    Persp3D *persp = box3d_get_perspective(box);
-    std::map<Persp3D *, unsigned int>::iterator p = _persps.find(persp);
-    if (p != _persps.end()) {
-        (*p).second++;
-    } else {
-        _persps[persp] = 1;
-    }
-}
-
 void Selection::add_3D_boxes_recursively(SPObject *obj) {
     std::list<SPBox3D *> boxes = box3d_extract_boxes(obj);
 
     for (std::list<SPBox3D *>::iterator i = boxes.begin(); i != boxes.end(); ++i) {
         SPBox3D *box = *i;
-        box3d_add_to_selection(box);
         _3dboxes.push_back(box);
-        add_box_perspective(box);
     }
 }
 
@@ -220,33 +208,17 @@ void Selection::remove(SPObject *obj) {
     _emitChanged();
 }
 
-void Selection::remove_box_perspective(SPBox3D *box) {
-    Persp3D *persp = box3d_get_perspective(box);
-    std::map<Persp3D *, unsigned int>::iterator p = _persps.find(persp);
-    if (p == _persps.end()) {
-        g_print ("Warning! Trying to remove unselected perspective from selection!\n");
-        return;
-    }
-    if ((*p).second > 1) {
-        _persps[persp]--;
-    } else {
-        _persps.erase(p);
-    }
-}
-
 void Selection::remove_3D_boxes_recursively(SPObject *obj) {
     std::list<SPBox3D *> boxes = box3d_extract_boxes(obj);
 
     for (std::list<SPBox3D *>::iterator i = boxes.begin(); i != boxes.end(); ++i) {
         SPBox3D *box = *i;
-        box3d_remove_from_selection(box);
         std::list<SPBox3D *>::iterator b = std::find(_3dboxes.begin(), _3dboxes.end(), box);
         if (b == _3dboxes.end()) {
             g_print ("Warning! Trying to remove unselected box from selection.\n");
             return;
         }
         _3dboxes.erase(b);
-        remove_box_perspective(box);
     }
 }
 
@@ -344,14 +316,27 @@ GSList const *Selection::reprList() {
 
 std::list<Persp3D *> const Selection::perspList() {
     std::list<Persp3D *> pl;
-    for (std::map<Persp3D *, unsigned int>::iterator p = _persps.begin(); p != _persps.end(); ++p) {
-        pl.push_back((*p).first);
+    for (std::list<SPBox3D *>::iterator i = _3dboxes.begin(); i != _3dboxes.end(); ++i) {
+        Persp3D *persp = box3d_get_perspective(*i);
+        if (std::find(pl.begin(), pl.end(), persp) == pl.end())
+            pl.push_back(persp);
     }
     return pl;
 }
 
-std::list<SPBox3D *> const Selection::box3DList() {
-    return _3dboxes;
+std::list<SPBox3D *> const Selection::box3DList(Persp3D *persp) {
+    std::list<SPBox3D *> boxes;
+    if (persp) {
+        SPBox3D *box;
+        for (std::list<SPBox3D *>::iterator i = _3dboxes.begin(); i != _3dboxes.end(); ++i) {
+            box = *i;
+            if (persp == box3d_get_perspective(box))
+                boxes.push_back(box);
+        }
+    } else {
+        boxes = _3dboxes;
+    }
+    return boxes;
 }
 
 SPObject *Selection::single() {
@@ -441,48 +426,48 @@ boost::optional<Geom::Point> Selection::center() const {
 /**
  * Compute the list of points in the selection that are to be considered for snapping.
  */
-std::vector<std::pair<Geom::Point, int> > Selection::getSnapPoints(SnapPreferences const *snapprefs) const {
+std::vector<Inkscape::SnapCandidatePoint> Selection::getSnapPoints(SnapPreferences const *snapprefs) const {
     GSList const *items = const_cast<Selection *>(this)->itemList();
 
     SnapPreferences snapprefs_dummy = *snapprefs; // create a local copy of the snapping prefs
     snapprefs_dummy.setIncludeItemCenter(false); // locally disable snapping to the item center
 
-    std::vector<std::pair<Geom::Point, int> > p;
+    std::vector<Inkscape::SnapCandidatePoint> p;
     for (GSList const *iter = items; iter != NULL; iter = iter->next) {
         SPItem *this_item = SP_ITEM(iter->data);
-        sp_item_snappoints(this_item, false, p, &snapprefs_dummy);
+        sp_item_snappoints(this_item, p, &snapprefs_dummy);
 
         //Include the transformation origin for snapping
         //For a selection or group only the overall origin is considered
         if (snapprefs != NULL && snapprefs->getIncludeItemCenter()) {
-        	p.push_back(std::make_pair(this_item->getCenter(), SNAPSOURCE_ROTATION_CENTER));
+            p.push_back(Inkscape::SnapCandidatePoint(this_item->getCenter(), SNAPSOURCE_ROTATION_CENTER));
         }
     }
 
     return p;
 }
 
-std::vector<std::pair<Geom::Point, int> > Selection::getSnapPointsConvexHull(SnapPreferences const *snapprefs) const {
+std::vector<Inkscape::SnapCandidatePoint> Selection::getSnapPointsConvexHull(SnapPreferences const *snapprefs) const {
     GSList const *items = const_cast<Selection *>(this)->itemList();
 
-    std::vector<std::pair<Geom::Point, int> > p;
+    std::vector<Inkscape::SnapCandidatePoint> p;
     for (GSList const *iter = items; iter != NULL; iter = iter->next) {
-		sp_item_snappoints(SP_ITEM(iter->data), false, p, snapprefs);
+        sp_item_snappoints(SP_ITEM(iter->data), p, snapprefs);
     }
 
-    std::vector<std::pair<Geom::Point, int> > pHull;
+    std::vector<Inkscape::SnapCandidatePoint> pHull;
     if (!p.empty()) {
-    	std::vector<std::pair<Geom::Point, int> >::iterator i;
-        Geom::RectHull cvh((p.front()).first);
+        std::vector<Inkscape::SnapCandidatePoint>::iterator i;
+        Geom::RectHull cvh((p.front()).getPoint());
         for (i = p.begin(); i != p.end(); i++) {
             // these are the points we get back
-            cvh.add((*i).first);
+            cvh.add((*i).getPoint());
         }
 
         Geom::OptRect rHull = cvh.bounds();
         if (rHull) {
             for ( unsigned i = 0 ; i < 4 ; ++i ) {
-                pHull.push_back(std::make_pair(rHull->corner(i), SNAPSOURCE_CONVEX_HULL_CORNER));
+                pHull.push_back(Inkscape::SnapCandidatePoint(rHull->corner(i), SNAPSOURCE_CONVEX_HULL_CORNER));
             }
         }
     }

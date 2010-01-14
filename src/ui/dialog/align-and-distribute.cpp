@@ -706,14 +706,16 @@ private :
         {
             if (SP_IS_TEXT (*it) || SP_IS_FLOWTEXT (*it)) {
                 Inkscape::Text::Layout const *layout = te_get_layout(*it);
-                Geom::Point base = layout->characterAnchorPoint(layout->begin()) * sp_item_i2d_affine(*it);
-                if (base[Geom::X] < b_min[Geom::X]) b_min[Geom::X] = base[Geom::X];
-                if (base[Geom::Y] < b_min[Geom::Y]) b_min[Geom::Y] = base[Geom::Y];
-                if (base[Geom::X] > b_max[Geom::X]) b_max[Geom::X] = base[Geom::X];
-                if (base[Geom::Y] > b_max[Geom::Y]) b_max[Geom::Y] = base[Geom::Y];
-
-                Baselines b (*it, base, _orientation);
-                sorted.push_back(b);
+                boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
+                if (pt) {
+                    Geom::Point base = *pt * sp_item_i2d_affine(*it);
+                    if (base[Geom::X] < b_min[Geom::X]) b_min[Geom::X] = base[Geom::X];
+                    if (base[Geom::Y] < b_min[Geom::Y]) b_min[Geom::Y] = base[Geom::Y];
+                    if (base[Geom::X] > b_max[Geom::X]) b_max[Geom::X] = base[Geom::X];
+                    if (base[Geom::Y] > b_max[Geom::Y]) b_max[Geom::Y] = base[Geom::Y];
+                    Baselines b (*it, base, _orientation);
+                    sorted.push_back(b);
+                }
             }
         }
 
@@ -747,11 +749,14 @@ private :
             {
                 if (SP_IS_TEXT (*it) || SP_IS_FLOWTEXT (*it)) {
                     Inkscape::Text::Layout const *layout = te_get_layout(*it);
-                    Geom::Point base = layout->characterAnchorPoint(layout->begin()) * sp_item_i2d_affine(*it);
-                    Geom::Point t(0.0, 0.0);
-                    t[_orientation] = b_min[_orientation] - base[_orientation];
-                    sp_item_move_rel(*it, Geom::Translate(t));
-                    changed = true;
+                    boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
+                    if (pt) {
+                        Geom::Point base = *pt * sp_item_i2d_affine(*it);
+                        Geom::Point t(0.0, 0.0);
+                        t[_orientation] = b_min[_orientation] - base[_orientation];
+                        sp_item_move_rel(*it, Geom::Translate(t));
+                        changed = true;
+                    }
                 }
             }
 
@@ -808,7 +813,7 @@ AlignAndDistribute::AlignAndDistribute()
                    _("Align left edges"),
                    0, 1);
     addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_CENTER,
-                   _("Center objects horizontally"),
+                   _("Center on vertical axis"),
                    0, 2);
     addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_RIGHT,
                    _("Align right sides"),
