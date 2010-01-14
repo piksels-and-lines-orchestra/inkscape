@@ -438,8 +438,8 @@ bool ControlPoint::_eventHandler(GdkEvent *event)
     case GDK_BUTTON_RELEASE:
         if (!_event_grab) break;
 
-        // TODO I think this "feature" is wrong.
-        // sp_event_context_snap_watchdog_callback(_desktop->event_context->_delayed_snap_event);
+        // TODO I think snapping on release is wrong, or at least counter-intuitive.
+        sp_event_context_snap_watchdog_callback(_desktop->event_context->_delayed_snap_event);
         sp_event_context_discard_delayed_snap_event(_desktop->event_context);
         _desktop->snapindicator->remove_snaptarget();
 
