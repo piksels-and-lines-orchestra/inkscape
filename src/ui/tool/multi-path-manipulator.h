@@ -55,7 +55,7 @@ public:
     void joinNodes();
     void breakNodes();
     void deleteNodes(bool keep_shape = true);
-    void joinSegment();
+    void joinSegments();
     void deleteSegments();
     void alignNodes(Geom::Dim2 d);
     void distributeNodes(Geom::Dim2 d);

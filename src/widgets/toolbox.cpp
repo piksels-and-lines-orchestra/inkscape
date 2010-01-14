@@ -1061,7 +1061,7 @@ void
 sp_node_path_edit_join_segment(void)
 {
     InkNodeTool *nt = get_node_tool();
-    if (nt) nt->_multipath->joinSegment();
+    if (nt) nt->_multipath->joinSegments();
 }
 
 void

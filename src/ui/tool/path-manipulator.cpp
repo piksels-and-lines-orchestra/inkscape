@@ -317,19 +317,21 @@ void PathManipulator::weldNodes(NodeList::iterator preserve_pos)
         }
 
         // Start from unselected node in closed paths, so that we don't start in the middle
-        // of a contiguous selection
+        // of a selection
         NodeList::iterator sel_beg = sp->begin(), sel_end;
         if (sp->closed()) {
             while (sel_beg->selected()) ++sel_beg;
         }
 
-        // Main loop
+        // Work loop
         while (num_selected > 0) {
             // Find selected node
             while (sel_beg && !sel_beg->selected()) sel_beg = sel_beg.next();
             if (!sel_beg) throw std::logic_error("Join nodes: end of open path reached, "
                 "but there are still nodes to process!");
 
+            // note: this is initialized to zero, because the loop below counts sel_beg as well
+            // the loop conditions are simpler that way
             unsigned num_points = 0;
             bool use_pos = false;
             Geom::Point back_pos, front_pos;
@@ -373,7 +375,57 @@ void PathManipulator::weldNodes(NodeList::iterator preserve_pos)
 /** Remove nodes in the middle of selected segments. */
 void PathManipulator::weldSegments()
 {
-    // TODO
+    if (!_num_selected) return;
+    _dragpoint->setVisible(false);
+
+    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
+        SubpathPtr sp = *i;
+        unsigned num_selected = 0, num_unselected = 0;
+        for (NodeList::iterator j = sp->begin(); j != sp->end(); ++j) {
+            if (j->selected()) ++num_selected;
+            else ++num_unselected;
+        }
+        if (num_selected < 3) continue;
+        if (num_unselected == 0 && sp->closed()) {
+            // if all nodes in a closed subpath are selected, the operation doesn't make much sense
+            continue;
+        }
+
+        // Start from unselected node in closed paths, so that we don't start in the middle
+        // of a selection
+        NodeList::iterator sel_beg = sp->begin(), sel_end;
+        if (sp->closed()) {
+            while (sel_beg->selected()) ++sel_beg;
+        }
+
+        // Work loop
+        while (num_selected > 0) {
+            // Find selected node
+            while (sel_beg && !sel_beg->selected()) sel_beg = sel_beg.next();
+            if (!sel_beg) throw std::logic_error("Join nodes: end of open path reached, "
+                "but there are still nodes to process!");
+
+            // note: this is initialized to zero, because the loop below counts sel_beg as well
+            // the loop conditions are simpler that way
+            unsigned num_points = 0;
+
+            // find the end of selected segment
+            for (sel_end = sel_beg; sel_end && sel_end->selected(); sel_end = sel_end.next()) {
+                ++num_points;
+            }
+            if (num_points > 2) {
+                // remove nodes in the middle
+                sel_beg = sel_beg.next();
+                while (sel_beg != sel_end.prev()) {
+                    NodeList::iterator next = sel_beg.next();
+                    sp->erase(sel_beg);
+                    sel_beg = next;
+                }
+                sel_beg = sel_end;
+            }
+            num_selected -= num_points;
+        }
+    }
 }
 
 /** Break the subpath at selected nodes. It also works for single node closed paths. */

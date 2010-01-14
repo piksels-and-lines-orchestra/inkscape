@@ -304,15 +304,10 @@ void MultiPathManipulator::deleteNodes(bool keep_shape)
 }
 
 /** Join selected endpoints to create segments. */
-void MultiPathManipulator::joinSegment()
+void MultiPathManipulator::joinSegments()
 {
     IterPairList joins;
     find_join_iterators(_selection, joins);
-    if (joins.empty()) {
-        _desktop->messageStack()->flash(Inkscape::WARNING_MESSAGE,
-            _("There must be at least 2 endnodes in selection"));
-        return;
-    }
 
     for (IterPairList::iterator i = joins.begin(); i != joins.end(); ++i) {
         bool same_path = prepare_join(*i);
@@ -328,6 +323,9 @@ void MultiPathManipulator::joinSegment()
         }
     }
 
+    if (joins.empty()) {
+        invokeForAll(&PathManipulator::weldSegments);
+    }
     _doneWithCleanup("Join segments");
 }
 
@@ -421,7 +419,7 @@ bool MultiPathManipulator::event(GdkEvent *event)
                 return true;
             }
             if (held_only_alt(event->key)) {
-                joinSegment();
+                joinSegments();
                 return true;
             }
             break;
