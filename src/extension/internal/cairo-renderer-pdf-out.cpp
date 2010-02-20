@@ -20,6 +20,7 @@
 #include "cairo-renderer-pdf-out.h"
 #include "cairo-render-context.h"
 #include "cairo-renderer.h"
+#include "pdflatex-renderer.h"
 #include <print.h>
 #include "extension/system.h"
 #include "extension/print.h"
@@ -32,6 +33,8 @@
 #include "display/canvas-bpath.h"
 #include "sp-item.h"
 #include "sp-root.h"
+
+#include <2geom/matrix.h>
 
 namespace Inkscape {
 namespace Extension {
@@ -48,7 +51,7 @@ CairoRendererPdfOutput::check (Inkscape::Extension::Extension * module)
 
 static bool
 pdf_render_document_to_file(SPDocument *doc, gchar const *filename, unsigned int level,
-                            bool texttopath, bool texttolatex, bool filtertobitmap, int resolution,
+                            bool texttopath, bool omittext, bool filtertobitmap, int resolution,
                             const gchar * const exportId, bool exportDrawing, bool exportCanvas)
 {
     sp_document_ensure_up_to_date(doc);
@@ -83,7 +86,7 @@ pdf_render_document_to_file(SPDocument *doc, gchar const *filename, unsigned int
     CairoRenderContext *ctx = renderer->createContext();
     ctx->setPDFLevel(level);
     ctx->setTextToPath(texttopath);
-    renderer->_omitText = texttolatex;
+    renderer->_omitText = omittext;
     ctx->setFilterToBitmap(filtertobitmap);
     ctx->setBitmapResolution(resolution);
 
@@ -102,6 +105,45 @@ pdf_render_document_to_file(SPDocument *doc, gchar const *filename, unsigned int
     nr_object_unref((NRObject *) arena);
 
     renderer->destroyContext(ctx);
+    delete renderer;
+
+    return ret;
+}
+
+static bool
+latex_render_document_text_to_file( SPDocument *doc, gchar const *filename, 
+                                    const gchar * const exportId, bool exportDrawing, bool exportCanvas)
+{
+    sp_document_ensure_up_to_date(doc);
+
+/* Start */
+
+    SPItem *base = NULL;
+
+    bool pageBoundingBox = true;
+    if (exportId && strcmp(exportId, "")) {
+        // we want to export the given item only
+        base = SP_ITEM(doc->getObjectById(exportId));
+        pageBoundingBox = exportCanvas;
+    }
+    else {
+        // we want to export the entire document from root
+        base = SP_ITEM(sp_document_root(doc));
+        pageBoundingBox = !exportDrawing;
+    }
+
+    if (!base)
+        return false;
+
+    /* Create renderer */
+    PDFLaTeXRenderer *renderer = new PDFLaTeXRenderer();
+
+    /* Render document */
+    bool ret = renderer->setupDocument(doc, pageBoundingBox, base);
+    if (ret) {
+        renderer->renderItem(base);
+    }
+
     delete renderer;
 
     return ret;
@@ -195,15 +237,29 @@ CairoRendererPdfOutput::save(Inkscape::Extension::Output *mod, SPDocument *doc, 
         g_warning("Parameter <exportCanvas> might not exist");
     }
 
-    gchar * final_name;
-    final_name = g_strdup_printf("> %s", filename);
-    ret = pdf_render_document_to_file(doc, final_name, level,
-                                      new_textToPath, new_textToLaTeX, new_blurToBitmap, new_bitmapResolution,
-                                      new_exportId, new_exportDrawing, new_exportCanvas);
-    g_free(final_name);
+    // Create PDF file
+    {
+        gchar * final_name;
+        final_name = g_strdup_printf("> %s", filename);
+        ret = pdf_render_document_to_file(doc, final_name, level,
+                                          new_textToPath, new_textToLaTeX, new_blurToBitmap, new_bitmapResolution,
+                                          new_exportId, new_exportDrawing, new_exportCanvas);
+        g_free(final_name);
 
-    if (!ret)
-        throw Inkscape::Extension::Output::save_failed();
+        if (!ret)
+            throw Inkscape::Extension::Output::save_failed();
+    }
+
+    // Create LaTeX file (if requested)
+    if (new_textToLaTeX) {
+        gchar * tex_filename;
+        tex_filename = g_strdup_printf("%s.tex", filename);
+        ret = latex_render_document_text_to_file(doc, tex_filename, new_exportId, new_exportDrawing, new_exportCanvas);
+        g_free(tex_filename);
+
+        if (!ret)
+            throw Inkscape::Extension::Output::save_failed();
+    }
 }
 
 #include "clear-n_.h"

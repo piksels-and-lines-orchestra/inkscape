@@ -598,6 +598,8 @@ CairoRenderer::renderItem(CairoRenderContext *ctx, SPItem *item)
 bool
 CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool pageBoundingBox, SPItem *base)
 {
+// PLEASE note when making changes to the boundingbox and transform calculation, corresponding changes should be made to PDFLaTeXRenderer::setupDocument !!!
+
     g_assert( ctx != NULL );
 
     if (!base)
