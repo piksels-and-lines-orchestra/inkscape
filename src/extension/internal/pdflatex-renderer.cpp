@@ -105,10 +105,11 @@ namespace Internal {
 PDFLaTeXRenderer::PDFLaTeXRenderer(void)
   : _stream(NULL),
     _filename(NULL),
-    _m(Geom::identity()),
     _width(0),
     _height(0)
-{}
+{
+    push_transform(Geom::identity());
+}
 
 PDFLaTeXRenderer::~PDFLaTeXRenderer(void)
 {
@@ -334,9 +335,13 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
 
+    push_transform(sp_item_i2doc_affine(item));
+
     gchar *str = sp_te_get_string_multiline(item);
-    Geom::Point pos = SP_TEXT(item)->attributes.firstXY();
+    Geom::Point pos = textobj->attributes.firstXY() * transform();
     gchar *alignment = "lb";
+
+    pop_transform();
 
     // write to LaTeX
     Inkscape::SVGOStringStream os;
@@ -370,10 +375,10 @@ PDFLaTeXRenderer::sp_root_render(SPItem *item)
 
 //    ctx->pushState();
 //    setStateForItem(ctx, item);
-//    Geom::Matrix tempmat (root->c2p);
-//    ctx->transform(&tempmat);
+    Geom::Matrix tempmat (root->c2p);
+    push_transform(tempmat);
     sp_group_render(item);
-//    ctx->popState();
+    pop_transform();
 }
 
 void
@@ -470,22 +475,21 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
     }
 
     // convert from px to pt
-    d.x0 *= PT_PER_PX;
-    d.x1 *= PT_PER_PX;
-    d.y0 *= PT_PER_PX;
-    d.y1 *= PT_PER_PX;
-
-    _width = d.x1-d.x0;
-    _height = d.y1-d.y0;
+    push_transform( Geom::Scale(PT_PER_PX, PT_PER_PX) );
 
     if (!pageBoundingBox)
     {
         double high = sp_document_height(doc);
-        high *= PT_PER_PX;
 
-        transform( Geom::Translate( -d.x0 * PX_PER_PT,
-                                    (d.y1 - high) * PX_PER_PT ) );
+        push_transform( Geom::Translate( -d.x0,
+                                         -d.y0 ) );
     }
+
+    // flip y-axis
+    push_transform( Geom::Scale(1,-1) * Geom::Translate(0, sp_document_height(doc)) );
+
+    _width = (d.x1-d.x0) * PT_PER_PX;
+    _height = (d.y1-d.y0) * PT_PER_PX;
 
     // write the info to LaTeX
     Inkscape::SVGOStringStream os;
@@ -500,12 +504,28 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
     return true;
 }
 
-void
-PDFLaTeXRenderer::transform(Geom::Matrix const &transform)
+Geom::Matrix const &
+PDFLaTeXRenderer::transform()
 {
-    _m *= transform;
+    return _transform_stack.top();
 }
 
+void
+PDFLaTeXRenderer::push_transform(Geom::Matrix const &tr)
+{
+    if(_transform_stack.size()){
+        Geom::Matrix tr_top = _transform_stack.top();
+        _transform_stack.push(tr * tr_top);
+    } else {
+        _transform_stack.push(tr);
+    }
+}
+
+void
+PDFLaTeXRenderer::pop_transform()
+{
+    _transform_stack.pop();
+}
 
 /*
 #include "macros.h" // SP_PRINT_*

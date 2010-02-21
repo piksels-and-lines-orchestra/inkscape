@@ -26,6 +26,7 @@
 #include <cairo.h>
 
 #include <2geom/matrix.h>
+#include <stack>
 
 class SPClipPath;
 class SPMask;
@@ -58,8 +59,10 @@ protected:
     FILE * _stream;
     gchar * _filename;
 
-    void transform(Geom::Matrix const &transform);
-    Geom::Matrix _m; // the transform for current item
+    void push_transform(Geom::Matrix const &transform);
+    Geom::Matrix const & transform();
+    void pop_transform();
+    std::stack<Geom::Matrix> _transform_stack;
     double _width;
     double _height;
 
