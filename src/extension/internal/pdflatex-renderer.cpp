@@ -139,14 +139,17 @@ PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
         while (isspace(*filename)) filename += 1;
         
         _filename = g_strdup(filename);
-        Inkscape::IO::dump_fopen_call(filename, "K");
-        FILE *osf = Inkscape::IO::fopen_utf8name(filename, "w+");
+
+        gchar *filename_ext = g_strdup_printf("%s.tex", filename);
+        Inkscape::IO::dump_fopen_call(filename_ext, "K");
+        FILE *osf = Inkscape::IO::fopen_utf8name(filename_ext, "w+");
         if (!osf) {
             fprintf(stderr, "inkscape: fopen(%s): %s\n",
-                    filename, strerror(errno));
+                    filename_ext, strerror(errno));
             return false;
         }
         _stream = osf;
+        g_free(filename_ext);
     }
 
     if (_stream) {
@@ -158,6 +161,7 @@ PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
 
     fprintf(_stream, "%%%% Creator: Inkscape %s, www.inkscape.org\n", PACKAGE_STRING);
     fprintf(_stream, "%%%% PDF + LaTeX output extension by Johan Engelen, 2010\n");
+    fprintf(_stream, "%%%% Accompanies %s.pdf\n", _filename);
     /* flush this to test output stream as early as possible */
     if (fflush(_stream)) {
         if (ferror(_stream)) {
@@ -274,8 +278,14 @@ PDFLaTeXRenderer::writePostamble()
 {
     fprintf(_stream, "%s", postamble1);
 
-    // TODO: strip path from filename on Windows
-    fprintf(_stream, "      \\put(0,0){\\includegraphics{%s.pdf}}%%\n", _filename);
+    // strip pathname on windows, as it is probably desired. It is not possible to work without paths on windows yet. (bug)
+#ifdef WIN32
+    gchar *figurefile = g_path_get_basename(_filename);
+#else
+    gchar *figurefile = g_strdup(_filename);
+#endif
+    fprintf(_stream, "      \\put(0,0){\\includegraphics{%s.pdf}}%%\n", figurefile);
+    g_free(figurefile);
 
     fprintf(_stream, "%s", postamble2);
 }
