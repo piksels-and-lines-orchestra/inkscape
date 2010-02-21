@@ -335,18 +335,32 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
 
-    push_transform(sp_item_i2doc_affine(item));
+    Geom::Matrix i2doc = sp_item_i2doc_affine(item);
+    push_transform(i2doc);
 
     gchar *str = sp_te_get_string_multiline(item);
     Geom::Point pos = textobj->attributes.firstXY() * transform();
     gchar *alignment = "lb";
+
+    // get rotation
+    Geom::Matrix wotransl = i2doc.without_translation();
+    double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
 
     pop_transform();
 
     // write to LaTeX
     Inkscape::SVGOStringStream os;
 
-    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){\\makebox(0,0)[" << alignment << "]{\\strut{}" << str << "}}%%\n";
+//    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){\\makebox(0,0)[" << alignment << "]{\\strut{}" << str << "}}%%\n";
+    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
+    if (!Geom::are_near(degrees,0.)) {
+        os << "\\rotatebox{" << degrees << "}{";
+    }
+    os <<   str;
+    if (!Geom::are_near(degrees,0.)) {
+        os << "}";
+    }
+    os << "}%%\n";
 
     fprintf(_stream, "%s", os.str().c_str());
 }
@@ -497,7 +511,6 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
     os << "  \\begin{picture}(" << _width << "," << _height << ")%%\n";
     os << "    \\gplgaddtomacro\\gplbacktext{%%\n";
     os << "      \\csname LTb\\endcsname%%\n";
-    os << "\\put(0,0){\\makebox(0,0)[lb]{\\strut{}0,0}}%%\n";
 
     fprintf(_stream, "%s", os.str().c_str());
 
