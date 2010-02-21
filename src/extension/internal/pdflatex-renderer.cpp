@@ -185,9 +185,9 @@ PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
 static char const preamble[] =
 "%% To include the image in your LaTeX document, write\n"
 "%%   \\setlength{\\unitlength}{<desired width>}\n"
-"%%   \\input{filename.tex}\n"
+"%%   \\input{<filename>.tex}\n"
 "%% instead of\n"
-"%%   \\includegraphics[width=<desired width>]{<filename.pdf>}\n"
+"%%   \\includegraphics[width=<desired width>]{<filename>.pdf}\n"
 "\n"
 "\\begingroup                                                                              \n"
 "  \\makeatletter                                                                          \n"
@@ -264,12 +264,34 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
     push_transform(i2doc);
 
     gchar *str = sp_te_get_string_multiline(item);
-    Geom::Point pos = textobj->attributes.firstXY() * transform();
-    gchar *alignment = "lb";
+
+    // get position and alignment
+    Geom::Point pos;
+    gchar *alignment = NULL;
+    Geom::OptRect bbox = item->getBounds(transform());
+    Geom::Interval bbox_x = (*bbox)[Geom::X];
+    Geom::Interval bbox_y = (*bbox)[Geom::Y];
+    SPStyle *style = SP_OBJECT_STYLE (SP_OBJECT(item));
+    switch (style->text_anchor.computed) {
+    case SP_CSS_TEXT_ANCHOR_START:
+        pos = Geom::Point( bbox_x.min() , bbox_y.middle() );
+        alignment = "[l]";
+        break;
+    case SP_CSS_TEXT_ANCHOR_END:
+        pos = Geom::Point( bbox_x.max() , bbox_y.middle() );
+        alignment = "[r]";
+        break;
+    case SP_CSS_TEXT_ANCHOR_MIDDLE:
+    default:
+        pos = bbox->midpoint();
+        alignment = "";
+        break;
+    }
 
     // get rotation
     Geom::Matrix wotransl = i2doc.without_translation();
     double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
+    bool has_rotation = !Geom::are_near(degrees,0.);
 
     pop_transform();
 
@@ -278,14 +300,16 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
 
 //    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){\\makebox(0,0)[" << alignment << "]{\\strut{}" << str << "}}%%\n";
     os << "    \\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
-    if (!Geom::are_near(degrees,0.)) {
+    os << "\\makebox(0,0)" << alignment << "{";
+    if (has_rotation) {
         os << "\\rotatebox{" << degrees << "}{";
     }
     os <<   str;
-    if (!Geom::are_near(degrees,0.)) {
-        os << "}";
+    if (has_rotation) {
+        os << "}"; // rotatebox end
     }
-    os << "}%\n";
+    os << "}"; //makebox end
+    os << "}%\n"; // put end
 
     fprintf(_stream, "%s", os.str().c_str());
 }
