@@ -2,6 +2,8 @@
 
 /** \file
  * Rendering LaTeX file (pdf+latex output)
+ *
+ * The idea stems from GNUPlot's epslatex terminal output :-)
  */
 /*
  * Authors:
@@ -9,8 +11,6 @@
  *   Miklos Erdelyi <erdelyim@gmail.com>
  *
  * Copyright (C) 2006-2010 Authors
- *
- * Most of the pre- and postamble is copied from GNUPlot's epslatex terminal output :-)
  *
  * Licensed under GNU GPL
  */
@@ -182,90 +182,26 @@ PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
     return true;
 }
 
-/* Most of this preamble is copied from GNUPlot's epslatex terminal output :-) */
 static char const preamble[] =
+"%% To include the image in your LaTeX document, write\n"
+"%%   \\setlength{\\unitlength}{<desired width>}\n"
+"%%   \\input{filename.tex}\n"
+"%% instead of\n"
+"%%   \\includegraphics[width=<desired width>]{<filename.pdf>}\n"
+"\n"
 "\\begingroup                                                                              \n"
 "  \\makeatletter                                                                          \n"
-"  \\providecommand\\color[2][]{%%                                                         \n"
-"    \\GenericError{(gnuplot) \\space\\space\\space\\@spaces}{%%                           \n"
-"      Package color not loaded in conjunction with                                        \n"
-"      terminal option `colourtext'%%                                                      \n"
-"    }{See the gnuplot documentation for explanation.%%                                    \n"
-"    }{Either use 'blacktext' in gnuplot or load the package                               \n"
-"      color.sty in LaTeX.}%%                                                              \n"
-"    \\renewcommand\\color[2][]{}%%                                                        \n"
+"  \\providecommand\\color[2][]{%                                                          \n"
+"    \\GenericError{(Inkscape) \\space\\space\\@spaces}{%                                  \n"
+"      Color is used for the text in Inkscape, but the color package color is not loaded.  \n"
+"    }{Either use black text in Inkscape or load the package                               \n"
+"      color.sty in LaTeX.}%                                                               \n"
+"    \\renewcommand\\color[2][]{}%                                                         \n"
 "  }%%                                                                                     \n"
-"  \\providecommand\\includegraphics[2][]{%%                                               \n"
-"    \\GenericError{(gnuplot) \\space\\space\\space\\@spaces}{%%                           \n"
-"      Package graphicx or graphics not loaded%%                                           \n"
-"    }{See the gnuplot documentation for explanation.%%                                    \n"
-"    }{The gnuplot epslatex terminal needs graphicx.sty or graphics.sty.}%%                \n"
-"    \\renewcommand\\includegraphics[2][]{}%%                                              \n"
-"  }%%                                                                                     \n"
-"  \\providecommand\\rotatebox[2]{#2}%%                                                    \n"
-"  \\@ifundefined{ifGPcolor}{%%                                                            \n"
-"    \\newif\\ifGPcolor                                                                    \n"
-"    \\GPcolorfalse                                                                        \n"
-"  }{}%%                                                                                   \n"
-"  \\@ifundefined{ifGPblacktext}{%%                                                        \n"
-"    \\newif\\ifGPblacktext                                                                \n"
-"    \\GPblacktexttrue                                                                     \n"
-"  }{}%%                                                                                   \n"
-"  %% define a \\g@addto@macro without @ in the name:                                      \n"
-"  \\let\\gplgaddtomacro\\g@addto@macro                                                    \n"
-"  %% define empty templates for all commands taking text:                                 \n"
-"  \\gdef\\gplbacktext{}%%                                                                 \n"
-"  \\gdef\\gplfronttext{}%%                                                                \n"
-"  \\makeatother                                                                           \n"
-"  \\ifGPblacktext                                                                         \n"
-"    %% no textcolor at all                                                                \n"
-"    \\def\\colorrgb#1{}%%                                                                 \n"
-"    \\def\\colorgray#1{}%%                                                                \n"
-"  \\else                                                                                  \n"
-"    %% gray or color?                                                                     \n"
-"    \\ifGPcolor                                                                           \n"
-"      \\def\\colorrgb#1{\\color[rgb]{#1}}%%                                               \n"
-"      \\def\\colorgray#1{\\color[gray]{#1}}%%                                             \n"
-"      \\expandafter\\def\\csname LTw\\endcsname{\\color{white}}%%                         \n"
-"      \\expandafter\\def\\csname LTb\\endcsname{\\color{black}}%%                         \n"
-"      \\expandafter\\def\\csname LTa\\endcsname{\\color{black}}%%                         \n"
-"      \\expandafter\\def\\csname LT0\\endcsname{\\color[rgb]{1,0,0}}%%                    \n"
-"      \\expandafter\\def\\csname LT1\\endcsname{\\color[rgb]{0,1,0}}%%                    \n"
-"      \\expandafter\\def\\csname LT2\\endcsname{\\color[rgb]{0,0,1}}%%                    \n"
-"      \\expandafter\\def\\csname LT3\\endcsname{\\color[rgb]{1,0,1}}%%                    \n"
-"      \\expandafter\\def\\csname LT4\\endcsname{\\color[rgb]{0,1,1}}%%                    \n"
-"      \\expandafter\\def\\csname LT5\\endcsname{\\color[rgb]{1,1,0}}%%                    \n"
-"      \\expandafter\\def\\csname LT6\\endcsname{\\color[rgb]{0,0,0}}%%                    \n"
-"      \\expandafter\\def\\csname LT7\\endcsname{\\color[rgb]{1,0.3,0}}%%                  \n"
-"      \\expandafter\\def\\csname LT8\\endcsname{\\color[rgb]{0.5,0.5,0.5}}%%              \n"
-"    \\else                                                                                \n"
-"      %% gray                                                                             \n"
-"      \\def\\colorrgb#1{\\color{black}}%%                                                 \n"
-"      \\def\\colorgray#1{\\color[gray]{#1}}%%                                             \n"
-"      \\expandafter\\def\\csname LTw\\endcsname{\\color{white}}%                          \n"
-"      \\expandafter\\def\\csname LTb\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LTa\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT0\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT1\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT2\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT3\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT4\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT5\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT6\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT7\\endcsname{\\color{black}}%                          \n"
-"      \\expandafter\\def\\csname LT8\\endcsname{\\color{black}}%                          \n"
-"    \\fi                                                                                  \n"
-"  \\fi                                                                                    \n"
-"  \\setlength{\\unitlength}{1pt}%                                                         \n";
+"  \\providecommand\\rotatebox[2]{#2}%                                                     \n"
+"  \\makeatother                                                                           \n";
 
-static char const postamble1[] =
-"    }%%                                                                                    \n"
-"    \\gplgaddtomacro\\gplfronttext{%                                                       \n"
-"    }%%                                                                                    \n"
-"    \\gplbacktext                                                                          \n";
-
-static char const postamble2[] =
-"    \\gplfronttext                                                                         \n"
+static char const postamble[] =
 "  \\end{picture}%                                                                          \n"
 "\\endgroup                                                                                 \n";
 
@@ -277,18 +213,7 @@ PDFLaTeXRenderer::writePreamble()
 void
 PDFLaTeXRenderer::writePostamble()
 {
-    fprintf(_stream, "%s", postamble1);
-
-    // strip pathname on windows, as it is probably desired. It is not possible to work without paths on windows yet. (bug)
-#ifdef WIN32
-    gchar *figurefile = g_path_get_basename(_filename);
-#else
-    gchar *figurefile = g_strdup(_filename);
-#endif
-    fprintf(_stream, "      \\put(0,0){\\includegraphics{%s.pdf}}%%\n", figurefile);
-    g_free(figurefile);
-
-    fprintf(_stream, "%s", postamble2);
+    fprintf(_stream, "%s", postamble);
 }
 
 void
@@ -352,7 +277,7 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
     Inkscape::SVGOStringStream os;
 
 //    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){\\makebox(0,0)[" << alignment << "]{\\strut{}" << str << "}}%%\n";
-    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
+    os << "    \\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
     if (!Geom::are_near(degrees,0.)) {
         os << "\\rotatebox{" << degrees << "}{";
     }
@@ -360,7 +285,7 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
     if (!Geom::are_near(degrees,0.)) {
         os << "}";
     }
-    os << "}%%\n";
+    os << "}%\n";
 
     fprintf(_stream, "%s", os.str().c_str());
 }
@@ -487,8 +412,11 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
         sp_item_invoke_bbox(base, &d, sp_item_i2d_affine(base), TRUE, SPItem::RENDERING_BBOX);
     }
 
-    // convert from px to pt
-    push_transform( Geom::Scale(PT_PER_PX, PT_PER_PX) );
+    // scale all coordinates, such that the width of the image is 1, this is convenient for scaling the image in LaTeX
+    double scale = 1/(d.x1-d.x0);
+    _width = (d.x1-d.x0) * scale;
+    _height = (d.y1-d.y0) * scale;
+    push_transform( Geom::Scale(scale, scale) );
 
     if (!pageBoundingBox)
     {
@@ -501,15 +429,14 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
     // flip y-axis
     push_transform( Geom::Scale(1,-1) * Geom::Translate(0, sp_document_height(doc)) );
 
-    _width = (d.x1-d.x0) * PT_PER_PX;
-    _height = (d.y1-d.y0) * PT_PER_PX;
-
     // write the info to LaTeX
     Inkscape::SVGOStringStream os;
 
-    os << "  \\begin{picture}(" << _width << "," << _height << ")%%\n";
-    os << "    \\gplgaddtomacro\\gplbacktext{%%\n";
-    os << "      \\csname LTb\\endcsname%%\n";
+    os << "  \\begin{picture}(" << _width << "," << _height << ")%\n";
+    // strip pathname, as it is probably desired. Having a specific path in the TeX file is not convenient.
+    gchar *figurefile = g_path_get_basename(_filename);
+    os << "    \\put(0,0){\\includegraphics[width=\\unitlength]{" << figurefile << ".pdf}}%\n";
+    g_free(figurefile);
 
     fprintf(_stream, "%s", os.str().c_str());
 
