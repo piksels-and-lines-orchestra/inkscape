@@ -56,6 +56,7 @@
 #include "sp-flowtext.h"
 #include "sp-mask.h"
 #include "sp-clippath.h"
+#include "text-editing.h"
 
 #include <unit-constants.h>
 #include "helper/png-write.h"
@@ -76,7 +77,7 @@
 #include <cairo-ps.h>
 #endif
 
-//#define TRACE(_args) g_printf _args
+//#define TRACE(_args) g_message(_args)
 #define TRACE(_args)
 //#define TEST(_args) _args
 #define TEST(_args)
@@ -135,8 +136,9 @@ PDFLaTeXRenderer::~PDFLaTeXRenderer(void)
 bool
 PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
     if (filename != NULL) {
-        _filename = g_strdup(filename);
         while (isspace(*filename)) filename += 1;
+        
+        _filename = g_strdup(filename);
         Inkscape::IO::dump_fopen_call(filename, "K");
         FILE *osf = Inkscape::IO::fopen_utf8name(filename, "w+");
         if (!osf) {
@@ -249,7 +251,7 @@ static char const preamble[] =
 "      \\expandafter\\def\\csname LT8\\endcsname{\\color{black}}%                          \n"
 "    \\fi                                                                                  \n"
 "  \\fi                                                                                    \n"
-"  \\setlength{\\unitlength}{0.0500bp}%%                                                   \n";
+"  \\setlength{\\unitlength}{1pt}%                                                         \n";
 
 static char const postamble1[] =
 "    }%%                                                                                    \n"
@@ -273,7 +275,7 @@ PDFLaTeXRenderer::writePostamble()
     fprintf(_stream, "%s", postamble1);
 
     // TODO: strip path from filename on Windows
-    fprintf(_stream, "      \\put(0,0){\\includegraphics{%s}}%%\n", _filename);
+    fprintf(_stream, "      \\put(0,0){\\includegraphics{%s.pdf}}%%\n", _filename);
 
     fprintf(_stream, "%s", postamble2);
 }
@@ -320,18 +322,34 @@ PDFLaTeXRenderer::sp_use_render(SPItem *item)
 void
 PDFLaTeXRenderer::sp_text_render(SPItem *item)
 {
-    SPText *group = SP_TEXT (item);
-/*
-implement
-*/
+    SPText *textobj = SP_TEXT (item);
+
+    gchar *str = sp_te_get_string_multiline(item);
+    Geom::Point pos = SP_TEXT(item)->attributes.firstXY();
+    gchar *alignment = "lb";
+
+    // write to LaTeX
+    Inkscape::SVGOStringStream os;
+
+    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){\\makebox(0,0)[" << alignment << "]{\\strut{}" << str << "}}%%\n";
+
+    fprintf(_stream, "%s", os.str().c_str());
 }
 
 void
 PDFLaTeXRenderer::sp_flowtext_render(SPItem *item)
 {
-    SPFlowtext *group = SP_FLOWTEXT(item);
-/*
-implement
+/*    SPFlowtext *group = SP_FLOWTEXT(item);
+
+    // write to LaTeX
+    Inkscape::SVGOStringStream os;
+
+    os << "  \\begin{picture}(" << _width << "," << _height << ")%%\n";
+    os << "    \\gplgaddtomacro\\gplbacktext{%%\n";
+    os << "      \\csname LTb\\endcsname%%\n";
+    os << "\\put(0,0){\\makebox(0,0)[lb]{\\strut{}Position}}%%\n";
+
+    fprintf(_stream, "%s", os.str().c_str());
 */
 }
 
@@ -340,17 +358,12 @@ PDFLaTeXRenderer::sp_root_render(SPItem *item)
 {
     SPRoot *root = SP_ROOT(item);
 
-/*
-    if (!ctx->getCurrentState()->has_overflow && SP_OBJECT(item)->parent)
-        ctx->addClippingRect(root->x.computed, root->y.computed, root->width.computed, root->height.computed);
-
-    ctx->pushState();
-    setStateForItem(ctx, item);
-    Geom::Matrix tempmat (root->c2p);
-    ctx->transform(&tempmat);
-    sp_group_render(item, ctx);
-    ctx->popState();
-*/
+//    ctx->pushState();
+//    setStateForItem(ctx, item);
+//    Geom::Matrix tempmat (root->c2p);
+//    ctx->transform(&tempmat);
+    sp_group_render(item);
+//    ctx->popState();
 }
 
 void
@@ -361,6 +374,7 @@ PDFLaTeXRenderer::sp_item_invoke_render(SPItem *item)
         return;
     }
 
+    g_message("hier?");
     if (SP_IS_ROOT(item)) {
         TRACE(("root\n"));
         return sp_root_render(item);
@@ -407,27 +421,25 @@ PDFLaTeXRenderer::setStateForItem(SPItem const *item)
 void
 PDFLaTeXRenderer::renderItem(SPItem *item)
 {
-/*
-    ctx->pushState();
-    setStateForItem(ctx, item);
+//    ctx->pushState();
+//    setStateForItem(ctx, item);
 
-    CairoRenderState *state = ctx->getCurrentState();
-    state->need_layer = ( state->mask || state->clip_path || state->opacity != 1.0 );
+//    CairoRenderState *state = ctx->getCurrentState();
+//    state->need_layer = ( state->mask || state->clip_path || state->opacity != 1.0 );
 
     // Draw item on a temporary surface so a mask, clip path, or opacity can be applied to it.
-    if (state->need_layer) {
-        state->merge_opacity = FALSE;
-        ctx->pushLayer();
-    }
+//    if (state->need_layer) {
+//        state->merge_opacity = FALSE;
+//        ctx->pushLayer();
+//    }
     Geom::Matrix tempmat (item->transform);
-    ctx->transform(&tempmat);
-    sp_item_invoke_render(item, ctx);
+//    ctx->transform(&tempmat);
+    sp_item_invoke_render(item);
 
-    if (state->need_layer)
-        ctx->popLayer();
+//    if (state->need_layer)
+//        ctx->popLayer();
 
-    ctx->popState();
-*/
+//    ctx->popState();
 }
 
 bool
@@ -465,8 +477,15 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
                                     (d.y1 - high) * PX_PER_PT ) );
     }
 
-    // write the info to LaTeX:
+    // write the info to LaTeX
+    Inkscape::SVGOStringStream os;
 
+    os << "  \\begin{picture}(" << _width << "," << _height << ")%%\n";
+    os << "    \\gplgaddtomacro\\gplbacktext{%%\n";
+    os << "      \\csname LTb\\endcsname%%\n";
+    os << "\\put(0,0){\\makebox(0,0)[lb]{\\strut{}0,0}}%%\n";
+
+    fprintf(_stream, "%s", os.str().c_str());
 
     return true;
 }
