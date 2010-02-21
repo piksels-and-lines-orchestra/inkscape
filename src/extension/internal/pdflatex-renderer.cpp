@@ -403,7 +403,6 @@ PDFLaTeXRenderer::sp_item_invoke_render(SPItem *item)
         return;
     }
 
-    g_message("hier?");
     if (SP_IS_ROOT(item)) {
         TRACE(("root\n"));
         return sp_root_render(item);
