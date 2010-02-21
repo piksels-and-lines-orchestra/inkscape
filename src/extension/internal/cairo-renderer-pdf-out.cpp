@@ -138,10 +138,13 @@ latex_render_document_text_to_file( SPDocument *doc, gchar const *filename,
     /* Create renderer */
     PDFLaTeXRenderer *renderer = new PDFLaTeXRenderer();
 
-    /* Render document */
-    bool ret = renderer->setupDocument(doc, pageBoundingBox, base);
+    bool ret = renderer->setTargetFile(filename);
     if (ret) {
-        renderer->renderItem(base);
+        /* Render document */
+        bool ret = renderer->setupDocument(doc, pageBoundingBox, base);
+        if (ret) {
+            renderer->renderItem(base);
+        }
     }
 
     delete renderer;

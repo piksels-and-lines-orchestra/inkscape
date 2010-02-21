@@ -40,6 +40,8 @@ public:
     PDFLaTeXRenderer();
     virtual ~PDFLaTeXRenderer();
 
+    bool setTargetFile(gchar const *filename);
+
     void setStateForItem(SPItem const *item);
 
 //    void applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp);
@@ -53,8 +55,16 @@ public:
     void renderItem(SPItem *item);
 
 protected:
+    FILE * _stream;
+    gchar * _filename;
+
     void transform(Geom::Matrix const &transform);
     Geom::Matrix _m; // the transform for current item
+    double _width;
+    double _height;
+
+    void writePreamble();
+    void writePostamble();
 
     void sp_item_invoke_render(SPItem *item);
     void sp_root_render(SPItem *item);

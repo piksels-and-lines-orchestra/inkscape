@@ -10,6 +10,8 @@
  *
  * Copyright (C) 2006-2010 Authors
  *
+ * Most of the pre- and postamble is copied from GNUPlot's epslatex terminal output :-)
+ *
  * Licensed under GNU GPL
  */
 
@@ -98,18 +100,182 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
+
 PDFLaTeXRenderer::PDFLaTeXRenderer(void)
-  : _m(Geom::identity())
+  : _stream(NULL),
+    _filename(NULL),
+    _m(Geom::identity()),
+    _width(0),
+    _height(0)
 {}
 
 PDFLaTeXRenderer::~PDFLaTeXRenderer(void)
 {
+    if (_stream) {
+        writePostamble();
+
+        fclose(_stream);
+    }
+
     /* restore default signal handling for SIGPIPE */
 #if !defined(_WIN32) && !defined(__WIN32__)
     (void) signal(SIGPIPE, SIG_DFL);
 #endif
 
+    if (_filename) {
+        g_free(_filename);
+    }
+
     return;
+}
+
+/** This should create the output LaTeX file, and assign it to _stream.
+ * @return Returns true when succesfull
+ */
+bool
+PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
+    if (filename != NULL) {
+        _filename = g_strdup(filename);
+        while (isspace(*filename)) filename += 1;
+        Inkscape::IO::dump_fopen_call(filename, "K");
+        FILE *osf = Inkscape::IO::fopen_utf8name(filename, "w+");
+        if (!osf) {
+            fprintf(stderr, "inkscape: fopen(%s): %s\n",
+                    filename, strerror(errno));
+            return false;
+        }
+        _stream = osf;
+    }
+
+    if (_stream) {
+        /* fixme: this is kinda icky */
+#if !defined(_WIN32) && !defined(__WIN32__)
+        (void) signal(SIGPIPE, SIG_IGN);
+#endif
+    }
+
+    fprintf(_stream, "%%%% Creator: Inkscape %s, www.inkscape.org\n", PACKAGE_STRING);
+    fprintf(_stream, "%%%% PDF + LaTeX output extension by Johan Engelen, 2010\n");
+    /* flush this to test output stream as early as possible */
+    if (fflush(_stream)) {
+        if (ferror(_stream)) {
+            g_print("Error %d on LaTeX file output stream: %s\n", errno,
+                    g_strerror(errno));
+        }
+        g_print("Output to LaTeX file failed\n");
+        /* fixme: should use pclose() for pipes */
+        fclose(_stream);
+        _stream = NULL;
+        fflush(stdout);
+        return false;
+    }
+
+    writePreamble();
+
+    return true;
+}
+
+/* Most of this preamble is copied from GNUPlot's epslatex terminal output :-) */
+static char const preamble[] =
+"\\begingroup                                                                              \n"
+"  \\makeatletter                                                                          \n"
+"  \\providecommand\\color[2][]{%%                                                         \n"
+"    \\GenericError{(gnuplot) \\space\\space\\space\\@spaces}{%%                           \n"
+"      Package color not loaded in conjunction with                                        \n"
+"      terminal option `colourtext'%%                                                      \n"
+"    }{See the gnuplot documentation for explanation.%%                                    \n"
+"    }{Either use 'blacktext' in gnuplot or load the package                               \n"
+"      color.sty in LaTeX.}%%                                                              \n"
+"    \\renewcommand\\color[2][]{}%%                                                        \n"
+"  }%%                                                                                     \n"
+"  \\providecommand\\includegraphics[2][]{%%                                               \n"
+"    \\GenericError{(gnuplot) \\space\\space\\space\\@spaces}{%%                           \n"
+"      Package graphicx or graphics not loaded%%                                           \n"
+"    }{See the gnuplot documentation for explanation.%%                                    \n"
+"    }{The gnuplot epslatex terminal needs graphicx.sty or graphics.sty.}%%                \n"
+"    \\renewcommand\\includegraphics[2][]{}%%                                              \n"
+"  }%%                                                                                     \n"
+"  \\providecommand\\rotatebox[2]{#2}%%                                                    \n"
+"  \\@ifundefined{ifGPcolor}{%%                                                            \n"
+"    \\newif\\ifGPcolor                                                                    \n"
+"    \\GPcolorfalse                                                                        \n"
+"  }{}%%                                                                                   \n"
+"  \\@ifundefined{ifGPblacktext}{%%                                                        \n"
+"    \\newif\\ifGPblacktext                                                                \n"
+"    \\GPblacktexttrue                                                                     \n"
+"  }{}%%                                                                                   \n"
+"  %% define a \\g@addto@macro without @ in the name:                                      \n"
+"  \\let\\gplgaddtomacro\\g@addto@macro                                                    \n"
+"  %% define empty templates for all commands taking text:                                 \n"
+"  \\gdef\\gplbacktext{}%%                                                                 \n"
+"  \\gdef\\gplfronttext{}%%                                                                \n"
+"  \\makeatother                                                                           \n"
+"  \\ifGPblacktext                                                                         \n"
+"    %% no textcolor at all                                                                \n"
+"    \\def\\colorrgb#1{}%%                                                                 \n"
+"    \\def\\colorgray#1{}%%                                                                \n"
+"  \\else                                                                                  \n"
+"    %% gray or color?                                                                     \n"
+"    \\ifGPcolor                                                                           \n"
+"      \\def\\colorrgb#1{\\color[rgb]{#1}}%%                                               \n"
+"      \\def\\colorgray#1{\\color[gray]{#1}}%%                                             \n"
+"      \\expandafter\\def\\csname LTw\\endcsname{\\color{white}}%%                         \n"
+"      \\expandafter\\def\\csname LTb\\endcsname{\\color{black}}%%                         \n"
+"      \\expandafter\\def\\csname LTa\\endcsname{\\color{black}}%%                         \n"
+"      \\expandafter\\def\\csname LT0\\endcsname{\\color[rgb]{1,0,0}}%%                    \n"
+"      \\expandafter\\def\\csname LT1\\endcsname{\\color[rgb]{0,1,0}}%%                    \n"
+"      \\expandafter\\def\\csname LT2\\endcsname{\\color[rgb]{0,0,1}}%%                    \n"
+"      \\expandafter\\def\\csname LT3\\endcsname{\\color[rgb]{1,0,1}}%%                    \n"
+"      \\expandafter\\def\\csname LT4\\endcsname{\\color[rgb]{0,1,1}}%%                    \n"
+"      \\expandafter\\def\\csname LT5\\endcsname{\\color[rgb]{1,1,0}}%%                    \n"
+"      \\expandafter\\def\\csname LT6\\endcsname{\\color[rgb]{0,0,0}}%%                    \n"
+"      \\expandafter\\def\\csname LT7\\endcsname{\\color[rgb]{1,0.3,0}}%%                  \n"
+"      \\expandafter\\def\\csname LT8\\endcsname{\\color[rgb]{0.5,0.5,0.5}}%%              \n"
+"    \\else                                                                                \n"
+"      %% gray                                                                             \n"
+"      \\def\\colorrgb#1{\\color{black}}%%                                                 \n"
+"      \\def\\colorgray#1{\\color[gray]{#1}}%%                                             \n"
+"      \\expandafter\\def\\csname LTw\\endcsname{\\color{white}}%                          \n"
+"      \\expandafter\\def\\csname LTb\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LTa\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT0\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT1\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT2\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT3\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT4\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT5\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT6\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT7\\endcsname{\\color{black}}%                          \n"
+"      \\expandafter\\def\\csname LT8\\endcsname{\\color{black}}%                          \n"
+"    \\fi                                                                                  \n"
+"  \\fi                                                                                    \n"
+"  \\setlength{\\unitlength}{0.0500bp}%%                                                   \n";
+
+static char const postamble1[] =
+"    }%%                                                                                    \n"
+"    \\gplgaddtomacro\\gplfronttext{%                                                       \n"
+"    }%%                                                                                    \n"
+"    \\gplbacktext                                                                          \n";
+
+static char const postamble2[] =
+"    \\gplfronttext                                                                         \n"
+"  \\end{picture}%                                                                          \n"
+"\\endgroup                                                                                 \n";
+
+void
+PDFLaTeXRenderer::writePreamble()
+{
+    fprintf(_stream, "%s", preamble);
+}
+void
+PDFLaTeXRenderer::writePostamble()
+{
+    fprintf(_stream, "%s", postamble1);
+
+    // TODO: strip path from filename on Windows
+    fprintf(_stream, "      \\put(0,0){\\includegraphics{%s}}%%\n", _filename);
+
+    fprintf(_stream, "%s", postamble2);
 }
 
 void
@@ -287,17 +453,20 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
     d.y0 *= PT_PER_PX;
     d.y1 *= PT_PER_PX;
 
-    double _width = d.x1-d.x0;
-    double _height = d.y1-d.y0;
+    _width = d.x1-d.x0;
+    _height = d.y1-d.y0;
 
     if (!pageBoundingBox)
     {
         double high = sp_document_height(doc);
         high *= PT_PER_PX;
 
-        transform( Geom::Translate( -d.x0 * PX_PER_PT, 
+        transform( Geom::Translate( -d.x0 * PX_PER_PT,
                                     (d.y1 - high) * PX_PER_PT ) );
     }
+
+    // write the info to LaTeX:
+
 
     return true;
 }
