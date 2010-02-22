@@ -2,7 +2,7 @@
 #define EXTENSION_INTERNAL_PDF_LATEX_RENDERER_H_SEEN
 
 /** \file
- * Declaration of PDFLaTeXRenderer, used for rendering the accompanying LaTeX file when saving PDF output + LaTeX 
+ * Declaration of LaTeXTextRenderer, used for rendering the accompanying LaTeX file when saving PDF output + LaTeX 
  */
 /*
  * Authors:
@@ -36,10 +36,12 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
-class PDFLaTeXRenderer {
+bool latex_render_document_text_to_file(SPDocument *doc, gchar const *filename, const gchar * const exportId, bool exportDrawing, bool exportCanvas);
+
+class LaTeXTextRenderer {
 public:
-    PDFLaTeXRenderer();
-    virtual ~PDFLaTeXRenderer();
+    LaTeXTextRenderer();
+    virtual ~LaTeXTextRenderer();
 
     bool setTargetFile(gchar const *filename);
 
@@ -48,7 +50,7 @@ public:
 //    void applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp);
 //    void applyMask(CairoRenderContext *ctx, SPMask const *mask);
 
-    /** Initializes the PDFLaTeXRenderer according to the specified
+    /** Initializes the LaTeXTextRenderer according to the specified
     SPDocument. Important to set the boundingbox to the pdf boundingbox */
     bool setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *base);
 

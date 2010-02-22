@@ -5,8 +5,9 @@
  * Authors:
  *   Ted Gould <ted@gould.cx>
  *   Ulf Erikson <ulferikson@users.sf.net>
+ *   Johan Engelen <goejendaagh@zonnet.nl>
  *
- * Copyright (C) 2004-2006 Authors
+ * Copyright (C) 2004-2010 Authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -20,7 +21,7 @@
 #include "cairo-renderer-pdf-out.h"
 #include "cairo-render-context.h"
 #include "cairo-renderer.h"
-#include "pdflatex-renderer.h"
+#include "latex-text-renderer.h"
 #include <print.h>
 #include "extension/system.h"
 #include "extension/print.h"
@@ -109,49 +110,6 @@ pdf_render_document_to_file(SPDocument *doc, gchar const *filename, unsigned int
 
     return ret;
 }
-
-static bool
-latex_render_document_text_to_file( SPDocument *doc, gchar const *filename, 
-                                    const gchar * const exportId, bool exportDrawing, bool exportCanvas)
-{
-    sp_document_ensure_up_to_date(doc);
-
-/* Start */
-
-    SPItem *base = NULL;
-
-    bool pageBoundingBox = true;
-    if (exportId && strcmp(exportId, "")) {
-        // we want to export the given item only
-        base = SP_ITEM(doc->getObjectById(exportId));
-        pageBoundingBox = exportCanvas;
-    }
-    else {
-        // we want to export the entire document from root
-        base = SP_ITEM(sp_document_root(doc));
-        pageBoundingBox = !exportDrawing;
-    }
-
-    if (!base)
-        return false;
-
-    /* Create renderer */
-    PDFLaTeXRenderer *renderer = new PDFLaTeXRenderer();
-
-    bool ret = renderer->setTargetFile(filename);
-    if (ret) {
-        /* Render document */
-        bool ret = renderer->setupDocument(doc, pageBoundingBox, base);
-        if (ret) {
-            renderer->renderItem(base);
-        }
-    }
-
-    delete renderer;
-
-    return ret;
-}
-
 
 /**
     \brief  This function calls the output module with the filename
@@ -287,7 +245,7 @@ CairoRendererPdfOutput::init (void)
 				"<_item value='PDF14'>" N_("PDF 1.4") "</_item>\n"
 			"</param>\n"
 			"<param name=\"textToPath\" gui-text=\"" N_("Convert texts to paths") "\" type=\"boolean\">false</param>\n"
-			"<param name=\"textToLaTeX\" gui-text=\"" N_("Exclude text, create LaTeX file") "\" type=\"boolean\">false</param>\n"
+			"<param name=\"textToLaTeX\" gui-text=\"" N_("PDF+LaTeX: Omit text in PDF, and create LaTeX file") "\" type=\"boolean\">false</param>\n"
 			"<param name=\"blurToBitmap\" gui-text=\"" N_("Rasterize filter effects") "\" type=\"boolean\">true</param>\n"
 			"<param name=\"resolution\" gui-text=\"" N_("Resolution for rasterization (dpi)") "\" type=\"int\" min=\"1\" max=\"10000\">90</param>\n"
 			"<param name=\"areaDrawing\" gui-text=\"" N_("Export area is drawing") "\" type=\"boolean\">false</param>\n"

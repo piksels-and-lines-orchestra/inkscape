@@ -62,7 +62,7 @@
 #include "helper/png-write.h"
 #include "helper/pixbuf-ops.h"
 
-#include "pdflatex-renderer.h"
+#include "latex-text-renderer.h"
 #include "extension/system.h"
 
 #include "io/sys.h"
@@ -97,12 +97,52 @@ struct SPMaskView {
     NRRect bbox;
 };
 
+
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
+bool
+latex_render_document_text_to_file( SPDocument *doc, gchar const *filename, 
+                                    const gchar * const exportId, bool exportDrawing, bool exportCanvas)
+{
+    sp_document_ensure_up_to_date(doc);
 
-PDFLaTeXRenderer::PDFLaTeXRenderer(void)
+    SPItem *base = NULL;
+
+    bool pageBoundingBox = true;
+    if (exportId && strcmp(exportId, "")) {
+        // we want to export the given item only
+        base = SP_ITEM(doc->getObjectById(exportId));
+        pageBoundingBox = exportCanvas;
+    }
+    else {
+        // we want to export the entire document from root
+        base = SP_ITEM(sp_document_root(doc));
+        pageBoundingBox = !exportDrawing;
+    }
+
+    if (!base)
+        return false;
+
+    /* Create renderer */
+    LaTeXTextRenderer *renderer = new LaTeXTextRenderer();
+
+    bool ret = renderer->setTargetFile(filename);
+    if (ret) {
+        /* Render document */
+        bool ret = renderer->setupDocument(doc, pageBoundingBox, base);
+        if (ret) {
+            renderer->renderItem(base);
+        }
+    }
+
+    delete renderer;
+
+    return ret;
+}
+
+LaTeXTextRenderer::LaTeXTextRenderer(void)
   : _stream(NULL),
     _filename(NULL),
     _width(0),
@@ -111,7 +151,7 @@ PDFLaTeXRenderer::PDFLaTeXRenderer(void)
     push_transform(Geom::identity());
 }
 
-PDFLaTeXRenderer::~PDFLaTeXRenderer(void)
+LaTeXTextRenderer::~LaTeXTextRenderer(void)
 {
     if (_stream) {
         writePostamble();
@@ -135,11 +175,11 @@ PDFLaTeXRenderer::~PDFLaTeXRenderer(void)
  * @return Returns true when succesfull
  */
 bool
-PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
+LaTeXTextRenderer::setTargetFile(gchar const *filename) {
     if (filename != NULL) {
         while (isspace(*filename)) filename += 1;
         
-        _filename = g_strdup(filename);
+        _filename = g_path_get_basename(filename);
 
         gchar *filename_ext = g_strdup_printf("%s.tex", filename);
         Inkscape::IO::dump_fopen_call(filename_ext, "K");
@@ -161,8 +201,9 @@ PDFLaTeXRenderer::setTargetFile(gchar const *filename) {
     }
 
     fprintf(_stream, "%%%% Creator: Inkscape %s, www.inkscape.org\n", PACKAGE_STRING);
-    fprintf(_stream, "%%%% PDF + LaTeX output extension by Johan Engelen, 2010\n");
-    fprintf(_stream, "%%%% Accompanies %s.pdf\n", _filename);
+    fprintf(_stream, "%%%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010\n");
+    fprintf(_stream, "%%%% Accompanies image file '%s' (pdf, eps, ps)\n", _filename);
+    fprintf(_stream, "%%%%");
     /* flush this to test output stream as early as possible */
     if (fflush(_stream)) {
         if (ferror(_stream)) {
@@ -206,18 +247,18 @@ static char const postamble[] =
 "\\endgroup                                                                                 \n";
 
 void
-PDFLaTeXRenderer::writePreamble()
+LaTeXTextRenderer::writePreamble()
 {
     fprintf(_stream, "%s", preamble);
 }
 void
-PDFLaTeXRenderer::writePostamble()
+LaTeXTextRenderer::writePostamble()
 {
     fprintf(_stream, "%s", postamble);
 }
 
 void
-PDFLaTeXRenderer::sp_group_render(SPItem *item)
+LaTeXTextRenderer::sp_group_render(SPItem *item)
 {
     SPGroup *group = SP_GROUP(item);
 
@@ -232,7 +273,7 @@ PDFLaTeXRenderer::sp_group_render(SPItem *item)
 }
 
 void
-PDFLaTeXRenderer::sp_use_render(SPItem *item)
+LaTeXTextRenderer::sp_use_render(SPItem *item)
 {
 /*
     bool translated = false;
@@ -256,7 +297,7 @@ PDFLaTeXRenderer::sp_use_render(SPItem *item)
 }
 
 void
-PDFLaTeXRenderer::sp_text_render(SPItem *item)
+LaTeXTextRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
 
@@ -315,7 +356,7 @@ PDFLaTeXRenderer::sp_text_render(SPItem *item)
 }
 
 void
-PDFLaTeXRenderer::sp_flowtext_render(SPItem *item)
+LaTeXTextRenderer::sp_flowtext_render(SPItem *item)
 {
 /*    SPFlowtext *group = SP_FLOWTEXT(item);
 
@@ -332,7 +373,7 @@ PDFLaTeXRenderer::sp_flowtext_render(SPItem *item)
 }
 
 void
-PDFLaTeXRenderer::sp_root_render(SPItem *item)
+LaTeXTextRenderer::sp_root_render(SPItem *item)
 {
     SPRoot *root = SP_ROOT(item);
 
@@ -345,7 +386,7 @@ PDFLaTeXRenderer::sp_root_render(SPItem *item)
 }
 
 void
-PDFLaTeXRenderer::sp_item_invoke_render(SPItem *item)
+LaTeXTextRenderer::sp_item_invoke_render(SPItem *item)
 {
     // Check item's visibility
     if (item->isHidden()) {
@@ -373,7 +414,7 @@ PDFLaTeXRenderer::sp_item_invoke_render(SPItem *item)
 }
 
 void
-PDFLaTeXRenderer::setStateForItem(SPItem const *item)
+LaTeXTextRenderer::setStateForItem(SPItem const *item)
 {
 /*
     SPStyle const *style = SP_OBJECT_STYLE(item);
@@ -396,7 +437,7 @@ PDFLaTeXRenderer::setStateForItem(SPItem const *item)
 }
 
 void
-PDFLaTeXRenderer::renderItem(SPItem *item)
+LaTeXTextRenderer::renderItem(SPItem *item)
 {
 //    ctx->pushState();
 //    setStateForItem(ctx, item);
@@ -420,7 +461,7 @@ PDFLaTeXRenderer::renderItem(SPItem *item)
 }
 
 bool
-PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *base)
+LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *base)
 {
 // The boundingbox calculation here should be exactly the same as the one by CairoRenderer::setupDocument !
 
@@ -458,9 +499,7 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
 
     os << "  \\begin{picture}(" << _width << "," << _height << ")%\n";
     // strip pathname, as it is probably desired. Having a specific path in the TeX file is not convenient.
-    gchar *figurefile = g_path_get_basename(_filename);
-    os << "    \\put(0,0){\\includegraphics[width=\\unitlength]{" << figurefile << ".pdf}}%\n";
-    g_free(figurefile);
+    os << "    \\put(0,0){\\includegraphics[width=\\unitlength]{" << _filename << "}}%\n";
 
     fprintf(_stream, "%s", os.str().c_str());
 
@@ -468,13 +507,13 @@ PDFLaTeXRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *b
 }
 
 Geom::Matrix const &
-PDFLaTeXRenderer::transform()
+LaTeXTextRenderer::transform()
 {
     return _transform_stack.top();
 }
 
 void
-PDFLaTeXRenderer::push_transform(Geom::Matrix const &tr)
+LaTeXTextRenderer::push_transform(Geom::Matrix const &tr)
 {
     if(_transform_stack.size()){
         Geom::Matrix tr_top = _transform_stack.top();
@@ -485,7 +524,7 @@ PDFLaTeXRenderer::push_transform(Geom::Matrix const &tr)
 }
 
 void
-PDFLaTeXRenderer::pop_transform()
+LaTeXTextRenderer::pop_transform()
 {
     _transform_stack.pop();
 }
@@ -495,7 +534,7 @@ PDFLaTeXRenderer::pop_transform()
 
 // Apply an SVG clip path
 void
-PDFLaTeXRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
+LaTeXTextRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
 {
     g_assert( ctx != NULL && ctx->_is_valid );
 
@@ -550,7 +589,7 @@ PDFLaTeXRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
 
 // Apply an SVG mask
 void
-PDFLaTeXRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
+LaTeXTextRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
 {
     g_assert( ctx != NULL && ctx->_is_valid );
 

@@ -143,7 +143,7 @@ enum {
     SP_ARG_EXPORT_PS,
     SP_ARG_EXPORT_EPS,
     SP_ARG_EXPORT_PDF,
-    SP_ARG_EXPORT_PDF_LATEX,
+    SP_ARG_EXPORT_LATEX,
 #ifdef WIN32
     SP_ARG_EXPORT_EMF,
 #endif //WIN32
@@ -182,7 +182,7 @@ static gchar *sp_export_dpi = NULL;
 static gchar *sp_export_area = NULL;
 static gboolean sp_export_area_drawing = FALSE;
 static gboolean sp_export_area_page = FALSE;
-static gboolean sp_export_pdf_latex = FALSE;
+static gboolean sp_export_latex = FALSE;
 static gchar *sp_export_width = NULL;
 static gchar *sp_export_height = NULL;
 static gchar *sp_export_id = NULL;
@@ -226,7 +226,7 @@ static void resetCommandlineGlobals() {
         sp_export_area = NULL;
         sp_export_area_drawing = FALSE;
         sp_export_area_page = FALSE;
-        sp_export_pdf_latex = FALSE;
+        sp_export_latex = FALSE;
         sp_export_width = NULL;
         sp_export_height = NULL;
         sp_export_id = NULL;
@@ -375,9 +375,9 @@ struct poptOption options[] = {
      N_("Export document to a PDF file"),
      N_("FILENAME")},
 
-    {"export-pdf-latex", 0,
-     POPT_ARG_NONE, &sp_export_pdf_latex, SP_ARG_EXPORT_PDF_LATEX,
-     N_("Export PDF without text. Besides the PDF, a LaTeX file is exported, putting the text on top of the PDF file. Include the result in LaTeX like: \\input{latexfile.tex}"),
+    {"export-latex", 0,
+     POPT_ARG_NONE, &sp_export_latex, SP_ARG_EXPORT_LATEX,
+     N_("Export PDF/PS/EPS without text. Besides the PDF/PS/EPS, a LaTeX file is exported, putting the text on top of the PDF/PS/EPS file. Include the result in LaTeX like: \\input{latexfile.tex}"),
      NULL},
 
 #ifdef WIN32
@@ -654,7 +654,7 @@ main(int argc, char **argv)
             || !strncmp(argv[i], "--export-eps", 12)
             || !strcmp(argv[i], "-A")
             || !strncmp(argv[i], "--export-pdf", 12)
-            || !strncmp(argv[i], "--export-pdf-latex", 18)
+            || !strncmp(argv[i], "--export-latex", 14)
 #ifdef WIN32
             || !strcmp(argv[i], "-M")
             || !strncmp(argv[i], "--export-emf", 12)
@@ -1527,7 +1527,7 @@ static void do_export_ps_pdf(SPDocument* doc, gchar const* uri, char const* mime
         (*i)->set_param_bool("textToPath", FALSE);
     }
 
-    if (sp_export_pdf_latex) {
+    if (sp_export_latex) {
         (*i)->set_param_bool("textToLaTeX", TRUE);
     } else {
         (*i)->set_param_bool("textToLaTeX", FALSE);
