@@ -26,6 +26,7 @@
 
 #include "libnrtype/Layout-TNG.h"
 #include <2geom/transforms.h>
+#include <2geom/rect.h>
 
 #include <glibmm/i18n.h>
 #include "sp-item.h"
@@ -47,6 +48,10 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
+/**
+ * This method is called by the PDF, EPS and PS output extensions.
+ * @param filename This should be the filename without extension to which the tex code should be written. Output goes to <filename>.tex.
+ */
 bool
 latex_render_document_text_to_file( SPDocument *doc, gchar const *filename, 
                                     const gchar * const exportId, bool exportDrawing, bool exportCanvas)
@@ -243,9 +248,6 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
 
-    Geom::Matrix i2doc = sp_item_i2doc_affine(item);
-    push_transform(i2doc);
-
     gchar *str = sp_te_get_string_multiline(item);
 
     // get position and alignment
@@ -272,11 +274,10 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     }
 
     // get rotation
+    Geom::Matrix i2doc = sp_item_i2doc_affine(item);
     Geom::Matrix wotransl = i2doc.without_translation();
     double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
     bool has_rotation = !Geom::are_near(degrees,0.);
-
-    pop_transform();
 
     // write to LaTeX
     Inkscape::SVGOStringStream os;
@@ -318,8 +319,7 @@ LaTeXTextRenderer::sp_root_render(SPItem *item)
 {
     SPRoot *root = SP_ROOT(item);
 
-    Geom::Matrix tempmat (root->c2p);
-    push_transform(tempmat);
+    push_transform(root->c2p);
     sp_group_render(item);
     pop_transform();
 }
@@ -349,10 +349,9 @@ LaTeXTextRenderer::sp_item_invoke_render(SPItem *item)
 void
 LaTeXTextRenderer::renderItem(SPItem *item)
 {
-//    push_transform(item->transform);
+    push_transform(item->transform);
     sp_item_invoke_render(item);
-
-//    pop_transform();
+    pop_transform();
 }
 
 bool
@@ -363,26 +362,25 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     if (!base)
         base = SP_ITEM(sp_document_root(doc));
 
-    NRRect d;
+    Geom::OptRect d;
     if (pageBoundingBox) {
-        d.x0 = d.y0 = 0;
-        d.x1 = ceil(sp_document_width(doc));
-        d.y1 = ceil(sp_document_height(doc));
+        d = Geom::Rect( Geom::Point(0,0),
+                        Geom::Point(sp_document_width(doc), sp_document_height(doc)) );
     } else {
-        sp_item_invoke_bbox(base, &d, sp_item_i2d_affine(base), TRUE, SPItem::RENDERING_BBOX);
+        sp_item_invoke_bbox(base, d, sp_item_i2d_affine(base), TRUE, SPItem::RENDERING_BBOX);
     }
 
     // scale all coordinates, such that the width of the image is 1, this is convenient for scaling the image in LaTeX
-    double scale = 1/(d.x1-d.x0);
-    double _width = (d.x1-d.x0) * scale;
-    double _height = (d.y1-d.y0) * scale;
+    double scale = 1/(d->width());
+    double _width = d->width() * scale;
+    double _height = d->height() * scale;
     push_transform( Geom::Scale(scale, scale) );
 
     if (!pageBoundingBox)
     {
         double high = sp_document_height(doc);
 
-        push_transform( Geom::Translate(-d.x0, -d.y0) );
+        push_transform( Geom::Translate( - d->min() ) );
     }
 
     // flip y-axis
