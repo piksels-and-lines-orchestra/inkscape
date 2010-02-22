@@ -247,6 +247,7 @@ void
 LaTeXTextRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
+    SPStyle *style = SP_OBJECT_STYLE (SP_OBJECT(item));
 
     gchar *str = sp_te_get_string_multiline(item);
 
@@ -256,7 +257,6 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     Geom::OptRect bbox = item->getBounds(transform());
     Geom::Interval bbox_x = (*bbox)[Geom::X];
     Geom::Interval bbox_y = (*bbox)[Geom::Y];
-    SPStyle *style = SP_OBJECT_STYLE (SP_OBJECT(item));
     switch (style->text_anchor.computed) {
     case SP_CSS_TEXT_ANCHOR_START:
         pos = Geom::Point( bbox_x.min() , bbox_y.middle() );
@@ -273,6 +273,20 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
         break;
     }
 
+    // determine color (for now, use rgb color model as it is most native to Inkscape)
+    bool has_color = false; // if the item has no color set, don't force black color
+    // TODO: how to handle ICC colors?
+    // give priority to fill color
+    guint32 rgba = 0;
+    if (style->fill.set && style->fill.isColor()) { 
+        has_color = true;
+        rgba = style->fill.value.color.toRGBA32(1.);
+    } else if (style->stroke.set && style->stroke.isColor()) { 
+        has_color = true;
+        rgba = style->stroke.value.color.toRGBA32(1.);
+    }
+
+
     // get rotation
     Geom::Matrix i2doc = sp_item_i2doc_affine(item);
     Geom::Matrix wotransl = i2doc.without_translation();
@@ -283,6 +297,9 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     Inkscape::SVGOStringStream os;
 
     os << "    \\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
+    if (has_color) {
+        os << "\\color[rgb]{" << SP_RGBA32_R_F(rgba) << "," << SP_RGBA32_G_F(rgba) << "," << SP_RGBA32_B_F(rgba) << "}";
+    }
     os << "\\makebox(0,0)" << alignment << "{";
     if (has_rotation) {
         os << "\\rotatebox{" << degrees << "}{";
