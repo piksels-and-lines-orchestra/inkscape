@@ -1,7 +1,7 @@
-#define EXTENSION_INTERNAL_PDF_LATEX_RENDERER_CPP
+#define EXTENSION_INTERNAL_LATEX_TEXT_RENDERER_CPP
 
 /** \file
- * Rendering LaTeX file (pdf+latex output)
+ * Rendering LaTeX file (pdf/eps/ps+latex output)
  *
  * The idea stems from GNUPlot's epslatex terminal output :-)
  */
@@ -19,84 +19,29 @@
 # include "config.h"
 #endif
 
-#ifndef PANGO_ENABLE_BACKEND
-#define PANGO_ENABLE_BACKEND
-#endif
-
-#ifndef PANGO_ENABLE_ENGINE
-#define PANGO_ENABLE_ENGINE
-#endif
-
+#include "latex-text-renderer.h"
 
 #include <signal.h>
 #include <errno.h>
 
-#include "libnr/nr-rect.h"
 #include "libnrtype/Layout-TNG.h"
 #include <2geom/transforms.h>
-#include <2geom/pathvector.h>
-
-#include <glib/gmem.h>
 
 #include <glibmm/i18n.h>
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
-#include "display/nr-arena-group.h"
-#include "display/curve.h"
-#include "display/canvas-bpath.h"
 #include "sp-item.h"
 #include "sp-item-group.h"
 #include "style.h"
-#include "marker.h"
-#include "sp-linear-gradient.h"
-#include "sp-radial-gradient.h"
 #include "sp-root.h"
 #include "sp-use.h"
 #include "sp-text.h"
 #include "sp-flowtext.h"
-#include "sp-mask.h"
-#include "sp-clippath.h"
 #include "text-editing.h"
 
 #include <unit-constants.h>
-#include "helper/png-write.h"
-#include "helper/pixbuf-ops.h"
 
-#include "latex-text-renderer.h"
 #include "extension/system.h"
 
 #include "io/sys.h"
-
-#include <cairo.h>
-
-// include support for only the compiled-in surface types
-#ifdef CAIRO_HAS_PDF_SURFACE
-#include <cairo-pdf.h>
-#endif
-#ifdef CAIRO_HAS_PS_SURFACE
-#include <cairo-ps.h>
-#endif
-
-//#define TRACE(_args) g_message(_args)
-#define TRACE(_args)
-//#define TEST(_args) _args
-#define TEST(_args)
-
-// FIXME: expose these from sp-clippath/mask.cpp
-struct SPClipPathView {
-    SPClipPathView *next;
-    unsigned int key;
-    NRArenaItem *arenaitem;
-    NRRect bbox;
-};
-
-struct SPMaskView {
-    SPMaskView *next;
-    unsigned int key;
-    NRArenaItem *arenaitem;
-    NRRect bbox;
-};
-
 
 namespace Inkscape {
 namespace Extension {
@@ -144,9 +89,7 @@ latex_render_document_text_to_file( SPDocument *doc, gchar const *filename,
 
 LaTeXTextRenderer::LaTeXTextRenderer(void)
   : _stream(NULL),
-    _filename(NULL),
-    _width(0),
-    _height(0)
+    _filename(NULL)
 {
     push_transform(Geom::identity());
 }
@@ -281,8 +224,7 @@ LaTeXTextRenderer::sp_use_render(SPItem *item)
 
     if ((use->x._set && use->x.computed != 0) || (use->y._set && use->y.computed != 0)) {
         Geom::Matrix tp(Geom::Translate(use->x.computed, use->y.computed));
-        ctx->pushState();
-        ctx->transform(&tp);
+        push_transform(tp);
         translated = true;
     }
 
@@ -291,7 +233,7 @@ LaTeXTextRenderer::sp_use_render(SPItem *item)
     }
 
     if (translated) {
-        ctx->popState();
+        pop_transform();
     }
 */
 }
@@ -339,7 +281,6 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     // write to LaTeX
     Inkscape::SVGOStringStream os;
 
-//    os << "\\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){\\makebox(0,0)[" << alignment << "]{\\strut{}" << str << "}}%%\n";
     os << "    \\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
     os << "\\makebox(0,0)" << alignment << "{";
     if (has_rotation) {
@@ -377,8 +318,6 @@ LaTeXTextRenderer::sp_root_render(SPItem *item)
 {
     SPRoot *root = SP_ROOT(item);
 
-//    ctx->pushState();
-//    setStateForItem(ctx, item);
     Geom::Matrix tempmat (root->c2p);
     push_transform(tempmat);
     sp_group_render(item);
@@ -394,70 +333,26 @@ LaTeXTextRenderer::sp_item_invoke_render(SPItem *item)
     }
 
     if (SP_IS_ROOT(item)) {
-        TRACE(("root\n"));
         return sp_root_render(item);
     } else if (SP_IS_GROUP(item)) {
-        TRACE(("group\n"));
         return sp_group_render(item);
     } else if (SP_IS_USE(item)) {
-        TRACE(("use begin---\n"));
         sp_use_render(item);
-        TRACE(("---use end\n"));
     } else if (SP_IS_TEXT(item)) {
-        TRACE(("text\n"));
         return sp_text_render(item);
     } else if (SP_IS_FLOWTEXT(item)) {
-        TRACE(("flowtext\n"));
         return sp_flowtext_render(item);
     }
     // We are not interested in writing the other SPItem types to LaTeX
 }
 
 void
-LaTeXTextRenderer::setStateForItem(SPItem const *item)
-{
-/*
-    SPStyle const *style = SP_OBJECT_STYLE(item);
-    ctx->setStateForStyle(style);
-
-    CairoRenderState *state = ctx->getCurrentState();
-    state->clip_path = item->clip_ref->getObject();
-    state->mask = item->mask_ref->getObject();
-    state->item_transform = Geom::Matrix (item->transform);
-
-    // If parent_has_userspace is true the parent state's transform
-    // has to be used for the mask's/clippath's context.
-    // This is so because we use the image's/(flow)text's transform for positioning
-    // instead of explicitly specifying it and letting the renderer do the
-    // transformation before rendering the item.
-    if (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item) || SP_IS_IMAGE(item))
-        state->parent_has_userspace = TRUE;
-    TRACE(("setStateForItem opacity: %f\n", state->opacity));
-*/
-}
-
-void
 LaTeXTextRenderer::renderItem(SPItem *item)
 {
-//    ctx->pushState();
-//    setStateForItem(ctx, item);
-
-//    CairoRenderState *state = ctx->getCurrentState();
-//    state->need_layer = ( state->mask || state->clip_path || state->opacity != 1.0 );
-
-    // Draw item on a temporary surface so a mask, clip path, or opacity can be applied to it.
-//    if (state->need_layer) {
-//        state->merge_opacity = FALSE;
-//        ctx->pushLayer();
-//    }
-    Geom::Matrix tempmat (item->transform);
-//    ctx->transform(&tempmat);
+//    push_transform(item->transform);
     sp_item_invoke_render(item);
 
-//    if (state->need_layer)
-//        ctx->popLayer();
-
-//    ctx->popState();
+//    pop_transform();
 }
 
 bool
@@ -479,16 +374,15 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
 
     // scale all coordinates, such that the width of the image is 1, this is convenient for scaling the image in LaTeX
     double scale = 1/(d.x1-d.x0);
-    _width = (d.x1-d.x0) * scale;
-    _height = (d.y1-d.y0) * scale;
+    double _width = (d.x1-d.x0) * scale;
+    double _height = (d.y1-d.y0) * scale;
     push_transform( Geom::Scale(scale, scale) );
 
     if (!pageBoundingBox)
     {
         double high = sp_document_height(doc);
 
-        push_transform( Geom::Translate( -d.x0,
-                                         -d.y0 ) );
+        push_transform( Geom::Translate(-d.x0, -d.y0) );
     }
 
     // flip y-axis
@@ -529,112 +423,9 @@ LaTeXTextRenderer::pop_transform()
     _transform_stack.pop();
 }
 
-/*
-#include "macros.h" // SP_PRINT_*
-
-// Apply an SVG clip path
-void
-LaTeXTextRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
-{
-    g_assert( ctx != NULL && ctx->_is_valid );
-
-    if (cp == NULL)
-        return;
-
-    CairoRenderContext::CairoRenderMode saved_mode = ctx->getRenderMode();
-    ctx->setRenderMode(CairoRenderContext::RENDER_MODE_CLIP);
-
-    Geom::Matrix saved_ctm;
-    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
-        //SP_PRINT_DRECT("clipd", cp->display->bbox);
-        NRRect clip_bbox(cp->display->bbox);
-        Geom::Matrix t(Geom::Scale(clip_bbox.x1 - clip_bbox.x0, clip_bbox.y1 - clip_bbox.y0));
-        t[4] = clip_bbox.x0;
-        t[5] = clip_bbox.y0;
-        t *= ctx->getCurrentState()->transform;
-        ctx->getTransform(&saved_ctm);
-        ctx->setTransform(&t);
-    }
-
-    TRACE(("BEGIN clip\n"));
-    SPObject *co = SP_OBJECT(cp);
-    for (SPObject *child = sp_object_first_child(co) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
-        if (SP_IS_ITEM(child)) {
-            SPItem *item = SP_ITEM(child);
-
-            // combine transform of the item in clippath and the item using clippath:
-            Geom::Matrix tempmat (item->transform);
-            tempmat = tempmat * (ctx->getCurrentState()->item_transform);
-
-            // render this item in clippath
-            ctx->pushState();
-            ctx->transform(&tempmat);
-            setStateForItem(ctx, item);
-            sp_item_invoke_render(item, ctx);
-            ctx->popState();
-        }
-    }
-    TRACE(("END clip\n"));
-
-    // do clipping only if this was the first call to applyClipPath
-    if (ctx->getClipMode() == CairoRenderContext::CLIP_MODE_PATH
-        && saved_mode == CairoRenderContext::RENDER_MODE_NORMAL)
-        cairo_clip(ctx->_cr);
-
-    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX)
-        ctx->setTransform(&saved_ctm);
-
-    ctx->setRenderMode(saved_mode);
-}
-
-// Apply an SVG mask
-void
-LaTeXTextRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
-{
-    g_assert( ctx != NULL && ctx->_is_valid );
-
-    if (mask == NULL)
-        return;
-
-    //SP_PRINT_DRECT("maskd", &mask->display->bbox);
-    NRRect mask_bbox(mask->display->bbox);
-    // TODO: should the bbox be transformed if maskUnits != userSpaceOnUse ?
-    if (mask->maskContentUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
-        Geom::Matrix t(Geom::Scale(mask_bbox.x1 - mask_bbox.x0, mask_bbox.y1 - mask_bbox.y0));
-        t[4] = mask_bbox.x0;
-        t[5] = mask_bbox.y0;
-        t *= ctx->getCurrentState()->transform;
-        ctx->setTransform(&t);
-    }
-
-    // Clip mask contents... but...
-    // The mask's bounding box is the "geometric bounding box" which doesn't allow for
-    // filters which extend outside the bounding box. So don't clip.
-    // ctx->addClippingRect(mask_bbox.x0, mask_bbox.y0, mask_bbox.x1 - mask_bbox.x0, mask_bbox.y1 - mask_bbox.y0);
-
-    ctx->pushState();
-
-    TRACE(("BEGIN mask\n"));
-    SPObject *co = SP_OBJECT(mask);
-    for (SPObject *child = sp_object_first_child(co) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
-        if (SP_IS_ITEM(child)) {
-            SPItem *item = SP_ITEM(child);
-            renderItem(ctx, item);
-        }
-    }
-    TRACE(("END mask\n"));
-
-    ctx->popState();
-}
-*/
-
 }  /* namespace Internal */
 }  /* namespace Extension */
 }  /* namespace Inkscape */
-
-#undef TRACE
-
-/* End of GNU GPL code */
 
 /*
   Local Variables:

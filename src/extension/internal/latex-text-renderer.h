@@ -1,8 +1,8 @@
-#ifndef EXTENSION_INTERNAL_PDF_LATEX_RENDERER_H_SEEN
-#define EXTENSION_INTERNAL_PDF_LATEX_RENDERER_H_SEEN
+#ifndef EXTENSION_INTERNAL_LATEX_TEXT_RENDERER_H_SEEN
+#define EXTENSION_INTERNAL_LATEX_TEXT_RENDERER_H_SEEN
 
 /** \file
- * Declaration of LaTeXTextRenderer, used for rendering the accompanying LaTeX file when saving PDF output + LaTeX 
+ * Declaration of LaTeXTextRenderer, used for rendering the accompanying LaTeX file when exporting to PDF/EPS/PS + LaTeX 
  */
 /*
  * Authors:
@@ -18,18 +18,9 @@
 #endif
 
 #include "extension/extension.h"
-#include <set>
-#include <string>
-
-#include "style.h"
-
-#include <cairo.h>
-
 #include <2geom/matrix.h>
 #include <stack>
 
-class SPClipPath;
-class SPMask;
 class SPItem;
 
 namespace Inkscape {
@@ -44,11 +35,6 @@ public:
     virtual ~LaTeXTextRenderer();
 
     bool setTargetFile(gchar const *filename);
-
-    void setStateForItem(SPItem const *item);
-
-//    void applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp);
-//    void applyMask(CairoRenderContext *ctx, SPMask const *mask);
 
     /** Initializes the LaTeXTextRenderer according to the specified
     SPDocument. Important to set the boundingbox to the pdf boundingbox */
@@ -65,8 +51,6 @@ protected:
     Geom::Matrix const & transform();
     void pop_transform();
     std::stack<Geom::Matrix> _transform_stack;
-    double _width;
-    double _height;
 
     void writePreamble();
     void writePostamble();
@@ -83,7 +67,7 @@ protected:
 }  /* namespace Extension */
 }  /* namespace Inkscape */
 
-#endif /* !EXTENSION_INTERNAL_CAIRO_RENDERER_H_SEEN */
+#endif /* !EXTENSION_INTERNAL_LATEX_TEXT_RENDERER_H_SEEN */
 
 /*
   Local Variables:
