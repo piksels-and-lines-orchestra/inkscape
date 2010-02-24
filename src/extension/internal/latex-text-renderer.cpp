@@ -293,6 +293,7 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
 
     // write to LaTeX
     Inkscape::SVGOStringStream os;
+    os.setf(std::ios::fixed); // don't use scientific notation
 
     os << "    \\put(" << pos[Geom::X] << "," << pos[Geom::Y] << "){";
     if (has_color) {
@@ -319,6 +320,7 @@ LaTeXTextRenderer::sp_flowtext_render(SPItem *item)
 
     // write to LaTeX
     Inkscape::SVGOStringStream os;
+    os.setf(std::ios::fixed); // no scientific notation
 
     os << "  \\begin{picture}(" << _width << "," << _height << ")%%\n";
     os << "    \\gplgaddtomacro\\gplbacktext{%%\n";
@@ -403,6 +405,7 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
 
     // write the info to LaTeX
     Inkscape::SVGOStringStream os;
+    os.setf(std::ios::fixed); // no scientific notation
 
     // also write original width to LaTeX
     // TODO: add \ifdef statements to be able to choose between specifying width or not to specify it!
