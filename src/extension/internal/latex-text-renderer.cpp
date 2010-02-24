@@ -53,7 +53,7 @@ namespace Internal {
  * @param filename This should be the filename without extension to which the tex code should be written. Output goes to <filename>.tex.
  */
 bool
-latex_render_document_text_to_file( SPDocument *doc, gchar const *filename, 
+latex_render_document_text_to_file( SPDocument *doc, gchar const *filename,
                                     const gchar * const exportId, bool exportDrawing, bool exportCanvas)
 {
     sp_document_ensure_up_to_date(doc);
@@ -126,7 +126,7 @@ bool
 LaTeXTextRenderer::setTargetFile(gchar const *filename) {
     if (filename != NULL) {
         while (isspace(*filename)) filename += 1;
-        
+
         _filename = g_path_get_basename(filename);
 
         gchar *filename_ext = g_strdup_printf("%s.tex", filename);
@@ -182,20 +182,20 @@ static char const preamble[] =
 "%%  instead of\n"
 "%%   \\includegraphics[width=<desired width>]{<filename>.pdf}\n"
 "\n"
-"\\begingroup                                                                              \n"
-"  \\makeatletter                                                                          \n"
-"  \\providecommand\\color[2][]{%                                                          \n"
-"    \\GenericError{(Inkscape) \\space\\space\\@spaces}{%                                  \n"
-"      Color is used for the text in Inkscape, but the color package color is not loaded.  \n"
-"    }{Either use black text in Inkscape or load the package                               \n"
-"      color.sty in LaTeX.}%                                                               \n"
-"    \\renewcommand\\color[2][]{}%                                                         \n"
-"  }%%                                                                                     \n"
-"  \\providecommand\\rotatebox[2]{#2}%                                                     \n";
+"\\begingroup\n"
+"  \\makeatletter\n"
+"  \\providecommand\\color[2][]{%\n"
+"    \\GenericError{(Inkscape) \\space\\space\\@spaces}{%\n"
+"      Color is used for the text in Inkscape, but the color package color is not loaded.\n"
+"    }{Either use black text in Inkscape or load the package\n"
+"      color.sty in LaTeX.}%\n"
+"    \\renewcommand\\color[2][]{}%\n"
+"  }\n"
+"  \\providecommand\\rotatebox[2]{#2}\n";
 
 static char const postamble[] =
-"  \\end{picture}%                                                                          \n"
-"\\endgroup                                                                                 \n";
+"  \\end{picture}\n"
+"\\endgroup\n";
 
 void
 LaTeXTextRenderer::writePreamble()
@@ -283,10 +283,10 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     // TODO: how to handle ICC colors?
     // give priority to fill color
     guint32 rgba = 0;
-    if (style->fill.set && style->fill.isColor()) { 
+    if (style->fill.set && style->fill.isColor()) {
         has_color = true;
         rgba = style->fill.value.color.toRGBA32(1.);
-    } else if (style->stroke.set && style->stroke.isColor()) { 
+    } else if (style->stroke.set && style->stroke.isColor()) {
         has_color = true;
         rgba = style->stroke.value.color.toRGBA32(1.);
     }
@@ -415,12 +415,12 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     os.setf(std::ios::fixed); // no scientific notation
 
     // scaling of the image when including it in LaTeX
-    
+
     os << "  \\ifx \\svgwidth \\@empty\n";
     os << "    \\setlength{\\unitlength}{" << d->width() * PT_PER_PX << "pt}\n";
     os << "  \\else\n";
     os << "    \\setlength{\\unitlength}{\\svgwidth}\n";
-    os << "  \\fi\n";                                                                           
+    os << "  \\fi\n";
     os << "  \\global\\let\\svgwidth\\@empty\n";
     os << "  \\makeatother\n";
 
