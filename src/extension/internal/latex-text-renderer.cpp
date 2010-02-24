@@ -151,7 +151,7 @@ LaTeXTextRenderer::setTargetFile(gchar const *filename) {
     fprintf(_stream, "%%%% Creator: Inkscape %s, www.inkscape.org\n", PACKAGE_STRING);
     fprintf(_stream, "%%%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010\n");
     fprintf(_stream, "%%%% Accompanies image file '%s' (pdf, eps, ps)\n", _filename);
-    fprintf(_stream, "%%%%");
+    fprintf(_stream, "%%%%\n");
     /* flush this to test output stream as early as possible */
     if (fflush(_stream)) {
         if (ferror(_stream)) {
@@ -173,9 +173,13 @@ LaTeXTextRenderer::setTargetFile(gchar const *filename) {
 
 static char const preamble[] =
 "%% To include the image in your LaTeX document, write\n"
-"%%   \\setlength{\\unitlength}{<desired width>}\n"
 "%%   \\input{<filename>.tex}\n"
-"%% instead of\n"
+"%%  instead of\n"
+"%%   \\includegraphics{<filename>.pdf}\n"
+"%% To scale the image, write\n"
+"%%   \\def{\\svgwidth}{<desired width>}\n"
+"%%   \\input{<filename>.tex}\n"
+"%%  instead of\n"
 "%%   \\includegraphics[width=<desired width>]{<filename>.pdf}\n"
 "\n"
 "\\begingroup                                                                              \n"
@@ -187,8 +191,7 @@ static char const preamble[] =
 "      color.sty in LaTeX.}%                                                               \n"
 "    \\renewcommand\\color[2][]{}%                                                         \n"
 "  }%%                                                                                     \n"
-"  \\providecommand\\rotatebox[2]{#2}%                                                     \n"
-"  \\makeatother                                                                           \n";
+"  \\providecommand\\rotatebox[2]{#2}%                                                     \n";
 
 static char const postamble[] =
 "  \\end{picture}%                                                                          \n"
@@ -250,26 +253,30 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     gchar *str = sp_te_get_string_multiline(item);
 
     // get position and alignment
-    Geom::Point pos;
+    // Align vertically on the baseline of the font (retreived from the anchor point)
+    // Align horizontally on boundingbox
+    Geom::Coord pos_x;
     gchar *alignment = NULL;
     Geom::OptRect bbox = item->getBounds(transform());
     Geom::Interval bbox_x = (*bbox)[Geom::X];
-    Geom::Interval bbox_y = (*bbox)[Geom::Y];
     switch (style->text_anchor.computed) {
     case SP_CSS_TEXT_ANCHOR_START:
-        pos = Geom::Point( bbox_x.min() , bbox_y.middle() );
-        alignment = "[l]";
+        pos_x = bbox_x.min();
+        alignment = "[lb]";
         break;
     case SP_CSS_TEXT_ANCHOR_END:
-        pos = Geom::Point( bbox_x.max() , bbox_y.middle() );
-        alignment = "[r]";
+        pos_x = bbox_x.max();
+        alignment = "[rb]";
         break;
     case SP_CSS_TEXT_ANCHOR_MIDDLE:
     default:
-        pos = bbox->midpoint();
-        alignment = "";
+        pos_x = bbox_x.middle();
+        alignment = "[b]";
         break;
     }
+    Geom::Point anchor = textobj->attributes.firstXY() * transform();
+    // If we want to align horizontally on bbox: Geom::Point pos(pos_x, anchor[Geom::Y]);
+    Geom::Point pos(anchor[Geom::X], anchor[Geom::Y]);
 
     // determine color (for now, use rgb color model as it is most native to Inkscape)
     bool has_color = false; // if the item has no color set, don't force black color
@@ -299,11 +306,11 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     if (has_color) {
         os << "\\color[rgb]{" << SP_RGBA32_R_F(rgba) << "," << SP_RGBA32_G_F(rgba) << "," << SP_RGBA32_B_F(rgba) << "}";
     }
-    os << "\\makebox(0,0)" << alignment << "{";
     if (has_rotation) {
         os << "\\rotatebox{" << degrees << "}{";
     }
-    os <<   str;
+    os << "\\makebox(0,0)" << alignment << "{";
+    os << "\\smash{" << str << "}";  // smash the text, to be able to put the makebox coordinates at the baseline
     if (has_rotation) {
         os << "}"; // rotatebox end
     }
@@ -407,9 +414,15 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     Inkscape::SVGOStringStream os;
     os.setf(std::ios::fixed); // no scientific notation
 
-    // also write original width to LaTeX
-    // TODO: add \ifdef statements to be able to choose between specifying width or not to specify it!
-    os << "  %\\setlength{\\unitlength}{" << d->width() * PT_PER_PX << "pt}\n";
+    // scaling of the image when including it in LaTeX
+    
+    os << "  \\ifx \\svgwidth \\@empty\n";
+    os << "    \\setlength{\\unitlength}{" << d->width() * PT_PER_PX << "pt}\n";
+    os << "  \\else\n";
+    os << "    \\setlength{\\unitlength}{\\svgwidth}\n";
+    os << "  \\fi\n";                                                                           
+    os << "  \\global\\let\\svgwidth\\@empty\n";
+    os << "  \\makeatother\n";
 
     os << "  \\begin{picture}(" << _width << "," << _height << ")%\n";
     // strip pathname, as it is probably desired. Having a specific path in the TeX file is not convenient.
