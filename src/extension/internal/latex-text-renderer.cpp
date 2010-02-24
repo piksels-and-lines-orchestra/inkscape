@@ -223,7 +223,6 @@ LaTeXTextRenderer::sp_group_render(SPItem *item)
 void
 LaTeXTextRenderer::sp_use_render(SPItem *item)
 {
-/*
     bool translated = false;
     SPUse *use = SP_USE(item);
 
@@ -240,7 +239,6 @@ LaTeXTextRenderer::sp_use_render(SPItem *item)
     if (translated) {
         pop_transform();
     }
-*/
 }
 
 void
