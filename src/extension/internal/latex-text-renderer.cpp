@@ -404,6 +404,10 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     // write the info to LaTeX
     Inkscape::SVGOStringStream os;
 
+    // also write original width to LaTeX
+    // TODO: add \ifdef statements to be able to choose between specifying width or not to specify it!
+    os << "  %\\setlength{\\unitlength}{" << d->width() * PT_PER_PX << "pt}\n";
+
     os << "  \\begin{picture}(" << _width << "," << _height << ")%\n";
     // strip pathname, as it is probably desired. Having a specific path in the TeX file is not convenient.
     os << "    \\put(0,0){\\includegraphics[width=\\unitlength]{" << _filename << "}}%\n";
