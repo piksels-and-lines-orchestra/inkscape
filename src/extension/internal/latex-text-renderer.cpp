@@ -251,32 +251,28 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     SPStyle *style = SP_OBJECT_STYLE (SP_OBJECT(item));
 
     gchar *str = sp_te_get_string_multiline(item);
+    if (!str) {
+        return;
+    }
 
     // get position and alignment
     // Align vertically on the baseline of the font (retreived from the anchor point)
-    // Align horizontally on boundingbox
-    Geom::Coord pos_x;
+    // Align horizontally on anchorpoint
     gchar *alignment = NULL;
-    Geom::OptRect bbox = item->getBounds(transform());
-    Geom::Interval bbox_x = (*bbox)[Geom::X];
     switch (style->text_anchor.computed) {
     case SP_CSS_TEXT_ANCHOR_START:
-        pos_x = bbox_x.min();
         alignment = "[lb]";
         break;
     case SP_CSS_TEXT_ANCHOR_END:
-        pos_x = bbox_x.max();
         alignment = "[rb]";
         break;
     case SP_CSS_TEXT_ANCHOR_MIDDLE:
     default:
-        pos_x = bbox_x.middle();
         alignment = "[b]";
         break;
     }
     Geom::Point anchor = textobj->attributes.firstXY() * transform();
-    // If we want to align horizontally on bbox: Geom::Point pos(pos_x, anchor[Geom::Y]);
-    Geom::Point pos(anchor[Geom::X], anchor[Geom::Y]);
+    Geom::Point pos(anchor);
 
     // determine color (for now, use rgb color model as it is most native to Inkscape)
     bool has_color = false; // if the item has no color set, don't force black color
@@ -392,6 +388,10 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
                         Geom::Point(sp_document_width(doc), sp_document_height(doc)) );
     } else {
         sp_item_invoke_bbox(base, d, sp_item_i2d_affine(base), TRUE, SPItem::RENDERING_BBOX);
+    }
+    if (!d) {
+        g_message("LaTeXTextRenderer: could not retrieve boundingbox.");
+        return false;
     }
 
     // scale all coordinates, such that the width of the image is 1, this is convenient for scaling the image in LaTeX
