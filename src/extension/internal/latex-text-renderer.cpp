@@ -194,7 +194,7 @@ static char const preamble[] =
 "  \\providecommand\\rotatebox[2]{#2}\n";
 
 static char const postamble[] =
-"  \\end{picture}\n"
+"  \\end{picture}%\n"
 "\\endgroup\n";
 
 void
