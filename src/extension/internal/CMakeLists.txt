@@ -20,7 +20,7 @@ latex-pstricks.cpp
 latex-pstricks-out.cpp
 odf.cpp
 pdfinput
-pdflatex-renderer.cpp
+latex-text-renderer.cpp
 pdf-input-cairo.cpp
 pov-out.cpp
 javafx-out.cpp
