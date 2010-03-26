@@ -1,5 +1,3 @@
-#define __SP_SELECTION_CHEMISTRY_C__
-
 /** @file
  * @brief Miscellanous operations on selected items
  */
@@ -9,8 +7,10 @@
  *   MenTaLguY <mental@rydia.net>
  *   bulia byak <buliabyak@users.sf.net>
  *   Andrius R. <knutux@gmail.com>
+ *   Jon A. Cruz <jon@joncruz.org>
+ *   Martin Sucha <martin.sucha-inkscape@jts-sro.sk>
  *
- * Copyright (C) 1999-2006 authors
+ * Copyright (C) 1999-2010 authors
  * Copyright (C) 2001-2002 Ximian, Inc.
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
@@ -21,6 +21,10 @@
 #endif
 
 #include "selection-chemistry.h"
+
+// TOOD fixme: This should be moved into preference repr
+SPCycleType SP_CYCLING = SP_CYCLE_FOCUS;
+
 
 #include <gtkmm/clipboard.h>
 
@@ -40,6 +44,7 @@
 #include "sp-tref.h"
 #include "sp-flowtext.h"
 #include "sp-flowregion.h"
+#include "sp-image.h"
 #include "text-editing.h"
 #include "text-context.h"
 #include "connector-context.h"
@@ -61,6 +66,7 @@
 #include "sp-linear-gradient-fns.h"
 #include "sp-pattern.h"
 #include "sp-radial-gradient-fns.h"
+#include "gradient-context.h"
 #include "sp-namedview.h"
 #include "preferences.h"
 #include "sp-offset.h"
@@ -86,12 +92,16 @@
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
 #include "inkscape-private.h"
+#include "path-chemistry.h"
+#include "ui/tool/control-point-selection.h"
+#include "ui/tool/multi-path-manipulator.h"
+
+#include "enums.h"
+#include "sp-item-group.h"
 
 // For clippath editing
 #include "tools-switch.h"
-#include "shape-editor.h"
-#include "node-context.h"
-#include "nodepath.h"
+#include "ui/tool/node-tool.h"
 
 #include "ui/clipboard.h"
 
@@ -101,6 +111,104 @@ using Geom::Y;
 /* The clipboard handling is in ui/clipboard.cpp now. There are some legacy functions left here,
 because the layer manipulation code uses them. It should be rewritten specifically
 for that purpose. */
+
+
+
+namespace Inkscape {
+
+void SelectionHelper::selectAll(SPDesktop *dt)
+{
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        if (!nt->_multipath->empty()) {
+            nt->_multipath->selectSubpaths();
+            return;
+        }
+    }
+    sp_edit_select_all(dt);
+}
+
+void SelectionHelper::selectAllInAll(SPDesktop *dt)
+{
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_selected_nodes->selectAll();
+    } else {
+        sp_edit_select_all_in_all_layers(dt);
+    }
+}
+
+void SelectionHelper::selectNone(SPDesktop *dt)
+{
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_selected_nodes->clear();
+    } else {
+        sp_desktop_selection(dt)->clear();
+    }
+}
+
+void SelectionHelper::invert(SPDesktop *dt)
+{
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_multipath->invertSelectionInSubpaths();
+    } else {
+        sp_edit_invert(dt);
+    }
+}
+
+void SelectionHelper::invertAllInAll(SPDesktop *dt)
+{
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_selected_nodes->invertSelection();
+    } else {
+        sp_edit_invert_in_all_layers(dt);
+    }
+}
+
+void SelectionHelper::reverse(SPDesktop *dt)
+{
+    // TODO make this a virtual method of event context!
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_multipath->reverseSubpaths();
+    } else {
+        sp_selected_path_reverse(dt);
+    }
+}
+
+void SelectionHelper::selectNext(SPDesktop *dt)
+{
+    SPEventContext *ec = dt->event_context;
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_multipath->shiftSelection(1);
+    } else if (tools_isactive(dt, TOOLS_GRADIENT)
+               && ec->_grdrag->isNonEmpty()) {
+        sp_gradient_context_select_next(ec);
+    } else {
+        sp_selection_item_next(dt);
+    }
+}
+
+void SelectionHelper::selectPrev(SPDesktop *dt)
+{
+    SPEventContext *ec = dt->event_context;
+    if (tools_isactive(dt, TOOLS_NODES)) {
+        InkNodeTool *nt = static_cast<InkNodeTool*>(dt->event_context);
+        nt->_multipath->shiftSelection(-1);
+    } else if (tools_isactive(dt, TOOLS_GRADIENT)
+               && ec->_grdrag->isNonEmpty()) {
+        sp_gradient_context_select_prev(ec);
+    } else {
+        sp_selection_item_prev(dt);
+    }
+}
+
+} // namespace Inkscape
+
 
 /**
  * Copies repr and its inherited css style elements, along with the accumulated transform 'full_t',
@@ -227,7 +335,7 @@ void add_ids_recursive(std::vector<const gchar *> &ids, SPObject *obj)
     if (!obj)
         return;
 
-    ids.push_back(SP_OBJECT_ID(obj));
+    ids.push_back(obj->getId());
 
     if (SP_IS_GROUP(obj)) {
         for (SPObject *child = sp_object_first_child(obj) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
@@ -297,7 +405,7 @@ void sp_selection_duplicate(SPDesktop *desktop, bool suppressDone)
                 if (!orig) // orphaned
                     continue;
                 for (unsigned int j = 0; j < old_ids.size(); j++) {
-                    if (!strcmp(SP_OBJECT_ID(orig), old_ids[j])) {
+                    if (!strcmp(orig->getId(), old_ids[j])) {
                         // we have both orig and clone in selection, relink
                         // std::cout << id  << " old, its ori: " << SP_OBJECT_ID(orig) << "; will relink:" << new_ids[i] << " to " << new_ids[j] << "\n";
                         gchar *newref = g_strdup_printf("#%s", new_ids[j]);
@@ -450,35 +558,13 @@ void sp_edit_invert_in_all_layers(SPDesktop *desktop)
     sp_edit_select_all_full(desktop, true, true);
 }
 
-void sp_selection_group(SPDesktop *desktop)
-{
-    if (desktop == NULL)
-        return;
-
-    SPDocument *doc = sp_desktop_document(desktop);
-    Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
-
-    Inkscape::Selection *selection = sp_desktop_selection(desktop);
-
-    // Check if something is selected.
-    if (selection->isEmpty()) {
-        desktop->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("Select <b>some objects</b> to group."));
-        return;
-    }
-
-    GSList const *l = (GSList *) selection->reprList();
-
-    GSList *p = g_slist_copy((GSList *) l);
-
-    selection->clear();
-
+void sp_selection_group_impl(GSList *p, Inkscape::XML::Node *group, Inkscape::XML::Document *xml_doc, SPDocument *doc) {
+    
     p = g_slist_sort(p, (GCompareFunc) sp_repr_compare_position);
 
     // Remember the position and parent of the topmost object.
     gint topmost = ((Inkscape::XML::Node *) g_slist_last(p)->data)->position();
     Inkscape::XML::Node *topmost_parent = ((Inkscape::XML::Node *) g_slist_last(p)->data)->parent();
-
-    Inkscape::XML::Node *group = xml_doc->createElement("svg:g");
 
     while (p) {
         Inkscape::XML::Node *current = (Inkscape::XML::Node *) p->data;
@@ -533,6 +619,33 @@ void sp_selection_group(SPDesktop *desktop)
 
     // Move to the position of the topmost, reduced by the number of items deleted from topmost_parent
     group->setPosition(topmost + 1);
+}
+
+void sp_selection_group(SPDesktop *desktop)
+{
+    if (desktop == NULL)
+        return;
+
+    SPDocument *doc = sp_desktop_document(desktop);
+    Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
+
+    Inkscape::Selection *selection = sp_desktop_selection(desktop);
+
+    // Check if something is selected.
+    if (selection->isEmpty()) {
+        desktop->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("Select <b>some objects</b> to group."));
+        return;
+    }
+
+    GSList const *l = (GSList *) selection->reprList();
+    
+    GSList *p = g_slist_copy((GSList *) l);
+    
+    selection->clear();
+
+    Inkscape::XML::Node *group = xml_doc->createElement("svg:g");
+
+    sp_selection_group_impl(p, group, xml_doc, doc);
 
     sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_GROUP,
                      _("Group"));
@@ -573,7 +686,7 @@ void sp_selection_ungroup(SPDesktop *desktop)
         /* We do not allow ungrouping <svg> etc. (lauris) */
         if (strcmp(SP_OBJECT_REPR(group)->name(), "svg:g") && strcmp(SP_OBJECT_REPR(group)->name(), "svg:switch")) {
             // keep the non-group item in the new selection
-            selection->add(group);
+            new_select = g_slist_append(new_select, group);
             continue;
         }
 
@@ -734,7 +847,7 @@ sp_selection_raise(SPDesktop *desktop)
                      //TRANSLATORS: only translate "string" in "context|string".
                      // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
                      // "Raise" means "to raise an object" in the undo history
-                     Q_("undo_action|Raise"));
+                     Q_("undo action|Raise"));
 }
 
 void sp_selection_raise_to_top(SPDesktop *desktop)
@@ -898,7 +1011,7 @@ sp_redo(SPDesktop *desktop, SPDocument *)
 
 void sp_selection_cut(SPDesktop *desktop)
 {
-    sp_selection_copy();
+    sp_selection_copy(desktop);
     sp_selection_delete(desktop);
 }
 
@@ -943,33 +1056,36 @@ take_style_from_item(SPItem *item)
 }
 
 
-void sp_selection_copy()
+void sp_selection_copy(SPDesktop *desktop)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
-    cm->copy();
+    cm->copy(desktop);
 }
 
 void sp_selection_paste(SPDesktop *desktop, bool in_place)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
-    if (cm->paste(in_place))
+    if (cm->paste(desktop, in_place)) {
         sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE, _("Paste"));
+    }
 }
 
 void sp_selection_paste_style(SPDesktop *desktop)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
-    if (cm->pasteStyle())
+    if (cm->pasteStyle(desktop)) {
         sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_STYLE, _("Paste style"));
+    }
 }
 
 
 void sp_selection_paste_livepatheffect(SPDesktop *desktop)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
-    if (cm->pastePathEffect())
+    if (cm->pastePathEffect(desktop)) {
         sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_LIVEPATHEFFECT,
                          _("Paste live path effect"));
+    }
 }
 
 
@@ -1029,17 +1145,19 @@ void sp_selection_remove_filter(SPDesktop *desktop)
 void sp_selection_paste_size(SPDesktop *desktop, bool apply_x, bool apply_y)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
-    if (cm->pasteSize(false, apply_x, apply_y))
+    if (cm->pasteSize(desktop, false, apply_x, apply_y)) {
         sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_SIZE,
                          _("Paste size"));
+    }
 }
 
 void sp_selection_paste_size_separately(SPDesktop *desktop, bool apply_x, bool apply_y)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
-    if (cm->pasteSize(true, apply_x, apply_y))
+    if (cm->pasteSize(desktop, true, apply_x, apply_y)) {
         sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_SIZE_SEPARATELY,
                          _("Paste size separately"));
+    }
 }
 
 void sp_selection_to_next_layer(SPDesktop *dt, bool suppressDone)
@@ -1739,53 +1857,52 @@ void sp_selection_next_patheffect_param(SPDesktop * dt)
     }
 }
 
-void sp_selection_edit_clip_or_mask(SPDesktop * dt, bool clip)
+/*bool has_path_recursive(SPObject *obj)
 {
-    if (!dt) return;
-
-    Inkscape::Selection *selection = sp_desktop_selection(dt);
-    if ( selection && !selection->isEmpty() ) {
-        SPItem *item = selection->singleItem();
-        if ( item ) {
-            SPObject *obj = NULL;
-            if (clip)
-                obj = item->clip_ref ? SP_OBJECT(item->clip_ref->getObject()) : NULL;
-            else
-                obj = item->mask_ref ? SP_OBJECT(item->mask_ref->getObject()) : NULL;
-
-            if (obj) {
-                // obj is a group object, the children are the actual clippers
-                for ( SPObject *child = obj->children ; child ; child = child->next ) {
-                    if ( SP_IS_ITEM(child) ) {
-                        // If not already in nodecontext, goto it!
-                        if (!tools_isactive(dt, TOOLS_NODES)) {
-                            tools_switch(dt, TOOLS_NODES);
-                        }
-
-                        ShapeEditor * shape_editor = dt->event_context->shape_editor;
-                        // TODO: should we set the item for nodepath or knotholder or both? seems to work with both.
-                        shape_editor->set_item(SP_ITEM(child), SH_NODEPATH);
-                        shape_editor->set_item(SP_ITEM(child), SH_KNOTHOLDER);
-                        Inkscape::NodePath::Path *np = shape_editor->get_nodepath();
-                        if (np) {
-                            // take colors from prefs (same as used in outline mode)
-                            Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-                            np->helperpath_rgba = clip ?
-                                prefs->getInt("/options/wireframecolors/clips", 0x00ff00ff) :
-                                prefs->getInt("/options/wireframecolors/masks", 0x0000ffff);
-                            np->helperpath_width = 1.0;
-                            sp_nodepath_show_helperpath(np, true);
-                        }
-                        break; // break out of for loop after 1st encountered item
-                    }
-                }
-            } else if (clip) {
-                dt->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("The selection has no applied clip path."));
-            } else {
-                dt->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("The selection has no applied mask."));
-            }
+    if (!obj) return false;
+    if (SP_IS_PATH(obj)) {
+        return true;
+    }
+    if (SP_IS_GROUP(obj) || SP_IS_OBJECTGROUP(obj)) {
+        for (SPObject *c = obj->children; c; c = c->next) {
+            if (has_path_recursive(c)) return true;
         }
     }
+    return false;
+}*/
+
+void sp_selection_edit_clip_or_mask(SPDesktop * /*dt*/, bool /*clip*/)
+{
+    return;
+    /*if (!dt) return;
+    using namespace Inkscape::UI;
+
+    Inkscape::Selection *selection = sp_desktop_selection(dt);
+    if (!selection || selection->isEmpty()) return;
+
+    GSList const *items = selection->itemList();
+    bool has_path = false;
+    for (GSList *i = const_cast<GSList*>(items); i; i= i->next) {
+        SPItem *item = SP_ITEM(i->data);
+        SPObject *search = clip
+            ? SP_OBJECT(item->clip_ref ? item->clip_ref->getObject() : NULL)
+            : SP_OBJECT(item->mask_ref ? item->mask_ref->getObject() : NULL);
+        has_path |= has_path_recursive(search);
+        if (has_path) break;
+    }
+    if (has_path) {
+        if (!tools_isactive(dt, TOOLS_NODES)) {
+            tools_switch(dt, TOOLS_NODES);
+        }
+        ink_node_tool_set_mode(INK_NODE_TOOL(dt->event_context),
+            clip ? NODE_TOOL_EDIT_CLIPPING_PATHS : NODE_TOOL_EDIT_MASKS);
+    } else if (clip) {
+        dt->messageStack()->flash(Inkscape::WARNING_MESSAGE,
+            _("The selection has no applied clip path."));
+    } else {
+        dt->messageStack()->flash(Inkscape::WARNING_MESSAGE,
+            _("The selection has no applied mask."));
+    }*/
 }
 
 
@@ -2661,12 +2778,7 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
     if (pb) {
         // Create the repr for the image
         Inkscape::XML::Node * repr = xml_doc->createElement("svg:image");
-        {
-            repr->setAttribute("sodipodi:absref", filepath);
-            gchar *abs_base = Inkscape::XML::calc_abs_doc_base(document->base);
-            repr->setAttribute("xlink:href", sp_relative_path_from_path(filepath, abs_base));
-            g_free(abs_base);
-        }
+        sp_embed_image(repr, pb, "image/png");
         if (res == PX_PER_IN) { // for default 90 dpi, snap it to pixel grid
             sp_repr_set_svg_double(repr, "width", width);
             sp_repr_set_svg_double(repr, "height", height);
@@ -2748,26 +2860,35 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
     GSList *items = g_slist_copy((GSList *) selection->itemList());
 
     items = g_slist_sort(items, (GCompareFunc) sp_object_compare_position);
+    
+    // See lp bug #542004
+    selection->clear();
 
     // create a list of duplicates
     GSList *mask_items = NULL;
     GSList *apply_to_items = NULL;
     GSList *items_to_delete = NULL;
+    GSList *items_to_select = NULL;
+    
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     bool topmost = prefs->getBool("/options/maskobject/topmost", true);
     bool remove_original = prefs->getBool("/options/maskobject/remove", true);
+    int grouping = prefs->getInt("/options/maskobject/grouping", PREFS_MASKOBJECT_GROUPING_NONE);
 
     if (apply_to_layer) {
         // all selected items are used for mask, which is applied to a layer
         apply_to_items = g_slist_prepend(apply_to_items, desktop->currentLayer());
-
+        
         for (GSList *i = items; i != NULL; i = i->next) {
             Inkscape::XML::Node *dup = (SP_OBJECT_REPR(i->data))->duplicate(xml_doc);
             mask_items = g_slist_prepend(mask_items, dup);
 
-            if (remove_original) {
-                SPObject *item = SP_OBJECT(i->data);
+            SPObject *item = SP_OBJECT(i->data);
+            if (remove_original) {                
                 items_to_delete = g_slist_prepend(items_to_delete, item);
+            }
+            else {
+                items_to_select = g_slist_prepend(items_to_select, item);
             }
         }
     } else if (!topmost) {
@@ -2783,11 +2904,13 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
 
         for (i = i->next; i != NULL; i = i->next) {
             apply_to_items = g_slist_prepend(apply_to_items, i->data);
+            items_to_select = g_slist_prepend(items_to_select, i->data);
         }
     } else {
         GSList *i = NULL;
         for (i = items; NULL != i->next; i = i->next) {
             apply_to_items = g_slist_prepend(apply_to_items, i->data);
+            items_to_select = g_slist_prepend(items_to_select, i->data);
         }
 
         Inkscape::XML::Node *dup = (SP_OBJECT_REPR(i->data))->duplicate(xml_doc);
@@ -2801,6 +2924,36 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
 
     g_slist_free(items);
     items = NULL;
+
+    if (apply_to_items && grouping == PREFS_MASKOBJECT_GROUPING_ALL) {
+        // group all those objects into one group
+        // and apply mask to that
+        Inkscape::XML::Node *group = xml_doc->createElement("svg:g");
+
+        // make a note we should ungroup this when unsetting mask
+        group->setAttribute("inkscape:groupmode", "maskhelper");
+
+        GSList *reprs_to_group = NULL;
+
+        for (GSList *i = apply_to_items ; NULL != i ; i = i->next) {
+                reprs_to_group = g_slist_prepend(reprs_to_group, SP_OBJECT_REPR(i->data));
+                items_to_select = g_slist_remove(items_to_select, i->data);
+        }
+        reprs_to_group = g_slist_reverse(reprs_to_group);
+
+        sp_selection_group_impl(reprs_to_group, group, xml_doc, doc);
+        
+        reprs_to_group = NULL;
+
+        // apply clip/mask only to newly created group
+        g_slist_free(apply_to_items);
+        apply_to_items = NULL;
+        apply_to_items = g_slist_prepend(apply_to_items, doc->getObjectByRepr(group));
+
+        items_to_select = g_slist_prepend(items_to_select, doc->getObjectByRepr(group));
+
+        Inkscape::GC::release(group);
+    }
 
     gchar const *attributeName = apply_clip_path ? "clip-path" : "mask";
     for (GSList *i = apply_to_items; NULL != i; i = i->next) {
@@ -2825,7 +2978,34 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
         g_slist_free(mask_items_dup);
         mask_items_dup = NULL;
 
-        SP_OBJECT_REPR(i->data)->setAttribute(attributeName, g_strdup_printf("url(#%s)", mask_id));
+        Inkscape::XML::Node *current = SP_OBJECT_REPR(i->data);
+        // Node to apply mask to
+        Inkscape::XML::Node *apply_mask_to = current;
+
+        if (grouping == PREFS_MASKOBJECT_GROUPING_SEPARATE) {
+            // enclose current node in group, and apply crop/mask on that
+            Inkscape::XML::Node *group = xml_doc->createElement("svg:g");
+            // make a note we should ungroup this when unsetting mask
+            group->setAttribute("inkscape:groupmode", "maskhelper");
+
+            Inkscape::XML::Node *spnew = current->duplicate(xml_doc);
+            gint position = current->position();
+            items_to_select = g_slist_remove(items_to_select, item);
+            current->parent()->appendChild(group);
+            sp_repr_unparent(current);
+            group->appendChild(spnew);
+            group->setPosition(position);
+
+            // Apply clip/mask to group instead
+            apply_mask_to = group;
+
+            items_to_select = g_slist_prepend(items_to_select, doc->getObjectByRepr(group));
+            Inkscape::GC::release(spnew);
+            Inkscape::GC::release(group);
+        }
+
+        apply_mask_to->setAttribute(attributeName, g_strdup_printf("url(#%s)", mask_id));
+
     }
 
     g_slist_free(mask_items);
@@ -2834,8 +3014,14 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
     for (GSList *i = items_to_delete; NULL != i; i = i->next) {
         SPObject *item = SP_OBJECT(i->data);
         item->deleteObject(false);
+        items_to_select = g_slist_remove(items_to_select, item);
     }
     g_slist_free(items_to_delete);
+    
+    items_to_select = g_slist_reverse(items_to_select);
+    
+    selection->addList(items_to_select);
+    g_slist_free(items_to_select);
 
     if (apply_clip_path)
         sp_document_done(doc, SP_VERB_OBJECT_SET_CLIPPATH, _("Set clipping path"));
@@ -2859,13 +3045,23 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     bool remove_original = prefs->getBool("/options/maskobject/remove", true);
+    bool ungroup_masked = prefs->getBool("/options/maskobject/ungrouping", true);
     sp_document_ensure_up_to_date(doc);
 
     gchar const *attributeName = apply_clip_path ? "clip-path" : "mask";
     std::map<SPObject*,SPItem*> referenced_objects;
+
+    GSList *items = g_slist_copy((GSList *) selection->itemList());
+    selection->clear();
+    
+    GSList *items_to_ungroup = NULL;
+    GSList *items_to_select = g_slist_copy(items);
+    items_to_select = g_slist_reverse(items_to_select);    
+        
+
     // SPObject* refers to a group containing the clipped path or mask itself,
     // whereas SPItem* refers to the item being clipped or masked
-    for (GSList const *i = selection->itemList(); NULL != i; i = i->next) {
+    for (GSList const *i = items; NULL != i; i = i->next) {
         if (remove_original) {
             // remember referenced mask/clippath, so orphaned masks can be moved back to document
             SPItem *item = reinterpret_cast<SPItem *>(i->data);
@@ -2884,7 +3080,20 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
         }
 
         SP_OBJECT_REPR(i->data)->setAttribute(attributeName, "none");
+
+        if (ungroup_masked && SP_IS_GROUP(i->data)) {
+                // if we had previously enclosed masked object in group,
+                // add it to list so we can ungroup it later
+                SPGroup *item = SP_GROUP(i->data);
+
+                // ungroup only groups we created when setting clip/mask
+                if (item->layerMode() == SPGroup::MASK_HELPER) {
+                    items_to_ungroup = g_slist_prepend(items_to_ungroup, item);
+                }
+
+        }
     }
+    g_slist_free(items);
 
     // restore mask objects into a document
     for ( std::map<SPObject*,SPItem*>::iterator it = referenced_objects.begin() ; it != referenced_objects.end() ; ++it) {
@@ -2914,7 +3123,7 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
             repr->setPosition((pos + 1) > 0 ? (pos + 1) : 0);
 
             SPItem *mask_item = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
-            selection->add(repr);
+            items_to_select = g_slist_prepend(items_to_select, mask_item);
 
             // transform mask, so it is moved the same spot where mask was applied
             Geom::Matrix transform(mask_item->transform);
@@ -2925,6 +3134,21 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
         g_slist_free(items_to_move);
     }
 
+    // ungroup marked groups added when setting mask
+    for (GSList *i = items_to_ungroup ; NULL != i ; i = i->next) {
+        items_to_select = g_slist_remove(items_to_select, SP_GROUP(i->data));
+        GSList *children = NULL;
+        sp_item_group_ungroup(SP_GROUP(i->data), &children, false);
+        items_to_select = g_slist_concat(children, items_to_select);
+    }
+
+    g_slist_free(items_to_ungroup);
+    
+    // rebuild selection
+    items_to_select = g_slist_reverse(items_to_select);
+    selection->addList(items_to_select);
+    g_slist_free(items_to_select);
+
     if (apply_clip_path)
         sp_document_done(doc, SP_VERB_OBJECT_UNSET_CLIPPATH, _("Release clipping path"));
     else
@@ -2932,10 +3156,12 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
 }
 
 /**
- * Returns true if an undoable change should be recorded.
+ * \param with_margins margins defined in the xml under <sodipodi:namedview>
+ *                     "fit-margin-..." attributes.  See SPDocument::fitToRect.
+ * \return true if an undoable change should be recorded.
  */
 bool
-fit_canvas_to_selection(SPDesktop *desktop)
+fit_canvas_to_selection(SPDesktop *desktop, bool with_margins)
 {
     g_return_val_if_fail(desktop != NULL, false);
     SPDocument *doc = sp_desktop_document(desktop);
@@ -2949,7 +3175,7 @@ fit_canvas_to_selection(SPDesktop *desktop)
     }
     Geom::OptRect const bbox(desktop->selection->bounds());
     if (bbox) {
-        doc->fitToRect(*bbox);
+        doc->fitToRect(*bbox, with_margins);
         return true;
     } else {
         return false;
@@ -2968,8 +3194,12 @@ verb_fit_canvas_to_selection(SPDesktop *const desktop)
     }
 }
 
+/**
+ * \param with_margins margins defined in the xml under <sodipodi:namedview>
+ *                     "fit-margin-..." attributes.  See SPDocument::fitToRect.
+ */
 bool
-fit_canvas_to_drawing(SPDocument *doc)
+fit_canvas_to_drawing(SPDocument *doc, bool with_margins)
 {
     g_return_val_if_fail(doc != NULL, false);
 
@@ -2977,7 +3207,7 @@ fit_canvas_to_drawing(SPDocument *doc)
     SPItem const *const root = SP_ITEM(doc->root);
     Geom::OptRect const bbox(root->getBounds(sp_item_i2d_affine(root)));
     if (bbox) {
-        doc->fitToRect(*bbox);
+        doc->fitToRect(*bbox, with_margins);
         return true;
     } else {
         return false;
@@ -2993,6 +3223,11 @@ verb_fit_canvas_to_drawing(SPDesktop *desktop)
     }
 }
 
+/**
+ * Fits canvas to selection or drawing with margins from <sodipodi:namedview>
+ * "fit-margin-..." attributes.  See SPDocument::fitToRect and
+ * ui/dialog/page-sizer.
+ */
 void fit_canvas_to_selection_or_drawing(SPDesktop *desktop) {
     g_return_if_fail(desktop != NULL);
     SPDocument *doc = sp_desktop_document(desktop);
@@ -3001,8 +3236,8 @@ void fit_canvas_to_selection_or_drawing(SPDesktop *desktop) {
     g_return_if_fail(desktop->selection != NULL);
 
     bool const changed = ( desktop->selection->isEmpty()
-                           ? fit_canvas_to_drawing(doc)
-                           : fit_canvas_to_selection(desktop) );
+                           ? fit_canvas_to_drawing(doc, true)
+                           : fit_canvas_to_selection(desktop, true) );
     if (changed) {
         sp_document_done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_SELECTION_OR_DRAWING,
                          _("Fit Page to Selection or Drawing"));

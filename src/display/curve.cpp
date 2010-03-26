@@ -51,10 +51,10 @@ SPCurve::new_from_rect(Geom::Rect const &rect)
     Geom::Point p = rect.corner(0);
     c->moveto(p);
 
-    for (int i=3; i>=0; i--) {
+    for (int i=3; i>=1; i--) {
         c->lineto(rect.corner(i));
     }
-    c->closepath_current();
+    c->closepath();
 
     return c;
 }
@@ -285,7 +285,11 @@ SPCurve::closepath()
 void
 SPCurve::closepath_current()
 {
-    _pathv.back().setFinal(_pathv.back().initialPoint());
+    if (_pathv.back().size() > 0 && dynamic_cast<Geom::LineSegment const *>(&_pathv.back().back_open())) {
+        _pathv.back().erase_last();
+    } else {
+        _pathv.back().setFinal(_pathv.back().initialPoint());
+    }
     _pathv.back().close(true);
 }
 

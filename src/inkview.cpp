@@ -63,7 +63,7 @@
 #include "svg-view-widget.h"
 
 #ifdef WITH_INKJAR
-#include "inkjar/jar.h"
+#include "io/inkjar.h"
 #endif
 
 #include "inkscape-private.h"
@@ -446,9 +446,6 @@ sp_svgview_set_document(struct SPSlideShow *ss, SPDocument *doc, int current)
     if (doc && doc != ss->doc) {
         sp_document_ensure_up_to_date (doc);
         reinterpret_cast<SPSVGView*>(SP_VIEW_WIDGET_VIEW (ss->view))->setDocument (doc);
-        if (ss->doc) {
-            delete ss->doc;
-        }
         ss->doc = doc;
         ss->current = current;
     }

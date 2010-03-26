@@ -44,7 +44,7 @@
 #include <glibmm/i18n.h>
 #include "xml/quote.h"
 #include <xml/repr.h>
-
+#include "snap-candidate.h"
 #include "libnr/nr-matrix-fns.h"
 
 #include "io/sys.h"
@@ -86,7 +86,7 @@ static Inkscape::XML::Node *sp_image_write (SPObject *object, Inkscape::XML::Doc
 static void sp_image_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
 static void sp_image_print (SPItem * item, SPPrintContext *ctx);
 static gchar * sp_image_description (SPItem * item);
-static void sp_image_snappoints(SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const *snapprefs);
+static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 static NRArenaItem *sp_image_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
 static Geom::Matrix sp_image_set_transform (SPItem *item, Geom::Matrix const &xform);
 static void sp_image_set_curve(SPImage *image);
@@ -262,6 +262,161 @@ void user_flush_data( png_structp /*png_ptr*/ )
     //g_message( "user_flush_data" );
 }
 
+
+static bool readPngAndHeaders( PushPull &youme, gint & dpiX, gint & dpiY )
+{
+    bool good = true;
+
+    gboolean isPng = !png_sig_cmp( youme.scratch + youme.offset, 0, youme.available() );
+    //g_message( "  png? %s", (isPng ? "Yes":"No") );
+    if ( isPng ) {
+        png_structp pngPtr = png_create_read_struct( PNG_LIBPNG_VER_STRING,
+                                                     0, //(png_voidp)user_error_ptr,
+                                                     0, //user_error_fn,
+                                                     0 //user_warning_fn
+            );
+        png_infop infoPtr = pngPtr ? png_create_info_struct( pngPtr ) : 0;
+
+        if ( pngPtr && infoPtr ) {
+            if ( setjmp(png_jmpbuf(pngPtr)) ) {
+                // libpng calls longjmp to return here if an error occurs.
+                good = false;
+            }
+
+            if (good) {
+                png_set_read_fn( pngPtr, &youme, user_read_data );
+                //g_message( "In" );
+
+                //png_read_info( pngPtr, infoPtr );
+                png_read_png( pngPtr, infoPtr, PNG_TRANSFORM_IDENTITY, 0 );
+
+                //g_message("out");
+
+                /*
+                  if ( png_get_valid( pngPtr, infoPtr, PNG_INFO_pHYs ) )
+                  {
+                  g_message("pHYs chunk now valid" );
+                  }
+                  if ( png_get_valid( pngPtr, infoPtr, PNG_INFO_sCAL ) )
+                  {
+                  g_message("sCAL chunk now valid" );
+                  }
+                */
+
+                png_uint_32 res_x = 0;
+                png_uint_32 res_y = 0;
+                int unit_type = 0;
+                if ( png_get_pHYs( pngPtr, infoPtr, &res_x, &res_y, &unit_type) ) {
+//                                     g_message( "pHYs yes (%d, %d) %d (%s)", (int)res_x, (int)res_y, unit_type,
+//                                                (unit_type == 1? "per meter" : "unknown")
+//                                         );
+
+//                                     g_message( "    dpi: (%d, %d)",
+//                                                (int)(0.5 + ((double)res_x)/39.37),
+//                                                (int)(0.5 + ((double)res_y)/39.37) );
+                    if ( unit_type == PNG_RESOLUTION_METER )
+                    {
+                        // TODO come up with a more accurate DPI setting
+                        dpiX = (int)(0.5 + ((double)res_x)/39.37);
+                        dpiY = (int)(0.5 + ((double)res_y)/39.37);
+                    }
+                } else {
+//                                     g_message( "pHYs no" );
+                }
+
+/*
+  double width = 0;
+  double height = 0;
+  int unit = 0;
+  if ( png_get_sCAL(pngPtr, infoPtr, &unit, &width, &height) )
+  {
+  gchar* vals[] = {
+  "unknown", // PNG_SCALE_UNKNOWN
+  "meter", // PNG_SCALE_METER
+  "radian", // PNG_SCALE_RADIAN
+  "last", //
+  NULL
+  };
+
+  g_message( "sCAL: (%f, %f) %d (%s)",
+  width, height, unit,
+  ((unit >= 0 && unit < 3) ? vals[unit]:"???")
+  );
+  }
+*/
+
+#if defined(PNG_sRGB_SUPPORTED)
+                {
+                    int intent = 0;
+                    if ( png_get_sRGB(pngPtr, infoPtr, &intent) ) {
+//                                         g_message("Found an sRGB png chunk");
+                    }
+                }
+#endif // defined(PNG_sRGB_SUPPORTED)
+
+#if defined(PNG_cHRM_SUPPORTED)
+                {
+                    double white_x = 0;
+                    double white_y = 0;
+                    double red_x = 0;
+                    double red_y = 0;
+                    double green_x = 0;
+                    double green_y = 0;
+                    double blue_x = 0;
+                    double blue_y = 0;
+
+                    if ( png_get_cHRM(pngPtr, infoPtr,
+                                      &white_x, &white_y,
+                                      &red_x, &red_y,
+                                      &green_x, &green_y,
+                                      &blue_x, &blue_y) ) {
+//                                         g_message("Found a cHRM png chunk");
+                    }
+                }
+#endif // defined(PNG_cHRM_SUPPORTED)
+
+#if defined(PNG_gAMA_SUPPORTED)
+                {
+                    double file_gamma = 0;
+                    if ( png_get_gAMA(pngPtr, infoPtr, &file_gamma) ) {
+//                                         g_message("Found a gAMA png chunk");
+                    }
+                }
+#endif // defined(PNG_gAMA_SUPPORTED)
+
+#if defined(PNG_iCCP_SUPPORTED)
+                {
+                    char* name = 0;
+                    int compression_type = 0;
+                    char* profile = 0;
+                    png_uint_32 proflen = 0;
+                    if ( png_get_iCCP(pngPtr, infoPtr, &name, &compression_type, &profile, &proflen) ) {
+//                                         g_message("Found an iCCP chunk named [%s] with %d bytes and comp %d", name, proflen, compression_type);
+                    }
+                }
+#endif // defined(PNG_iCCP_SUPPORTED)
+
+            }
+        } else {
+            g_message("Error when creating PNG read struct");
+        }
+
+        // now clean it up.
+        if (pngPtr && infoPtr) {
+            png_destroy_read_struct( &pngPtr, &infoPtr, 0 );
+            pngPtr = 0;
+            infoPtr = 0;
+        } else if (pngPtr) {
+            png_destroy_read_struct( &pngPtr, 0, 0 );
+            pngPtr = 0;
+        }
+    } else {
+        good = false; // Was not a png file
+    }
+
+    return good;
+}
+
 static GdkPixbuf* pixbuf_new_from_file( const char *filename, time_t &modTime, gchar*& pixPath, GError **/*error*/ )
 {
     GdkPixbuf* buf = NULL;
@@ -297,10 +452,6 @@ static GdkPixbuf* pixbuf_new_from_file( const char *filename, time_t &modTime, g
             // short buffer
             guchar scratch[1024];
             gboolean latter = FALSE;
-            gboolean isPng = FALSE;
-            png_structp pngPtr = NULL;
-            png_infop infoPtr = NULL;
-            //png_infop endPtr = NULL;
 
             youme.fp = fp;
             youme.scratch = scratch;
@@ -311,155 +462,15 @@ static GdkPixbuf* pixbuf_new_from_file( const char *filename, time_t &modTime, g
 
             while ( !feof(fp) )
             {
-                if ( youme.readMore() )
-                {
-                    if ( youme.first )
-                    {
+                if ( youme.readMore() ) {
+                    if ( youme.first ) {
                         //g_message( "First data chunk" );
                         youme.first = FALSE;
-                        isPng = !png_sig_cmp( scratch + youme.offset, 0, youme.available() );
-                        //g_message( "  png? %s", (isPng ? "Yes":"No") );
-                        if ( isPng )
+                        if (readPngAndHeaders(youme, dpiX, dpiY))
                         {
-                            pngPtr = png_create_read_struct( PNG_LIBPNG_VER_STRING,
-                                                             NULL,//(png_voidp)user_error_ptr,
-                                                             NULL,//user_error_fn,
-                                                             NULL//user_warning_fn
-                                );
-                            if ( pngPtr )
-                            {
-                                infoPtr = png_create_info_struct( pngPtr );
-                                //endPtr = png_create_info_struct( pngPtr );
-
-                                png_set_read_fn( pngPtr, &youme, user_read_data );
-                                //g_message( "In" );
-
-                                //png_read_info( pngPtr, infoPtr );
-                                png_read_png( pngPtr, infoPtr, PNG_TRANSFORM_IDENTITY, NULL );
-
-                                //g_message("out");
-
-                                //png_read_end(pngPtr, endPtr);
-
-                                /*
-                                if ( png_get_valid( pngPtr, infoPtr, PNG_INFO_pHYs ) )
-                                {
-                                    g_message("pHYs chunk now valid" );
-                                }
-                                if ( png_get_valid( pngPtr, infoPtr, PNG_INFO_sCAL ) )
-                                {
-                                    g_message("sCAL chunk now valid" );
-                                }
-                                */
-
-                                png_uint_32 res_x = 0;
-                                png_uint_32 res_y = 0;
-                                int unit_type = 0;
-                                if ( png_get_pHYs( pngPtr, infoPtr, &res_x, &res_y, &unit_type) )
-                                {
-//                                     g_message( "pHYs yes (%d, %d) %d (%s)", (int)res_x, (int)res_y, unit_type,
-//                                                (unit_type == 1? "per meter" : "unknown")
-//                                         );
-
-//                                     g_message( "    dpi: (%d, %d)",
-//                                                (int)(0.5 + ((double)res_x)/39.37),
-//                                                (int)(0.5 + ((double)res_y)/39.37) );
-                                    if ( unit_type == PNG_RESOLUTION_METER )
-                                    {
-                                        // TODO come up with a more accurate DPI setting
-                                        dpiX = (int)(0.5 + ((double)res_x)/39.37);
-                                        dpiY = (int)(0.5 + ((double)res_y)/39.37);
-                                    }
-                                }
-                                else
-                                {
-//                                     g_message( "pHYs no" );
-                                }
-
-/*
-                                double width = 0;
-                                double height = 0;
-                                int unit = 0;
-                                if ( png_get_sCAL(pngPtr, infoPtr, &unit, &width, &height) )
-                                {
-                                    gchar* vals[] = {
-                                        "unknown", // PNG_SCALE_UNKNOWN
-                                        "meter", // PNG_SCALE_METER
-                                        "radian", // PNG_SCALE_RADIAN
-                                        "last", //
-                                        NULL
-                                    };
-
-                                    g_message( "sCAL: (%f, %f) %d (%s)",
-                                               width, height, unit,
-                                               ((unit >= 0 && unit < 3) ? vals[unit]:"???")
-                                        );
-                                }
-*/
-
-#if defined(PNG_sRGB_SUPPORTED)
-                                {
-                                    int intent = 0;
-                                    if ( png_get_sRGB(pngPtr, infoPtr, &intent) ) {
-//                                         g_message("Found an sRGB png chunk");
-                                    }
-                                }
-#endif // defined(PNG_sRGB_SUPPORTED)
-
-#if defined(PNG_cHRM_SUPPORTED)
-                                {
-                                    double white_x = 0;
-                                    double white_y = 0;
-                                    double red_x = 0;
-                                    double red_y = 0;
-                                    double green_x = 0;
-                                    double green_y = 0;
-                                    double blue_x = 0;
-                                    double blue_y = 0;
-
-                                    if ( png_get_cHRM(pngPtr, infoPtr,
-                                                      &white_x, &white_y,
-                                                      &red_x, &red_y,
-                                                      &green_x, &green_y,
-                                                      &blue_x, &blue_y) ) {
-//                                         g_message("Found a cHRM png chunk");
-                                    }
-                                }
-#endif // defined(PNG_cHRM_SUPPORTED)
-
-#if defined(PNG_gAMA_SUPPORTED)
-                                {
-                                    double file_gamma = 0;
-                                    if ( png_get_gAMA(pngPtr, infoPtr, &file_gamma) ) {
-//                                         g_message("Found a gAMA png chunk");
-                                    }
-                                }
-#endif // defined(PNG_gAMA_SUPPORTED)
-
-#if defined(PNG_iCCP_SUPPORTED)
-                                {
-                                    char* name = 0;
-                                    int compression_type = 0;
-                                    char* profile = 0;
-                                    png_uint_32 proflen = 0;
-                                    if ( png_get_iCCP(pngPtr, infoPtr, &name, &compression_type, &profile, &proflen) ) {
-//                                         g_message("Found an iCCP chunk named [%s] with %d bytes and comp %d", name, proflen, compression_type);
-                                    }
-                                }
-#endif // defined(PNG_iCCP_SUPPORTED)
-
-
-                                // now clean it up.
-                                png_destroy_read_struct( &pngPtr, &infoPtr, NULL );//&endPtr );
-                            }
-                            else
-                            {
-//                                 g_message("Error when creating PNG read struct");
-                            }
+                            // TODO set the dpi to be read elsewhere
                         }
-                    }
-                    else if ( !latter )
-                    {
+                    } else if ( !latter ) {
                         latter = TRUE;
                         //g_message("  READing latter");
                     }
@@ -470,52 +481,40 @@ static GdkPixbuf* pixbuf_new_from_file( const char *filename, time_t &modTime, g
             }
 
             gboolean ok = gdk_pixbuf_loader_close(loader, &err);
-            if ( ok )
-            {
+            if ( ok ) {
                 buf = gdk_pixbuf_loader_get_pixbuf( loader );
-                if ( buf )
-                {
+                if ( buf ) {
                     g_object_ref(buf);
 
-                    if ( dpiX )
-                    {
+                    if ( dpiX ) {
                         gchar *tmp = g_strdup_printf( "%d", dpiX );
-                        if ( tmp )
-                        {
-//                             g_message("Need to set DpiX: %s", tmp);
+                        if ( tmp ) {
+                            //g_message("Need to set DpiX: %s", tmp);
                             //gdk_pixbuf_set_option( buf, "Inkscape::DpiX", tmp );
                             g_free( tmp );
                         }
                     }
-                    if ( dpiY )
-                    {
+                    if ( dpiY ) {
                         gchar *tmp = g_strdup_printf( "%d", dpiY );
-                        if ( tmp )
-                        {
-//                             g_message("Need to set DpiY: %s", tmp);
+                        if ( tmp ) {
+                            //g_message("Need to set DpiY: %s", tmp);
                             //gdk_pixbuf_set_option( buf, "Inkscape::DpiY", tmp );
                             g_free( tmp );
                         }
                     }
                 }
-            }
-            else
-            {
+            } else {
                 // do something
                 g_message("error loading pixbuf at close");
             }
 
             g_object_unref(loader);
-        }
-        else
-        {
+        } else {
             g_message("error when creating pixbuf loader");
         }
         fclose( fp );
-        fp = NULL;
-    }
-    else
-    {
+        fp = 0;
+    } else {
         g_warning ("Unable to open linked file: %s", filename);
     }
 
@@ -1332,7 +1331,7 @@ sp_image_update_canvas_image (SPImage *image)
     }
 }
 
-static void sp_image_snappoints(SPItem const *item, bool const target, SnapPointsWithType &p, Inkscape::SnapPreferences const */*snapprefs*/)
+static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const */*snapprefs*/)
 {
     /* An image doesn't have any nodes to snap, but still we want to be able snap one image
     to another. Therefore we will create some snappoints at the corner, similar to a rect. If
@@ -1354,12 +1353,10 @@ static void sp_image_snappoints(SPItem const *item, bool const target, SnapPoint
         double const x1 = x0 + image.width.computed;
         double const y1 = y0 + image.height.computed;
         Geom::Matrix const i2d (sp_item_i2d_affine (item));
-        Geom::Point pt;
-        int type = target ? int(Inkscape::SNAPTARGET_CORNER) : int(Inkscape::SNAPSOURCE_CORNER);
-        p.push_back(std::make_pair(Geom::Point(x0, y0) * i2d, type));
-        p.push_back(std::make_pair(Geom::Point(x0, y1) * i2d, type));
-        p.push_back(std::make_pair(Geom::Point(x1, y1) * i2d, type));
-        p.push_back(std::make_pair(Geom::Point(x1, y0) * i2d, type));
+        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y0) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
+        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
+        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
+        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y0) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
     }
 }
 
@@ -1580,6 +1577,40 @@ sp_image_get_curve (SPImage *image)
         result = image->curve->copy();
     }
     return result;
+}
+
+void
+sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring const &mime_in)
+{
+    Glib::ustring format, mime;
+    if (mime_in == "image/jpeg") {
+        mime = mime_in;
+        format = "jpeg";
+    } else {
+        mime = "image/png";
+        format = "png";
+    }
+
+    gchar *data;
+    gsize length;
+    gdk_pixbuf_save_to_buffer(pb, &data, &length, format.data(), NULL, NULL);
+
+    // Save base64 encoded data in image node
+    // this formula taken from Glib docs
+    guint needed_size = length * 4 / 3 + length * 4 / (3 * 72) + 7;
+    needed_size += 5 + 8 + mime.size(); // 5 bytes for data:, 8 for ;base64,
+
+    gchar *buffer = (gchar *) g_malloc(needed_size), *buf_work = buffer;
+    buf_work += g_sprintf(buffer, "data:%s;base64,", mime.data());
+
+    gint state = 0, save = 0;
+    gsize written = 0;
+    written += g_base64_encode_step((guchar*) data, length, TRUE, buf_work, &state, &save);
+    written += g_base64_encode_close(TRUE, buf_work + written, &state, &save);
+    buf_work[written] = 0; // null terminate
+
+    image_node->setAttribute("xlink:href", buffer);
+    g_free(buffer);
 }
 
 void sp_image_refresh_if_outdated( SPImage* image )

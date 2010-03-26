@@ -76,7 +76,7 @@ static bool pen_within_tolerance = false;
 static SPDrawContextClass *pen_parent_class;
 
 static int pen_next_paraxial_direction(const SPPenContext *const pc, Geom::Point const &pt, Geom::Point const &origin, guint state);
-static void pen_set_to_nearest_horiz_vert(const SPPenContext *const pc, Geom::Point &pt, guint const state);
+static void pen_set_to_nearest_horiz_vert(const SPPenContext *const pc, Geom::Point &pt, guint const state, bool snap);
 
 static int pen_last_paraxial_dir = 0; // last used direction in horizontal/vertical mode; 0 = horizontal, 1 = vertical
 
@@ -298,20 +298,21 @@ sp_pen_context_set(SPEventContext *ec, Inkscape::Preferences::Entry *val)
 static void
 spdc_endpoint_snap(SPPenContext const *const pc, Geom::Point &p, guint const state)
 {
-    if ((state & GDK_CONTROL_MASK)) { //CTRL enables angular snapping
+    if ((state & GDK_CONTROL_MASK) && !pc->polylines_paraxial) { //CTRL enables angular snapping
         if (pc->npoints > 0) {
             spdc_endpoint_snap_rotation(pc, p, pc->p[0], state);
         }
     } else {
-        if (!(state & GDK_SHIFT_MASK)) { //SHIFT disables all snapping, except the angular snapping above
-                                         //After all, the user explicitely asked for angular snapping by
-                                         //pressing CTRL
+        // We cannot use shift here to disable snapping because the shift-key is already used
+        // to toggle the paraxial direction; if the user wants to disable snapping (s)he will
+        // have to use the %-key, the menu, or the snap toolbar
+        if ((pc->npoints > 0) && pc->polylines_paraxial) {
+            // snap constrained
+            pen_set_to_nearest_horiz_vert(pc, p, state, true);
+        } else {
+            // snap freely
             spdc_endpoint_snap_free(pc, p, state);
         }
-    }
-    if (pc->polylines_paraxial) {
-        // TODO: must we avoid one of the snaps in the previous case distinction in some situations?
-        pen_set_to_nearest_horiz_vert(pc, p, state);
     }
 }
 
@@ -468,18 +469,18 @@ static gint pen_handle_button_press(SPPenContext *const pc, GdkEventButton const
                     case SP_PEN_CONTEXT_POINT:
                         if (pc->npoints == 0) {
 
-                        	Geom::Point p;
-                          if ((bevent.state & GDK_CONTROL_MASK) && (pc->polylines_only || pc->polylines_paraxial)) {
-                            	p = event_dt;
-                            	if (!(bevent.state & GDK_SHIFT_MASK)) {
-                            		SnapManager &m = desktop->namedview->snap_manager;
-                            		m.setup(desktop);
-									m.freeSnapReturnByRef(Inkscape::SnapPreferences::SNAPPOINT_NODE, p, Inkscape::SNAPSOURCE_HANDLE);
-                            	}
+                            Geom::Point p;
+                            if ((bevent.state & GDK_CONTROL_MASK) && (pc->polylines_only || pc->polylines_paraxial)) {
+                                p = event_dt;
+                                if (!(bevent.state & GDK_SHIFT_MASK)) {
+                                    SnapManager &m = desktop->namedview->snap_manager;
+                                    m.setup(desktop);
+                                    m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_NODE_HANDLE);
+                                }
                               spdc_create_single_dot(event_context, p, "/tools/freehand/pen", bevent.state);
                               ret = TRUE;
                               break;
-                          }
+                            }
 
                             // TODO: Perhaps it would be nicer to rearrange the following case
                             // distinction so that the case of a waiting LPE is treated separately
@@ -507,11 +508,7 @@ static gint pen_handle_button_press(SPPenContext *const pc, GdkEventButton const
 
                                 /* Create green anchor */
                                 p = event_dt;
-                                if (!pc->polylines_paraxial) {
-                                    // only snap the starting point if we're not in horizontal/vertical mode
-                                    // because otherwise it gets shifted; TODO: why do we snap here at all??
-                                    spdc_endpoint_snap(pc, p, bevent.state);
-                                }
+                                spdc_endpoint_snap(pc, p, bevent.state);
                                 pc->green_anchor = sp_draw_anchor_new(pc, pc->green_curve, TRUE, p);
                             }
                             spdc_pen_set_initial_point(pc, p);
@@ -557,20 +554,22 @@ static gint pen_handle_button_press(SPPenContext *const pc, GdkEventButton const
             default:
                 break;
         }
-    } else if (bevent.button == 3 || pc->expecting_clicks_for_LPE == 1) { // when the last click for a waiting LPE occurs we want to finish the path
-        if (pc->npoints != 0) {
-
-            spdc_pen_finish_segment(pc, event_dt, bevent.state);
-            if (pc->green_closed) {
-                // finishing at the start anchor, close curve
-                spdc_pen_finish(pc, TRUE);
-            } else {
-                // finishing at some other anchor, finish curve but not close
-                spdc_pen_finish(pc, FALSE);
-            }
-
-            ret = TRUE;
+    } else if (pc->expecting_clicks_for_LPE == 1 && pc->npoints != 0) {
+        // when the last click for a waiting LPE occurs we want to finish the path
+        spdc_pen_finish_segment(pc, event_dt, bevent.state);
+        if (pc->green_closed) {
+            // finishing at the start anchor, close curve
+            spdc_pen_finish(pc, TRUE);
+        } else {
+            // finishing at some other anchor, finish curve but not close
+            spdc_pen_finish(pc, FALSE);
         }
+
+        ret = TRUE;
+    } else if (bevent.button == 3 && pc->npoints != 0) {
+        // right click - finish path
+        spdc_pen_finish(pc, FALSE);
+        ret = TRUE;
     }
 
     if (pc->expecting_clicks_for_LPE > 0) {
@@ -630,6 +629,10 @@ pen_handle_motion_notify(SPPenContext *const pc, GdkEventMotion const &mevent)
                         spdc_endpoint_snap(pc, p, mevent.state);
                         spdc_pen_set_subsequent_point(pc, p, true);
                         ret = TRUE;
+                    } else if (!sp_event_context_knot_mouseover(pc)) {
+                        SnapManager &m = dt->namedview->snap_manager;
+                        m.setup(dt);
+                        m.preSnap(Inkscape::SnapCandidatePoint(p, Inkscape::SNAPSOURCE_NODE_HANDLE));
                     }
                     break;
                 case SP_PEN_CONTEXT_CONTROL:
@@ -654,9 +657,10 @@ pen_handle_motion_notify(SPPenContext *const pc, GdkEventMotion const &mevent)
 
                         if (!anchor) {   /* Snap node only if not hitting anchor */
                             spdc_endpoint_snap(pc, p, mevent.state);
+                            spdc_pen_set_subsequent_point(pc, p, true, mevent.state);
+                        } else {
+                            spdc_pen_set_subsequent_point(pc, anchor->dp, false, mevent.state);
                         }
-
-                        spdc_pen_set_subsequent_point(pc, p, !anchor, mevent.state);
 
                         if (anchor && !pc->anchor_statusbar) {
                             pc->_message_context->set(Inkscape::NORMAL_MESSAGE, _("<b>Click</b> or <b>click and drag</b> to close and finish the path."));
@@ -674,6 +678,11 @@ pen_handle_motion_notify(SPPenContext *const pc, GdkEventMotion const &mevent)
                         } else if (!anchor && pc->anchor_statusbar) {
                             pc->_message_context->clear();
                             pc->anchor_statusbar = false;
+                        }
+                        if (!sp_event_context_knot_mouseover(pc)) {
+                            SnapManager &m = dt->namedview->snap_manager;
+                            m.setup(dt);
+                            m.preSnap(Inkscape::SnapCandidatePoint(p, Inkscape::SNAPSOURCE_NODE_HANDLE));
                         }
                     }
                     break;
@@ -696,6 +705,11 @@ pen_handle_motion_notify(SPPenContext *const pc, GdkEventMotion const &mevent)
                     /* This is perfectly valid */
                     break;
                 default:
+                    if (!sp_event_context_knot_mouseover(pc)) {
+                        SnapManager &m = dt->namedview->snap_manager;
+                        m.setup(dt);
+                        m.preSnap(Inkscape::SnapCandidatePoint(p, Inkscape::SNAPSOURCE_NODE_HANDLE));
+                    }
                     break;
             }
             break;
@@ -968,7 +982,7 @@ static gint
 pen_handle_key_press(SPPenContext *const pc, GdkEvent *event)
 {
 
-	gint ret = FALSE;
+    gint ret = FALSE;
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     gdouble const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000); // in px
 
@@ -1156,6 +1170,7 @@ pen_handle_key_press(SPPenContext *const pc, GdkEvent *event)
                 sp_canvas_item_hide(pc->cl1);
                 pc->state = SP_PEN_CONTEXT_POINT;
                 spdc_pen_set_subsequent_point(pc, pt, true);
+                pen_last_paraxial_dir = !pen_last_paraxial_dir;
                 ret = TRUE;
             }
             break;
@@ -1241,16 +1256,20 @@ spdc_pen_set_subsequent_point(SPPenContext *const pc, Geom::Point const p, bool 
     bool is_curve;
     pc->red_curve->moveto(pc->p[0]);
     if (pc->polylines_paraxial && !statusbar) {
-        // we are drawing horizontal/vertical lines and hit an anchor; draw an L-shaped path
-        Geom::Point intermed = p;
-        pen_set_to_nearest_horiz_vert(pc, intermed, status);
-        pc->red_curve->lineto(intermed);
+        // we are drawing horizontal/vertical lines and hit an anchor;
+        Geom::Point const origin = pc->p[0];
+        // if the previous point and the anchor are not aligned either horizontally or vertically...
+        if ((abs(p[Geom::X] - origin[Geom::X]) > 1e-9) && (abs(p[Geom::Y] - origin[Geom::Y]) > 1e-9)) {
+            // ...then we should draw an L-shaped path, consisting of two paraxial segments
+            Geom::Point intermed = p;
+            pen_set_to_nearest_horiz_vert(pc, intermed, status, false);
+            pc->red_curve->lineto(intermed);
+        }
         pc->red_curve->lineto(p);
         is_curve = false;
     } else {
         // one of the 'regular' modes
-        if (pc->p[1] != pc->p[0])
-        {
+        if (pc->p[1] != pc->p[0]) {
             pc->red_curve->curveto(pc->p[1], p, p);
             is_curve = true;
         } else {
@@ -1318,6 +1337,7 @@ spdc_pen_finish_segment(SPPenContext *const pc, Geom::Point const p, guint const
     if (pc->polylines_paraxial) {
         pen_last_paraxial_dir = pen_next_paraxial_direction(pc, p, pc->p[0], state);
     }
+
     ++pc->num_clicks;
 
     if (!pc->red_curve->is_empty()) {
@@ -1417,7 +1437,11 @@ static int pen_next_paraxial_direction(const SPPenContext *const pc,
      * horizontal or vertical segment; for all subsequent mouse clicks, we use the direction
      * orthogonal to the last one; pressing Shift toggles the direction
      */
-    if (pc->num_clicks == 0) {
+    // num_clicks is not reliable because spdc_pen_finish_segment is sometimes called too early
+    // (on first mouse release), in which case num_clicks immediately becomes 1.
+    // if (pc->num_clicks == 0) {
+
+    if (pc->green_curve->is_empty()) {
         // first mouse click
         double dist_h = fabs(pt[Geom::X] - origin[Geom::X]);
         double dist_v = fabs(pt[Geom::Y] - origin[Geom::Y]);
@@ -1430,18 +1454,33 @@ static int pen_next_paraxial_direction(const SPPenContext *const pc,
     }
 }
 
-void pen_set_to_nearest_horiz_vert(const SPPenContext *const pc, Geom::Point &pt, guint const state)
+void pen_set_to_nearest_horiz_vert(const SPPenContext *const pc, Geom::Point &pt, guint const state, bool snap)
 {
-    Geom::Point const &origin = pc->p[0];
+    Geom::Point const origin = pc->p[0];
 
     int next_dir = pen_next_paraxial_direction(pc, pt, origin, state);
 
-    if (next_dir == 0) {
-        // line is forced to be horizontal
-        pt[Geom::Y] = origin[Geom::Y];
+    if (!snap) {
+        if (next_dir == 0) {
+            // line is forced to be horizontal
+            pt[Geom::Y] = origin[Geom::Y];
+        } else {
+            // line is forced to be vertical
+            pt[Geom::X] = origin[Geom::X];
+        }
     } else {
-        // line is forced to be vertical
-        pt[Geom::X] = origin[Geom::X];
+        // Create a horizontal or vertical constraint line
+        Inkscape::Snapper::ConstraintLine cl(origin, next_dir ? Geom::Point(0, 1) : Geom::Point(1, 0));
+
+        // Snap along the constraint line; if we didn't snap then still the constraint will be applied
+        SnapManager &m = pc->desktop->namedview->snap_manager;
+
+        Inkscape::Selection *selection = sp_desktop_selection (pc->desktop);
+        // selection->singleItem() is the item that is currently being drawn. This item will not be snapped to (to avoid self-snapping)
+        // TODO: Allow snapping to the stationary parts of the item, and only ignore the last segment
+
+        m.setup(pc->desktop, true, selection->singleItem());
+        m.constrainedSnapReturnByRef(pt, Inkscape::SNAPSOURCE_NODE_HANDLE, cl);
     }
 }
 

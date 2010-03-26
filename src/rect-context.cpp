@@ -122,15 +122,15 @@ static void sp_rect_context_init(SPRectContext *rect_context)
 static void sp_rect_context_finish(SPEventContext *ec)
 {
     SPRectContext *rc = SP_RECT_CONTEXT(ec);
-	SPDesktop *desktop = ec->desktop;
+    SPDesktop *desktop = ec->desktop;
 
-	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), GDK_CURRENT_TIME);
-	sp_rect_finish(rc);
+    sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), GDK_CURRENT_TIME);
+    sp_rect_finish(rc);
     rc->sel_changed_connection.disconnect();
 
     if (((SPEventContextClass *) parent_class)->finish) {
-		((SPEventContextClass *) parent_class)->finish(ec);
-	}
+        ((SPEventContextClass *) parent_class)->finish(ec);
+    }
 }
 
 
@@ -283,7 +283,7 @@ static gint sp_rect_context_root_handler(SPEventContext *event_context, GdkEvent
             /* Snap center */
             SnapManager &m = desktop->namedview->snap_manager;
             m.setup(desktop);
-            m.freeSnapReturnByRef(Inkscape::SnapPreferences::SNAPPOINT_NODE, button_dt, Inkscape::SNAPSOURCE_HANDLE);
+            m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
             rc->center = from_2geom(button_dt);
 
             sp_canvas_item_grab(SP_CANVAS_ITEM(desktop->acetate),
@@ -317,6 +317,13 @@ static gint sp_rect_context_root_handler(SPEventContext *event_context, GdkEvent
             sp_rect_drag(*rc, motion_dt, event->motion.state); // this will also handle the snapping
             gobble_motion_events(GDK_BUTTON1_MASK);
             ret = TRUE;
+        } else if (!sp_event_context_knot_mouseover(rc)) {
+            SnapManager &m = desktop->namedview->snap_manager;
+            m.setup(desktop);
+
+            Geom::Point const motion_w(event->motion.x, event->motion.y);
+            Geom::Point motion_dt(desktop->w2d(motion_w));
+            m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
         }
         break;
     case GDK_BUTTON_RELEASE:
@@ -389,14 +396,14 @@ static gint sp_rect_context_root_handler(SPEventContext *event_context, GdkEvent
             break;
 
         case GDK_Escape:
-        	if (dragging) {
-        		dragging = false;
-        		sp_event_context_discard_delayed_snap_event(event_context);
-        		// if drawing, cancel, otherwise pass it up for deselecting
-        		sp_rect_cancel(rc);
-        		ret = TRUE;
-        	}
-        	break;
+            if (dragging) {
+                dragging = false;
+                sp_event_context_discard_delayed_snap_event(event_context);
+                // if drawing, cancel, otherwise pass it up for deselecting
+                sp_rect_cancel(rc);
+                ret = TRUE;
+            }
+            break;
 
         case GDK_space:
             if (dragging) {
@@ -527,8 +534,8 @@ static void sp_rect_finish(SPRectContext *rc)
     if ( rc->item != NULL ) {
         SPRect *rect = SP_RECT(rc->item);
         if (rect->width.computed == 0 || rect->height.computed == 0) {
-        	sp_rect_cancel(rc); // Don't allow the creating of zero sized rectangle, for example when the start and and point snap to the snap grid point
-        	return;
+            sp_rect_cancel(rc); // Don't allow the creating of zero sized rectangle, for example when the start and and point snap to the snap grid point
+            return;
         }
 
         SPDesktop *desktop = SP_EVENT_CONTEXT_DESKTOP(rc);
@@ -547,14 +554,14 @@ static void sp_rect_finish(SPRectContext *rc)
 
 static void sp_rect_cancel(SPRectContext *rc)
 {
-	SPDesktop *desktop = SP_EVENT_CONTEXT(rc)->desktop;
+    SPDesktop *desktop = SP_EVENT_CONTEXT(rc)->desktop;
 
-	sp_desktop_selection(desktop)->clear();
-	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), 0);
+    sp_desktop_selection(desktop)->clear();
+    sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), 0);
 
     if (rc->item != NULL) {
-    	SP_OBJECT(rc->item)->deleteObject();
-    	rc->item = NULL;
+        SP_OBJECT(rc->item)->deleteObject();
+        rc->item = NULL;
     }
 
     rc->within_tolerance = false;

@@ -1,5 +1,5 @@
-#ifndef __SP_GRADIENT_H__
-#define __SP_GRADIENT_H__
+#ifndef SEEN_SP_GRADIENT_H
+#define SEEN_SP_GRADIENT_H
 
 /** \file
  * SVG <stop> <linearGradient> and <radialGradient> implementation
@@ -7,7 +7,9 @@
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Johan Engelen <j.b.c.engelen@ewi.utwente.nl>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
+ * Copyrigt  (C) 2010 Jon A. Cruz
  * Copyright (C) 2007 Johan Engelen
  * Copyright (C) 1999-2002 Lauris Kaplinski
  * Copyright (C) 2000-2001 Ximian, Inc.
@@ -26,16 +28,25 @@
 
 struct SPGradientReference;
 
+
+#define SP_TYPE_GRADIENT (sp_gradient_get_type())
+#define SP_GRADIENT(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), SP_TYPE_GRADIENT, SPGradient))
+#define SP_GRADIENT_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), SP_TYPE_GRADIENT, SPGradientClass))
+#define SP_IS_GRADIENT(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), SP_TYPE_GRADIENT))
+#define SP_IS_GRADIENT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), SP_TYPE_GRADIENT))
+
+GType sp_gradient_get_type();
+
 typedef enum {
-	SP_GRADIENT_TYPE_UNKNOWN,
-	SP_GRADIENT_TYPE_LINEAR,
-	SP_GRADIENT_TYPE_RADIAL
+    SP_GRADIENT_TYPE_UNKNOWN,
+    SP_GRADIENT_TYPE_LINEAR,
+    SP_GRADIENT_TYPE_RADIAL
 } SPGradientType;
 
 typedef enum {
-	SP_GRADIENT_STATE_UNKNOWN,
-	SP_GRADIENT_STATE_VECTOR,
-	SP_GRADIENT_STATE_PRIVATE
+    SP_GRADIENT_STATE_UNKNOWN,
+    SP_GRADIENT_STATE_VECTOR,
+    SP_GRADIENT_STATE_PRIVATE
 } SPGradientState;
 
 typedef enum {
@@ -49,7 +60,7 @@ typedef enum {
     POINT_RG_MID1,
     POINT_RG_MID2,
     // insert new point types here.
-    
+
     POINT_G_INVALID
 } GrPointType;
 
@@ -61,47 +72,60 @@ typedef enum {
  */
 struct SPGradient : public SPPaintServer {
 
-	/** Reference (href) */
-	SPGradientReference *ref;
+    /** Reference (href) */
+    SPGradientReference *ref;
 
-	/** State in Inkscape gradient system */
-	guint state : 2;
+    /** State in Inkscape gradient system */
+    guint state : 2;
 
-	/** gradientUnits attribute */
-	SPGradientUnits units;
-	guint units_set : 1;
+    /** gradientUnits attribute */
+    SPGradientUnits units;
+    guint units_set : 1;
 
-	/** gradientTransform attribute */
-	Geom::Matrix gradientTransform;
-	guint gradientTransform_set : 1;
+    /** gradientTransform attribute */
+    Geom::Matrix gradientTransform;
+    guint gradientTransform_set : 1;
 
-	/** spreadMethod attribute */
-	SPGradientSpread spread;
-	guint spread_set : 1;
+    /** spreadMethod attribute */
+    SPGradientSpread spread;
+    guint spread_set : 1;
 
-	/** Gradient stops */
-	guint has_stops : 1;
+    /** Gradient stops */
+    guint has_stops : 1;
 
-	/** Composed vector */
-	SPGradientVector vector;
+    /** Composed vector */
+    SPGradientVector vector;
 
-	/** Rendered color array (4 * 1024 bytes) */
-	guchar *color;
+    /** Rendered color array (4 * 1024 bytes) */
+    guchar *color;
 
-        sigc::connection modified_connection;
+    sigc::connection modified_connection;
+
+
+    SPStop* getFirstStop();
+    int getStopCount() const;
+
+/**
+ * Returns private vector of given gradient (the gradient at the end of the href chain which has
+ * stops), optionally normalizing it.
+ *
+ * \pre SP_IS_GRADIENT(gradient).
+ * \pre There exists a gradient in the chain that has stops.
+ */
+    SPGradient *getVector(bool force_private = false);
 };
 
 /**
  * The SPGradient vtable.
  */
 struct SPGradientClass {
-	SPPaintServerClass parent_class;
+    SPPaintServerClass parent_class;
 };
 
 
 #include "sp-gradient-fns.h"
 
-#endif /* !__SP_GRADIENT_H__ */
+#endif // SEEN_SP_GRADIENT_H
 
 /*
   Local Variables:

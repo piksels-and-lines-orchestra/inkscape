@@ -1,16 +1,22 @@
-#ifndef __SP_PAINT_SELECTOR_H__
-#define __SP_PAINT_SELECTOR_H__
+#ifndef SEEN_SP_PAINT_SELECTOR_H
+#define SEEN_SP_PAINT_SELECTOR_H
 
 /** \file
  * Generic paint selector widget
  *
+ * Authors:
+ *   Lauris
+ *   Jon A. Cruz <jon@joncruz.org>
+ *
  * Copyright (C) Lauris 2002
+ * Copyright (C) 2010 Authors
  *
  */
 
 #include <glib.h>
 #include "sp-gradient-spread.h"
 #include "sp-gradient-units.h"
+
 class SPGradient;
 
 #define SP_TYPE_PAINT_SELECTOR (sp_paint_selector_get_type ())
@@ -25,86 +31,102 @@ class SPGradient;
 #include <color.h>
 #include <libnr/nr-forward.h>
 
-typedef enum {
-	SP_PAINT_SELECTOR_MODE_EMPTY,
-	SP_PAINT_SELECTOR_MODE_MULTIPLE,
-	SP_PAINT_SELECTOR_MODE_NONE,
-	SP_PAINT_SELECTOR_MODE_COLOR_RGB,
-	SP_PAINT_SELECTOR_MODE_COLOR_CMYK,
-	SP_PAINT_SELECTOR_MODE_GRADIENT_LINEAR,
-    SP_PAINT_SELECTOR_MODE_GRADIENT_RADIAL,
-    SP_PAINT_SELECTOR_MODE_PATTERN,
-    SP_PAINT_SELECTOR_MODE_UNSET
-} SPPaintSelectorMode;
-
-typedef enum {
-	SP_PAINT_SELECTOR_FILLRULE_NONZERO,
-	SP_PAINT_SELECTOR_FILLRULE_EVENODD
-} SPPaintSelectorFillRule;
 
 /// Generic paint selector widget
 struct SPPaintSelector {
-	GtkVBox vbox;
+    GtkVBox vbox;
 
-	guint update : 1;
+    enum Mode {
+        MODE_EMPTY,
+        MODE_MULTIPLE,
+        MODE_NONE,
+        MODE_COLOR_RGB,
+        MODE_COLOR_CMYK,
+        MODE_GRADIENT_LINEAR,
+        MODE_GRADIENT_RADIAL,
+        MODE_PATTERN,
+        MODE_SWATCH,
+        MODE_UNSET
+    } ;
 
-	SPPaintSelectorMode mode;
+    enum FillRule {
+        FILLRULE_NONZERO,
+        FILLRULE_EVENODD
+    } ;
 
-	GtkWidget *style;
-	GtkWidget *none, *solid, *gradient, *radial, *pattern, *unset;
+    guint update : 1;
 
-	GtkWidget *fillrulebox;
-	GtkWidget *evenodd, *nonzero;
+    Mode mode;
 
-	GtkWidget *frame, *selector;
+    GtkWidget *style;
+    GtkWidget *none;
+    GtkWidget *solid;
+    GtkWidget *gradient;
+    GtkWidget *radial;
+    GtkWidget *pattern;
+    GtkWidget *swatch;
+    GtkWidget *unset;
 
-	SPColor color;
-	float alpha;
+    GtkWidget *fillrulebox;
+    GtkWidget *evenodd, *nonzero;
+
+    GtkWidget *frame, *selector;
+
+    SPColor color;
+    float alpha;
+
+    static Mode getModeForStyle(SPStyle const & style, bool isfill);
+
+    void setMode( Mode mode );
+    void setFillrule( FillRule fillrule );
+
+    void setColorAlpha( SPColor const &color, float alpha );
+    void getColorAlpha( SPColor &color, gfloat &alpha ) const;
+
+    void setGradientLinear( SPGradient *vector );
+    void setGradientRadial( SPGradient *vector );
+    void setSwatch( SPGradient *vector );
+
+    void setGradientProperties( SPGradientUnits units, SPGradientSpread spread );
+    void getGradientProperties( SPGradientUnits &units, SPGradientSpread &spread ) const;
+
+    void pushAttrsToGradient( SPGradient *gr ) const;
+    SPGradient *getGradientVector();
+    SPPattern * getPattern();
+    void updatePatternList( SPPattern *pat );
+
+    // TODO move this elsewhere:
+    void setFlatColor( SPDesktop *desktop, const gchar *color_property, const gchar *opacity_property );
 };
 
 /// The SPPaintSelector vtable
 struct SPPaintSelectorClass {
-	GtkVBoxClass parent_class;
+    GtkVBoxClass parent_class;
 
-	void (* mode_changed) (SPPaintSelector *psel, SPPaintSelectorMode mode);
+    void (* mode_changed) (SPPaintSelector *psel, SPPaintSelector::Mode mode);
 
-	void (* grabbed) (SPPaintSelector *psel);
-	void (* dragged) (SPPaintSelector *psel);
-	void (* released) (SPPaintSelector *psel);
-	void (* changed) (SPPaintSelector *psel);
-	void (* fillrule_changed) (SPPaintSelector *psel, SPPaintSelectorFillRule fillrule);
+    void (* grabbed) (SPPaintSelector *psel);
+    void (* dragged) (SPPaintSelector *psel);
+    void (* released) (SPPaintSelector *psel);
+    void (* changed) (SPPaintSelector *psel);
+    void (* fillrule_changed) (SPPaintSelector *psel, SPPaintSelector::FillRule fillrule);
 };
 
 GtkType sp_paint_selector_get_type (void);
 
 GtkWidget *sp_paint_selector_new (bool is_fill);
 
-void sp_paint_selector_set_mode (SPPaintSelector *psel, SPPaintSelectorMode mode);
-void sp_paint_selector_set_fillrule (SPPaintSelector *psel, SPPaintSelectorFillRule fillrule);
 
-void sp_paint_selector_set_color_alpha (SPPaintSelector *psel, const SPColor *color, float alpha);
 
-void sp_paint_selector_set_gradient_linear (SPPaintSelector *psel, SPGradient *vector);
+#endif // SEEN_SP_PAINT_SELECTOR_H
 
-void sp_paint_selector_set_gradient_radial (SPPaintSelector *psel, SPGradient *vector);
-
-void sp_paint_selector_set_gradient_properties (SPPaintSelector *psel, SPGradientUnits units, SPGradientSpread spread);
-void sp_paint_selector_get_gradient_properties (SPPaintSelector *psel, SPGradientUnits *units, SPGradientSpread *spread);
-
-void sp_gradient_selector_attrs_to_gradient (SPGradient *gr, SPPaintSelector *psel);
-
-void sp_paint_selector_get_color_alpha (SPPaintSelector *psel, SPColor *color, gfloat *alpha);
-
-SPGradient *sp_paint_selector_get_gradient_vector (SPPaintSelector *psel);
-
-void sp_paint_selector_system_color_set (SPPaintSelector *psel, const SPColor *color, float opacity);
-
-SPPattern * sp_paint_selector_get_pattern (SPPaintSelector *psel);
-
-void sp_update_pattern_list ( SPPaintSelector *psel, SPPattern *pat);
-
-void sp_paint_selector_set_flat_color (SPPaintSelector *psel, SPDesktop *desktop, const gchar *color_property, const gchar *opacity_property);
-
-SPPaintSelectorMode sp_style_determine_paint_selector_mode (SPStyle *style, bool isfill);
-
-#endif
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0)(case-label . +))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :

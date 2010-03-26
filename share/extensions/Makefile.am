@@ -18,6 +18,7 @@ extensions = \
 	addnodes.py \
 	bezmisc.py \
 	chardataeffect.py\
+	color_blackandwhite.py\
 	color_brighter.py\
 	color_custom.py\
 	color_darker.py\
@@ -61,6 +62,7 @@ extensions = \
 	fractalize.py \
 	funcplot.py \
 	gears.py\
+	generate_voronoi.py \
 	gimp_xcf.py \
 	grid_cartesian.py \
 	grid_polar.py \
@@ -87,6 +89,7 @@ extensions = \
 	pathmodifier.py\
 	perfectboundcover.py \
 	perspective.py \
+	pixelsnap.py \
 	plt_output.py \
 	polyhedron_3d.py \
 	printing-marks.py \
@@ -129,6 +132,10 @@ extensions = \
 	txt2svg.pl \
 	uniconv-ext.py \
 	uniconv_output.py \
+	voronoi.py \
+	webslicer-create-group.py \
+	webslicer-create-rect.py \
+	webslicer-export.py \
 	web-set-att.py \
 	web-transmit-att.py \
 	whirl.py \
@@ -151,6 +158,7 @@ modules = \
 	cdt_input.inx \
 	cgm_input.inx \
 	cmx_input.inx \
+	color_blackandwhite.inx\
 	color_brighter.inx\
 	color_custom.inx \
 	color_darker.inx\
@@ -190,6 +198,7 @@ modules = \
 	fractalize.inx \
 	funcplot.inx \
 	gears.inx\
+	generate_voronoi.inx \
 	gimp_xcf.inx \
 	grid_cartesian.inx \
 	grid_polar.inx \
@@ -217,6 +226,7 @@ modules = \
 	pathscatter.inx\
 	perfectboundcover.inx \
 	perspective.inx	\
+	pixelsnap.inx \
 	plt_input.inx \
 	plt_output.inx \
 	polyhedron_3d.inx	\
@@ -249,6 +259,9 @@ modules = \
 	text_braille.inx \
 	triangle.inx \
 	txt2svg.inx \
+	webslicer-create-group.inx \
+	webslicer-create-rect.inx \
+	webslicer-export.inx \
 	web-set-att.inx \
 	web-transmit-att.inx \
 	whirl.inx \

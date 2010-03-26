@@ -5,6 +5,7 @@
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *
  * Copyright (C) 1999-2002 Lauris Kaplinski
+ * Copyright (C) 1999-2010 Others
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -87,9 +88,6 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
             if (event->button.button == 1) {
                 dragging = true;
 
-                // FIXME: The snap delay mechanism won't work here, because it has been implemented for the event context. Dragging
-                // guides off the ruler will send event to the ruler and not to the context, which bypasses sp_event_context_snap_delay_handler
-
                 Geom::Point const event_w(sp_canvas_window_to_world(dtw->canvas, event_win));
                 Geom::Point const event_dt(desktop->w2d(event_w));
 
@@ -145,12 +143,14 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
                 Geom::Point const event_w(sp_canvas_window_to_world(dtw->canvas, event_win));
                 Geom::Point event_dt(desktop->w2d(event_w));
 
-                SnapManager &m = desktop->namedview->snap_manager;
-                m.setup(desktop);
-                // We only have a temporary guide which is not stored in our document yet.
-                // Because the guide snapper only looks in the document for guides to snap to,
-                // we don't have to worry about a guide snapping to itself here
-                m.guideFreeSnap(event_dt, normal, SP_DRAG_MOVE_ORIGIN);
+                if (!(event->motion.state & GDK_SHIFT_MASK)) {
+                    SnapManager &m = desktop->namedview->snap_manager;
+                    m.setup(desktop);
+                    // We only have a temporary guide which is not stored in our document yet.
+                    // Because the guide snapper only looks in the document for guides to snap to,
+                    // we don't have to worry about a guide snapping to itself here
+                    m.guideFreeSnap(event_dt, normal, SP_DRAG_MOVE_ORIGIN);
+                }
 
                 sp_guideline_set_position(SP_GUIDELINE(guide), from_2geom(event_dt));
                 desktop->set_coordinate_status(to_2geom(event_dt));
@@ -159,20 +159,22 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
             break;
     case GDK_BUTTON_RELEASE:
             if (dragging && event->button.button == 1) {
+                sp_event_context_discard_delayed_snap_event(desktop->event_context);
+
                 gdk_pointer_ungrab(event->button.time);
                 Geom::Point const event_w(sp_canvas_window_to_world(dtw->canvas, event_win));
                 Geom::Point event_dt(desktop->w2d(event_w));
 
-                SnapManager &m = desktop->namedview->snap_manager;
-                m.setup(desktop);
-                // We only have a temporary guide which is not stored in our document yet.
-                // Because the guide snapper only looks in the document for guides to snap to,
-                // we don't have to worry about a guide snapping to itself here
-                m.guideFreeSnap(event_dt, normal, SP_DRAG_MOVE_ORIGIN);
+                if (!(event->button.state & GDK_SHIFT_MASK)) {
+                    SnapManager &m = desktop->namedview->snap_manager;
+                    m.setup(desktop);
+                    // We only have a temporary guide which is not stored in our document yet.
+                    // Because the guide snapper only looks in the document for guides to snap to,
+                    // we don't have to worry about a guide snapping to itself here
+                    m.guideFreeSnap(event_dt, normal, SP_DRAG_MOVE_ORIGIN);
+                }
 
                 dragging = false;
-
-                sp_event_context_discard_delayed_snap_event(desktop->event_context);
 
                 gtk_object_destroy(GTK_OBJECT(guide));
                 guide = NULL;
@@ -187,16 +189,8 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
                                      _("Create guide"));
                 }
                 desktop->set_coordinate_status(from_2geom(event_dt));
-
-                // A dt_ruler_event might be emitted when dragging a guide of the rulers
-                // while drawing a Bezier curve. In such a situation, we're already in that
-                // specific context and the snap delay is already active. We should interfere
-                // with that context and we should therefore leave the snap delay status
-                // as it is. So although it might have been set to active above on
-                // GDK_BUTTON_PRESS, we should not set it back to inactive here. That must be
-                // done by the context.
             }
-	default:
+    default:
             break;
     }
 
@@ -205,11 +199,17 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
 
 int sp_dt_hruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidget *dtw)
 {
+    if (event->type == GDK_MOTION_NOTIFY) {
+        sp_event_context_snap_delay_handler(dtw->desktop->event_context, (gpointer) widget, (gpointer) dtw, (GdkEventMotion *)event, DelayedSnapEvent::GUIDE_HRULER);
+    }
     return sp_dt_ruler_event(widget, event, dtw, true);
 }
 
 int sp_dt_vruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidget *dtw)
 {
+    if (event->type == GDK_MOTION_NOTIFY) {
+        sp_event_context_snap_delay_handler(dtw->desktop->event_context, (gpointer) widget, (gpointer) dtw, (GdkEventMotion *)event, DelayedSnapEvent::GUIDE_VRULER);
+    }
     return sp_dt_ruler_event(widget, event, dtw, false);
 }
 
@@ -230,7 +230,7 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
     SPDesktop *desktop = static_cast<SPDesktop*>(gtk_object_get_data(GTK_OBJECT(item->canvas), "SPDesktop"));
 
     switch (event->type) {
-	case GDK_2BUTTON_PRESS:
+    case GDK_2BUTTON_PRESS:
             if (event->button.button == 1) {
                 drag_type = SP_DRAG_NONE;
                 sp_event_context_discard_delayed_snap_event(desktop->event_context);
@@ -239,7 +239,7 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                 ret = TRUE;
             }
             break;
-	case GDK_BUTTON_PRESS:
+    case GDK_BUTTON_PRESS:
             if (event->button.button == 1) {
                 Geom::Point const event_w(event->button.x, event->button.y);
                 Geom::Point const event_dt(desktop->w2d(event_w));
@@ -279,6 +279,8 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                                            event->motion.y);
                 Geom::Point motion_dt(desktop->w2d(motion_w));
 
+                sp_event_context_snap_delay_handler(desktop->event_context, (gpointer) item, data, (GdkEventMotion *)event, DelayedSnapEvent::GUIDE_HANDLER);
+
                 // This is for snapping while dragging existing guidelines. New guidelines,
                 // which are dragged off the ruler, are being snapped in sp_dt_ruler_event
                 SnapManager &m = desktop->namedview->snap_manager;
@@ -288,13 +290,16 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     // be forced to be on the guide. If we don't snap however, then
                     // the origin should still be constrained to the guide. So let's do
                     // that explicitly first:
-
                     Geom::Line line(guide->point_on_line, guide->angle());
                     Geom::Coord t = line.nearestPoint(motion_dt);
                     motion_dt = line.pointAt(t);
-                    m.guideConstrainedSnap(motion_dt, *guide);
-                } else {
-                    m.guideFreeSnap(motion_dt, guide->normal_to_line, drag_type);
+                    if (!(event->motion.state & GDK_SHIFT_MASK)) {
+                        m.guideConstrainedSnap(motion_dt, *guide);
+                    }
+                } else if (!(event->motion.state & GDK_SHIFT_MASK)) {
+                    if (!((drag_type == SP_DRAG_ROTATE) && (event->motion.state & GDK_CONTROL_MASK))) {
+                        m.guideFreeSnap(motion_dt, guide->normal_to_line, drag_type);
+                    }
                 }
 
                 switch (drag_type) {
@@ -307,7 +312,7 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     {
                         Geom::Point pt = motion_dt - guide->point_on_line;
                         double angle = std::atan2(pt[Geom::Y], pt[Geom::X]);
-                        if  (event->motion.state & GDK_CONTROL_MASK) {
+                        if (event->motion.state & GDK_CONTROL_MASK) {
                             Inkscape::Preferences *prefs = Inkscape::Preferences::get();
                             unsigned const snaps = abs(prefs->getInt("/options/rotationsnapsperpi/value", 12));
                             if (snaps) {
@@ -321,7 +326,7 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     case SP_DRAG_MOVE_ORIGIN:
                     {
                         sp_guide_moveto(*guide, motion_dt, false);
-                    	break;
+                        break;
                     }
                     case SP_DRAG_NONE:
                         g_assert_not_reached();
@@ -336,6 +341,8 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
             break;
     case GDK_BUTTON_RELEASE:
             if (drag_type != SP_DRAG_NONE && event->button.button == 1) {
+                sp_event_context_discard_delayed_snap_event(desktop->event_context);
+
                 if (moved) {
                     Geom::Point const event_w(event->button.x,
                                               event->button.y);
@@ -344,16 +351,20 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     SnapManager &m = desktop->namedview->snap_manager;
                     m.setup(desktop, true, NULL, NULL, guide);
                     if (drag_type == SP_DRAG_MOVE_ORIGIN) {
-                    	// If we snap in guideConstrainedSnap() below, then motion_dt will
+                        // If we snap in guideConstrainedSnap() below, then motion_dt will
                         // be forced to be on the guide. If we don't snap however, then
                         // the origin should still be constrained to the guide. So let's
                         // do that explicitly first:
-                    	Geom::Line line(guide->point_on_line, guide->angle());
+                        Geom::Line line(guide->point_on_line, guide->angle());
                         Geom::Coord t = line.nearestPoint(event_dt);
                         event_dt = line.pointAt(t);
-                    	m.guideConstrainedSnap(event_dt, *guide);
-                    } else {
-                        m.guideFreeSnap(event_dt, guide->normal_to_line, drag_type);
+                        if (!(event->button.state & GDK_SHIFT_MASK)) {
+                            m.guideConstrainedSnap(event_dt, *guide);
+                        }
+                    } else if (!(event->button.state & GDK_SHIFT_MASK)) {
+                        if (!((drag_type == SP_DRAG_ROTATE) && (event->motion.state & GDK_CONTROL_MASK))) {
+                            m.guideFreeSnap(event_dt, guide->normal_to_line, drag_type);
+                        }
                     }
 
                     if (sp_canvas_world_pt_inside_window(item->canvas, event_w)) {
@@ -380,8 +391,8 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                             }
                             case SP_DRAG_MOVE_ORIGIN:
                             {
-                            	sp_guide_moveto(*guide, event_dt, true);
-                            	break;
+                                sp_guide_moveto(*guide, event_dt, true);
+                                break;
                             }
                             case SP_DRAG_NONE:
                                 g_assert_not_reached();
@@ -402,7 +413,6 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     desktop->setPosition (from_2geom(event_dt));
                 }
                 drag_type = SP_DRAG_NONE;
-                sp_event_context_discard_delayed_snap_event(desktop->event_context);
                 sp_canvas_item_ungrab(item, event->button.time);
                 ret=TRUE;
             }
@@ -414,7 +424,7 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
             Geom::Point const event_w(event->crossing.x, event->crossing.y);
             Geom::Point const event_dt(desktop->w2d(event_w));
 
-            if (event->crossing.state & GDK_SHIFT_MASK) {
+            if ((event->crossing.state & GDK_SHIFT_MASK) && (drag_type != SP_DRAG_MOVE_ORIGIN)) {
                 GdkCursor *guide_cursor;
                 guide_cursor = gdk_cursor_new (GDK_EXCHANGE);
                 gdk_window_set_cursor(GTK_WIDGET(sp_desktop_canvas(desktop))->window, guide_cursor);
@@ -444,15 +454,20 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     sp_guide_remove(guide);
                     sp_document_done(doc, SP_VERB_NONE, _("Delete guide"));
                     ret = TRUE;
+                    sp_event_context_discard_delayed_snap_event(desktop->event_context);
                     break;
                 }
                 case GDK_Shift_L:
                 case GDK_Shift_R:
-                    GdkCursor *guide_cursor;
-                    guide_cursor = gdk_cursor_new (GDK_EXCHANGE);
-                    gdk_window_set_cursor(GTK_WIDGET(sp_desktop_canvas(desktop))->window, guide_cursor);
-                    gdk_cursor_unref(guide_cursor);
-                    ret = TRUE;
+                    if (drag_type != SP_DRAG_MOVE_ORIGIN) {
+                        GdkCursor *guide_cursor;
+                        guide_cursor = gdk_cursor_new (GDK_EXCHANGE);
+                        gdk_window_set_cursor(GTK_WIDGET(sp_desktop_canvas(desktop))->window, guide_cursor);
+                        gdk_cursor_unref(guide_cursor);
+                        ret = TRUE;
+                        break;
+                    }
+
                 default:
                     // do nothing;
                     break;

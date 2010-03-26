@@ -295,7 +295,7 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
     // but as a snap source we still need some nodes though!
     _snap_points.clear();
     _snap_points = selection->getSnapPoints(&local_snapprefs);
-    std::vector<std::pair<Geom::Point, int> > snap_points_hull = selection->getSnapPointsConvexHull(&local_snapprefs);
+    std::vector<Inkscape::SnapCandidatePoint> snap_points_hull = selection->getSnapPointsConvexHull(&local_snapprefs);
     if (_snap_points.size() > 200) {
         /* Snapping a huge number of nodes will take way too long, so limit the number of snappable nodes
         An average user would rarely ever try to snap such a large number of nodes anyway, because
@@ -313,11 +313,11 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
     // any other special points
     Geom::Rect snap_points_bbox;
     if ( snap_points_hull.empty() == false ) {
-        std::vector<std::pair<Geom::Point, int> >::iterator i = snap_points_hull.begin();
-        snap_points_bbox = Geom::Rect((*i).first, (*i).first);
+        std::vector<Inkscape::SnapCandidatePoint>::iterator i = snap_points_hull.begin();
+        snap_points_bbox = Geom::Rect((*i).getPoint(), (*i).getPoint());
         i++;
         while (i != snap_points_hull.end()) {
-            snap_points_bbox.expandTo((*i).first);
+            snap_points_bbox.expandTo((*i).getPoint());
             i++;
         }
     }
@@ -381,9 +381,9 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
         }
 
         // Now let's reduce this to a single closest snappoint
-        Geom::Coord dsp    = _snap_points.size()                 == 1 ? Geom::L2((_snap_points.at(0)).first - p) : NR_HUGE;
-        Geom::Coord dbbp   = _bbox_points.size()                 == 1 ? Geom::L2((_bbox_points.at(0)).first - p) : NR_HUGE;
-        Geom::Coord dbbpft = _bbox_points_for_translating.size() == 1 ? Geom::L2((_bbox_points_for_translating.at(0)).first - p) : NR_HUGE;
+        Geom::Coord dsp    = _snap_points.size()                 == 1 ? Geom::L2((_snap_points.at(0)).getPoint() - p) : NR_HUGE;
+        Geom::Coord dbbp   = _bbox_points.size()                 == 1 ? Geom::L2((_bbox_points.at(0)).getPoint() - p) : NR_HUGE;
+        Geom::Coord dbbpft = _bbox_points_for_translating.size() == 1 ? Geom::L2((_bbox_points_for_translating.at(0)).getPoint() - p) : NR_HUGE;
 
         if (translating) {
             _bbox_points.clear();
@@ -1015,8 +1015,8 @@ gboolean Inkscape::SelTrans::scaleRequest(Geom::Point &pt, guint state)
             }
 
             // Snap along a suitable constraint vector from the origin.
-            bb = m.constrainedSnapScale(SnapPreferences::SNAPPOINT_BBOX, _bbox_points, _point, default_scale, _origin_for_bboxpoints);
-            sn = m.constrainedSnapScale(SnapPreferences::SNAPPOINT_NODE, _snap_points, _point, geom_scale, _origin_for_specpoints);
+            bb = m.constrainedSnapScale(_bbox_points, _point, default_scale, _origin_for_bboxpoints);
+            sn = m.constrainedSnapScale(_snap_points, _point, geom_scale, _origin_for_specpoints);
 
             /* Choose the smaller difference in scale.  Since s[X] == s[Y] we can
             ** just compare difference in s[X].
@@ -1025,8 +1025,8 @@ gboolean Inkscape::SelTrans::scaleRequest(Geom::Point &pt, guint state)
             sd = sn.getSnapped() ? fabs(sn.getTransformation()[Geom::X] - geom_scale[Geom::X]) : NR_HUGE;
         } else {
             /* Scale aspect ratio is unlocked */
-            bb = m.freeSnapScale(SnapPreferences::SNAPPOINT_BBOX, _bbox_points, _point, default_scale, _origin_for_bboxpoints);
-            sn = m.freeSnapScale(SnapPreferences::SNAPPOINT_NODE, _snap_points, _point, geom_scale, _origin_for_specpoints);
+            bb = m.freeSnapScale(_bbox_points, _point, default_scale, _origin_for_bboxpoints);
+            sn = m.freeSnapScale(_snap_points, _point, geom_scale, _origin_for_specpoints);
 
             /* Pick the snap that puts us closest to the original scale */
             bd = bb.getSnapped() ? fabs(Geom::L2(bb.getTransformation()) - Geom::L2(Geom::Point(default_scale[Geom::X], default_scale[Geom::Y]))) : NR_HUGE;
@@ -1114,8 +1114,8 @@ gboolean Inkscape::SelTrans::stretchRequest(SPSelTransHandle const &handle, Geom
 
         bool symmetrical = state & GDK_CONTROL_MASK;
 
-        bb = m.constrainedSnapStretch(SnapPreferences::SNAPPOINT_BBOX, _bbox_points, _point, Geom::Coord(default_scale[axis]), _origin_for_bboxpoints, Geom::Dim2(axis), symmetrical);
-        sn = m.constrainedSnapStretch(SnapPreferences::SNAPPOINT_NODE, _snap_points, _point, Geom::Coord(geom_scale[axis]), _origin_for_specpoints, Geom::Dim2(axis), symmetrical);
+        bb = m.constrainedSnapStretch(_bbox_points, _point, Geom::Coord(default_scale[axis]), _origin_for_bboxpoints, Geom::Dim2(axis), symmetrical);
+        sn = m.constrainedSnapStretch(_snap_points, _point, Geom::Coord(geom_scale[axis]), _origin_for_specpoints, Geom::Dim2(axis), symmetrical);
 
         if (bb.getSnapped()) {
             // We snapped the bbox (which is either visual or geometric)
@@ -1232,7 +1232,7 @@ gboolean Inkscape::SelTrans::skewRequest(SPSelTransHandle const &handle, Geom::P
         Inkscape::Snapper::ConstraintLine const constraint(component_vectors[dim_b]);
         // When skewing, we cannot snap the corners of the bounding box, see the comment in "constrainedSnapSkew" for details
         Geom::Point const s(skew[dim_a], scale[dim_a]);
-        Inkscape::SnappedPoint sn = m.constrainedSnapSkew(Inkscape::SnapPreferences::SNAPPOINT_NODE, _snap_points, _point, constraint, s, _origin, Geom::Dim2(dim_b));
+        Inkscape::SnappedPoint sn = m.constrainedSnapSkew(_snap_points, _point, constraint, s, _origin, Geom::Dim2(dim_b));
 
         if (sn.getSnapped()) {
             // We snapped something, so change the skew to reflect it
@@ -1336,7 +1336,7 @@ gboolean Inkscape::SelTrans::centerRequest(Geom::Point &pt, guint state)
 {
     SnapManager &m = _desktop->namedview->snap_manager;
     m.setup(_desktop);
-    m.freeSnapReturnByRef(SnapPreferences::SNAPPOINT_NODE, pt, Inkscape::SNAPSOURCE_HANDLE);
+    m.freeSnapReturnByRef(pt, Inkscape::SNAPSOURCE_OTHER_HANDLE);
 
     if (state & GDK_CONTROL_MASK) {
         if ( fabs(_point[Geom::X] - pt[Geom::X]) > fabs(_point[Geom::Y] - pt[Geom::Y]) ) {
@@ -1439,13 +1439,17 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
 
     if (alt) {
 
-        /* Alt pressed means keep offset: snap the moved distance to the grid.
-        ** FIXME: this will snap to more than just the grid, nowadays.
-        */
+        // Alt pressed means: move only by integer multiples of the grid spacing
 
+        if (control) { // ... if also constrained to the orthogonal axes
+            if (fabs(dxy[Geom::X]) > fabs(dxy[Geom::Y])) {
+                dxy[Geom::Y] = 0;
+            } else {
+                dxy[Geom::X] = 0;
+            }
+        }
         m.setup(_desktop, true, _items_const);
-        m.freeSnapReturnByRef(SnapPreferences::SNAPPOINT_NODE, dxy, Inkscape::SNAPSOURCE_UNDEFINED);
-
+        dxy = m.multipleOfGridPitch(dxy, _point);
     } else if (shift) {
         if (control) { // shift & control: constrained movement without snapping
             if (fabs(dxy[Geom::X]) > fabs(dxy[Geom::Y])) {
@@ -1476,14 +1480,12 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             // the constraint-line once. The constraint lines are parallel, but might not be colinear.
             // Therefore we will have to set the point through which the constraint-line runs
             // individually for each point to be snapped; this will be handled however by _snapTransformed()
-            s.push_back(m.constrainedSnapTranslation(Inkscape::SnapPreferences::SNAPPOINT_BBOX,
-                                                     _bbox_points_for_translating,
+            s.push_back(m.constrainedSnapTranslation(_bbox_points_for_translating,
                                                      _point,
                                                      Inkscape::Snapper::ConstraintLine(component_vectors[dim]),
                                                      dxy));
 
-            s.push_back(m.constrainedSnapTranslation(Inkscape::SnapPreferences::SNAPPOINT_NODE,
-                                                     _snap_points,
+            s.push_back(m.constrainedSnapTranslation(_snap_points,
                                                      _point,
                                                      Inkscape::Snapper::ConstraintLine(component_vectors[dim]),
                                                      dxy));
@@ -1495,8 +1497,8 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             g_get_current_time(&starttime); */
 
             /* Snap to things with no constraint */
-            s.push_back(m.freeSnapTranslation(Inkscape::SnapPreferences::SNAPPOINT_BBOX, _bbox_points_for_translating, _point, dxy));
-            s.push_back(m.freeSnapTranslation(Inkscape::SnapPreferences::SNAPPOINT_NODE, _snap_points, _point, dxy));
+            s.push_back(m.freeSnapTranslation(_bbox_points_for_translating, _point, dxy));
+            s.push_back(m.freeSnapTranslation(_snap_points, _point, dxy));
 
               /*g_get_current_time(&endtime);
               double elapsed = ((((double)endtime.tv_sec - starttime.tv_sec) * G_USEC_PER_SEC + (endtime.tv_usec - starttime.tv_usec))) / 1000.0;
@@ -1513,6 +1515,7 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
                 }
             }
         }
+
         if (best_snapped_point.getSnapped()) {
             _desktop->snapindicator->set_new_snaptarget(best_snapped_point);
         } else {
@@ -1643,15 +1646,15 @@ Geom::Point Inkscape::SelTrans::_calcAbsAffineGeom(Geom::Scale const geom_scale)
     return _calcAbsAffineDefault(geom_scale); // this is bogus, but we must return _something_
 }
 
-void Inkscape::SelTrans::_keepClosestPointOnly(std::vector<std::pair<Geom::Point, int> > &points, const Geom::Point &reference)
+void Inkscape::SelTrans::_keepClosestPointOnly(std::vector<Inkscape::SnapCandidatePoint> &points, const Geom::Point &reference)
 {
     if (points.size() < 2) return;
 
-    std::pair<Geom::Point, int> closest_point = std::make_pair(Geom::Point(NR_HUGE, NR_HUGE), SNAPSOURCE_UNDEFINED);
+    Inkscape::SnapCandidatePoint closest_point = Inkscape::SnapCandidatePoint(Geom::Point(NR_HUGE, NR_HUGE), SNAPSOURCE_UNDEFINED, SNAPTARGET_UNDEFINED);
     Geom::Coord closest_dist = NR_HUGE;
 
-    for(std::vector<std::pair<Geom::Point, int> >::const_iterator i = points.begin(); i != points.end(); i++) {
-        Geom::Coord dist = Geom::L2((*i).first - reference);
+    for(std::vector<Inkscape::SnapCandidatePoint>::const_iterator i = points.begin(); i != points.end(); i++) {
+        Geom::Coord dist = Geom::L2((*i).getPoint() - reference);
         if (i == points.begin() || dist < closest_dist) {
             closest_point = *i;
             closest_dist = dist;

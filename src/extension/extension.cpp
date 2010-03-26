@@ -57,7 +57,9 @@ Parameter * param_shared (const gchar * name, GSList * list);
     not related to the module directly.  If the Repr does not include
     a name and an ID the module will be left in an errored state.
 */
-Extension::Extension (Inkscape::XML::Node * in_repr, Implementation::Implementation * in_imp) : _help(NULL)
+Extension::Extension (Inkscape::XML::Node * in_repr, Implementation::Implementation * in_imp)
+    : _help(NULL)
+    , _gui(true)
 {
     repr = in_repr;
     Inkscape::GC::anchor(in_repr);
@@ -438,6 +440,14 @@ Extension::get_param_enum (const gchar * name, const SPDocument * doc, const Ink
     return param->get_enum(doc, node);
 }
 
+
+gchar const *Extension::get_param_optiongroup( gchar const * name, SPDocument const * doc, Inkscape::XML::Node const * node)
+{
+    Parameter* param = param_shared(name, parameters);
+    return param->get_optiongroup(doc, node);
+}
+
+
 /**
     \return   The value of the parameter identified by the name
     \brief    Gets a parameter identified by name with the bool placed
@@ -595,6 +605,13 @@ Extension::set_param_string (const gchar * name, const gchar * value, SPDocument
     return param->set_string(value, doc, node);
 }
 
+gchar const * Extension::set_param_optiongroup(gchar const * name, gchar const * value, SPDocument * doc, Inkscape::XML::Node * node)
+{
+    Parameter * param = param_shared(name, parameters);
+    return param->set_optiongroup(value, doc, node);
+}
+
+
 /**
     \return   The passed in value
     \brief    Sets a parameter identified by name with the string
@@ -673,7 +690,7 @@ public:
 Gtk::Widget *
 Extension::autogui (SPDocument * doc, Inkscape::XML::Node * node, sigc::signal<void> * changeSignal)
 {
-    if (param_visible_count() == 0) return NULL;
+    if (!_gui || param_visible_count() == 0) return NULL;
 
     AutoGUI * agui = Gtk::manage(new AutoGUI());
 

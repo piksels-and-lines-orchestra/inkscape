@@ -11,39 +11,33 @@
 #define PANGO_ENABLE_ENGINE
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+# include "config.h"
 #endif
-#include <libnr/nr-rect.h>
-#include <libnrtype/font-glyph.h>
-#include <libnrtype/font-instance.h>
+
+#include <ft2build.h>
+#include FT_OUTLINE_H
+#include FT_BBOX_H
+#include FT_TRUETYPE_TAGS_H
+#include FT_TRUETYPE_TABLES_H
+#include <pango/pangoft2.h>
 #include <2geom/pathvector.h>
-#include <livarot/Path.h>
-
-#include "RasterFont.h"
-
-/* Freetype 2 */
-# include <ft2build.h>
-# include FT_OUTLINE_H
-# include FT_BBOX_H
-# include FT_TRUETYPE_TAGS_H
-# include FT_TRUETYPE_TABLES_H
-# include <pango/pangoft2.h>
-
-#include <ext/hash_map>
+#include "libnr/nr-rect.h"
+#include "libnrtype/font-glyph.h"
+#include "libnrtype/font-instance.h"
+#include "libnrtype/RasterFont.h"
+#include "livarot/Path.h"
+#include "util/unordered-containers.h"
 
 
-// the various raster_font in use at a given time are held in a hash_map whose indices are the
-// styles, hence the 2 following 'classes'
 struct font_style_hash : public std::unary_function<font_style, size_t> {
     size_t operator()(font_style const &x) const;
 };
 
 struct font_style_equal : public std::binary_function<font_style, font_style, bool> {
-    bool operator()(font_style const &a, font_style const &b);
+    bool operator()(font_style const &a, font_style const &b) const;
 };
 
-
-typedef __gnu_cxx::hash_map<font_style, raster_font*, font_style_hash, font_style_equal> StyleMap;
+typedef INK_UNORDERED_MAP<font_style, raster_font*, font_style_hash, font_style_equal> StyleMap;
 
 
 
@@ -76,7 +70,7 @@ size_t  font_style_hash::operator()(const font_style &x) const {
 	return h;
 }
 
-bool  font_style_equal::operator()(const font_style &a,const font_style &b) {
+bool  font_style_equal::operator()(const font_style &a,const font_style &b) const {
     for (int i=0;i<6;i++) {
         if ( (int)(100*a.transform[i]) != (int)(100*b.transform[i]) ) return false;
     }

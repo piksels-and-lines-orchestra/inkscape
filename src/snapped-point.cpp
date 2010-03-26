@@ -14,8 +14,8 @@
 #include "preferences.h"
 
 // overloaded constructor
-Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, long source_num, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &fully_constrained)
-    : _point(p), _source(source), _source_num(source_num), _target(target), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a)
+Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, long source_num, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &fully_constrained, Geom::OptRect target_bbox)
+    : _point(p), _source(source), _source_num(source_num), _target(target), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a), _target_bbox(target_bbox)
 {
     // tolerance should never be smaller than 1 px, as it is used for normalization in isOtherSnapBetter. We don't want a division by zero.
     _at_intersection = false;
@@ -27,6 +27,23 @@ Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const 
     _pointer_distance = NR_HUGE;
 }
 
+Inkscape::SnappedPoint::SnappedPoint(Inkscape::SnapCandidatePoint const &p, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &fully_constrained)
+    : _target(target), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a)
+{
+    _point = p.getPoint();
+    _source = p.getSourceType();
+    _source_num = p.getSourceNum();
+    _at_intersection = false;
+    _fully_constrained = fully_constrained;
+    _second_distance = NR_HUGE;
+    _second_tolerance = 1;
+    _second_always_snap = false;
+    _transformation = Geom::Point(1,1);
+    _pointer_distance = NR_HUGE;
+    _target_bbox = p.getTargetBBox();
+
+}
+
 Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const &source, long source_num, SnapTargetType const &target, Geom::Coord const &d, Geom::Coord const &t, bool const &a, bool const &at_intersection, bool const &fully_constrained, Geom::Coord const &d2, Geom::Coord const &t2, bool const &a2)
     : _point(p), _source(source), _source_num(source_num), _target(target), _at_intersection(at_intersection), _fully_constrained(fully_constrained), _distance(d), _tolerance(std::max(t,1.0)), _always_snap(a),
     _second_distance(d2), _second_tolerance(std::max(t2,1.0)), _second_always_snap(a2)
@@ -35,6 +52,7 @@ Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p, SnapSourceType const 
     // isOtherSnapBetter. We don't want a division by zero.
     _transformation = Geom::Point(1,1);
     _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::OptRect();
 }
 
 Inkscape::SnappedPoint::SnappedPoint()
@@ -53,6 +71,26 @@ Inkscape::SnappedPoint::SnappedPoint()
     _second_always_snap = false;
     _transformation = Geom::Point(1,1);
     _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::OptRect();
+}
+
+Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p)
+{
+    _point = p;
+    _source = SNAPSOURCE_UNDEFINED,
+    _source_num = 0,
+    _target = SNAPTARGET_UNDEFINED,
+    _at_intersection = false;
+    _fully_constrained = false;
+    _distance = NR_HUGE;
+    _tolerance = 1;
+    _always_snap = false;
+    _second_distance = NR_HUGE;
+    _second_tolerance = 1;
+    _second_always_snap = false;
+    _transformation = Geom::Point(1,1);
+    _pointer_distance = NR_HUGE;
+    _target_bbox = Geom::OptRect();
 }
 
 Inkscape::SnappedPoint::~SnappedPoint()
@@ -65,11 +103,11 @@ void Inkscape::SnappedPoint::getPoint(Geom::Point &p) const
     if (getSnapped()) {
         // then return the snapped point by overwriting p
         p = _point;
-    } //otherwise p will be left untouched; this way the caller doesn't have to check wether we've snapped
+    } //otherwise p will be left untouched; this way the caller doesn't have to check whether we've snapped
 }
 
 // search for the closest snapped point
-bool getClosestSP(std::list<Inkscape::SnappedPoint> &list, Inkscape::SnappedPoint &result)
+bool getClosestSP(std::list<Inkscape::SnappedPoint> const &list, Inkscape::SnappedPoint &result)
 {
     bool success = false;
 
@@ -85,6 +123,10 @@ bool getClosestSP(std::list<Inkscape::SnappedPoint> &list, Inkscape::SnappedPoin
 
 bool Inkscape::SnappedPoint::isOtherSnapBetter(Inkscape::SnappedPoint const &other_one, bool weighted) const
 {
+
+    if (!other_one.getSnapped()) {
+        return false;
+    }
 
     double dist_other = other_one.getSnapDistance();
     double dist_this = getSnapDistance();

@@ -155,7 +155,15 @@ struct SPObject : public GObject {
     SPObject *_last_child; /* Remembered last child */
     SPObject *next; /* Next object in linked list */
     Inkscape::XML::Node *repr; /* Our xml representation */
+
+private:
     gchar *id; /* Our very own unique id */
+public:
+
+    /**
+     * Returns the objects current ID string.
+     */
+    gchar const* getId() const;
 
     /** @brief cleans up an SPObject, releasing its references and
      *         requesting that references to it be released
@@ -212,6 +220,9 @@ struct SPObject : public GObject {
     SPObject const *nearestCommonAncestor(SPObject const *object) const;
     /* A non-const version can be similarly constructed if you want one.
      * (Don't just cast away the constness, which would be ill-formed.) */
+
+    SPObject *getNext();
+    SPObject *getPrev();
 
     bool hasChildren() const { return ( children != NULL ); }
 
@@ -495,6 +506,8 @@ private:
     gchar * getTitleOrDesc(gchar const *svg_tagname) const;
     SPObject * findFirstChild(gchar const *tagname) const;
     GString * textualContent() const;
+
+    friend class SPObjectImpl;
 };
 
 /// The SPObject vtable.

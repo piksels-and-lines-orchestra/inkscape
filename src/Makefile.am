@@ -95,7 +95,8 @@ CXXTEST_TESTSUITES =
 
 if PLATFORM_WIN32
 win32_sources = winmain.cpp registrytool.cpp registrytool.h
-win32ldflags = -lcomdlg32
+win32ldflags = -lcomdlg32 -lmscms
+mwindows = -mwindows
 endif 
 
 if INKJAR
@@ -117,7 +118,6 @@ include extension/internal/Makefile_insert
 include extension/script/Makefile_insert
 include filters/Makefile_insert
 include helper/Makefile_insert
-include inkjar/Makefile_insert
 include io/Makefile_insert
 #include pedro/Makefile_insert
 #include jabber_whiteboard/Makefile_insert
@@ -131,17 +131,14 @@ include live_effects/Makefile_insert
 include live_effects/parameter/Makefile_insert
 include libvpsc/Makefile_insert
 include libcola/Makefile_insert
-include removeoverlap/Makefile_insert
-include graphlayout/Makefile_insert
 include svg/Makefile_insert
 include widgets/Makefile_insert
 include debug/Makefile_insert
 include xml/Makefile_insert
-include traits/Makefile_insert
-include algorithms/Makefile_insert
 include ui/Makefile_insert
 include ui/cache/Makefile_insert
 include ui/dialog/Makefile_insert
+include ui/tool/Makefile_insert
 include ui/view/Makefile_insert
 include ui/widget/Makefile_insert
 include util/Makefile_insert
@@ -152,7 +149,7 @@ include 2geom/Makefile_insert
 EXTRA_DIST +=	\
 	$(top_srcdir)/Doxyfile	\
 	sp-skeleton.cpp sp-skeleton.h	\
-	algorithms/makefile.in	\
+	util/makefile.in	\
 	application/makefile.in	\
 	bind/makefile.in	\
 	debug/makefile.in	\
@@ -165,7 +162,6 @@ EXTRA_DIST +=	\
 	extension/script/makefile.in	\
 	filters/makefile.in \
 	helper/makefile.in	\
-	inkjar/makefile.in	\
 	io/makefile.in	\
 	io/crystalegg.xml	\
 	io/doc2html.xsl 	\
@@ -179,10 +175,8 @@ EXTRA_DIST +=	\
 	livarot/makefile.in	\
 	live_effects/makefile.in	\
 	live_effects/parameter/makefile.in	\
-	removeoverlap/makefile.in	\
 	svg/makefile.in		\
 	trace/makefile.in	\
-	traits/makefile.in	\
 	ui/makefile.in		\
 	ui/cache/makefile.in	\
 	ui/dialog/makefile.in	\
@@ -199,10 +193,6 @@ EXTRA_DIST +=	\
 	extension/internal/emf-win32-print.cpp	\
 	extension/internal/emf-win32-print.h	\
 	helper/sp-marshal.list	\
-	traits/copy.h	\
-	traits/function.h	\
-	traits/list-copy.h	\
-	traits/reference.h \
 	show-preview.bmp \
 	$(jabber_whiteboard_SOURCES) \
 	$(CXXTEST_TEMPLATE)
@@ -222,10 +212,11 @@ libinkscape_a_SOURCES = $(ink_common_sources)
 
 inkscape_SOURCES += main.cpp $(win32_sources)
 inkscape_LDADD = $(all_libs)
-inkscape_LDFLAGS = --export-dynamic $(kdeldflags)
+inkscape_LDFLAGS = --export-dynamic $(kdeldflags) $(mwindows)
 
 inkview_SOURCES += inkview.cpp $(win32_sources)
 inkview_LDADD = $(all_libs)
+inkview_LDFLAGS = $(mwindows) 
 
 # ################################################
 #  VERSION REPORTING
@@ -233,7 +224,7 @@ inkview_LDADD = $(all_libs)
 
 libinkversion_a_SOURCES = inkscape-version.cpp inkscape-version.h
 
-if USE_SVN_VERSION
+if USE_BZR_VERSION
 inkscape_version_deps = $(top_srcdir)/.bzr/branch/last-revision
 endif
 
@@ -241,7 +232,7 @@ endif
 # someone updates the BZR working directory.
 inkscape-version.cpp: $(inkscape_version_deps)
 	VER_PREFIX="$(VERSION)";\
-	VER_BZRREV=" r`bzr log -r '-1..' | sed -n -e '/^revno:/s/revno: \(.*\)/\1/p'`"; \
+	VER_BZRREV=" r`bzr revno`"; \
 	if test ! -z "`bzr status -S -V $(srcdir)`"; then \
 	    VER_CUSTOM=" custom"; \
 	fi; \

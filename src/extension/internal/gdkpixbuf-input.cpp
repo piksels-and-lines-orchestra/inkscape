@@ -1,11 +1,14 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
+#include <glib/gprintf.h>
 #include "document-private.h"
 #include <dir-util.h>
+#include "extension/input.h"
 #include "extension/system.h"
 #include "gdkpixbuf-input.h"
 #include "selection-chemistry.h"
+#include "sp-image.h"
 
 namespace Inkscape {
 
@@ -16,69 +19,88 @@ GdkPixbuf* pixbuf_new_from_file( char const *utf8name, GError **error );
 namespace Extension {
 namespace Internal {
 
-SPDocument *
-GdkpixbufInput::open(Inkscape::Extension::Input */*mod*/, char const *uri)
+static std::set<Glib::ustring> create_lossy_set()
 {
+    std::set<Glib::ustring> lossy;
+    lossy.insert(".jpg");
+    lossy.insert(".jpeg");
+    return lossy;
+}
+
+SPDocument *
+GdkpixbufInput::open(Inkscape::Extension::Input *mod, char const *uri)
+{
+    bool embed = (strcmp(mod->get_param_optiongroup("link"), "embed") == 0);
+
     SPDocument *doc = NULL;
     GdkPixbuf *pb = Inkscape::IO::pixbuf_new_from_file( uri, NULL );
+    static std::set<Glib::ustring> lossy = create_lossy_set();
 
     if (pb) {         /* We are readable */
+        bool is_lossy;
+        Glib::ustring mime_type, ext;
+        Glib::ustring u = uri;
+        std::size_t dotpos = u.rfind('.');
+        if (dotpos != Glib::ustring::npos) {
+            ext = u.substr(dotpos, Glib::ustring::npos);
+        }
+
+        // HACK: replace with something better based on GIO
+        if (!ext.empty() && lossy.find(ext) != lossy.end()) {
+            is_lossy = true;
+            mime_type = "image/jpeg";
+        } else {
+            is_lossy = false;
+            mime_type = "image/png";
+        }
+
         doc = sp_document_new(NULL, TRUE, TRUE);
         bool saved = sp_document_get_undo_sensitive(doc);
         sp_document_set_undo_sensitive(doc, false); // no need to undo in this temporary document
 
-        Inkscape::XML::Node *repr = NULL;
-
         double width = gdk_pixbuf_get_width(pb);
         double height = gdk_pixbuf_get_height(pb);
         gchar const *str = gdk_pixbuf_get_option( pb, "Inkscape::DpiX" );
-        if ( str )
-        {
+        if ( str ) {
             gint dpi = atoi(str);
-            if ( dpi > 0 && dpi != 72 )
-            {
+            if ( dpi > 0 && dpi != 72 ) {
                 double scale = 72.0 / (double)dpi;
                 width *= scale;
             }
         }
         str = gdk_pixbuf_get_option( pb, "Inkscape::DpiY" );
-        if ( str )
-        {
+        if ( str ) {
             gint dpi = atoi(str);
-            if ( dpi > 0 && dpi != 72 )
-            {
+            if ( dpi > 0 && dpi != 72 ) {
                 double scale = 72.0 / (double)dpi;
                 height *= scale;
             }
         }
 
+        // Create image node
         Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
-        // import as <image>
-        repr = xml_doc->createElement("svg:image");
+        Inkscape::XML::Node *image_node = xml_doc->createElement("svg:image");
+        sp_repr_set_svg_double(image_node, "width", width);
+        sp_repr_set_svg_double(image_node, "height", height);
 
-        // convert filename to uri
-        gchar* _uri = g_filename_to_uri(uri, NULL, NULL);
-        if(_uri) {
-            repr->setAttribute("xlink:href", _uri);
-            g_free(_uri);
+        if (embed) {
+            sp_embed_image(image_node, pb, mime_type);
         } else {
-            repr->setAttribute("xlink:href", uri);
+            // convert filename to uri
+            gchar* _uri = g_filename_to_uri(uri, NULL, NULL);
+            if(_uri) {
+                image_node->setAttribute("xlink:href", _uri);
+                g_free(_uri);
+            } else {
+                image_node->setAttribute("xlink:href", uri);
+            }
         }
-        /* impl: doc->base is currently NULL, so we can use uri for href whether it's absolute
-         * or relative.  The href will get rewritten by rebase_hrefs if by chance uri is relative
-         * and doc gets saved to a different directory.
-         *
-         * We don't bother setting sodipodi:absref, as we assume it's never useful to have
-         * sodipodi:absref with the same value as xlink:href, and rebase_hrefs will provide
-         * sodipodi:absref values where necessary. */
 
-        sp_repr_set_svg_double(repr, "width", width);
-        sp_repr_set_svg_double(repr, "height", height);
+        g_object_unref(pb);
 
-        SP_DOCUMENT_ROOT(doc)->appendChildRepr(repr);
-        Inkscape::GC::release(repr);
-        gdk_pixbuf_unref(pb);
-        //alter the canvas size to fit the image size
+        // Add it to the current layer
+        SP_DOCUMENT_ROOT(doc)->appendChildRepr(image_node);
+        Inkscape::GC::release(image_node);
         fit_canvas_to_drawing(doc);
         // restore undo, as now this document may be shown to the user if a bitmap was opened
         sp_document_set_undo_sensitive(doc, saved);
@@ -126,6 +148,11 @@ GdkpixbufInput::init(void)
                 "<inkscape-extension xmlns=\"" INKSCAPE_EXTENSION_URI "\">\n"
                     "<name>" N_("%s GDK pixbuf Input") "</name>\n"
                     "<id>org.inkscape.input.gdkpixbuf.%s</id>\n"
+                    "<param name='link' type='optiongroup'  appearance='full' _gui-text='" N_("Link or embed image:") "' >\n"
+                        "<_option value='embed'>" N_("embed") "</_option>\n"
+                        "<_option value='link'>" N_("link") "</_option>\n"
+                    "</param>\n"
+                    "<_param name='help' type='description'>" N_("Embed results in stand-alone, larger SVG files. Link references a file outside this SVG document and all files must be moved together.") "</_param>\n"
                     "<input>\n"
                         "<extension>.%s</extension>\n"
                         "<mimetype>%s</mimetype>\n"

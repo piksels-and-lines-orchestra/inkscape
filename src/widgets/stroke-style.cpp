@@ -63,7 +63,7 @@ static void sp_stroke_style_paint_selection_modified (SPWidget *spw, Inkscape::S
 static void sp_stroke_style_paint_selection_changed (SPWidget *spw, Inkscape::Selection *selection, SPPaintSelector *psel);
 static void sp_stroke_style_paint_update(SPWidget *spw);
 
-static void sp_stroke_style_paint_mode_changed(SPPaintSelector *psel, SPPaintSelectorMode mode, SPWidget *spw);
+static void sp_stroke_style_paint_mode_changed(SPPaintSelector *psel, SPPaintSelector::Mode mode, SPWidget *spw);
 static void sp_stroke_style_paint_dragged(SPPaintSelector *psel, SPWidget *spw);
 static void sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw);
 
@@ -189,7 +189,7 @@ sp_stroke_style_paint_update (SPWidget *spw)
         case QUERY_STYLE_NOTHING:
         {
             /* No paint at all */
-            sp_paint_selector_set_mode (psel, SP_PAINT_SELECTOR_MODE_EMPTY);
+            psel->setMode(SPPaintSelector::MODE_EMPTY);
             break;
         }
 
@@ -197,43 +197,43 @@ sp_stroke_style_paint_update (SPWidget *spw)
         case QUERY_STYLE_MULTIPLE_AVERAGED: // TODO: treat this slightly differently, e.g. display "averaged" somewhere in paint selector
         case QUERY_STYLE_MULTIPLE_SAME:
         {
-            SPPaintSelectorMode pselmode = sp_style_determine_paint_selector_mode (query, false);
-            sp_paint_selector_set_mode (psel, pselmode);
+            SPPaintSelector::Mode pselmode = SPPaintSelector::getModeForStyle(*query, false);
+            psel->setMode(pselmode);
 
             if (query->stroke.set && query->stroke.isPaintserver()) {
 
                 SPPaintServer *server = SP_STYLE_STROKE_SERVER (query);
 
-                if (SP_IS_LINEARGRADIENT (server)) {
-                    SPGradient *vector = sp_gradient_get_vector (SP_GRADIENT (server), FALSE);
-                    sp_paint_selector_set_gradient_linear (psel, vector);
+                if (server && server->isSwatch()) {
+                    SPGradient *vector = SP_GRADIENT(server)->getVector();
+                    psel->setSwatch( vector );
+                } else if (SP_IS_LINEARGRADIENT (server)) {
+                    SPGradient *vector = SP_GRADIENT(server)->getVector();
+                    psel->setGradientLinear( vector );
 
                     SPLinearGradient *lg = SP_LINEARGRADIENT (server);
-                    sp_paint_selector_set_gradient_properties (psel,
-                                                       SP_GRADIENT_UNITS (lg),
-                                                       SP_GRADIENT_SPREAD (lg));
+                    psel->setGradientProperties( SP_GRADIENT_UNITS(lg),
+                                                 SP_GRADIENT_SPREAD(lg) );
                 } else if (SP_IS_RADIALGRADIENT (server)) {
-                    SPGradient *vector = sp_gradient_get_vector (SP_GRADIENT (server), FALSE);
-                    sp_paint_selector_set_gradient_radial (psel, vector);
+                    SPGradient *vector = SP_GRADIENT(server)->getVector();
+                    psel->setGradientRadial( vector );
 
                     SPRadialGradient *rg = SP_RADIALGRADIENT (server);
-                    sp_paint_selector_set_gradient_properties (psel,
-                                                       SP_GRADIENT_UNITS (rg),
-                                                       SP_GRADIENT_SPREAD (rg));
+                    psel->setGradientProperties( SP_GRADIENT_UNITS(rg),
+                                                 SP_GRADIENT_SPREAD(rg) );
                 } else if (SP_IS_PATTERN (server)) {
                     SPPattern *pat = pattern_getroot (SP_PATTERN (server));
-                    sp_update_pattern_list (psel, pat);
+                    psel->updatePatternList( pat );
                 }
             } else if (query->stroke.set && query->stroke.isColor()) {
-                sp_paint_selector_set_color_alpha (psel, &query->stroke.value.color, SP_SCALE24_TO_FLOAT (query->stroke_opacity.value));
-
+                psel->setColorAlpha(query->stroke.value.color, SP_SCALE24_TO_FLOAT(query->stroke_opacity.value));
             }
             break;
         }
 
         case QUERY_STYLE_MULTIPLE_DIFFERENT:
         {
-            sp_paint_selector_set_mode (psel, SP_PAINT_SELECTOR_MODE_MULTIPLE);
+            psel->setMode(SPPaintSelector::MODE_MULTIPLE);
             break;
         }
     }
@@ -248,7 +248,7 @@ sp_stroke_style_paint_update (SPWidget *spw)
  */
 static void
 sp_stroke_style_paint_mode_changed( SPPaintSelector *psel,
-                                    SPPaintSelectorMode /*mode*/,
+                                    SPPaintSelector::Mode /*mode*/,
                                     SPWidget *spw )
 {
     if (gtk_object_get_data(GTK_OBJECT(spw), "update")) {
@@ -278,10 +278,10 @@ sp_stroke_style_paint_dragged(SPPaintSelector *psel, SPWidget *spw)
     }
 
     switch (psel->mode) {
-        case SP_PAINT_SELECTOR_MODE_COLOR_RGB:
-        case SP_PAINT_SELECTOR_MODE_COLOR_CMYK:
+        case SPPaintSelector::MODE_COLOR_RGB:
+        case SPPaintSelector::MODE_COLOR_CMYK:
         {
-            sp_paint_selector_set_flat_color (psel, SP_ACTIVE_DESKTOP, "stroke", "stroke-opacity");
+            psel->setFlatColor( SP_ACTIVE_DESKTOP, "stroke", "stroke-opacity" );
             sp_document_maybe_done (sp_desktop_document(SP_ACTIVE_DESKTOP), undo_label, SP_VERB_DIALOG_FILL_STROKE,
                                     _("Set stroke color"));
             break;
@@ -313,17 +313,17 @@ sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
     GSList const *items = selection->itemList();
 
     switch (psel->mode) {
-        case SP_PAINT_SELECTOR_MODE_EMPTY:
+        case SPPaintSelector::MODE_EMPTY:
             // This should not happen.
             g_warning ( "file %s: line %d: Paint %d should not emit 'changed'",
                         __FILE__, __LINE__, psel->mode);
             break;
-        case SP_PAINT_SELECTOR_MODE_MULTIPLE:
+        case SPPaintSelector::MODE_MULTIPLE:
             // This happens when you switch multiple objects with different gradients to flat color;
             // nothing to do here.
             break;
 
-        case SP_PAINT_SELECTOR_MODE_NONE:
+        case SPPaintSelector::MODE_NONE:
         {
             SPCSSAttr *css = sp_repr_css_attr_new();
             sp_repr_css_set_property(css, "stroke", "none");
@@ -337,10 +337,10 @@ sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
             break;
         }
 
-        case SP_PAINT_SELECTOR_MODE_COLOR_RGB:
-        case SP_PAINT_SELECTOR_MODE_COLOR_CMYK:
+        case SPPaintSelector::MODE_COLOR_RGB:
+        case SPPaintSelector::MODE_COLOR_CMYK:
         {
-            sp_paint_selector_set_flat_color (psel, desktop, "stroke", "stroke-opacity");
+            psel->setFlatColor(desktop, "stroke", "stroke-opacity");
             sp_document_maybe_done (sp_desktop_document(desktop), undo_label, SP_VERB_DIALOG_FILL_STROKE,
                                     _("Set stroke color"));
 
@@ -353,13 +353,13 @@ sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
             break;
         }
 
-        case SP_PAINT_SELECTOR_MODE_GRADIENT_LINEAR:
-        case SP_PAINT_SELECTOR_MODE_GRADIENT_RADIAL:
+        case SPPaintSelector::MODE_GRADIENT_LINEAR:
+        case SPPaintSelector::MODE_GRADIENT_RADIAL:
             if (items) {
-                SPGradientType const gradient_type = ( psel->mode == SP_PAINT_SELECTOR_MODE_GRADIENT_LINEAR
+                SPGradientType const gradient_type = ( psel->mode == SPPaintSelector::MODE_GRADIENT_LINEAR
                                                        ? SP_GRADIENT_TYPE_LINEAR
                                                        : SP_GRADIENT_TYPE_RADIAL );
-                SPGradient *vector = sp_paint_selector_get_gradient_vector(psel);
+                SPGradient *vector = psel->getGradientVector();
                 if (!vector) {
                     /* No vector in paint selector should mean that we just changed mode */
 
@@ -389,7 +389,7 @@ sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
                     vector = sp_gradient_ensure_vector_normalized(vector);
                     for (GSList const *i = items; i != NULL; i = i->next) {
                         SPGradient *gr = sp_item_set_gradient(SP_ITEM(i->data), vector, gradient_type, false);
-                        sp_gradient_selector_attrs_to_gradient(gr, psel);
+                        psel->pushAttrsToGradient( gr );
                     }
                 }
 
@@ -398,11 +398,11 @@ sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
             }
             break;
 
-        case SP_PAINT_SELECTOR_MODE_PATTERN:
+        case SPPaintSelector::MODE_PATTERN:
 
             if (items) {
 
-                SPPattern *pattern = sp_paint_selector_get_pattern (psel);
+                SPPattern *pattern = psel->getPattern();
                 if (!pattern) {
 
                     /* No Pattern in paint selector should mean that we just
@@ -443,7 +443,11 @@ sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
 
             break;
 
-        case SP_PAINT_SELECTOR_MODE_UNSET:
+        case SPPaintSelector::MODE_SWATCH:
+            // TODO
+            break;
+
+        case SPPaintSelector::MODE_UNSET:
             if (items) {
                     SPCSSAttr *css = sp_repr_css_attr_new ();
                     sp_repr_css_unset_property (css, "stroke");

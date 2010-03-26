@@ -148,7 +148,7 @@ gradient_selection_changed (Inkscape::Selection *, gpointer data)
     GrDrag *drag = rc->_grdrag;
     Inkscape::Selection *selection = sp_desktop_selection(SP_EVENT_CONTEXT(rc)->desktop);
     if (selection == NULL) {
-    	return;
+        return;
     }
     guint n_obj = g_slist_length((GSList *) selection->itemList());
 
@@ -160,34 +160,34 @@ gradient_selection_changed (Inkscape::Selection *, gpointer data)
     //The use of ngettext in the following code is intentional even if the English singular form would never be used
     if (n_sel == 1) {
         if (drag->singleSelectedDraggerNumDraggables() == 1) {
-		gchar * message = g_strconcat(
-			//TRANSLATORS: %s will be substituted with the point name (see previous messages); This is part of a compound message
-			_("%s selected"),
-			//TRANSLATORS: Mind the space in front. This is part of a compound message
-			ngettext(" out of %d gradient handle"," out of %d gradient handles",n_tot),
-			ngettext(" on %d selected object"," on %d selected objects",n_obj),NULL);
-            	rc->_message_context->setF(Inkscape::NORMAL_MESSAGE,
-			message,_(gr_handle_descr[drag->singleSelectedDraggerSingleDraggableType()]), n_tot, n_obj);
+            gchar * message = g_strconcat(
+                //TRANSLATORS: %s will be substituted with the point name (see previous messages); This is part of a compound message
+                _("%s selected"),
+                //TRANSLATORS: Mind the space in front. This is part of a compound message
+                ngettext(" out of %d gradient handle"," out of %d gradient handles",n_tot),
+                ngettext(" on %d selected object"," on %d selected objects",n_obj),NULL);
+            rc->_message_context->setF(Inkscape::NORMAL_MESSAGE,
+                                       message,_(gr_handle_descr[drag->singleSelectedDraggerSingleDraggableType()]), n_tot, n_obj);
         } else {
-		gchar * message = g_strconcat(
-			//TRANSLATORS: This is a part of a compound message (out of two more indicating: grandint handle count & object count)
-			ngettext("One handle merging %d stop (drag with <b>Shift</b> to separate) selected",
-				"One handle merging %d stops (drag with <b>Shift</b> to separate) selected",drag->singleSelectedDraggerNumDraggables()),
-			ngettext(" out of %d gradient handle"," out of %d gradient handles",n_tot),
-			ngettext(" on %d selected object"," on %d selected objects",n_obj),NULL);
-		rc->_message_context->setF(Inkscape::NORMAL_MESSAGE,message,drag->singleSelectedDraggerNumDraggables(), n_tot, n_obj);
+            gchar * message = g_strconcat(
+                //TRANSLATORS: This is a part of a compound message (out of two more indicating: grandint handle count & object count)
+                ngettext("One handle merging %d stop (drag with <b>Shift</b> to separate) selected",
+                         "One handle merging %d stops (drag with <b>Shift</b> to separate) selected",drag->singleSelectedDraggerNumDraggables()),
+                ngettext(" out of %d gradient handle"," out of %d gradient handles",n_tot),
+                ngettext(" on %d selected object"," on %d selected objects",n_obj),NULL);
+            rc->_message_context->setF(Inkscape::NORMAL_MESSAGE,message,drag->singleSelectedDraggerNumDraggables(), n_tot, n_obj);
         }
     } else if (n_sel > 1) {
-	//TRANSLATORS: The plural refers to number of selected gradient handles. This is part of a compound message (part two indicates selected object count)
-	gchar * message = g_strconcat(ngettext("<b>%d</b> gradient handle selected out of %d","<b>%d</b> gradient handles selected out of %d",n_sel),
-				      //TRANSLATORS: Mind the space in front. (Refers to gradient handles selected). This is part of a compound message
-				      ngettext(" on %d selected object"," on %d selected objects",n_obj),NULL);
+        //TRANSLATORS: The plural refers to number of selected gradient handles. This is part of a compound message (part two indicates selected object count)
+        gchar * message = g_strconcat(ngettext("<b>%d</b> gradient handle selected out of %d","<b>%d</b> gradient handles selected out of %d",n_sel),
+                                      //TRANSLATORS: Mind the space in front. (Refers to gradient handles selected). This is part of a compound message
+                                      ngettext(" on %d selected object"," on %d selected objects",n_obj),NULL);
         rc->_message_context->setF(Inkscape::NORMAL_MESSAGE,message, n_sel, n_tot, n_obj);
     } else if (n_sel == 0) {
         rc->_message_context->setF(Inkscape::NORMAL_MESSAGE,
-		//TRANSLATORS: The plural refers to number of selected objects
-                ngettext("<b>No</b> gradient handles selected out of %d on %d selected object",
-			 "<b>No</b> gradient handles selected out of %d on %d selected objects",n_obj), n_tot, n_obj);
+                                   //TRANSLATORS: The plural refers to number of selected objects
+                                   ngettext("<b>No</b> gradient handles selected out of %d on %d selected object",
+                                            "<b>No</b> gradient handles selected out of %d on %d selected objects",n_obj), n_tot, n_obj);
     }
 }
 
@@ -291,7 +291,7 @@ sp_gradient_context_get_stop_intervals (GrDrag *drag, GSList **these_stops, GSLi
 
             // from draggables to stops
             SPStop *this_stop = sp_get_stop_i (vector, d->point_i);
-            SPStop *next_stop = sp_next_stop (this_stop);
+            SPStop *next_stop = this_stop->getNextStop();
             SPStop *last_stop = sp_last_stop (vector);
 
             gint fs = d->fill_or_stroke;
@@ -362,7 +362,7 @@ sp_gradient_context_add_stops_between_selected_stops (SPGradientContext *rc)
             SPGradient *gradient = sp_item_gradient (d->item, d->fill_or_stroke);
             SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (gradient, false);
             SPStop *this_stop = sp_get_stop_i (vector, d->point_i);
-            SPStop *next_stop = sp_next_stop (this_stop);
+            SPStop *next_stop = this_stop->getNextStop();
             if (this_stop && next_stop) {
                 these_stops = g_slist_prepend (these_stops, this_stop);
                 next_stops = g_slist_prepend (next_stops, next_stop);
@@ -558,7 +558,7 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 
                 SnapManager &m = desktop->namedview->snap_manager;
                 m.setup(desktop);
-                m.freeSnapReturnByRef(Inkscape::SnapPreferences::SNAPPOINT_NODE, button_dt, Inkscape::SNAPSOURCE_HANDLE);
+                m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
                 rc->origin = from_2geom(button_dt);
             }
 
@@ -593,6 +593,15 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 
             ret = TRUE;
         } else {
+            if (!drag->mouseOver()) {
+                SnapManager &m = desktop->namedview->snap_manager;
+                m.setup(desktop);
+
+                Geom::Point const motion_w(event->motion.x, event->motion.y);
+                Geom::Point const motion_dt = event_context->desktop->w2d(motion_w);
+                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+            }
+
             bool over_line = false;
             if (drag->lines) {
                 for (GSList *l = drag->lines; l != NULL; l = l->next) {

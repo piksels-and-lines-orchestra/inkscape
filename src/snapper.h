@@ -20,6 +20,7 @@
 #include "snapped-line.h"
 #include "snapped-curve.h"
 #include "snap-preferences.h"
+#include "snap-candidate.h"
 
 struct SnappedConstraints {
     std::list<Inkscape::SnappedPoint> points;
@@ -34,7 +35,6 @@ struct SPItem;
 
 namespace Inkscape
 {
-
 /// Parent for classes that can snap points to something
 class Snapper
 {
@@ -58,19 +58,17 @@ public:
     bool getSnapVisibleOnly() const {return _snap_visible_only;}
 
     virtual void freeSnap(SnappedConstraints &/*sc*/,
-                          SnapPreferences::PointType const &/*t*/,
-                          Geom::Point const &/*p*/,
-                          SnapSourceType const &/*source_type*/,
-                          long /*source_num*/,
+                          Inkscape::SnapCandidatePoint const &/*p*/,
                           Geom::OptRect const &/*bbox_to_snap*/,
                           std::vector<SPItem const *> const */*it*/,
-                          std::vector<std::pair<Geom::Point, int> > */*unselected_nodes*/) const {};
+                          std::vector<SnapCandidatePoint> */*unselected_nodes*/) const {};
 
     class ConstraintLine
     {
     public:
         ConstraintLine(Geom::Point const &d) : _has_point(false), _direction(d) {}
         ConstraintLine(Geom::Point const &p, Geom::Point const &d) : _has_point(true), _point(p), _direction(d) {}
+        ConstraintLine(Geom::Line const &l) : _has_point(true), _point(l.origin()), _direction(l.versor()) {}
 
         bool hasPoint() const {
             return _has_point;
@@ -103,10 +101,7 @@ public:
     };
 
     virtual void constrainedSnap(SnappedConstraints &/*sc*/,
-                                 SnapPreferences::PointType const &/*t*/,
-                                 Geom::Point const &/*p*/,
-                                 SnapSourceType const &/*source_type*/,
-                                 long /*source_num*/,
+                                 Inkscape::SnapCandidatePoint const &/*p*/,
                                  Geom::OptRect const &/*bbox_to_snap*/,
                                  ConstraintLine const &/*c*/,
                                  std::vector<SPItem const *> const */*it*/) const {};

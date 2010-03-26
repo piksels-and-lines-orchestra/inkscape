@@ -1,8 +1,8 @@
 ## Makefile.am fragment, included by src/Makefile.am.
 
 ink_common_sources +=	\
-	algorithms/find-last-if.h					\
-	algorithms/longest-common-suffix.h				\
+	util/find-last-if.h					\
+	util/longest-common-suffix.h				\
 	approx-equal.h remove-last.h					\
 	arc-context.cpp arc-context.h					\
 	attributes.cpp attributes.h					\
@@ -57,7 +57,6 @@ ink_common_sources +=	\
 	fixes.cpp							\
 	flood-context.cpp flood-context.h				\
 	forward.h							\
-	gc-allocator.h							\
 	gc-alloc.h							\
 	gc-anchored.h gc-anchored.cpp					\
 	gc-core.h							\
@@ -68,6 +67,7 @@ ink_common_sources +=	\
 	gradient-chemistry.cpp gradient-chemistry.h			\
 	gradient-context.cpp gradient-context.h				\
 	gradient-drag.cpp gradient-drag.h				\
+	graphlayout.cpp graphlayout.h					\
 	guide-snapper.cpp guide-snapper.h				\
 	help.cpp help.h							\
 	helper-fns.h							\
@@ -102,8 +102,6 @@ ink_common_sources +=	\
 	message-stack.cpp message-stack.h				\
 	mod360.cpp mod360.h						\
 	modifier-fns.h							\
-	node-context.cpp node-context.h					\
-	nodepath.cpp nodepath.h						\
 	object-edit.cpp object-edit.h					\
 	object-hierarchy.cpp object-hierarchy.h				\
 	object-snapper.cpp object-snapper.h				\
@@ -120,6 +118,7 @@ ink_common_sources +=	\
 	print.cpp print.h						\
 	profile-manager.cpp profile-manager.h				\
 	proj_pt.cpp proj_pt.h						\
+	removeoverlap.cpp removeoverlap.h				\
 	rdf.cpp rdf.h							\
 	rect-context.cpp rect-context.h					\
 	require-config.h						\
@@ -136,6 +135,7 @@ ink_common_sources +=	\
 	shape-editor.cpp shape-editor.h					\
 	shortcuts.cpp shortcuts.h					\
 	snap.cpp snap.h							\
+	snap-enums.h snap-candidate.h \
 	snapped-curve.cpp snapped-curve.h				\
 	snapped-line.cpp snapped-line.h					\
 	snapped-point.cpp snapped-point.h				\
@@ -209,8 +209,7 @@ ink_common_sources +=	\
 	sp-shape.cpp sp-shape.h			\
 	sp-spiral.cpp sp-spiral.h		\
 	sp-star.cpp sp-star.h			\
-	sp-stop-fns.h				\
-	sp-stop.h				\
+	sp-stop.cpp sp-stop.h			\
 	sp-string.cpp sp-string.h		\
 	sp-style-elem.cpp sp-style-elem.h	\
 	sp-switch.cpp sp-switch.h		\

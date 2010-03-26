@@ -11,17 +11,18 @@
 #define SEEN_DIALOGS_SWATCHES_H
 
 #include <gtkmm/textview.h>
-#include <gtkmm/tooltips.h>
 
 #include "ui/widget/panel.h"
-#include "ui/previewholder.h"
-#include "widgets/ege-paint-def.h"
 
 namespace Inkscape {
 namespace UI {
+
+class PreviewHolder;
+
 namespace Dialogs {
 
 class ColorItem;
+class SwatchPage;
 
 /**
  * A panel that displays paint swatches.
@@ -40,7 +41,6 @@ public:
     virtual SPDesktop* getDesktop() {return _currentDesktop;}
 
     virtual int getSelectedIndex() {return _currentIndex;} // temporary
-    virtual void handleGradientsChange(); // temporary
 
 protected:
     virtual void _updateFromSelection();
@@ -48,9 +48,15 @@ protected:
     virtual void _setDocument( SPDocument *document );
     virtual void _rebuild();
 
+    virtual std::vector<SwatchPage*> _getSwatchSets() const;
+
 private:
     SwatchesPanel(SwatchesPanel const &); // no copy
     SwatchesPanel &operator=(SwatchesPanel const &); // no assign
+
+    static void _trackDocument( SwatchesPanel *panel, SPDocument *document );
+    static void handleGradientsChange(SPDocument *document);
+    static void handleDefsModified(SPDocument *document);
 
     PreviewHolder* _holder;
     ColorItem* _clear;
@@ -58,13 +64,9 @@ private:
     int _currentIndex;
     SPDesktop*  _currentDesktop;
     SPDocument* _currentDocument;
-    void* _ptr;
 
     sigc::connection _documentConnection;
-    sigc::connection _resourceConnection;
     sigc::connection _selChanged;
-    sigc::connection _setModified;
-    sigc::connection _subselChanged;
 };
 
 } //namespace Dialogs

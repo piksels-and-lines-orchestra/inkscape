@@ -4,9 +4,11 @@
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   bulia byak <buliabyak@users.sf.net>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 2001-2002 Lauris Kaplinski
  * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 2010 Jon A. Cruz
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -118,9 +120,9 @@ sp_gradient_selector_class_init (SPGradientSelectorClass *klass)
 static void
 sp_gradient_selector_init (SPGradientSelector *sel)
 {
-    GtkWidget *hb, *l, *m, *mi;
+    GtkWidget *hb, *m, *mi;
 
-    sel->mode = SP_GRADIENT_SELECTOR_MODE_LINEAR;
+    sel->mode = SPGradientSelector::MODE_LINEAR;
 
     sel->gradientUnits = SP_GRADIENT_UNITS_USERSPACEONUSE;
     sel->gradientSpread = SP_GRADIENT_SPREAD_PAD;
@@ -180,9 +182,9 @@ sp_gradient_selector_init (SPGradientSelector *sel)
 
     gtk_option_menu_set_menu (GTK_OPTION_MENU (sel->spread), m);
 
-    l = gtk_label_new (_("Repeat:"));
-    gtk_widget_show (l);
-    gtk_box_pack_end (GTK_BOX (hb), l, FALSE, FALSE, 4);
+    sel->spreadLbl = gtk_label_new (_("Repeat:"));
+    gtk_widget_show(sel->spreadLbl);
+    gtk_box_pack_end(GTK_BOX(hb), sel->spreadLbl, FALSE, FALSE, 4);
 }
 
 static void
@@ -206,77 +208,78 @@ sp_gradient_selector_new (void)
     return (GtkWidget *) sel;
 }
 
-void
-sp_gradient_selector_set_mode (SPGradientSelector *sel, guint mode)
+void SPGradientSelector::setMode(SelectorMode mode)
 {
-    g_return_if_fail (sel != NULL);
-    g_return_if_fail (SP_IS_GRADIENT_SELECTOR (sel));
+    if (mode != this->mode) {
+        this->mode = mode;
+        if (mode == MODE_SWATCH) {
+            if (spread) {
+                GtkWidget *parent = gtk_widget_get_parent(spread);
+                if (parent) {
+                    gtk_container_remove(GTK_CONTAINER(parent), spread);
+                    spread = 0;
+                }
+            }
+            if (spreadLbl) {
+                GtkWidget *parent = gtk_widget_get_parent(spreadLbl);
+                if (parent) {
+                    gtk_container_remove(GTK_CONTAINER(parent), spreadLbl);
+                    spreadLbl = 0;
+                }
+            }
 
-    sel->mode = mode;
-}
-
-void
-sp_gradient_selector_set_units (SPGradientSelector *sel, guint units)
-{
-    g_return_if_fail (sel != NULL);
-    g_return_if_fail (SP_IS_GRADIENT_SELECTOR (sel));
-
-    sel->gradientUnits = (SPGradientUnits)units;
-}
-
-void
-sp_gradient_selector_set_spread (SPGradientSelector *sel, guint spread)
-{
-    g_return_if_fail (sel != NULL);
-    g_return_if_fail (SP_IS_GRADIENT_SELECTOR (sel));
-
-    sel->gradientSpread = (SPGradientSpread)spread;
-
-    gtk_option_menu_set_history (GTK_OPTION_MENU (sel->spread), sel->gradientSpread);
-}
-
-SPGradientUnits
-sp_gradient_selector_get_units (SPGradientSelector *sel)
-{
-    return (SPGradientUnits) sel->gradientUnits;
-}
-
-SPGradientSpread
-sp_gradient_selector_get_spread (SPGradientSelector *sel)
-{
-    return (SPGradientSpread) sel->gradientSpread;
-}
-
-void
-sp_gradient_selector_set_vector (SPGradientSelector *sel, SPDocument *doc, SPGradient *vector)
-{
-    g_return_if_fail (sel != NULL);
-    g_return_if_fail (SP_IS_GRADIENT_SELECTOR (sel));
-    g_return_if_fail (!vector || SP_IS_GRADIENT (vector));
-    g_return_if_fail (!vector || (SP_OBJECT_DOCUMENT (vector) == doc));
-
-    if (vector && !SP_GRADIENT_HAS_STOPS (vector))
-        return;
-
-    sp_gradient_vector_selector_set_gradient (SP_GRADIENT_VECTOR_SELECTOR (sel->vectors), doc, vector);
-
-    if (vector) {
-        gtk_widget_set_sensitive (sel->edit, TRUE);
-        gtk_widget_set_sensitive (sel->add, TRUE);
-    } else {
-        gtk_widget_set_sensitive (sel->edit, FALSE);
-        gtk_widget_set_sensitive (sel->add, (doc != NULL));
+            SPGradientVectorSelector* vs = SP_GRADIENT_VECTOR_SELECTOR(vectors);
+            vs->setSwatched();
+        }
     }
 }
 
-SPGradient *
-sp_gradient_selector_get_vector (SPGradientSelector *sel)
+void SPGradientSelector::setUnits(SPGradientUnits units)
 {
-    if (sel == NULL || !SP_IS_GRADIENT_SELECTOR (sel))
-        return NULL;
+    gradientUnits = units;
+}
 
+void SPGradientSelector::setSpread(SPGradientSpread spread)
+{
+    gradientSpread = spread;
+
+    gtk_option_menu_set_history(GTK_OPTION_MENU(this->spread), gradientSpread);
+}
+
+SPGradientUnits SPGradientSelector::getUnits()
+{
+    return gradientUnits;
+}
+
+SPGradientSpread SPGradientSelector::getSpread()
+{
+    return gradientSpread;
+}
+
+void SPGradientSelector::setVector(SPDocument *doc, SPGradient *vector)
+{
+    g_return_if_fail(!vector || SP_IS_GRADIENT(vector));
+    g_return_if_fail(!vector || (SP_OBJECT_DOCUMENT(vector) == doc));
+
+    if (vector && !SP_GRADIENT_HAS_STOPS(vector)) {
+        return;
+    }
+
+    sp_gradient_vector_selector_set_gradient(SP_GRADIENT_VECTOR_SELECTOR(vectors), doc, vector);
+
+    if (vector) {
+        gtk_widget_set_sensitive(edit, TRUE);
+        gtk_widget_set_sensitive(add, TRUE);
+    } else {
+        gtk_widget_set_sensitive(edit, FALSE);
+        gtk_widget_set_sensitive(add, (doc != NULL));
+    }
+}
+
+SPGradient *SPGradientSelector::getVector()
+{
     /* fixme: */
-    return SP_GRADIENT_VECTOR_SELECTOR (sel->vectors)->gr;
+    return SP_GRADIENT_VECTOR_SELECTOR(vectors)->gr;
 }
 
 static void
@@ -287,7 +290,7 @@ sp_gradient_selector_vector_set (SPGradientVectorSelector */*gvs*/, SPGradient *
     if (!blocked) {
         blocked = TRUE;
         gr = sp_gradient_ensure_vector_normalized (gr);
-        sp_gradient_selector_set_vector (sel, (gr) ? SP_OBJECT_DOCUMENT (gr) : NULL, gr);
+        sel->setVector((gr) ? SP_OBJECT_DOCUMENT (gr) : 0, gr);
         g_signal_emit (G_OBJECT (sel), signals[CHANGED], 0, gr);
         blocked = FALSE;
     }

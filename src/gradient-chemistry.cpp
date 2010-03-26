@@ -1,5 +1,3 @@
-#define __SP_GRADIENT_CHEMISTRY_C__
-
 /*
  * Various utility methods for gradients
  *
@@ -7,7 +5,9 @@
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   bulia byak
  *   Johan Engelen <j.b.c.engelen@ewi.utwente.nl>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
+ * Copyright (C) 2010 Authors
  * Copyright (C) 2007 Johan Engelen
  * Copyright (C) 2001-2005 authors
  * Copyright (C) 2001 Ximian, Inc.
@@ -62,7 +62,7 @@ sp_gradient_ensure_vector_normalized(SPGradient *gr)
     if (gr->state == SP_GRADIENT_STATE_VECTOR) return gr;
     /* Fail, if we have wrong state set */
     if (gr->state != SP_GRADIENT_STATE_UNKNOWN) {
-        g_warning("file %s: line %d: Cannot normalize private gradient to vector (%s)", __FILE__, __LINE__, SP_OBJECT_ID(gr));
+        g_warning("file %s: line %d: Cannot normalize private gradient to vector (%s)", __FILE__, __LINE__, gr->getId());
         return NULL;
     }
 
@@ -190,7 +190,7 @@ sp_gradient_fork_private_if_necessary(SPGradient *gr, SPGradient *vector,
 
     // Check the number of uses of the gradient within this object;
     // if we are private and there are no other users,
-    if (SP_OBJECT_HREFCOUNT(gr) <= count_gradient_hrefs(user, gr)) {
+    if (!vector->isSwatch() && (SP_OBJECT_HREFCOUNT(gr) <= count_gradient_hrefs(user, gr))) {
         // check vector
         if ( gr != vector && gr->ref->getObject() != vector ) {
             /* our href is not the vector, and vector is different from gr; relink */
@@ -264,7 +264,7 @@ sp_gradient_fork_vector_if_necessary (SPGradient *gr)
 SPGradient *
 sp_gradient_get_forked_vector_if_necessary(SPGradient *gradient, bool force_vector)
 {
-    SPGradient *vector = sp_gradient_get_vector (gradient, force_vector);
+    SPGradient *vector = gradient->getVector(force_vector);
     vector = sp_gradient_fork_vector_if_necessary (vector);
     if ( gradient != vector && gradient->ref->getObject() != vector ) {
         sp_gradient_repr_set_link(SP_OBJECT_REPR(gradient), vector);
@@ -336,7 +336,7 @@ sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar const *prop
     g_return_val_if_fail(SP_IS_GRADIENT(gr), NULL);
 
     // First, fork it if it is shared
-    gr = sp_gradient_fork_private_if_necessary(gr, sp_gradient_get_vector(gr, FALSE),
+    gr = sp_gradient_fork_private_if_necessary(gr, gr->getVector(),
                                                SP_IS_RADIALGRADIENT(gr) ? SP_GRADIENT_TYPE_RADIAL : SP_GRADIENT_TYPE_LINEAR, SP_OBJECT(item));
 
     if (gr->units == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
@@ -482,107 +482,45 @@ sp_item_gradient (SPItem *item, bool fill_or_stroke)
    return gradient;
 }
 
-
-SPStop*
-sp_first_stop(SPGradient *gradient)
+SPStop* sp_last_stop(SPGradient *gradient)
 {
-  for (SPObject *ochild = sp_object_first_child(gradient); ochild != NULL; ochild = SP_OBJECT_NEXT(ochild)) {
-	if (SP_IS_STOP (ochild))
-		return SP_STOP(ochild);
-  }
-  return NULL;
-}
-
-SPStop*
-sp_prev_stop(SPStop *stop, SPGradient *gradient)
-{
-	if (sp_object_first_child(SP_OBJECT(gradient)) == SP_OBJECT(stop))
-		return NULL;
-	SPObject *found = NULL;
-	for ( SPObject *ochild = sp_object_first_child(SP_OBJECT(gradient)) ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
-		if (SP_IS_STOP (ochild)) {
-			found = ochild;
-		}
-		if (SP_OBJECT_NEXT(ochild) == SP_OBJECT(stop) || SP_OBJECT(ochild) == SP_OBJECT(stop)) {
-			break;
-		}
-	}
-	return SP_STOP(found);
-}
-
-SPStop*
-sp_next_stop(SPStop *stop)
-{
-    for (SPObject *ochild = SP_OBJECT_NEXT(stop); ochild != NULL; ochild = SP_OBJECT_NEXT(ochild)) {
-        if (SP_IS_STOP (ochild))
-            return SP_STOP(ochild);
-    }
-    return NULL;
-}
-
-SPStop*
-sp_last_stop(SPGradient *gradient)
-{
-    for (SPStop *stop = sp_first_stop (gradient); stop != NULL; stop = sp_next_stop (stop)) {
-        if (sp_next_stop (stop) == NULL)
+    for (SPStop *stop = gradient->getFirstStop(); stop != NULL; stop = stop->getNextStop()) {
+        if (stop->getNextStop() == NULL)
             return stop;
     }
     return NULL;
-} 
-
-guint
-sp_number_of_stops(SPGradient *gradient)
-{
-    guint n = 0;
-    for (SPStop *stop = sp_first_stop (gradient); stop != NULL; stop = sp_next_stop (stop)) {
-        if (sp_next_stop (stop) == NULL)
-            return n;
-        n ++;
-    }
-    return n;
-} 
-
-guint
-sp_number_of_stops_before_stop(SPGradient *gradient, SPStop *target)
-{
-    guint n = 0;
-    for (SPStop *stop = sp_first_stop (gradient); stop != NULL; stop = sp_next_stop (stop)) {
-        if (stop == target)
-            return n;
-        n ++;
-    }
-    return n;
-} 
-
+}
 
 SPStop*
 sp_get_stop_i(SPGradient *gradient, guint stop_i)
-{            
-    SPStop *stop = sp_first_stop (gradient);
+{
+    SPStop *stop = gradient->getFirstStop();
 
-    // if this is valid but weird gradient without an offset-zero stop element,  
+    // if this is valid but weird gradient without an offset-zero stop element,
     // inkscape has created a handle for the start of gradient anyway,
     // so when it asks for stop N that corresponds to stop element N-1
     if (stop->offset != 0)
         stop_i --;
-  
-    for (guint i=0; i < stop_i; i++) {
-        if (!stop) return NULL;  
-        stop = sp_next_stop (stop);    
-    }  
-    
+
+    for (guint i = 0; i < stop_i; i++) {
+        if (!stop) {
+            return NULL;
+        }
+        stop = stop->getNextStop();
+    }
+
     return stop;
 }
 
 guint32
 average_color (guint32 c1, guint32 c2, gdouble p)
 {
-	guint32 r = (guint32) (SP_RGBA32_R_U (c1) * (1 - p) + SP_RGBA32_R_U (c2) * p);
-	guint32 g = (guint32) (SP_RGBA32_G_U (c1) * (1 - p) + SP_RGBA32_G_U (c2) * p);
-	guint32 b = (guint32) (SP_RGBA32_B_U (c1) * (1 - p) + SP_RGBA32_B_U (c2) * p);
-	guint32 a = (guint32) (SP_RGBA32_A_U (c1) * (1 - p) + SP_RGBA32_A_U (c2) * p);
+    guint32 r = (guint32) (SP_RGBA32_R_U (c1) * (1 - p) + SP_RGBA32_R_U (c2) * p);
+    guint32 g = (guint32) (SP_RGBA32_G_U (c1) * (1 - p) + SP_RGBA32_G_U (c2) * p);
+    guint32 b = (guint32) (SP_RGBA32_B_U (c1) * (1 - p) + SP_RGBA32_B_U (c2) * p);
+    guint32 a = (guint32) (SP_RGBA32_A_U (c1) * (1 - p) + SP_RGBA32_A_U (c2) * p);
 
-	return SP_RGBA32_U_COMPOSE (r, g, b, a);
+    return SP_RGBA32_U_COMPOSE (r, g, b, a);
 }
 
 SPStop *
@@ -617,13 +555,13 @@ sp_item_gradient_edit_stop (SPItem *item, guint point_type, guint point_i, bool 
     if (!gradient || !SP_IS_GRADIENT(gradient))
         return;
 
-    SPGradient *vector = sp_gradient_get_vector (gradient, false);
+    SPGradient *vector = gradient->getVector();
     switch (point_type) {
         case POINT_LG_BEGIN:
         case POINT_RG_CENTER:
         case POINT_RG_FOCUS:
         {
-            GtkWidget *dialog = sp_gradient_vector_editor_new (vector, sp_first_stop (vector));
+            GtkWidget *dialog = sp_gradient_vector_editor_new (vector, vector->getFirstStop());
             gtk_widget_show (dialog);
         }
         break;
@@ -636,7 +574,7 @@ sp_item_gradient_edit_stop (SPItem *item, guint point_type, guint point_i, bool 
             gtk_widget_show (dialog);
         }
         break;
-        
+
         case POINT_LG_MID:
         case POINT_RG_MID1:
         case POINT_RG_MID2:
@@ -658,7 +596,7 @@ sp_item_gradient_stop_query_style (SPItem *item, guint point_type, guint point_i
     if (!gradient || !SP_IS_GRADIENT(gradient))
         return 0;
 
-    SPGradient *vector = sp_gradient_get_vector (gradient, false);
+    SPGradient *vector = gradient->getVector();
 
     if (!vector) // orphan!
         return 0; // what else to do?
@@ -668,7 +606,7 @@ sp_item_gradient_stop_query_style (SPItem *item, guint point_type, guint point_i
         case POINT_RG_CENTER:
         case POINT_RG_FOCUS:
         {
-            SPStop *first = sp_first_stop (vector);
+            SPStop *first = vector->getFirstStop();
             if (first) {
                 return sp_stop_get_rgba32(first);
             }
@@ -685,7 +623,7 @@ sp_item_gradient_stop_query_style (SPItem *item, guint point_type, guint point_i
             }
         }
         break;
-        
+
         case POINT_LG_MID:
         case POINT_RG_MID1:
         case POINT_RG_MID2:
@@ -711,7 +649,7 @@ sp_item_gradient_stop_set_style (SPItem *item, guint point_type, guint point_i, 
     if (!gradient || !SP_IS_GRADIENT(gradient))
         return;
 
-    SPGradient *vector = sp_gradient_get_vector (gradient, false);
+    SPGradient *vector = gradient->getVector();
 
     if (!vector) // orphan!
         return;
@@ -726,7 +664,7 @@ sp_item_gradient_stop_set_style (SPItem *item, guint point_type, guint point_i, 
         case POINT_RG_CENTER:
         case POINT_RG_FOCUS:
         {
-            SPStop *first = sp_first_stop (vector);
+            SPStop *first = vector->getFirstStop();
             if (first) {
                 sp_repr_css_change (SP_OBJECT_REPR (first), stop, "style");
             }
@@ -743,7 +681,7 @@ sp_item_gradient_stop_set_style (SPItem *item, guint point_type, guint point_i, 
             }
         }
         break;
-        
+
         case POINT_LG_MID:
         case POINT_RG_MID1:
         case POINT_RG_MID2:
@@ -754,7 +692,7 @@ sp_item_gradient_stop_set_style (SPItem *item, guint point_type, guint point_i, 
             }
         }
         break;
-           
+
         default:
             break;
     }
@@ -767,7 +705,7 @@ sp_item_gradient_reverse_vector (SPItem *item, bool fill_or_stroke)
     if (!gradient || !SP_IS_GRADIENT(gradient))
         return;
 
-    SPGradient *vector = sp_gradient_get_vector (gradient, false);
+    SPGradient *vector = gradient->getVector();
     if (!vector) // orphan!
         return;
 
@@ -873,9 +811,9 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                 } else {
                     SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
                 }
-			break;
+                break;
             case POINT_LG_MID:
-            {                              
+            {
                 // using X-coordinates only to determine the offset, assuming p has been snapped to the vector from begin to end.
                 double offset = get_offset_between_points (p, Geom::Point(lg->x1.computed, lg->y1.computed), Geom::Point(lg->x2.computed, lg->y2.computed));
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (lg, false);
@@ -890,10 +828,10 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                 }
             }
             break;
-		default:
-			break;
-		}
-	} else if (SP_IS_RADIALGRADIENT(gradient)) {
+            default:
+                break;
+        }
+    } else if (SP_IS_RADIALGRADIENT(gradient)) {
         SPRadialGradient *rg = SP_RADIALGRADIENT(gradient);
         Geom::Point c (rg->cx.computed, rg->cy.computed);
         Geom::Point c_w = c * gradient->gradientTransform * i2d; // now in desktop coords
@@ -904,66 +842,66 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
         Geom::Matrix new_transform;
         bool transform_set = false;
 
-		switch (point_type) {
-		case POINT_RG_CENTER:
-			rg->fx.computed = p[Geom::X] + (rg->fx.computed - rg->cx.computed);
-			rg->fy.computed = p[Geom::Y] + (rg->fy.computed - rg->cy.computed);
-			rg->cx.computed = p[Geom::X];
-			rg->cy.computed = p[Geom::Y];
-			if (write_repr) {
-				sp_repr_set_svg_double(repr, "fx", rg->fx.computed);
-				sp_repr_set_svg_double(repr, "fy", rg->fy.computed);
-				sp_repr_set_svg_double(repr, "cx", rg->cx.computed);
-				sp_repr_set_svg_double(repr, "cy", rg->cy.computed);
-			} else {
-				SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
-			}
-			break;
-		case POINT_RG_FOCUS:
-			rg->fx.computed = p[Geom::X];
-			rg->fy.computed = p[Geom::Y];
-			if (write_repr) {
-				sp_repr_set_svg_double(repr, "fx", rg->fx.computed);
-				sp_repr_set_svg_double(repr, "fy", rg->fy.computed);
-			} else {
-				SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
-			}
-			break;
-		case POINT_RG_R1:
-			{
+        switch (point_type) {
+            case POINT_RG_CENTER:
+                rg->fx.computed = p[Geom::X] + (rg->fx.computed - rg->cx.computed);
+                rg->fy.computed = p[Geom::Y] + (rg->fy.computed - rg->cy.computed);
+                rg->cx.computed = p[Geom::X];
+                rg->cy.computed = p[Geom::Y];
+                if (write_repr) {
+                    sp_repr_set_svg_double(repr, "fx", rg->fx.computed);
+                    sp_repr_set_svg_double(repr, "fy", rg->fy.computed);
+                    sp_repr_set_svg_double(repr, "cx", rg->cx.computed);
+                    sp_repr_set_svg_double(repr, "cy", rg->cy.computed);
+                } else {
+                    SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+                }
+                break;
+            case POINT_RG_FOCUS:
+                rg->fx.computed = p[Geom::X];
+                rg->fy.computed = p[Geom::Y];
+                if (write_repr) {
+                    sp_repr_set_svg_double(repr, "fx", rg->fx.computed);
+                    sp_repr_set_svg_double(repr, "fy", rg->fy.computed);
+                } else {
+                    SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+                }
+                break;
+            case POINT_RG_R1:
+            {
                 Geom::Point r1_w = (c + Geom::Point(rg->r.computed, 0)) * gradient->gradientTransform * i2d;
-				double r1_angle = Geom::atan2(r1_w - c_w);
-				double move_angle = Geom::atan2(p_w - c_w) - r1_angle;
-				double move_stretch = Geom::L2(p_w - c_w) / Geom::L2(r1_w - c_w);
+                double r1_angle = Geom::atan2(r1_w - c_w);
+                double move_angle = Geom::atan2(p_w - c_w) - r1_angle;
+                double move_stretch = Geom::L2(p_w - c_w) / Geom::L2(r1_w - c_w);
 
-				Geom::Matrix move = Geom::Matrix (Geom::Translate (-c_w)) *
-												 Geom::Matrix (Geom::Rotate(-r1_angle)) *
-												 Geom::Matrix (Geom::Scale(move_stretch, scale? move_stretch : 1)) *
-												 Geom::Matrix (Geom::Rotate(r1_angle)) *
-												 Geom::Matrix (Geom::Rotate(move_angle)) *
-												 Geom::Matrix (Geom::Translate (c_w));
+                Geom::Matrix move = Geom::Matrix (Geom::Translate (-c_w)) *
+                    Geom::Matrix (Geom::Rotate(-r1_angle)) *
+                    Geom::Matrix (Geom::Scale(move_stretch, scale? move_stretch : 1)) *
+                    Geom::Matrix (Geom::Rotate(r1_angle)) *
+                    Geom::Matrix (Geom::Rotate(move_angle)) *
+                    Geom::Matrix (Geom::Translate (c_w));
 
-				new_transform = gradient->gradientTransform * i2d * move * i2d.inverse();
-				transform_set = true;
+                new_transform = gradient->gradientTransform * i2d * move * i2d.inverse();
+                transform_set = true;
 
-				break;
-			}
-		case POINT_RG_R2:
-			{
-				Geom::Point r2_w = (c + Geom::Point(0, -rg->r.computed)) * gradient->gradientTransform * i2d;
-				double r2_angle = Geom::atan2(r2_w - c_w);
-				double move_angle = Geom::atan2(p_w - c_w) - r2_angle;
-				double move_stretch = Geom::L2(p_w - c_w) / Geom::L2(r2_w - c_w);
+                break;
+            }
+            case POINT_RG_R2:
+            {
+                Geom::Point r2_w = (c + Geom::Point(0, -rg->r.computed)) * gradient->gradientTransform * i2d;
+                double r2_angle = Geom::atan2(r2_w - c_w);
+                double move_angle = Geom::atan2(p_w - c_w) - r2_angle;
+                double move_stretch = Geom::L2(p_w - c_w) / Geom::L2(r2_w - c_w);
 
-				Geom::Matrix move = Geom::Matrix (Geom::Translate (-c_w)) *
-												 Geom::Matrix (Geom::Rotate(-r2_angle)) *
-												 Geom::Matrix (Geom::Scale(move_stretch, scale? move_stretch : 1)) *
-												 Geom::Matrix (Geom::Rotate(r2_angle)) *
-												 Geom::Matrix (Geom::Rotate(move_angle)) *
-												 Geom::Matrix (Geom::Translate (c_w));
+                Geom::Matrix move = Geom::Matrix (Geom::Translate (-c_w)) *
+                    Geom::Matrix (Geom::Rotate(-r2_angle)) *
+                    Geom::Matrix (Geom::Scale(move_stretch, scale? move_stretch : 1)) *
+                    Geom::Matrix (Geom::Rotate(r2_angle)) *
+                    Geom::Matrix (Geom::Rotate(move_angle)) *
+                    Geom::Matrix (Geom::Translate (c_w));
 
-				new_transform = gradient->gradientTransform * i2d * move * i2d.inverse();
-				transform_set = true;
+                new_transform = gradient->gradientTransform * i2d * move * i2d.inverse();
+                transform_set = true;
 
                 break;
             }
@@ -974,7 +912,7 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                 double offset = get_offset_between_points (p, start, end);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (rg, false);
                 sp_gradient_ensure_vector(rg);
-                rg->vector.stops.at(point_i).offset = offset; 
+                rg->vector.stops.at(point_i).offset = offset;
                 SPStop* stopi = sp_get_stop_i(vector, point_i);
                 stopi->offset = offset;
                 if (write_repr) {
@@ -999,19 +937,20 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                     SP_OBJECT (stopi)->requestModified(SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG);
                 }
                 break;
+        }
+
+        if (transform_set) {
+            gradient->gradientTransform = new_transform;
+            gradient->gradientTransform_set = TRUE;
+            if (write_repr) {
+                gchar *s=sp_svg_transform_write(gradient->gradientTransform);
+                SP_OBJECT_REPR(gradient)->setAttribute("gradientTransform", s);
+                g_free(s);
+            } else {
+                SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
             }
-		if (transform_set) {
-				gradient->gradientTransform = new_transform;
-				gradient->gradientTransform_set = TRUE;
-				if (write_repr) {
-					gchar *s=sp_svg_transform_write(gradient->gradientTransform);
-				        SP_OBJECT_REPR(gradient)->setAttribute("gradientTransform", s);
-                                        g_free(s);
-				} else {
-					SP_OBJECT (gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
-				}
-		}
-	}
+        }
+    }
 }
 
 SPGradient *
@@ -1019,8 +958,9 @@ sp_item_gradient_get_vector (SPItem *item, bool fill_or_stroke)
 {
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
-    if (gradient)
-        return sp_gradient_get_vector (gradient, false);
+    if (gradient) {
+        return gradient->getVector();
+    }
     return NULL;
 }
 
@@ -1060,7 +1000,7 @@ sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool
                 p = Geom::Point (lg->x2.computed, lg->y2.computed);
                 break;
             case POINT_LG_MID:
-                {   
+                {
                     gdouble offset = lg->vector.stops.at(point_i).offset;
                     p = (1-offset) * Geom::Point(lg->x1.computed, lg->y1.computed) + offset * Geom::Point(lg->x2.computed, lg->y2.computed);
                 }
@@ -1085,13 +1025,13 @@ sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool
                 {
                     gdouble offset = rg->vector.stops.at(point_i).offset;
                     p = (1-offset) * Geom::Point (rg->cx.computed, rg->cy.computed) + offset * Geom::Point(rg->cx.computed + rg->r.computed, rg->cy.computed);
-                }        
+                }
                 break;
             case POINT_RG_MID2:
                 {
                     gdouble offset = rg->vector.stops.at(point_i).offset;
                     p = (1-offset) * Geom::Point (rg->cx.computed, rg->cy.computed) + offset * Geom::Point(rg->cx.computed, rg->cy.computed - rg->r.computed);
-                }        
+                }
                 break;
         }
     }
@@ -1140,15 +1080,16 @@ sp_item_set_gradient(SPItem *item, SPGradient *gr, SPGradientType type, bool is_
         /* Current fill style is the gradient of the required type */
         SPGradient *current = SP_GRADIENT(ps);
 
-        //g_print("hrefcount %d   count %d\n", SP_OBJECT_HREFCOUNT(ig), count_gradient_hrefs(SP_OBJECT(item), ig));
+        //g_message("hrefcount %d   count %d\n", SP_OBJECT_HREFCOUNT(current), count_gradient_hrefs(SP_OBJECT(item), current));
 
-        if (SP_OBJECT_HREFCOUNT(current) == 1 ||
-            SP_OBJECT_HREFCOUNT(current) == count_gradient_hrefs(SP_OBJECT(item), current)) {
+        if (!current->isSwatch()
+            && (SP_OBJECT_HREFCOUNT(current) == 1 ||
+            SP_OBJECT_HREFCOUNT(current) == count_gradient_hrefs(SP_OBJECT(item), current))) {
 
             // current is private and it's either used once, or all its uses are by children of item;
             // so just change its href to vector
 
-            if ( current != gr && sp_gradient_get_vector(current, false) != gr ) {
+            if ( current != gr && current->getVector() != gr ) {
                 /* href is not the vector */
                 sp_gradient_repr_set_link(SP_OBJECT_REPR(current), gr);
             }
@@ -1184,25 +1125,20 @@ sp_item_set_gradient(SPItem *item, SPGradient *gr, SPGradientType type, bool is_
     }
 }
 
-static void
-sp_gradient_repr_set_link(Inkscape::XML::Node *repr, SPGradient *link)
+static void sp_gradient_repr_set_link(Inkscape::XML::Node *repr, SPGradient *link)
 {
     g_return_if_fail(repr != NULL);
-    g_return_if_fail(link != NULL);
-    g_return_if_fail(SP_IS_GRADIENT(link));
-
-    gchar *ref;
     if (link) {
-        gchar const *id = SP_OBJECT_ID(link);
-        size_t const len = strlen(id);
-        ref = (gchar*) alloca(len + 2);
-        *ref = '#';
-        memcpy(ref + 1, id, len + 1);
-    } else {
-        ref = NULL;
+        g_return_if_fail(SP_IS_GRADIENT(link));
     }
 
-    repr->setAttribute("xlink:href", ref);
+    if (link) {
+        Glib::ustring ref("#");
+        ref += link->getId();
+        repr->setAttribute("xlink:href", ref.c_str());
+    } else {
+        repr->setAttribute("xlink:href", 0);
+    }
 }
 
 /*
@@ -1286,7 +1222,7 @@ sp_gradient_vector_for_object(SPDocument *const doc, SPDesktop *const desktop,
         if (paint.isPaintserver()) {
             SPObject *server = is_fill? SP_OBJECT_STYLE_FILL_SERVER(o) : SP_OBJECT_STYLE_STROKE_SERVER(o);
             if (SP_IS_GRADIENT (server)) {
-                return sp_gradient_get_vector(SP_GRADIENT (server), TRUE);
+                return SP_GRADIENT(server)->getVector(true);
             } else {
                 rgba = sp_desktop_get_color(desktop, is_fill);
             }

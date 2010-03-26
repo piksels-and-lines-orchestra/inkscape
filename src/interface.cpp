@@ -23,7 +23,9 @@
 #include <glib.h>
 
 #include "inkscape-private.h"
+#include "extension/db.h"
 #include "extension/effect.h"
+#include "extension/input.h"
 #include "widgets/icon.h"
 #include "preferences.h"
 #include "path-prefix.h"
@@ -1098,7 +1100,7 @@ sp_ui_context_menu(Inkscape::UI::View::View *view, SPItem *item)
 
     if ( group && group != dt->currentLayer() ) {
         /* TRANSLATORS: #%s is the id of the group e.g. <g id="#g7">, not a number. */
-        gchar *label=g_strdup_printf(_("Enter group #%s"), SP_OBJECT_ID(group));
+        gchar *label=g_strdup_printf(_("Enter group #%s"), group->getId());
         GtkWidget *w = gtk_menu_item_new_with_label(label);
         g_free(label);
         g_object_set_data(G_OBJECT(w), "group", group);
@@ -1316,7 +1318,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                         const GSList *gradients = sp_document_get_resource_list(doc, "gradient");
                         for (const GSList *item = gradients; item; item = item->next) {
                             SPGradient* grad = SP_GRADIENT(item->data);
-                            if ( color.descr == grad->id ) {
+                            if ( color.descr == grad->getId() ) {
                                 if ( grad->has_stops ) {
                                     matches = grad;
                                     break;
@@ -1325,7 +1327,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                         }
                         if (matches) {
                             colorspec = "url(#";
-                            colorspec += matches->id;
+                            colorspec += matches->getId();
                             colorspec += ")";
                         } else {
                             gchar* tmp = g_strdup_printf("#%02x%02x%02x", r, g, b);
@@ -1454,48 +1456,26 @@ sp_ui_drag_data_received(GtkWidget *widget,
         case PNG_DATA:
         case JPEG_DATA:
         case IMAGE_DATA: {
-            Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
-            Inkscape::XML::Node *newImage = xml_doc->createElement("svg:image");
-            gchar *atom_name = gdk_atom_name(data->type);
+            const char *mime = (info == JPEG_DATA ? "image/jpeg" : "image/png");
 
-            // this formula taken from Glib docs
-            guint needed_size = data->length * 4 / 3 + data->length * 4 / (3 * 72) + 7;
-            needed_size += 5 + 8 + strlen(atom_name); // 5 bytes for data:, 8 for ;base64,
-
-            gchar *buffer = (gchar *) g_malloc(needed_size), *buf_work = buffer;
-            buf_work += g_sprintf(buffer, "data:%s;base64,", atom_name);
-
-            gint state = 0, save = 0;
-            g_base64_encode_step(data->data, data->length, TRUE, buf_work, &state, &save);
-            g_base64_encode_close(TRUE, buf_work, &state, &save);
-
-            newImage->setAttribute("xlink:href", buffer);
-            g_free(buffer);
-
-            GError *error = NULL;
-            GdkPixbufLoader *loader = gdk_pixbuf_loader_new_with_mime_type( gdk_atom_name(data->type), &error );
-            if ( loader ) {
-                error = NULL;
-                if ( gdk_pixbuf_loader_write( loader, data->data, data->length, &error) ) {
-                    GdkPixbuf *pbuf = gdk_pixbuf_loader_get_pixbuf(loader);
-                    if ( pbuf ) {
-                        char tmp[1024];
-                        int width = gdk_pixbuf_get_width(pbuf);
-                        int height = gdk_pixbuf_get_height(pbuf);
-                        snprintf( tmp, sizeof(tmp), "%d", width );
-                        newImage->setAttribute("width", tmp);
-
-                        snprintf( tmp, sizeof(tmp), "%d", height );
-                        newImage->setAttribute("height", tmp);
-                    }
-                }
+            Inkscape::Extension::DB::InputList o;
+            Inkscape::Extension::db.get_input_list(o);
+            Inkscape::Extension::DB::InputList::const_iterator i = o.begin();
+            while (i != o.end() && strcmp( (*i)->get_mimetype(), mime ) != 0) {
+                ++i;
             }
-            g_free(atom_name);
+            Inkscape::Extension::Extension *ext = *i;
+            bool save = (strcmp(ext->get_param_optiongroup("link"), "embed") == 0);
+            ext->set_param_optiongroup("link", "embed");
+            ext->set_gui(false);
 
-            // Add it to the current layer
-            desktop->currentLayer()->appendChildRepr(newImage);
+            gchar *filename = g_build_filename( g_get_tmp_dir(), "inkscape-dnd-import", NULL );
+            g_file_set_contents(filename, reinterpret_cast<gchar const *>(data->data), data->length, NULL);
+            file_import(doc, filename, ext);
+            g_free(filename);
 
-            Inkscape::GC::release(newImage);
+            ext->set_param_optiongroup("link", save ? "embed" : "link");
+            ext->set_gui(true);
             sp_document_done( doc , SP_VERB_NONE,
                               _("Drop bitmap image"));
             break;

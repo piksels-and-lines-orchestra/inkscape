@@ -29,6 +29,7 @@
 #include <errno.h>
 
 #include "libnr/nr-rect.h"
+#include "libnrtype/Layout-TNG.h"
 #include <2geom/transforms.h>
 #include <2geom/pathvector.h>
 
@@ -102,6 +103,7 @@ namespace Extension {
 namespace Internal {
 
 CairoRenderer::CairoRenderer(void)
+  : _omitText(false)
 {}
 
 CairoRenderer::~CairoRenderer(void)
@@ -567,6 +569,11 @@ CairoRenderer::setStateForItem(CairoRenderContext *ctx, SPItem const *item)
 void
 CairoRenderer::renderItem(CairoRenderContext *ctx, SPItem *item)
 {
+    if ( _omitText && (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item)) ) {
+        // skip text if _omitText is true
+        return;
+    }
+
     ctx->pushState();
     setStateForItem(ctx, item);
 
@@ -591,6 +598,8 @@ CairoRenderer::renderItem(CairoRenderContext *ctx, SPItem *item)
 bool
 CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool pageBoundingBox, SPItem *base)
 {
+// PLEASE note when making changes to the boundingbox and transform calculation, corresponding changes should be made to PDFLaTeXRenderer::setupDocument !!!
+
     g_assert( ctx != NULL );
 
     if (!base)

@@ -32,7 +32,7 @@ AC_PROG_RANLIB
 AC_PROG_INTLTOOL(0.22)
 AC_PROG_LIBTOOL
 AC_HEADER_STDC
-INK_SVN_SNAPSHOT_BUILD
+INK_BZR_SNAPSHOT_BUILD
 
 dnl If automake 1.11 shave the output to look nice
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
@@ -126,6 +126,45 @@ if test "x$GXX" = "xyes"; then
 	fi
 fi
 
+# Detect a working version of unordered containers.
+AC_MSG_CHECKING([TR1 unordered_set usability])
+AC_COMPILE_IFELSE([
+#include <tr1/unordered_set>
+int main() {
+  std::tr1::unordered_set<int> i, j;
+  i = j;
+  return 0;
+}
+], [unordered_set_works=yes], [unordered_set_works=no])
+if test "x$unordered_set_works" = "xyes"; then
+	AC_MSG_RESULT([ok])
+	AC_DEFINE(HAVE_TR1_UNORDERED_SET, 1, [Has working standard TR1 unordered_set])
+else
+	AC_MSG_RESULT([not working])
+fi
+AC_CHECK_HEADER([boost/unordered_set.hpp], [AC_DEFINE(HAVE_BOOST_UNORDERED_SET, 1, [Boost unordered_set (Boost >= 1.36)])], [])
+AC_CHECK_HEADER([ext/hash_set], [AC_DEFINE(HAVE_EXT_HASH_SET, 1, [Legacy GNU ext/hash_set])], [])
+
+# Test whether GCC emits a spurious warning when using boost::optional
+# If yes, turn off strict aliasing warnings to reduce noise
+# and allow the legitimate warnings to stand out
+AC_MSG_CHECKING([for overzealous strict aliasing warnings])
+ignore_strict_aliasing=no
+CXXFLAGS_SAVE=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS -Werror=strict-aliasing"
+AC_COMPILE_IFELSE([
+#include <boost/optional.hpp>
+boost::optional<int> x;
+int func() {
+  return *x;
+}
+], [ignore_strict_aliasing=no], [ignore_strict_aliasing=yes])
+AC_MSG_RESULT($ignore_strict_aliasing)
+CXXFLAGS=$CXXFLAGS_SAVE
+if test "x$ignore_strict_aliasing" = "xyes"; then
+  CXXFLAGS="$CXXFLAGS -Wno-strict-aliasing"
+fi
+
 dnl ******************************
 dnl Gettext stuff
 dnl ******************************
@@ -133,7 +172,7 @@ GETTEXT_PACKAGE="AC_PACKAGE_NAME"
 AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[Translation domain used])
 dnl Add the languages which your application supports here.
-ALL_LINGUAS="am ar az be bg bn br ca ca@valencia cs da de dz el en_AU en_CA en_GB en_US@piglatin eo es_MX es et eu fi fr ga gl he hr hu hy id it ja km ko lt mk mn nb ne nl nn pa pl pt_BR pt ro ru rw sk sl sq sr@latin sr sv th tr uk vi zh_CN zh_TW"
+ALL_LINGUAS="am ar az be bg bn br ca ca@valencia cs da de dz el en_AU en_CA en_GB en_US@piglatin eo es_MX es et eu fa fi fr ga gl he hr hu hy id it ja km ko lt mk mn nb ne nl nn pa pl pt_BR pt ro ru rw sk sl sq sr@latin sr sv th tr uk vi zh_CN zh_TW"
 AM_GLIB_GNU_GETTEXT
 
 AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
@@ -532,7 +571,6 @@ PKG_CHECK_MODULES(POPPLER, poppler >= 0.5.9, poppler=yes, poppler=no)
 
 if test "x$poppler" = "xyes"; then
 	dnl Working libpoppler
-	POPPLER_LIBS="-lpoppler "
 	dnl Have to test libpoppler-glib presence
 	PKG_CHECK_MODULES(POPPLER_GLIB, poppler-glib >= 0.5.9, poppler_glib=yes, poppler_glib=no)
 	if test "x$poppler_glib" = "xyes"; then
@@ -540,7 +578,7 @@ if test "x$poppler" = "xyes"; then
 		dnl Check whether the Cairo SVG backend is available
 		PKG_CHECK_MODULES(CAIRO_SVG, cairo-svg, cairo_svg=yes, cairo_svg=no)
 		if test "x$cairo_svg" = "xyes"; then
-			POPPLER_LIBS="$POPPLER_LIBS -lpoppler-glib "
+			POPPLER_LIBS="$POPPLER_LIBS $POPPLER_GLIB_LIBS "
 		fi
 	fi
 	if test "x$enable_poppler_cairo" = "xyes"; then
@@ -550,7 +588,7 @@ if test "x$poppler" = "xyes"; then
 		if test "x$poppler_glib" = "xyes" -a "x$poppler_cairo" = "xyes" -a \
 			"x$cairo_svg" = "xno"
 		then
-			POPPLER_LIBS="$POPPLER_LIBS -lpoppler-glib "
+			POPPLER_LIBS="$POPPLER_LIBS $POPPLER_CAIRO_LIBS "
 		fi
 	fi
 fi
@@ -568,9 +606,35 @@ fi
 AC_SUBST(POPPLER_CFLAGS)
 AC_SUBST(POPPLER_LIBS)
 
-PKG_CHECK_MODULES(POPPLERNEW, poppler >= 0.8.3, popplernew=yes, popplernew=no)
+PKG_CHECK_MODULES(POPPLER_GFXFONT, poppler >= 0.8.3, popplernew=yes, popplernew=no)
 if test "x$popplernew" = "xyes"; then
-	AC_DEFINE(POPPLER_NEW_GFXFONT, 1, [Poppler version of GfxFont to use (0.8.3 or higher versions of Poppler)])
+	AC_DEFINE(POPPLER_NEW_GFXFONT, 1, [Use GfxFont from Poppler >= 0.8.3])
+fi
+
+AC_MSG_CHECKING(for new color space API in Poppler)
+ink_svd_CPPFLAGS=$CPPFLAGS
+ink_svd_LIBS=$LIBS
+CPPFLAGS="$CPPFLAGS $POPPLER_CFLAGS"
+LIBS="$LIBS $POPPLER_LIBS"
+popplercolor="no"
+AC_COMPILE_IFELSE([
+#include <GfxState.h>
+
+int main() {
+  typedef GfxColorSpace *(*parse_p)(Object *, Gfx *);
+  parse_p p;
+  p = &GfxColorSpace::parse;
+  return 0;
+}
+], [popplercolor=yes])
+CPPFLAGS=$ink_svd_CPPFLAGS
+LIBS=$ink_svd_LIBS
+
+if test "x$popplercolor" = "xyes"; then
+	AC_DEFINE(POPPLER_NEW_COLOR_SPACE_API, 1, [Use color space API from Poppler >= 0.12.2])
+	AC_MSG_RESULT(yes)
+else
+	AC_MSG_RESULT(no)
 fi
 
 dnl ******************************
@@ -604,8 +668,11 @@ dnl 	with_inkboard="no"
 dnl fi
 
 dnl AM_CONDITIONAL(WITH_INKBOARD, test "x$with_inkboard" = "xyes")
-dnl AC_SUBST(INKBOARD_LIBS)
-dnl AC_SUBST(INKBOARD_CFLAGS)
+
+INKBOARD_CFLAGS=""
+INKBOARD_LIBS=""
+AC_SUBST(INKBOARD_LIBS)
+AC_SUBST(INKBOARD_CFLAGS)
 
 dnl ******************************
 dnl Check for libwpg for extension
@@ -685,10 +752,10 @@ PKG_CHECK_MODULES(INKSCAPE, gdkmm-2.4  glibmm-2.4 giomm-2.4 gtkmm-2.4 >= 2.10.0 
 # Check for Apple Mac OS X Carbon framework
 carbon_ok=no
 AC_MSG_CHECKING([for Mac OS X Carbon support])
-AC_TRY_CPP([
+AC_COMPILE_IFELSE([
 #include <Carbon/Carbon.h>
 #include <CoreServices/CoreServices.h>
-], carbon_ok=yes)
+], [carbon_ok=yes])
 AC_MSG_RESULT($carbon_ok)
 if test "x$carbon_ok" = "xyes"; then
   AC_DEFINE(HAVE_CARBON, 1, [define to 1 if Carbon is available])
@@ -783,7 +850,7 @@ elif test "$enable_binreloc" = "auto"; then
 elif test "$enable_binreloc" = "no"; then
        AC_MSG_RESULT(no)
 else
-       AC_MSG_RESULT(no (unknown value "$enable_binreloc"))
+       AC_MSG_RESULT([no (unknown value "$enable_binreloc")])
        enable_binreloc=no
 fi
 AC_DEFINE(BR_PTHREADS,[0],[Use binreloc thread support?])
@@ -946,7 +1013,6 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 src/check-header-compile
-src/algorithms/makefile
 src/application/makefile
 src/bind/makefile
 src/debug/makefile
@@ -960,7 +1026,6 @@ src/extension/script/makefile
 src/extension/dbus/wrapper/inkdbus.pc
 src/filters/makefile
 src/helper/makefile
-src/inkjar/makefile
 src/io/makefile
 src/libcroco/makefile
 src/libgdl/makefile
@@ -972,10 +1037,8 @@ src/live_effects/makefile
 src/live_effects/parameter/makefile
 src/pedro/makefile
 src/jabber_whiteboard/makefile
-src/removeoverlap/makefile
 src/svg/makefile
 src/trace/makefile
-src/traits/makefile
 src/ui/cache/makefile
 src/ui/dialog/makefile
 src/ui/makefile

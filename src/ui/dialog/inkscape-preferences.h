@@ -141,9 +141,15 @@ protected:
     PrefRadioButton _t_sel_trans_obj, _t_sel_trans_outl, _t_sel_cue_none, _t_sel_cue_mark,
                     _t_sel_cue_box, _t_bbox_visual, _t_bbox_geometric;
     PrefCheckButton _t_cvg_keep_objects, _t_cvg_convert_whole_groups;
+    PrefCheckButton _t_node_show_outline;
+    PrefCheckButton _t_node_live_outline;
+    PrefCheckButton _t_node_live_objects;
     PrefCheckButton _t_node_pathflash_enabled;
-    PrefCheckButton _t_node_pathflash_unselected;
+    PrefCheckButton _t_node_pathflash_selected;
     PrefSpinButton  _t_node_pathflash_timeout;
+    PrefCheckButton _t_node_show_path_direction;
+    PrefCheckButton _t_node_single_node_transform_handles;
+    PrefCheckButton _t_node_delete_preserves_shape;
     PrefColorPicker _t_node_pathoutline_color;
 
     PrefRadioButton _win_dockable, _win_floating;
@@ -167,6 +173,8 @@ protected:
 
     PrefCheckButton _mask_mask_on_top;
     PrefCheckButton _mask_mask_remove;
+    PrefRadioButton _mask_grouping_none, _mask_grouping_separate, _mask_grouping_all;
+    PrefCheckButton _mask_ungrouping;
 
     PrefRadioButton _blur_quality_best, _blur_quality_better, _blur_quality_normal, _blur_quality_worse, _blur_quality_worst;
     PrefRadioButton _filter_quality_best, _filter_quality_better, _filter_quality_normal, _filter_quality_worse, _filter_quality_worst;
@@ -197,6 +205,7 @@ protected:
     PrefCombo       _misc_small_tools;
     PrefCheckButton _ui_colorsliders_top;
     PrefSpinButton  _misc_recent;
+    PrefCheckButton _ui_partialdynamic;
     ZoomCorrRulerSlider _ui_zoom_correction;
 
     //Spellcheck

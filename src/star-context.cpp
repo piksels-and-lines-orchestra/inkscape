@@ -259,9 +259,7 @@ static gint sp_star_context_root_handler(SPEventContext *event_context, GdkEvent
             /* Snap center */
             SnapManager &m = desktop->namedview->snap_manager;
             m.setup(desktop, true);
-            Geom::Point pt2g = to_2geom(sc->center);
-            m.freeSnapReturnByRef(Inkscape::SnapPreferences::SNAPPOINT_NODE, pt2g, Inkscape::SNAPSOURCE_HANDLE);
-            sc->center = from_2geom(pt2g);
+            m.freeSnapReturnByRef(sc->center, Inkscape::SNAPSOURCE_NODE_HANDLE);
 
             sp_canvas_item_grab(SP_CANVAS_ITEM(desktop->acetate),
                                 GDK_KEY_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
@@ -293,6 +291,13 @@ static gint sp_star_context_root_handler(SPEventContext *event_context, GdkEvent
             gobble_motion_events(GDK_BUTTON1_MASK);
 
             ret = TRUE;
+        } else if (!sp_event_context_knot_mouseover(event_context)) {
+            SnapManager &m = desktop->namedview->snap_manager;
+            m.setup(desktop);
+
+            Geom::Point const motion_w(event->motion.x, event->motion.y);
+            Geom::Point motion_dt(desktop->w2d(motion_w));
+            m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
         }
         break;
     case GDK_BUTTON_RELEASE:
@@ -437,7 +442,7 @@ static void sp_star_drag(SPStarContext *sc, Geom::Point p, guint state)
     SnapManager &m = desktop->namedview->snap_manager;
     m.setup(desktop, true, sc->item);
     Geom::Point pt2g = to_2geom(p);
-    m.freeSnapReturnByRef(Inkscape::SnapPreferences::SNAPPOINT_NODE, pt2g, Inkscape::SNAPSOURCE_HANDLE);
+    m.freeSnapReturnByRef(pt2g, Inkscape::SNAPSOURCE_NODE_HANDLE);
 
     Geom::Point const p0 = desktop->dt2doc(sc->center);
     Geom::Point const p1 = desktop->dt2doc(pt2g);
@@ -474,13 +479,17 @@ sp_star_finish (SPStarContext * sc)
     sc->_message_context->clear();
 
     if (sc->item != NULL) {
-    	SPStar *star = SP_STAR(sc->item);
-    	if (star->r[1] == 0) {
-    		sp_star_cancel(sc); // Don't allow the creating of zero sized arc, for example when the start and and point snap to the snap grid point
-    		return;
-    	}
+        SPStar *star = SP_STAR(sc->item);
+        if (star->r[1] == 0) {
+            sp_star_cancel(sc); // Don't allow the creating of zero sized arc, for example when the start and and point snap to the snap grid point
+            return;
+        }
 
-    	SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
+        // Set transform center, so that odd stars rotate correctly
+        // LP #462157
+        sc->item->setCenter(sc->center);
+
+        SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
         SPObject *object = SP_OBJECT(sc->item);
 
         sp_shape_set_shape(SP_SHAPE(sc->item));
@@ -499,14 +508,14 @@ sp_star_finish (SPStarContext * sc)
 
 static void sp_star_cancel(SPStarContext *sc)
 {
-	SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
+    SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
 
-	sp_desktop_selection(desktop)->clear();
-	sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), 0);
+    sp_desktop_selection(desktop)->clear();
+    sp_canvas_item_ungrab(SP_CANVAS_ITEM(desktop->acetate), 0);
 
     if (sc->item != NULL) {
-    	SP_OBJECT(sc->item)->deleteObject();
-    	sc->item = NULL;
+        SP_OBJECT(sc->item)->deleteObject();
+        sc->item = NULL;
     }
 
     sc->within_tolerance = false;

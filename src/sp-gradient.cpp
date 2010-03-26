@@ -638,6 +638,28 @@ sp_gradient_modified(SPObject *object, guint flags)
     }
 }
 
+SPStop* SPGradient::getFirstStop()
+{
+    SPStop* first = 0;
+    for (SPObject *ochild = sp_object_first_child(this); ochild && !first; ochild = SP_OBJECT_NEXT(ochild)) {
+        if (SP_IS_STOP(ochild)) {
+            first = SP_STOP(ochild);
+        }
+    }
+    return first;
+}
+
+int SPGradient::getStopCount() const
+{
+    int count = 0;
+
+    for (SPStop *stop = const_cast<SPGradient*>(this)->getFirstStop(); stop && stop->getNextStop(); stop = stop->getNextStop()) {
+        count++;
+    }
+
+    return count;
+}
+
 /**
  * Write gradient attributes to repr.
  */
@@ -793,8 +815,7 @@ chase_hrefs(SPGradient *const src, bool (*match)(SPGradient const *))
 /**
  * True if gradient has stops.
  */
-static bool
-has_stops(SPGradient const *gr)
+static bool has_stopsFN(SPGradient const *gr)
 {
     return SP_GRADIENT_HAS_STOPS(gr);
 }
@@ -818,23 +839,14 @@ has_units_set(SPGradient const *gr)
 }
 
 
-/**
- * Returns private vector of given gradient (the gradient at the end of the href chain which has
- * stops), optionally normalizing it.
- *
- * \pre SP_IS_GRADIENT(gradient).
- * \pre There exists a gradient in the chain that has stops.
- */
-SPGradient *
-sp_gradient_get_vector(SPGradient *gradient, bool force_vector)
+SPGradient *SPGradient::getVector(bool force_vector)
 {
-    g_return_val_if_fail(gradient != NULL, NULL);
-    g_return_val_if_fail(SP_IS_GRADIENT(gradient), NULL);
+    SPGradient * src = chase_hrefs(this, has_stopsFN);
 
-    SPGradient *const src = chase_hrefs(gradient, has_stops);
-    return ( force_vector
-             ? sp_gradient_ensure_vector_normalized(src)
-             : src );
+    if (force_vector) {
+        src = sp_gradient_ensure_vector_normalized(src);
+    }
+    return src;
 }
 
 /**

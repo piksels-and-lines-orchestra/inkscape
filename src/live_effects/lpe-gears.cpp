@@ -2,6 +2,8 @@
 
 /*
  * Copyright (C) Johan Engelen 2007 <j.b.c.engelen@utwente.nl>
+ * Copyright 2006 Michael G. Sloan <mgsloan@gmail.com>
+ * Copyright 2006 Aaron Spike <aaron@ekips.org>
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -13,8 +15,6 @@
 #include <2geom/sbasis.h>
 #include <2geom/bezier-to-sbasis.h>
 #include <2geom/path.h>
-
-#include "nodepath.h"
 
 using std::vector;
 using namespace Geom;
@@ -259,13 +259,6 @@ LPEGears::doEffect_path (std::vector<Geom::Path> const & path_in)
     delete gear;
 
     return path_out;
-}
-
-void
-LPEGears::setup_nodepath(Inkscape::NodePath::Path *np)
-{
-    Effect::setup_nodepath(np);
-    sp_nodepath_make_straight_path(np);
 }
 
 } // namespace LivePathEffect

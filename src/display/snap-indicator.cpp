@@ -6,7 +6,7 @@
  *   Diederik van Lierop
  *
  * Copyright (C) Johan Engelen 2009 <j.b.c.engelen@utwente.nl>
- * Copyright (C) Diederik van Lierop 2009 <mail@diedenrezi.nl>
+ * Copyright (C) Diederik van Lierop 2010 <mail@diedenrezi.nl>
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -16,7 +16,9 @@
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "display/sodipodi-ctrl.h"
+#include "display/sodipodi-ctrlrect.h"
 #include "display/canvas-text.h"
+#include "display/sp-canvas-util.h"
 #include "knot.h"
 #include "preferences.h"
 #include <glibmm/i18n.h>
@@ -27,7 +29,9 @@ namespace Display {
 SnapIndicator::SnapIndicator(SPDesktop * desktop)
     :   _snaptarget(NULL),
         _snaptarget_tooltip(NULL),
+        _snaptarget_bbox(NULL),
         _snapsource(NULL),
+        _snaptarget_is_presnap(false),
         _desktop(desktop)
 {
 }
@@ -40,7 +44,7 @@ SnapIndicator::~SnapIndicator()
 }
 
 void
-SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
+SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const &p, bool pre_snap)
 {
     remove_snaptarget(); //only display one snaptarget at a time
 
@@ -97,9 +101,6 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
             case SNAPTARGET_BBOX_EDGE:
                 target_name = _("bounding box side");
                 break;
-            case SNAPTARGET_GRADIENTS_PARENT_BBOX:
-                target_name = _("bounding box");
-                break;
             case SNAPTARGET_PAGE_BORDER:
                 target_name = _("page border");
                 break;
@@ -139,6 +140,12 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
             case SNAPTARGET_TEXT_BASELINE:
                 target_name = _("text baseline");
                 break;
+            case SNAPTARGET_CONSTRAINED_ANGLE:
+                target_name = _("constrained angle");
+                break;
+            case SNAPTARGET_CONSTRAINT:
+                target_name = _("constraint");
+                break;
             default:
                 g_warning("Snap target has not yet been defined!");
                 break;
@@ -173,7 +180,8 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
             case SNAPSOURCE_ROTATION_CENTER:
                 source_name = _("Object rotation center");
                 break;
-            case SNAPSOURCE_HANDLE:
+            case SNAPSOURCE_NODE_HANDLE:
+            case SNAPSOURCE_OTHER_HANDLE:
                 source_name = _("Handle");
                 break;
             case SNAPSOURCE_PATH_INTERSECTION:
@@ -200,6 +208,9 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
             case SNAPSOURCE_TEXT_BASELINE:
                 source_name = _("Text baseline");
                 break;
+            case SNAPSOURCE_GRID_PITCH:
+                source_name = _("Multiple of grid spacing");
+                break;
             default:
                 g_warning("Snap source has not yet been defined!");
                 break;
@@ -216,7 +227,7 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
                                             "anchor", GTK_ANCHOR_CENTER,
                                             "size", 10.0,
                                             "stroked", TRUE,
-                                            "stroke_color", 0xf000f0ff,
+                                            "stroke_color", pre_snap ? 0x7f7f7fff : 0xff0000ff,
                                             "mode", SP_KNOT_MODE_XOR,
                                             "shape", SP_KNOT_SHAPE_DIAMOND,
                                             NULL );
@@ -226,7 +237,7 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
                                             "anchor", GTK_ANCHOR_CENTER,
                                             "size", 10.0,
                                             "stroked", TRUE,
-                                            "stroke_color", 0xf000f0ff,
+                                            "stroke_color", pre_snap ? 0x7f7f7fff : 0xff0000ff,
                                             "mode", SP_KNOT_MODE_XOR,
                                             "shape", SP_KNOT_SHAPE_CROSS,
                                             NULL );
@@ -236,24 +247,53 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const p)
 
         SP_CTRL(canvasitem)->moveto(p.getPoint());
         _snaptarget = _desktop->add_temporary_canvasitem(canvasitem, timeout_val);
+        _snaptarget_is_presnap = pre_snap;
 
-        gchar *tooltip_str = g_strconcat(source_name, _(" to "), target_name, NULL);
+        // Display the tooltip, which reveals the type of snap source and the type of snap target
+        gchar *tooltip_str = NULL;
+        if (p.getSource() != SNAPSOURCE_GRID_PITCH) {
+            tooltip_str = g_strconcat(source_name, _(" to "), target_name, NULL);
+        } else {
+            tooltip_str = g_strdup(source_name);
+        }
         Geom::Point tooltip_pos = p.getPoint() + _desktop->w2d(Geom::Point(15, -15));
 
         SPCanvasItem *canvas_tooltip = sp_canvastext_new(sp_desktop_tempgroup(_desktop), _desktop, tooltip_pos, tooltip_str);
+        if (pre_snap) {
+            SP_CANVASTEXT(canvas_tooltip)->rgba = 0x7f7f7fff;
+        }
         g_free(tooltip_str);
 
         sp_canvastext_set_anchor((SPCanvasText* )canvas_tooltip, -1, 1);
         _snaptarget_tooltip = _desktop->add_temporary_canvasitem(canvas_tooltip, timeout_val);
+
+        // Display the bounding box, if we snapped to one
+        Geom::OptRect const bbox = p.getTargetBBox();
+        if (bbox) {
+            SPCanvasItem* box = sp_canvas_item_new(sp_desktop_tempgroup (_desktop),
+                                                     SP_TYPE_CTRLRECT,
+                                                     NULL);
+
+            SP_CTRLRECT(box)->setRectangle(*bbox);
+            SP_CTRLRECT(box)->setColor(pre_snap ? 0x7f7f7fff : 0xff0000ff, 0, 0);
+            SP_CTRLRECT(box)->setDashed(true);
+            sp_canvas_item_move_to_z(box, 0);
+            _snaptarget_bbox = _desktop->add_temporary_canvasitem(box, timeout_val);
+        }
     }
 }
 
 void
-SnapIndicator::remove_snaptarget()
+SnapIndicator::remove_snaptarget(bool only_if_presnap)
 {
+    if (only_if_presnap && !_snaptarget_is_presnap) {
+        return;
+    }
+
     if (_snaptarget) {
         _desktop->remove_temporary_canvasitem(_snaptarget);
         _snaptarget = NULL;
+        _snaptarget_is_presnap = false;
     }
 
     if (_snaptarget_tooltip) {
@@ -261,10 +301,15 @@ SnapIndicator::remove_snaptarget()
         _snaptarget_tooltip = NULL;
     }
 
+    if (_snaptarget_bbox) {
+        _desktop->remove_temporary_canvasitem(_snaptarget_bbox);
+        _snaptarget_bbox = NULL;
+    }
+
 }
 
 void
-SnapIndicator::set_new_snapsource(std::pair<Geom::Point, int> const p)
+SnapIndicator::set_new_snapsource(Inkscape::SnapCandidatePoint const &p)
 {
     remove_snapsource();
 
@@ -279,12 +324,12 @@ SnapIndicator::set_new_snapsource(std::pair<Geom::Point, int> const p)
                                                         "anchor", GTK_ANCHOR_CENTER,
                                                         "size", 6.0,
                                                         "stroked", TRUE,
-                                                        "stroke_color", 0xf000f0ff,
+                                                        "stroke_color", 0xff0000ff,
                                                         "mode", SP_KNOT_MODE_XOR,
                                                         "shape", SP_KNOT_SHAPE_CIRCLE,
                                                         NULL );
 
-        SP_CTRL(canvasitem)->moveto(p.first);
+        SP_CTRL(canvasitem)->moveto(p.getPoint());
         _snapsource = _desktop->add_temporary_canvasitem(canvasitem, 1000);
     }
 }

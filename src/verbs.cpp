@@ -16,6 +16,7 @@
  *   MenTaLguY <mental@rydia.net>
  *   David Turner <novalis@gnu.org>
  *   bulia byak <buliabyak@users.sf.net>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 2006 Johan Engelen <johan@shouraizou.nl>
  * Copyright (C) (date unspecified) Authors
@@ -49,7 +50,6 @@
 #include "draw-context.h"
 #include "extension/effect.h"
 #include "file.h"
-#include "gradient-context.h"
 #include "gradient-drag.h"
 #include "helper/action.h"
 #include "help.h"
@@ -58,7 +58,6 @@
 #include "layer-fns.h"
 #include "layer-manager.h"
 #include "message-stack.h"
-#include "node-context.h"
 #include "path-chemistry.h"
 #include "preferences.h"
 #include "select-context.h"
@@ -80,6 +79,7 @@
 #include "ui/dialog/layers.h"
 #include "ui/dialog/swatches.h"
 #include "ui/icon-names.h"
+#include "ui/tool/node-tool.h"
 
 //#ifdef WITH_INKBOARD
 //#include "jabber_whiteboard/session-manager.h"
@@ -767,7 +767,7 @@ FileVerb::perform(SPAction *action, void *data, void */*pdata*/)
     Gtk::Window *parent = desktop->getToplevel();
     g_assert(parent != NULL);
 
-    switch ((long) data) {
+    switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_FILE_NEW:
             sp_file_new_default();
             break;
@@ -833,7 +833,6 @@ EditVerb::perform(SPAction *action, void *data, void */*pdata*/)
     SPDesktop *dt = static_cast<SPDesktop*>(sp_action_get_view(action));
     if (!dt)
         return;
-    SPEventContext *ec = dt->event_context;
 
     switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_EDIT_UNDO:
@@ -846,7 +845,7 @@ EditVerb::perform(SPAction *action, void *data, void */*pdata*/)
             sp_selection_cut(dt);
             break;
         case SP_VERB_EDIT_COPY:
-            sp_selection_copy();
+            sp_selection_copy(dt);
             break;
         case SP_VERB_EDIT_PASTE:
             sp_selection_paste(dt, false);
@@ -918,63 +917,26 @@ EditVerb::perform(SPAction *action, void *data, void */*pdata*/)
             sp_edit_clear_all(dt);
             break;
         case SP_VERB_EDIT_SELECT_ALL:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->select_all_from_subpath(false);
-            } else {
-                sp_edit_select_all(dt);
-            }
+            SelectionHelper::selectAll(dt);
             break;
         case SP_VERB_EDIT_INVERT:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->select_all_from_subpath(true);
-            } else {
-                sp_edit_invert(dt);
-            }
+            SelectionHelper::invert(dt);
             break;
         case SP_VERB_EDIT_SELECT_ALL_IN_ALL_LAYERS:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->select_all(false);
-            } else {
-                sp_edit_select_all_in_all_layers(dt);
-            }
+            SelectionHelper::selectAllInAll(dt);
             break;
         case SP_VERB_EDIT_INVERT_IN_ALL_LAYERS:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->select_all(true);
-            } else {
-                sp_edit_invert_in_all_layers(dt);
-            }
+            SelectionHelper::invertAllInAll(dt);
             break;
-
         case SP_VERB_EDIT_SELECT_NEXT:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->select_next();
-            } else if (tools_isactive(dt, TOOLS_GRADIENT)
-                       && ec->_grdrag->isNonEmpty()) {
-                sp_gradient_context_select_next (ec);
-            } else {
-                sp_selection_item_next(dt);
-            }
+            SelectionHelper::selectNext(dt);
             break;
         case SP_VERB_EDIT_SELECT_PREV:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->select_prev();
-            } else if (tools_isactive(dt, TOOLS_GRADIENT)
-                       && ec->_grdrag->isNonEmpty()) {
-                sp_gradient_context_select_prev (ec);
-            } else {
-                sp_selection_item_prev(dt);
-            }
+            SelectionHelper::selectPrev(dt);
             break;
-
         case SP_VERB_EDIT_DESELECT:
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                ec->shape_editor->deselect();
-            } else {
-                sp_desktop_selection(dt)->clear();
-            }
+            SelectionHelper::selectNone(dt);
             break;
-
         case SP_VERB_EDIT_GUIDES_AROUND_PAGE:
             sp_guide_create_guides_around_page(dt);
             break;
@@ -1086,7 +1048,7 @@ SelectionVerb::perform(SPAction *action, void *data, void */*pdata*/)
             sp_selected_path_simplify(dt);
             break;
         case SP_VERB_SELECTION_REVERSE:
-            sp_selected_path_reverse(dt);
+            SelectionHelper::reverse(dt);
             break;
         case SP_VERB_SELECTION_TRACE:
             inkscape_dialogs_unhide();
@@ -1117,7 +1079,7 @@ void
 LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
 {
     SPDesktop *dt = static_cast<SPDesktop*>(sp_action_get_view(action));
-    unsigned int verb = reinterpret_cast<std::size_t>(data);
+    size_t verb = reinterpret_cast<std::size_t>(data);
 
     if ( !dt || !dt->currentLayer() ) {
         return;
@@ -1365,41 +1327,12 @@ ObjectVerb::perform( SPAction *action, void *data, void */*pdata*/ )
             flowtext_to_text();
             break;
         case SP_VERB_OBJECT_FLIP_HORIZONTAL:
-            // When working with the node tool ...
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                Inkscape::NodePath::Node *active_node = Inkscape::NodePath::Path::active_node;
-
-                // ... and one of the nodes is currently mouseovered ...
-                if (active_node) {
-
-                    // ... flip the selected nodes about that node
-                    ec->shape_editor->flip(Geom::X, active_node->pos);
-                } else {
-
-                    // ... or else about the center of their bounding box.
-                    ec->shape_editor->flip(Geom::X);
-                }
-
-            // When working with the selector tool, flip the selection about its rotation center
-            // (if it is visible) or about the center of the bounding box.
-            } else {
-                sp_selection_scale_relative(sel, center, Geom::Scale(-1.0, 1.0));
-            }
+            sp_selection_scale_relative(sel, center, Geom::Scale(-1.0, 1.0));
             sp_document_done(sp_desktop_document(dt), SP_VERB_OBJECT_FLIP_HORIZONTAL,
                              _("Flip horizontally"));
             break;
         case SP_VERB_OBJECT_FLIP_VERTICAL:
-            // The behaviour is analogous to flipping horizontally
-            if (tools_isactive(dt, TOOLS_NODES)) {
-                Inkscape::NodePath::Node *active_node = Inkscape::NodePath::Path::active_node;
-                if (active_node) {
-                    ec->shape_editor->flip(Geom::Y, active_node->pos);
-                } else {
-                    ec->shape_editor->flip(Geom::Y);
-                }
-            } else {
-                sp_selection_scale_relative(sel, center, Geom::Scale(1.0, -1.0));
-            }
+            sp_selection_scale_relative(sel, center, Geom::Scale(1.0, -1.0));
             sp_document_done(sp_desktop_document(dt), SP_VERB_OBJECT_FLIP_VERTICAL,
                              _("Flip vertically"));
             break;
@@ -1635,7 +1568,7 @@ ZoomVerb::perform(SPAction *action, void *data, void */*pdata*/)
     gdouble zoom_inc =
         prefs->getDoubleLimited( "/options/zoomincrement/value", 1.414213562, 1.01, 10 );
 
-    switch (GPOINTER_TO_INT(data)) {
+    switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_ZOOM_IN:
         {
             gint mul = 1 + gobble_key_events(
@@ -1922,8 +1855,8 @@ TutorialVerb::perform(SPAction */*action*/, void *data, void */*pdata*/)
 {
     switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_TUTORIAL_BASIC:
-            /* TRANSLATORS: If you have translated the tutorial-basic.svg file to your language,
-               then translate this string as "tutorial-basic.LANG.svg" (where LANG is your language
+            /* TRANSLATORS: If you have translated the tutorial-basic.en.svgz file to your language,
+               then translate this string as "tutorial-basic.LANG.svgz" (where LANG is your language
                code); otherwise leave as "tutorial-basic.svg". */
             sp_help_open_tutorial(NULL, (gpointer)_("tutorial-basic.svg"));
             break;
@@ -1942,6 +1875,10 @@ TutorialVerb::perform(SPAction */*action*/, void *data, void */*pdata*/)
         case SP_VERB_TUTORIAL_CALLIGRAPHY:
             // TRANSLATORS: See "tutorial-basic.svg" comment.
             sp_help_open_tutorial(NULL, (gpointer)_("tutorial-calligraphy.svg"));
+            break;
+        case SP_VERB_TUTORIAL_INTERPOLATE:
+            // TRANSLATORS: See "tutorial-basic.svg" comment.
+            sp_help_open_tutorial(NULL, (gpointer)_("tutorial-interpolate.svg"));
             break;
         case SP_VERB_TUTORIAL_DESIGN:
             // TRANSLATORS: See "tutorial-basic.svg" comment.
@@ -2088,7 +2025,7 @@ EffectLastVerb::perform(SPAction *action, void *data, void */*pdata*/)
     if (effect == NULL) return;
     if (current_view == NULL) return;
 
-    switch ((long) data) {
+    switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_EFFECT_LAST_PREF:
             effect->prefs(current_view);
             break;
@@ -2153,7 +2090,7 @@ FitCanvasVerb::perform(SPAction *action, void *data, void */*pdata*/)
     SPDocument *doc = sp_desktop_document(dt);
     if (!doc) return;
 
-    switch ((long) data) {
+    switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_FIT_CANVAS_TO_SELECTION:
             verb_fit_canvas_to_selection(dt);
             break;
@@ -2222,7 +2159,7 @@ LockAndHideVerb::perform(SPAction *action, void *data, void */*pdata*/)
     SPDocument *doc = sp_desktop_document(dt);
     if (!doc) return;
 
-    switch ((long) data) {
+    switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_UNLOCK_ALL:
             unlock_all(dt);
             sp_document_done(doc, SP_VERB_UNLOCK_ALL, _("Unlock all objects in the current layer"));
@@ -2734,6 +2671,8 @@ Verb *Verb::_base_verbs[] = {
                      N_("Using bitmap tracing"), NULL/*"tutorial_tracing"*/),
     new TutorialVerb(SP_VERB_TUTORIAL_CALLIGRAPHY, "TutorialsCalligraphy", N_("Inkscape: _Calligraphy"),
                      N_("Using the Calligraphy pen tool"), NULL),
+    new TutorialVerb(SP_VERB_TUTORIAL_INTERPOLATE, "TutorialsInterpolate", N_("Inkscape: _Interpolate"),
+                     N_("Using the interpolate extension"), NULL/*"tutorial_interpolate"*/),
     new TutorialVerb(SP_VERB_TUTORIAL_DESIGN, "TutorialsDesign", N_("_Elements of Design"),
                      N_("Principles of design in the tutorial form"), NULL/*"tutorial_design"*/),
     new TutorialVerb(SP_VERB_TUTORIAL_TIPS, "TutorialsTips", N_("_Tips and Tricks"),

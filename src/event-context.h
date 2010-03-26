@@ -45,44 +45,48 @@ void sp_event_context_discard_delayed_snap_event(SPEventContext *ec);
 class DelayedSnapEvent
 {
 public:
-	enum DelayedSnapEventOrigin {
-		UNDEFINED_HANDLER = 0,
-		EVENTCONTEXT_ROOT_HANDLER,
-		EVENTCONTEXT_ITEM_HANDLER,
-		KNOT_HANDLER
-	};
+    enum DelayedSnapEventOrigin {
+        UNDEFINED_HANDLER = 0,
+        EVENTCONTEXT_ROOT_HANDLER,
+        EVENTCONTEXT_ITEM_HANDLER,
+        KNOT_HANDLER,
+        CONTROL_POINT_HANDLER,
+        GUIDE_HANDLER,
+        GUIDE_HRULER,
+        GUIDE_VRULER
+    };
 
-	DelayedSnapEvent(SPEventContext *event_context, SPItem* const item, SPKnot* knot, GdkEventMotion const *event, DelayedSnapEvent::DelayedSnapEventOrigin const origin)
-	: _timer_id(0), _event(NULL), _item(item), _knot(knot), _origin(origin), _event_context(event_context)
-	{
-		Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-		double value = prefs->getDoubleLimited("/options/snapdelay/value", 0, 0, 1000);
-		_timer_id = g_timeout_add(value, &sp_event_context_snap_watchdog_callback, this);
-		_event = gdk_event_copy((GdkEvent*) event);
-		((GdkEventMotion *)_event)->time = GDK_CURRENT_TIME;
-	}
+    DelayedSnapEvent(SPEventContext *event_context, gpointer const dse_item, gpointer dse_item2, GdkEventMotion const *event, DelayedSnapEvent::DelayedSnapEventOrigin const origin)
+    : _timer_id(0), _event(NULL), _item(dse_item), _item2(dse_item2), _origin(origin), _event_context(event_context)
+    {
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        double value = prefs->getDoubleLimited("/options/snapdelay/value", 0, 0, 1000);
+        _timer_id = g_timeout_add(value, &sp_event_context_snap_watchdog_callback, this);
+        _event = gdk_event_copy((GdkEvent*) event);
+        ((GdkEventMotion *)_event)->time = GDK_CURRENT_TIME;
+    }
 
-	~DelayedSnapEvent()	{
-		if (_timer_id > 0) g_source_remove(_timer_id); // Kill the watchdog
-		if (_event != NULL) gdk_event_free(_event); // Remove the copy of the original event
-	}
+    ~DelayedSnapEvent()    {
+        if (_timer_id > 0) g_source_remove(_timer_id); // Kill the watchdog
+        if (_event != NULL) gdk_event_free(_event); // Remove the copy of the original event
+    }
 
-	SPEventContext* getEventContext() {return _event_context;}
-	DelayedSnapEventOrigin getOrigin() {return _origin;}
-	GdkEvent* getEvent() {return _event;}
-	SPItem* getItem() {return _item;}
-	SPKnot* getKnot() {return _knot;}
+    SPEventContext* getEventContext() {return _event_context;}
+    DelayedSnapEventOrigin getOrigin() {return _origin;}
+    GdkEvent* getEvent() {return _event;}
+    gpointer getItem() {return _item;}
+    gpointer getItem2() {return _item2;}
 
 private:
-	guint _timer_id;
-	GdkEvent* _event;
-	SPItem* _item;
-	SPKnot* _knot;
-	DelayedSnapEventOrigin _origin;
-	SPEventContext* _event_context;
+    guint _timer_id;
+    GdkEvent* _event;
+    gpointer _item;
+    gpointer _item2;
+    DelayedSnapEventOrigin _origin;
+    SPEventContext* _event_context;
 };
 
-void sp_event_context_snap_delay_handler(SPEventContext *ec, SPItem* const item, SPKnot* const knot, GdkEventMotion *event, DelayedSnapEvent::DelayedSnapEventOrigin origin);
+void sp_event_context_snap_delay_handler(SPEventContext *ec, gpointer const dse_item, gpointer const dse_item2, GdkEventMotion *event, DelayedSnapEvent::DelayedSnapEventOrigin origin);
 
 /**
  * Base class for Event processors.
@@ -123,6 +127,7 @@ struct SPEventContext : public GObject {
     bool space_panning;
 
     DelayedSnapEvent *_delayed_snap_event;
+    bool _dse_callback_in_process;
 };
 
 /**
@@ -170,6 +175,7 @@ SPItem *sp_event_context_find_item (SPDesktop *desktop, Geom::Point const &p, bo
 SPItem *sp_event_context_over_item (SPDesktop *desktop, SPItem *item, Geom::Point const &p);
 
 ShapeEditor *sp_event_context_get_shape_editor (SPEventContext *ec);
+bool sp_event_context_knot_mouseover(SPEventContext *ec);
 
 void ec_shape_event_attr_changed(Inkscape::XML::Node *shape_repr,
                                      gchar const *name, gchar const *old_value, gchar const *new_value,
