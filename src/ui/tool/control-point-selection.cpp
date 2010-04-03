@@ -561,9 +561,9 @@ bool ControlPointSelection::event(GdkEvent *event)
 
         // rotates
         case GDK_bracketleft:
-            return _keyboardRotate(event->key, 1);
-        case GDK_bracketright:
             return _keyboardRotate(event->key, -1);
+        case GDK_bracketright:
+            return _keyboardRotate(event->key, 1);
 
         // scaling
         case GDK_less:
