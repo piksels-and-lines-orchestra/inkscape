@@ -2748,12 +2748,12 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
     Geom::Matrix t;
 
     double shift_x = bbox.x0;
-    double shift_y = bbox.y1;
+    double shift_y = bbox.y0;
     if (res == PX_PER_IN) { // for default 90 dpi, snap it to pixel grid
         shift_x = round(shift_x);
-        shift_y = -round(-shift_y); // this gets correct rounding despite coordinate inversion, remove the negations when the inversion is gone
+        shift_y = round(shift_y);
     }
-    t = Geom::Scale(1, -1) * Geom::Translate(shift_x, shift_y) * eek.inverse();
+    t = Geom::Translate(shift_x, shift_y) * eek.inverse();
 
     // Do the export
     sp_export_png_file(document, filepath,

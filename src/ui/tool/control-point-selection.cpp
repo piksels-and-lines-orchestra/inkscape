@@ -545,11 +545,11 @@ bool ControlPointSelection::event(GdkEvent *event)
         case GDK_Up:
         case GDK_KP_Up:
         case GDK_KP_8:
-            return _keyboardMove(event->key, Geom::Point(0, 1));
+            return _keyboardMove(event->key, Geom::Point(0, -1));
         case GDK_Down:
         case GDK_KP_Down:
         case GDK_KP_2:
-            return _keyboardMove(event->key, Geom::Point(0, -1));
+            return _keyboardMove(event->key, Geom::Point(0, 1));
         case GDK_Right:
         case GDK_KP_Right:
         case GDK_KP_6:

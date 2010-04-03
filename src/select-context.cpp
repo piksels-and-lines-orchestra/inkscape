@@ -765,12 +765,12 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         gint mul = 1 + gobble_key_events(
                             get_group0_keyval(&event->key), 0); // with any mask
                         if (MOD__ALT) { // alt
-                            if (MOD__SHIFT) sp_selection_move_screen(desktop, 0, mul*10); // shift
-                            else sp_selection_move_screen(desktop, 0, mul*1); // no shift
+                            if (MOD__SHIFT) sp_selection_move_screen(desktop, 0, mul*-10); // shift
+                            else sp_selection_move_screen(desktop, 0, mul*-1); // no shift
                         }
                         else { // no alt
-                            if (MOD__SHIFT) sp_selection_move(desktop, 0, mul*10*nudge); // shift
-                            else sp_selection_move(desktop, 0, mul*nudge); // no shift
+                            if (MOD__SHIFT) sp_selection_move(desktop, 0, mul*-10*nudge); // shift
+                            else sp_selection_move(desktop, 0, mul*-nudge); // no shift
                         }
                         ret = TRUE;
                     }
@@ -799,12 +799,12 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         gint mul = 1 + gobble_key_events(
                             get_group0_keyval(&event->key), 0); // with any mask
                         if (MOD__ALT) { // alt
-                            if (MOD__SHIFT) sp_selection_move_screen(desktop, 0, mul*-10); // shift
-                            else sp_selection_move_screen(desktop, 0, mul*-1); // no shift
+                            if (MOD__SHIFT) sp_selection_move_screen(desktop, 0, mul*10); // shift
+                            else sp_selection_move_screen(desktop, 0, mul*1); // no shift
                         }
                         else { // no alt
-                            if (MOD__SHIFT) sp_selection_move(desktop, 0, mul*-10*nudge); // shift
-                            else sp_selection_move(desktop, 0, mul*-nudge); // no shift
+                            if (MOD__SHIFT) sp_selection_move(desktop, 0, mul*10*nudge); // shift
+                            else sp_selection_move(desktop, 0, mul*nudge); // no shift
                         }
                         ret = TRUE;
                     }
