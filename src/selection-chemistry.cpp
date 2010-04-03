@@ -2273,9 +2273,8 @@ void sp_selection_to_marker(SPDesktop *desktop, bool apply)
     }
 
     // calculate the transform to be applied to objects to move them to 0,0
-    Geom::Point move_p = Geom::Point(0, sp_document_height(doc)) - *c;
-    move_p[Geom::Y] = -move_p[Geom::Y];
-    Geom::Matrix move = Geom::Matrix(Geom::Translate(move_p));
+    Geom::Point move_p = -*c;
+    Geom::Matrix move = Geom::Translate(move_p);
 
     GSList *items = g_slist_copy((GSList *) selection->itemList());
 
@@ -2396,8 +2395,7 @@ sp_selection_tile(SPDesktop *desktop, bool apply)
     }
 
     // calculate the transform to be applied to objects to move them to 0,0
-    Geom::Point move_p = Geom::Point(0, sp_document_height(doc)) - (r->min() + Geom::Point(0, r->dimensions()[Geom::Y]));
-    move_p[Geom::Y] = -move_p[Geom::Y];
+    Geom::Point move_p = -(r->min() + Geom::Point(0, r->dimensions()[Geom::Y]));
     Geom::Matrix move = Geom::Matrix(Geom::Translate(move_p));
 
     GSList *items = g_slist_copy((GSList *) selection->itemList());

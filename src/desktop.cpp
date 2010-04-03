@@ -1543,7 +1543,6 @@ SPDesktop::onDocumentURISet (gchar const* uri)
 void
 SPDesktop::onDocumentResized (gdouble width, gdouble height)
 {
-    _doc2dt[5] = height;
     sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (drawing), _doc2dt);
     Geom::Rect const a(Geom::Point(0, 0), Geom::Point(width, height));
     SP_CTRLRECT(page)->setRectangle(a);
