@@ -20,7 +20,7 @@
  *
  * The Initial Developer of the Original Code is
  * Jon A. Cruz.
- * Portions created by the Initial Developer are Copyright (C) 2007
+ * Portions created by the Initial Developer are Copyright (C) 2010
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
@@ -122,6 +122,22 @@ GtkTreeModel *ege_select_one_action_get_model(EgeSelectOneAction* action );
 gint ege_select_one_action_get_active( EgeSelectOneAction* action );
 
 /**
+ * Returns the text of the currently selected item.
+ *
+ * @param action The action to fetch the text for.
+ * @return the selected text. The caller is responsible to call g_free() on it when done.
+ */
+gchar *ege_select_one_action_get_active_text( EgeSelectOneAction* action );
+
+/**
+ * Sets the text of the currently selected item.
+ *
+ * @param action The action to fetch the text for.
+ * @param text the text to set.
+ */
+void ege_select_one_action_set_active_text( EgeSelectOneAction* action, gchar const *text );
+
+/**
  * Sets the  currently selected item.
  *
  * @param action The action to fetch the selected index for.
@@ -191,6 +207,15 @@ void ege_select_one_action_set_tooltip_column( EgeSelectOneAction* action, gint 
  */
 void ege_select_one_action_set_appearance( EgeSelectOneAction* action, gchar const* val );
 
+/**
+ * Sets to allow or disallow free entry additions to the list.
+ * The default is "closed" selections that do not allow additions/edits.
+ * This is the XForms functional 'selection' attribute: "open", "closed".
+ *
+ * @param action The action to set the tooltip column for.
+ * @param val The value of the selection attribute.
+ */
+void ege_select_one_action_set_selection( EgeSelectOneAction *action, gchar const* val );
 
 /* bit of a work-around */
 void ege_select_one_action_set_radio_action_type( EgeSelectOneAction* action, GType radioActionType );

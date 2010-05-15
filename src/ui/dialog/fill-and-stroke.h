@@ -4,8 +4,10 @@
 /* Authors:
  *   Bryce W. Harrington <bryce@bryceharrington.org>
  *   Gustav Broberg <broberg@kth.se>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 2004--2007 Authors
+ * Copyright (C) 2010 Jon A. Cruz
  *
  * Released under GNU GPL.  Read the file 'COPYING' for more information.
  */
@@ -23,8 +25,7 @@
 #include "ui/widget/panel.h"
 #include "ui/widget/notebook-page.h"
 #include "ui/widget/object-composite-settings.h"
-
-using namespace Inkscape::UI::Widget;
+#include "ui/dialog/desktop-tracker.h"
 
 namespace Inkscape {
 namespace UI {
@@ -37,6 +38,9 @@ public:
 
     static FillAndStroke &getInstance() { return *new FillAndStroke(); }
 
+
+    virtual void setDesktop(SPDesktop *desktop);
+
     void selectionChanged(Inkscape::Application *inkscape,
                           Inkscape::Selection *selection);
 
@@ -47,14 +51,14 @@ public:
 protected:
     Gtk::Notebook   _notebook;
 
-    NotebookPage    _page_fill;
-    NotebookPage    _page_stroke_paint;
-    NotebookPage    _page_stroke_style;
+    UI::Widget::NotebookPage    _page_fill;
+    UI::Widget::NotebookPage    _page_stroke_paint;
+    UI::Widget::NotebookPage    _page_stroke_style;
 
-    StyleSubject::Selection _subject;
-    ObjectCompositeSettings _composite_settings;
+    UI::Widget::StyleSubject::Selection _subject;
+    UI::Widget::ObjectCompositeSettings _composite_settings;
 
-    Gtk::HBox &_createPageTabLabel(const Glib::ustring &label, 
+    Gtk::HBox &_createPageTabLabel(const Glib::ustring &label,
                                    const char *label_image);
 
     void _layoutPageFill();
@@ -64,11 +68,20 @@ protected:
 private:
     FillAndStroke(FillAndStroke const &d);
     FillAndStroke& operator=(FillAndStroke const &d);
+
+    void setTargetDesktop(SPDesktop *desktop);
+
+    DesktopTracker deskTrack;
+    SPDesktop *targetDesktop;
+    Gtk::Widget *fillWdgt;
+    Gtk::Widget *strokeWdgt;
+    sigc::connection desktopChangeConn;
 };
 
 } // namespace Dialog
 } // namespace UI
 } // namespace Inkscape
+
 
 #endif // INKSCAPE_UI_DIALOG_FILL_AND_STROKE_H
 

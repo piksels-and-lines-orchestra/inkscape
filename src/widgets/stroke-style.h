@@ -3,25 +3,28 @@
  */
 /* Author:
  *   Lauris Kaplinski <lauris@ximian.com>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
+ * Copyright (C) 2010 Jon A. Cruz
  * Copyright (C) 2001 Ximian, Inc.
+ *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
 #ifndef SEEN_DIALOGS_STROKE_STYLE_H
 #define SEEN_DIALOGS_STROKE_STYLE_H
 
-#include <glib.h>
+namespace Gtk {
+class Widget;
+class Container;
+}
 
-#include <gtk/gtkwidget.h>
+Gtk::Widget *sp_stroke_style_paint_widget_new(void);
+Gtk::Container *sp_stroke_style_line_widget_new(void);
 
-#include "forward.h"
-#include "display/canvas-bpath.h"
+void sp_stroke_style_widget_set_desktop(Gtk::Widget *widget, SPDesktop *desktop);
 
-GtkWidget *sp_stroke_style_paint_widget_new (void);
-Gtk::Container *sp_stroke_style_line_widget_new (void);
-
-#endif
+#endif // SEEN_DIALOGS_STROKE_STYLE_H
 
 /*
   Local Variables:

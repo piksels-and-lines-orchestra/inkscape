@@ -24,6 +24,13 @@
 #include "display/curve.h"
 #include <2geom/pathvector.h>
 
+#if !PANGO_VERSION_CHECK(1,24,0)
+#define PANGO_WEIGHT_THIN       static_cast<PangoWeight>(100)
+#define PANGO_WEIGHT_BOOK       static_cast<PangoWeight>(380)
+#define PANGO_WEIGHT_MEDIUM     static_cast<PangoWeight>(500)
+#define PANGO_WEIGHT_ULTRAHEAVY static_cast<PangoWeight>(1000)
+#endif
+
 namespace Inkscape {
     namespace Extension {
         namespace Internal {
@@ -117,10 +124,10 @@ void Layout::getBoundingBox(NRRect *bounding_box, Geom::Matrix const &transform,
         Geom::Matrix total_transform = glyph_matrix;
         total_transform *= transform;
         if(_glyphs[glyph_index].span(this).font) {
-	    Geom::OptRect glyph_rect = _glyphs[glyph_index].span(this).font->BBox(_glyphs[glyph_index].glyph);
+            Geom::OptRect glyph_rect = _glyphs[glyph_index].span(this).font->BBox(_glyphs[glyph_index].glyph);
             if (glyph_rect) {
-	        Geom::Point bmi = glyph_rect->min(), bma = glyph_rect->max();
-	        Geom::Point tlp(bmi[0],bmi[1]), trp(bma[0],bmi[1]), blp(bmi[0],bma[1]), brp(bma[0],bma[1]);
+                Geom::Point bmi = glyph_rect->min(), bma = glyph_rect->max();
+                Geom::Point tlp(bmi[0],bmi[1]), trp(bma[0],bmi[1]), blp(bmi[0],bma[1]), brp(bma[0],bma[1]);
                 tlp *= total_transform;
                 trp *= total_transform;
                 blp *= total_transform;
@@ -133,7 +140,7 @@ void Layout::getBoundingBox(NRRect *bounding_box, Geom::Matrix const &transform,
                 if ( (glyph_rect->min())[1] < bounding_box->y0 ) bounding_box->y0=(glyph_rect->min())[1];
                 if ( (glyph_rect->max())[1] > bounding_box->y1 ) bounding_box->y1=(glyph_rect->max())[1];
             }
-	}
+        }
     }
 }
 
@@ -333,13 +340,17 @@ static char const *style_to_text(PangoStyle s)
 static char const *weight_to_text(PangoWeight w)
 {
     switch (w) {
+        case PANGO_WEIGHT_THIN      : return "thin";
         case PANGO_WEIGHT_ULTRALIGHT: return "ultralight";
         case PANGO_WEIGHT_LIGHT     : return "light";
-        case PANGO_WEIGHT_SEMIBOLD  : return "semibold";
+        case PANGO_WEIGHT_BOOK      : return "book";
         case PANGO_WEIGHT_NORMAL    : return "normalweight";
+        case PANGO_WEIGHT_MEDIUM    : return "medium";
+        case PANGO_WEIGHT_SEMIBOLD  : return "semibold";
         case PANGO_WEIGHT_BOLD      : return "bold";
         case PANGO_WEIGHT_ULTRABOLD : return "ultrabold";
         case PANGO_WEIGHT_HEAVY     : return "heavy";
+        case PANGO_WEIGHT_ULTRAHEAVY: return "ultraheavy";
     }
     return "???";
 }

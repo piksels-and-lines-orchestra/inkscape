@@ -211,10 +211,10 @@ nr_arena_glyphs_update(NRArenaItem *item, NRRectL */*area*/, NRGC *gc, guint /*s
     }
     if (nr_rect_d_test_empty(bbox)) return NR_ARENA_ITEM_STATE_ALL;
 
-    item->bbox.x0 = (gint32)(bbox.x0 - 1.0);
-    item->bbox.y0 = (gint32)(bbox.y0 - 1.0);
-    item->bbox.x1 = (gint32)(bbox.x1 + 1.0);
-    item->bbox.y1 = (gint32)(bbox.y1 + 1.0);
+    item->bbox.x0 = static_cast<NR::ICoord>(floor(bbox.x0));
+    item->bbox.y0 = static_cast<NR::ICoord>(floor(bbox.y0));
+    item->bbox.x1 = static_cast<NR::ICoord>(ceil (bbox.x1));
+    item->bbox.y1 = static_cast<NR::ICoord>(ceil (bbox.y1));
 
     return NR_ARENA_ITEM_STATE_ALL;
 }
@@ -234,7 +234,7 @@ nr_arena_glyphs_clip(NRArenaItem *item, NRRectL */*area*/, NRPixBlock */*pb*/)
 }
 
 static NRArenaItem *
-nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, gdouble /*delta*/, unsigned int /*sticky*/)
+nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, gdouble delta, unsigned int /*sticky*/)
 {
     NRArenaGlyphs *glyphs;
 
@@ -246,7 +246,7 @@ nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, gdouble /*delta*/, unsign
     double const x = p[Geom::X];
     double const y = p[Geom::Y];
     /* With text we take a simple approach: pick if the point is in a characher bbox */
-    if ((x >= item->bbox.x0) && (y >= item->bbox.y0) && (x <= item->bbox.x1) && (y <= item->bbox.y1)) return item;
+    if ((x + delta >= item->bbox.x0) && (y + delta >= item->bbox.y0) && (x - delta <= item->bbox.x1) && (y - delta <= item->bbox.y1)) return item;
 
     return NULL;
 }

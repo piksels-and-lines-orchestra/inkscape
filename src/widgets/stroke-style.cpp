@@ -25,6 +25,7 @@
 #include "desktop-handles.h"
 #include "desktop-style.h"
 #include "dialogs/dialog-events.h"
+#include "display/canvas-bpath.h" // for SP_STROKE_LINEJOIN_*
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
 #include "document-private.h"
@@ -54,23 +55,9 @@
 #include "widgets/spw-utilities.h"
 #include "xml/repr.h"
 
-#include "widgets/stroke-style.h"
-
-
-/* Paint */
-
-static void sp_stroke_style_paint_selection_modified (SPWidget *spw, Inkscape::Selection *selection, guint flags, SPPaintSelector *psel);
-static void sp_stroke_style_paint_selection_changed (SPWidget *spw, Inkscape::Selection *selection, SPPaintSelector *psel);
-static void sp_stroke_style_paint_update(SPWidget *spw);
-
-static void sp_stroke_style_paint_mode_changed(SPPaintSelector *psel, SPPaintSelector::Mode mode, SPWidget *spw);
-static void sp_stroke_style_paint_dragged(SPPaintSelector *psel, SPWidget *spw);
-static void sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw);
-
-static void sp_stroke_style_widget_change_subselection ( Inkscape::Application *inkscape, SPDesktop *desktop, SPWidget *spw );
-static void sp_stroke_style_widget_transientize_callback(Inkscape::Application *inkscape,
-                                                         SPDesktop *desktop,
-                                                         SPWidget *spw );
+#include "stroke-style.h"
+#include "fill-style.h" // to get sp_fill_style_widget_set_desktop
+#include "fill-n-stroke-factory.h"
 
 /** Marker selection option menus */
 static Gtk::OptionMenu * marker_start_menu = NULL;
@@ -86,399 +73,15 @@ static void      ink_markers_menu_update(Gtk::Container* spw, SPMarkerLoc const 
 
 static Inkscape::UI::Cache::SvgPreview svg_preview_cache;
 
-/**
- * Create the stroke style widget, and hook up all the signals.
- */
-GtkWidget *
-sp_stroke_style_paint_widget_new(void)
+Gtk::Widget *sp_stroke_style_paint_widget_new(void)
 {
-    GtkWidget *spw, *psel;
-
-    spw = sp_widget_new_global(INKSCAPE);
-
-    psel = sp_paint_selector_new(false); // without fillrule selector
-    gtk_widget_show(psel);
-    gtk_container_add(GTK_CONTAINER(spw), psel);
-    gtk_object_set_data(GTK_OBJECT(spw), "paint-selector", psel);
-
-    gtk_signal_connect(GTK_OBJECT(spw), "modify_selection",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_paint_selection_modified),
-                       psel);
-    gtk_signal_connect(GTK_OBJECT(spw), "change_selection",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_paint_selection_changed),
-                       psel);
-
-    g_signal_connect (INKSCAPE, "change_subselection", G_CALLBACK (sp_stroke_style_widget_change_subselection), spw);
-
-    g_signal_connect (G_OBJECT(INKSCAPE), "activate_desktop", G_CALLBACK (sp_stroke_style_widget_transientize_callback), spw );
-
-    gtk_signal_connect(GTK_OBJECT(psel), "mode_changed",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_paint_mode_changed),
-                       spw);
-    gtk_signal_connect(GTK_OBJECT(psel), "dragged",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_paint_dragged),
-                       spw);
-    gtk_signal_connect(GTK_OBJECT(psel), "changed",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_paint_changed),
-                       spw);
-
-    sp_stroke_style_paint_update (SP_WIDGET(spw));
-    return spw;
+    return Inkscape::Widgets::createStyleWidget( STROKE );
 }
 
-/**
- * On signal modified, invokes an update of the stroke style paint object.
- */
-static void
-sp_stroke_style_paint_selection_modified( SPWidget *spw,
-                                          Inkscape::Selection */*selection*/,
-                                          guint flags,
-                                          SPPaintSelector */*psel*/ )
+void sp_stroke_style_widget_set_desktop(Gtk::Widget *widget, SPDesktop *desktop)
 {
-    if (flags & ( SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_PARENT_MODIFIED_FLAG |
-                  SP_OBJECT_STYLE_MODIFIED_FLAG) ) {
-        sp_stroke_style_paint_update(spw);
-    }
+    sp_fill_style_widget_set_desktop(widget, desktop);
 }
-
-
-/**
- * On signal selection changed, invokes an update of the stroke style paint object.
- */
-static void
-sp_stroke_style_paint_selection_changed( SPWidget *spw,
-                                         Inkscape::Selection */*selection*/,
-                                         SPPaintSelector */*psel*/ )
-{
-    sp_stroke_style_paint_update (spw);
-}
-
-
-/**
- * On signal change subselection, invoke an update of the stroke style widget.
- */
-static void
-sp_stroke_style_widget_change_subselection( Inkscape::Application */*inkscape*/,
-                                            SPDesktop */*desktop*/,
-                                            SPWidget *spw )
-{
-    sp_stroke_style_paint_update (spw);
-}
-
-/**
- * Gets the active stroke style property, then sets the appropriate color, alpha, gradient,
- * pattern, etc. for the paint-selector.
- */
-static void
-sp_stroke_style_paint_update (SPWidget *spw)
-{
-    if (gtk_object_get_data(GTK_OBJECT(spw), "update")) {
-        return;
-    }
-
-    gtk_object_set_data(GTK_OBJECT(spw), "update", GINT_TO_POINTER(TRUE));
-
-    SPPaintSelector *psel = SP_PAINT_SELECTOR(gtk_object_get_data(GTK_OBJECT(spw), "paint-selector"));
-
-    // create temporary style
-    SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
-    // query into it
-    int result = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_STROKE);
-
-    switch (result) {
-        case QUERY_STYLE_NOTHING:
-        {
-            /* No paint at all */
-            psel->setMode(SPPaintSelector::MODE_EMPTY);
-            break;
-        }
-
-        case QUERY_STYLE_SINGLE:
-        case QUERY_STYLE_MULTIPLE_AVERAGED: // TODO: treat this slightly differently, e.g. display "averaged" somewhere in paint selector
-        case QUERY_STYLE_MULTIPLE_SAME:
-        {
-            SPPaintSelector::Mode pselmode = SPPaintSelector::getModeForStyle(*query, false);
-            psel->setMode(pselmode);
-
-            if (query->stroke.set && query->stroke.isPaintserver()) {
-
-                SPPaintServer *server = SP_STYLE_STROKE_SERVER (query);
-
-                if (server && server->isSwatch()) {
-                    SPGradient *vector = SP_GRADIENT(server)->getVector();
-                    psel->setSwatch( vector );
-                } else if (SP_IS_LINEARGRADIENT (server)) {
-                    SPGradient *vector = SP_GRADIENT(server)->getVector();
-                    psel->setGradientLinear( vector );
-
-                    SPLinearGradient *lg = SP_LINEARGRADIENT (server);
-                    psel->setGradientProperties( SP_GRADIENT_UNITS(lg),
-                                                 SP_GRADIENT_SPREAD(lg) );
-                } else if (SP_IS_RADIALGRADIENT (server)) {
-                    SPGradient *vector = SP_GRADIENT(server)->getVector();
-                    psel->setGradientRadial( vector );
-
-                    SPRadialGradient *rg = SP_RADIALGRADIENT (server);
-                    psel->setGradientProperties( SP_GRADIENT_UNITS(rg),
-                                                 SP_GRADIENT_SPREAD(rg) );
-                } else if (SP_IS_PATTERN (server)) {
-                    SPPattern *pat = pattern_getroot (SP_PATTERN (server));
-                    psel->updatePatternList( pat );
-                }
-            } else if (query->stroke.set && query->stroke.isColor()) {
-                psel->setColorAlpha(query->stroke.value.color, SP_SCALE24_TO_FLOAT(query->stroke_opacity.value));
-            }
-            break;
-        }
-
-        case QUERY_STYLE_MULTIPLE_DIFFERENT:
-        {
-            psel->setMode(SPPaintSelector::MODE_MULTIPLE);
-            break;
-        }
-    }
-
-    sp_style_unref(query);
-
-    gtk_object_set_data(GTK_OBJECT(spw), "update", GINT_TO_POINTER(FALSE));
-}
-
-/**
- * When the mode is changed, invoke a regular changed handler.
- */
-static void
-sp_stroke_style_paint_mode_changed( SPPaintSelector *psel,
-                                    SPPaintSelector::Mode /*mode*/,
-                                    SPWidget *spw )
-{
-    if (gtk_object_get_data(GTK_OBJECT(spw), "update")) {
-        return;
-    }
-
-    /* TODO: Does this work?
-     * Not really, here we have to get old color back from object
-     * Instead of relying on paint widget having meaningful colors set
-     */
-    sp_stroke_style_paint_changed(psel, spw);
-}
-
-static gchar const *const undo_label_1 = "stroke:flatcolor:1";
-static gchar const *const undo_label_2 = "stroke:flatcolor:2";
-static gchar const *undo_label = undo_label_1;
-
-/**
- * When a drag callback occurs on a paint selector object, if it is a RGB or CMYK
- * color mode, then set the stroke opacity to psel's flat color.
- */
-static void
-sp_stroke_style_paint_dragged(SPPaintSelector *psel, SPWidget *spw)
-{
-    if (gtk_object_get_data(GTK_OBJECT(spw), "update")) {
-        return;
-    }
-
-    switch (psel->mode) {
-        case SPPaintSelector::MODE_COLOR_RGB:
-        case SPPaintSelector::MODE_COLOR_CMYK:
-        {
-            psel->setFlatColor( SP_ACTIVE_DESKTOP, "stroke", "stroke-opacity" );
-            sp_document_maybe_done (sp_desktop_document(SP_ACTIVE_DESKTOP), undo_label, SP_VERB_DIALOG_FILL_STROKE,
-                                    _("Set stroke color"));
-            break;
-        }
-
-        default:
-            g_warning( "file %s: line %d: Paint %d should not emit 'dragged'",
-                       __FILE__, __LINE__, psel->mode);
-            break;
-    }
-}
-
-/**
- * When the stroke style's paint settings change, this handler updates the
- * repr's stroke css style and applies the style to relevant drawing items.
- */
-static void
-sp_stroke_style_paint_changed(SPPaintSelector *psel, SPWidget *spw)
-{
-    if (gtk_object_get_data(GTK_OBJECT(spw), "update")) {
-        return;
-    }
-    g_object_set_data (G_OBJECT (spw), "update", GINT_TO_POINTER (TRUE));
-
-    SPDesktop *desktop = SP_ACTIVE_DESKTOP;
-    SPDocument *document = sp_desktop_document (desktop);
-    Inkscape::Selection *selection = sp_desktop_selection (desktop);
-
-    GSList const *items = selection->itemList();
-
-    switch (psel->mode) {
-        case SPPaintSelector::MODE_EMPTY:
-            // This should not happen.
-            g_warning ( "file %s: line %d: Paint %d should not emit 'changed'",
-                        __FILE__, __LINE__, psel->mode);
-            break;
-        case SPPaintSelector::MODE_MULTIPLE:
-            // This happens when you switch multiple objects with different gradients to flat color;
-            // nothing to do here.
-            break;
-
-        case SPPaintSelector::MODE_NONE:
-        {
-            SPCSSAttr *css = sp_repr_css_attr_new();
-            sp_repr_css_set_property(css, "stroke", "none");
-
-            sp_desktop_set_style (desktop, css);
-
-            sp_repr_css_attr_unref(css);
-
-            sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
-                             _("Remove stroke"));
-            break;
-        }
-
-        case SPPaintSelector::MODE_COLOR_RGB:
-        case SPPaintSelector::MODE_COLOR_CMYK:
-        {
-            psel->setFlatColor(desktop, "stroke", "stroke-opacity");
-            sp_document_maybe_done (sp_desktop_document(desktop), undo_label, SP_VERB_DIALOG_FILL_STROKE,
-                                    _("Set stroke color"));
-
-            // on release, toggle undo_label so that the next drag will not be lumped with this one
-            if (undo_label == undo_label_1)
-                undo_label = undo_label_2;
-            else
-                undo_label = undo_label_1;
-
-            break;
-        }
-
-        case SPPaintSelector::MODE_GRADIENT_LINEAR:
-        case SPPaintSelector::MODE_GRADIENT_RADIAL:
-            if (items) {
-                SPGradientType const gradient_type = ( psel->mode == SPPaintSelector::MODE_GRADIENT_LINEAR
-                                                       ? SP_GRADIENT_TYPE_LINEAR
-                                                       : SP_GRADIENT_TYPE_RADIAL );
-                SPGradient *vector = psel->getGradientVector();
-                if (!vector) {
-                    /* No vector in paint selector should mean that we just changed mode */
-
-                    SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
-                    int result = objects_query_fillstroke ((GSList *) items, query, false);
-                    guint32 common_rgb = 0;
-                    if (result == QUERY_STYLE_MULTIPLE_SAME) {
-                        if (!query->fill.isColor()) {
-                            common_rgb = sp_desktop_get_color(desktop, false);
-                        } else {
-                            common_rgb = query->stroke.value.color.toRGBA32( 0xff );
-                        }
-                        vector = sp_document_default_gradient_vector(document, common_rgb);
-                    }
-                    sp_style_unref(query);
-
-                    for (GSList const *i = items; i != NULL; i = i->next) {
-                        if (!vector) {
-                            sp_item_set_gradient(SP_ITEM(i->data),
-                                                 sp_gradient_vector_for_object(document, desktop, SP_OBJECT(i->data), false),
-                                                 gradient_type, false);
-                        } else {
-                            sp_item_set_gradient(SP_ITEM(i->data), vector, gradient_type, false);
-                        }
-                    }
-                } else {
-                    vector = sp_gradient_ensure_vector_normalized(vector);
-                    for (GSList const *i = items; i != NULL; i = i->next) {
-                        SPGradient *gr = sp_item_set_gradient(SP_ITEM(i->data), vector, gradient_type, false);
-                        psel->pushAttrsToGradient( gr );
-                    }
-                }
-
-                sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
-                                 _("Set gradient on stroke"));
-            }
-            break;
-
-        case SPPaintSelector::MODE_PATTERN:
-
-            if (items) {
-
-                SPPattern *pattern = psel->getPattern();
-                if (!pattern) {
-
-                    /* No Pattern in paint selector should mean that we just
-                     * changed mode - dont do jack.
-                     */
-
-                } else {
-                    Inkscape::XML::Node *patrepr = SP_OBJECT_REPR(pattern);
-                    SPCSSAttr *css = sp_repr_css_attr_new ();
-                    gchar *urltext = g_strdup_printf ("url(#%s)", patrepr->attribute("id"));
-                    sp_repr_css_set_property (css, "stroke", urltext);
-
-                    for (GSList const *i = items; i != NULL; i = i->next) {
-                         Inkscape::XML::Node *selrepr = SP_OBJECT_REPR (i->data);
-                         SPObject *selobj = SP_OBJECT (i->data);
-                         if (!selrepr)
-                             continue;
-
-                         SPStyle *style = SP_OBJECT_STYLE (selobj);
-                         if (style && style->stroke.isPaintserver()) {
-                             SPObject *server = SP_OBJECT_STYLE_STROKE_SERVER (selobj);
-                             if (SP_IS_PATTERN (server) && pattern_getroot (SP_PATTERN(server)) == pattern)
-                                 // only if this object's pattern is not rooted in our selected pattern, apply
-                                 continue;
-                         }
-
-                         sp_repr_css_change_recursive (selrepr, css, "style");
-                     }
-
-                    sp_repr_css_attr_unref (css);
-                    g_free (urltext);
-
-                } // end if
-
-                sp_document_done (document, SP_VERB_DIALOG_FILL_STROKE,
-                                  _("Set pattern on stroke"));
-            } // end if
-
-            break;
-
-        case SPPaintSelector::MODE_SWATCH:
-            // TODO
-            break;
-
-        case SPPaintSelector::MODE_UNSET:
-            if (items) {
-                    SPCSSAttr *css = sp_repr_css_attr_new ();
-                    sp_repr_css_unset_property (css, "stroke");
-                    sp_repr_css_unset_property (css, "stroke-opacity");
-                    sp_repr_css_unset_property (css, "stroke-width");
-                    sp_repr_css_unset_property (css, "stroke-miterlimit");
-                    sp_repr_css_unset_property (css, "stroke-linejoin");
-                    sp_repr_css_unset_property (css, "stroke-linecap");
-                    sp_repr_css_unset_property (css, "stroke-dashoffset");
-                    sp_repr_css_unset_property (css, "stroke-dasharray");
-
-                    sp_desktop_set_style (desktop, css);
-                    sp_repr_css_attr_unref (css);
-
-                    sp_document_done (document, SP_VERB_DIALOG_FILL_STROKE,
-                                      _("Unset stroke"));
-            }
-            break;
-
-        default:
-            g_warning( "file %s: line %d: Paint selector should not be in "
-                       "mode %d",
-                       __FILE__, __LINE__,
-                       psel->mode );
-            break;
-    }
-
-    g_object_set_data (G_OBJECT (spw), "update", GINT_TO_POINTER (FALSE));
-}
-
-
 
 
 
@@ -537,25 +140,15 @@ sp_stroke_radio_button(Gtk::RadioButton *tb, char const *icon,
 
 }
 
-static void
-sp_stroke_style_widget_transientize_callback(Inkscape::Application */*inkscape*/,
-                                             SPDesktop */*desktop*/,
-                                             SPWidget */*spw*/ )
-{
-// TODO:  Either of these will cause crashes sometimes
-//    sp_stroke_style_line_update( SP_WIDGET(spw), desktop ? sp_desktop_selection(desktop) : NULL);
-//    ink_markers_menu_update(spw);
-}
-
 /**
- * Creates a copy of the marker named mname, determines its visible and renderable
+ * Create sa copy of the marker named mname, determines its visible and renderable
  * area in menu_id's bounding box, and then renders it.  This allows us to fill in
  * preview images of each marker in the marker menu.
  */
 static Gtk::Image *
 sp_marker_prev_new(unsigned psize, gchar const *mname,
                    SPDocument *source, SPDocument *sandbox,
-                   gchar const *menu_id, NRArena const */*arena*/, unsigned /*visionkey*/, NRArenaItem *root)
+                   gchar const *menu_id, NRArena const * /*arena*/, unsigned /*visionkey*/, NRArenaItem *root)
 {
     // Retrieve the marker named 'mname' from the source SVG document
     SPObject const *marker = source->getObjectById(mname);
@@ -699,7 +292,7 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
  *
  */
 static void
-sp_marker_list_from_doc (Gtk::Menu *m, SPDocument */*current_doc*/, SPDocument *source, SPDocument */*markers_doc*/, SPDocument *sandbox, gchar const *menu_id)
+sp_marker_list_from_doc (Gtk::Menu *m, SPDocument * /*current_doc*/, SPDocument *source, SPDocument * /*markers_doc*/, SPDocument *sandbox, gchar const *menu_id)
 {
     GSList *ml = ink_marker_list_get(source);
     GSList *clean_ml = NULL;
@@ -808,7 +401,7 @@ ink_marker_menu_create_menu(Gtk::Menu *m, gchar const *menu_id, SPDocument *doc,
  * Creates a menu widget to display markers from markers.svg
  */
 static Gtk::OptionMenu *
-ink_marker_menu(Gtk::Widget */*tbl*/, gchar const *menu_id, SPDocument *sandbox)
+ink_marker_menu(Gtk::Widget * /*tbl*/, gchar const *menu_id, SPDocument *sandbox)
 {
     SPDesktop *desktop = inkscape_active_desktop();
     SPDocument *doc = sp_desktop_document(desktop);
@@ -903,6 +496,7 @@ sp_marker_select(Gtk::OptionMenu *mnu, Gtk::Container *spw, SPMarkerLoc const wh
      }
 
     sp_repr_css_attr_unref(css);
+    css = 0;
 
     sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
                      _("Set markers"));
@@ -1269,12 +863,12 @@ sp_stroke_style_line_widget_new(void)
 
     // FIXME: we cheat and still use gtk+ signals
 
-    gtk_signal_connect(GTK_OBJECT(spw_old), "modify_selection",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_line_selection_modified),
-                       spw);
-    gtk_signal_connect(GTK_OBJECT(spw_old), "change_selection",
-                       GTK_SIGNAL_FUNC(sp_stroke_style_line_selection_changed),
-                       spw);
+    g_signal_connect(G_OBJECT(spw_old), "modify_selection",
+                     G_CALLBACK(sp_stroke_style_line_selection_modified),
+                     spw);
+    g_signal_connect(G_OBJECT(spw_old), "change_selection",
+                     G_CALLBACK(sp_stroke_style_line_selection_changed),
+                     spw);
 
     sp_stroke_style_line_update(spw, desktop ? sp_desktop_selection(desktop) : NULL);
 
@@ -1393,6 +987,8 @@ sp_stroke_style_line_update(Gtk::Container *spw, Inkscape::Selection *sel)
 
     spw->set_data("update", GINT_TO_POINTER(TRUE));
 
+    FillOrStroke kind = GPOINTER_TO_INT(spw->get_data("kind")) ? FILL : STROKE;
+
     Gtk::Table *sset = static_cast<Gtk::Table *>(spw->get_data("stroke"));
     Gtk::Adjustment *width = static_cast<Gtk::Adjustment *>(spw->get_data("width"));
     Gtk::Adjustment *ml = static_cast<Gtk::Adjustment *>(spw->get_data("miterlimit"));
@@ -1406,10 +1002,11 @@ sp_stroke_style_line_update(Gtk::Container *spw, Inkscape::Selection *sel)
     int result_ml = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_STROKEMITERLIMIT);
     int result_cap = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_STROKECAP);
     int result_join = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_STROKEJOIN);
+    SPIPaint &targPaint = (kind == FILL) ? query->fill : query->stroke;
 
     if (!sel || sel->isEmpty()) {
         // Nothing selected, grey-out all controls in the stroke-style dialog
-    	sset->set_sensitive(false);
+        sset->set_sensitive(false);
 
         spw->set_data("update", GINT_TO_POINTER(FALSE));
 
@@ -1439,7 +1036,7 @@ sp_stroke_style_line_update(Gtk::Container *spw, Inkscape::Selection *sel)
 
         // if none of the selected objects has a stroke, than quite some controls should be disabled
         // The markers might still be shown though, so these will not be disabled
-        bool enabled = (result_sw != QUERY_STYLE_NOTHING) && !query->stroke.isNoneSet();
+        bool enabled = (result_sw != QUERY_STYLE_NOTHING) && !targPaint.isNoneSet();
         /* No objects stroked, set insensitive */
         Gtk::RadioButton *tb = NULL;
         tb = static_cast<Gtk::RadioButton *>(spw->get_data("miter join"));
@@ -1454,11 +1051,11 @@ sp_stroke_style_line_update(Gtk::Container *spw, Inkscape::Selection *sel)
         sb->set_sensitive(enabled);
 
         tb = static_cast<Gtk::RadioButton *>(spw->get_data("cap butt"));
-		tb->set_sensitive(enabled);
-		tb = static_cast<Gtk::RadioButton *>(spw->get_data("cap round"));
-		tb->set_sensitive(enabled);
-		tb = static_cast<Gtk::RadioButton *>(spw->get_data("cap square"));
-		tb->set_sensitive(enabled);
+        tb->set_sensitive(enabled);
+        tb = static_cast<Gtk::RadioButton *>(spw->get_data("cap round"));
+        tb->set_sensitive(enabled);
+        tb = static_cast<Gtk::RadioButton *>(spw->get_data("cap square"));
+        tb->set_sensitive(enabled);
 
         dsel->set_sensitive(enabled);
     }
@@ -1604,6 +1201,7 @@ sp_stroke_style_scale_line(Gtk::Container *spw)
     sp_desktop_set_style (desktop, css, false);
 
     sp_repr_css_attr_unref(css);
+    css = 0;
 
     sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
                      _("Set stroke style"));
@@ -1700,6 +1298,7 @@ sp_stroke_style_any_toggled(Gtk::ToggleButton *tb, Gtk::Container *spw)
         }
 
         sp_repr_css_attr_unref(css);
+        css = 0;
 
         sp_document_done(sp_desktop_document(desktop), SP_VERB_DIALOG_FILL_STROKE,
                          _("Set stroke style"));

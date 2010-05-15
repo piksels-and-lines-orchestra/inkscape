@@ -115,6 +115,7 @@ extensions = \
 	sk2svg.sh \
 	SpSVG.pm \
 	spirograph.py\
+	split.py \
 	straightseg.py \
 	summersnight.py \
 	svgcalendar.py \
@@ -133,9 +134,10 @@ extensions = \
 	uniconv-ext.py \
 	uniconv_output.py \
 	voronoi.py \
-	webslicer-create-group.py \
-	webslicer-create-rect.py \
-	webslicer-export.py \
+	webslicer_create_group.py \
+	webslicer_create_rect.py \
+	webslicer_effect.py \
+	webslicer_export.py \
 	web-set-att.py \
 	web-transmit-att.py \
 	whirl.py \
@@ -244,6 +246,7 @@ modules = \
 	sk1_input.inx \
 	sk1_output.inx \
 	spirograph.inx \
+	split.inx \
 	straightseg.inx \
 	summersnight.inx \
 	svg2xaml.inx \
@@ -259,9 +262,9 @@ modules = \
 	text_braille.inx \
 	triangle.inx \
 	txt2svg.inx \
-	webslicer-create-group.inx \
-	webslicer-create-rect.inx \
-	webslicer-export.inx \
+	webslicer_create_group.inx \
+	webslicer_create_rect.inx \
+	webslicer_export.inx \
 	web-set-att.inx \
 	web-transmit-att.inx \
 	whirl.inx \

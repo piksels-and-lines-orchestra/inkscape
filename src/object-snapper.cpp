@@ -151,8 +151,8 @@ void Inkscape::ObjectSnapper::_findCandidates(SPObject* parent,
                             // This item is within snapping range, so record it as a candidate
                             _candidates->push_back(SnapCandidateItem(item, clip_or_mask, additional_affine));
                             // For debugging: print the id of the candidate to the console
-                            //SPObject *obj = (SPObject*)item;
-                            //std::cout << "Snap candidate added: " << obj->id << std::endl;
+                            // SPObject *obj = (SPObject*)item;
+                            // std::cout << "Snap candidate added: " << obj->getId() << std::endl;
                         }
                     }
                 }
@@ -733,7 +733,7 @@ Geom::PathVector* Inkscape::ObjectSnapper::_getBorderPathv() const
 
 Geom::PathVector* Inkscape::ObjectSnapper::_getPathvFromRect(Geom::Rect const rect) const
 {
-    SPCurve const *border_curve = SPCurve::new_from_rect(rect);
+    SPCurve const *border_curve = SPCurve::new_from_rect(rect, true);
     if (border_curve) {
         Geom::PathVector *dummy = new Geom::PathVector(border_curve->get_pathvector());
         return dummy;

@@ -13,6 +13,7 @@
 [type: gettext/xml] share/extensions/cdt_input.inx
 [type: gettext/xml] share/extensions/cgm_input.inx
 [type: gettext/xml] share/extensions/cmx_input.inx
+[type: gettext/xml] share/extensions/color_blackandwhite.inx
 [type: gettext/xml] share/extensions/color_brighter.inx
 [type: gettext/xml] share/extensions/color_custom.inx
 [type: gettext/xml] share/extensions/color_darker.inx
@@ -95,6 +96,7 @@
 [type: gettext/xml] share/extensions/sk1_output.inx
 [type: gettext/xml] share/extensions/sk_input.inx
 [type: gettext/xml] share/extensions/spirograph.inx
+[type: gettext/xml] share/extensions/split.inx
 [type: gettext/xml] share/extensions/straightseg.inx
 [type: gettext/xml] share/extensions/summersnight.inx
 [type: gettext/xml] share/extensions/svg2xaml.inx
@@ -110,9 +112,9 @@
 [type: gettext/xml] share/extensions/text_uppercase.inx
 [type: gettext/xml] share/extensions/triangle.inx
 [type: gettext/xml] share/extensions/txt2svg.inx
-[type: gettext/xml] share/extensions/webslicer-create-group.inx
-[type: gettext/xml] share/extensions/webslicer-create-rect.inx
-[type: gettext/xml] share/extensions/webslicer-export.inx
+[type: gettext/xml] share/extensions/webslicer_create_group.inx
+[type: gettext/xml] share/extensions/webslicer_create_rect.inx
+[type: gettext/xml] share/extensions/webslicer_export.inx
 [type: gettext/xml] share/extensions/web-set-att.inx
 [type: gettext/xml] share/extensions/web-transmit-att.inx
 [type: gettext/xml] share/extensions/whirl.inx
@@ -357,6 +359,7 @@ src/ui/dialog/filedialogimpl-win32.cpp
 src/ui/dialog/fill-and-stroke.cpp
 src/ui/dialog/filter-effects-dialog.cpp
 src/ui/dialog/find.cpp
+src/ui/dialog/glyphs.cpp 
 src/ui/dialog/guides.cpp
 src/ui/dialog/icon-preview.cpp
 src/ui/dialog/inkscape-preferences.cpp
@@ -447,6 +450,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/cdt_input.inx
 [type: gettext/xml] share/extensions/cgm_input.inx
 [type: gettext/xml] share/extensions/cmx_input.inx
+[type: gettext/xml] share/extensions/color_blackandwhite.inx
 [type: gettext/xml] share/extensions/color_brighter.inx
 [type: gettext/xml] share/extensions/color_custom.inx
 [type: gettext/xml] share/extensions/color_darker.inx
@@ -530,6 +534,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/sk1_output.inx
 [type: gettext/xml] share/extensions/sk_input.inx
 [type: gettext/xml] share/extensions/spirograph.inx
+[type: gettext/xml] share/extensions/split.inx
 [type: gettext/xml] share/extensions/straightseg.inx
 [type: gettext/xml] share/extensions/summersnight.inx
 [type: gettext/xml] share/extensions/svg2xaml.inx

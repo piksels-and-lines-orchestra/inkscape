@@ -40,7 +40,6 @@
 #include "desktop-handles.h"
 #include "dialogs/clonetiler.h"
 #include "dialogs/find.h"
-#include "dialogs/input.h"
 #include "dialogs/item-properties.h"
 #include "dialogs/spellcheck.h"
 #include "dialogs/text-edit.h"
@@ -73,6 +72,7 @@
 #include "ui/dialog/dialog-manager.h"
 #include "ui/dialog/document-properties.h"
 #include "ui/dialog/extensions.h"
+#include "ui/dialog/glyphs.h"
 #include "ui/dialog/icon-preview.h"
 #include "ui/dialog/inkscape-preferences.h"
 #include "ui/dialog/layer-properties.h"
@@ -1731,6 +1731,9 @@ DialogVerb::perform(SPAction *action, void *data, void */*pdata*/)
         case SP_VERB_DIALOG_FILL_STROKE:
             dt->_dlg_mgr->showDialog("FillAndStroke");
             break;
+        case SP_VERB_DIALOG_GLYPHS:
+            dt->_dlg_mgr->showDialog("Glyphs");
+            break;
         case SP_VERB_DIALOG_SWATCHES:
             dt->_dlg_mgr->showDialog("Swatches");
             break;
@@ -1787,9 +1790,6 @@ DialogVerb::perform(SPAction *action, void *data, void */*pdata*/)
         }
 #endif*/
         case SP_VERB_DIALOG_INPUT:
-            sp_input_dialog();
-            break;
-        case SP_VERB_DIALOG_INPUT2:
             dt->_dlg_mgr->showDialog("InputDevices");
             break;
         case SP_VERB_DIALOG_EXTENSIONEDITOR:
@@ -2597,6 +2597,8 @@ Verb *Verb::_base_verbs[] = {
                    N_("Edit document metadata (to be saved with the document)"), INKSCAPE_ICON_DOCUMENT_METADATA ),
     new DialogVerb(SP_VERB_DIALOG_FILL_STROKE, "DialogFillStroke", N_("_Fill and Stroke..."),
                    N_("Edit objects' colors, gradients, stroke width, arrowheads, dash patterns..."), INKSCAPE_ICON_DIALOG_FILL_AND_STROKE),
+    new DialogVerb(SP_VERB_DIALOG_GLYPHS, "DialogGlyphs", N_("Glyphs..."),
+                   N_("Select characters from a glyphs palette"), GTK_STOCK_SELECT_FONT),
     // TRANSLATORS: "Swatches" means: color samples
     new DialogVerb(SP_VERB_DIALOG_SWATCHES, "DialogSwatches", N_("S_watches..."),
                    N_("Select colors from a swatches palette"), GTK_STOCK_SELECT_COLOR),
@@ -2633,8 +2635,6 @@ Verb *Verb::_base_verbs[] = {
                    N_("_Instant Messaging..."), N_("Jabber Instant Messaging Client"), NULL),
 #endif*/
     new DialogVerb(SP_VERB_DIALOG_INPUT, "DialogInput", N_("_Input Devices..."),
-                   N_("Configure extended input devices, such as a graphics tablet"), INKSCAPE_ICON_DIALOG_INPUT_DEVICES),
-    new DialogVerb(SP_VERB_DIALOG_INPUT2, "DialogInput2", N_("_Input Devices (new)..."),
                    N_("Configure extended input devices, such as a graphics tablet"), INKSCAPE_ICON_DIALOG_INPUT_DEVICES),
     new DialogVerb(SP_VERB_DIALOG_EXTENSIONEDITOR, "org.inkscape.dialogs.extensioneditor", N_("_Extensions..."),
                    N_("Query information about extensions"), NULL),

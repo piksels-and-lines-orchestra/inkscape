@@ -47,6 +47,8 @@
 #endif /* Not def: POPT_TABLEEND */
 
 #include <libxml/tree.h>
+#include <glib.h>
+#include <glib/gprintf.h>
 #include <glib-object.h>
 #include <gtk/gtk.h>
 #include <gtk/gtkmain.h>
@@ -472,80 +474,109 @@ gchar * blankParam = g_strdup("");
 #ifdef WIN32
 
 /**
- * Return the directory of the .exe that is currently running
+ * Set up the PATH and PYTHONPATH environment variables on Windows
+ * @param exe Inkscape executable directory in UTF-8
  */
-static Glib::ustring _win32_getExePath()
+static void _win32_set_inkscape_env(gchar const *exe)
 {
-    char exeName[MAX_PATH+1];
-    // TODO these should use xxxW() calls explicitly and convert UTF-16 <--> UTF-8
-    GetModuleFileName(NULL, exeName, MAX_PATH);
-    char *slashPos = strrchr(exeName, '\\');
-    if (slashPos) {
-        *slashPos = '\0';
+    gchar const *path = g_getenv("PATH");
+    gchar const *pythonpath = g_getenv("PYTHONPATH");
+
+    gchar *python = g_build_filename(exe, "python", NULL);
+    gchar *scripts = g_build_filename(exe, "python", "Scripts", NULL);
+    gchar *perl = g_build_filename(exe, "python", NULL);
+    gchar *pythonlib = g_build_filename(exe, "python", "Lib", NULL);
+    gchar *pythondll = g_build_filename(exe, "python", "DLLs", NULL);
+    
+    // Python 2.x needs short paths in PYTHONPATH.
+    // Otherwise it doesn't work when Inkscape is installed in Unicode directories.
+    // g_win32_locale_filename_from_utf8 is the GLib wrapper for GetShortPathName.
+    // Remove this once we move to Python 3.0.
+    gchar *python_s = g_win32_locale_filename_from_utf8(python);
+    gchar *pythonlib_s = g_win32_locale_filename_from_utf8(pythonlib);
+    gchar *pythondll_s = g_win32_locale_filename_from_utf8(pythondll);
+
+    gchar *new_path;
+    gchar *new_pythonpath;
+    if (path) {
+        new_path = g_strdup_printf("%s;%s;%s;%s;%s", exe, python, scripts, perl, path);
+    } else {
+        new_path = g_strdup_printf("%s;%s;%s;%s", exe, python, scripts, perl);
     }
-    Glib::ustring s = exeName;
-    return s;
-}
-
-/**
- * Set up the PATH and PYTHONPATH environment variables on
- * win32
- */
-static int _win32_set_inkscape_env(const Glib::ustring &exePath)
-{
-    // TODO use g_getenv() and g_setenv() that use filename encoding, which is UTF-8 on Windows
-
-    char *oldenv = getenv("PATH");
-    Glib::ustring tmp = "PATH=";
-    tmp += exePath;
-    tmp += ";";
-    tmp += exePath;
-    tmp += "\\python;";
-    tmp += exePath;
-    tmp += "\\python\\Scripts;";  // for uniconv.cmd
-    tmp += exePath;
-    tmp += "\\perl";
-    if(oldenv != NULL) {
-        tmp += ";";
-        tmp += oldenv;
+    if (pythonpath) {
+        new_pythonpath = g_strdup_printf("%s;%s;%s;%s",
+             python_s, pythonlib_s, pythondll_s, pythonpath);
+    } else {
+        new_pythonpath = g_strdup_printf("%s;%s;%s",
+            python_s, pythonlib_s, pythondll_s);
     }
-    _putenv(tmp.c_str());
 
-    oldenv = getenv("PYTHONPATH");
-    tmp = "PYTHONPATH=";
-    tmp += exePath;
-    tmp += "\\python;";
-    tmp += exePath;
-    tmp += "\\python\\Lib;";
-    tmp += exePath;
-    tmp += "\\python\\DLLs";
-    if(oldenv != NULL) {
-        tmp += ";";
-        tmp += oldenv;
-    }
-    _putenv(tmp.c_str());
+    g_setenv("PATH", new_path, TRUE);
+    g_setenv("PYTHONPATH", new_pythonpath, TRUE);
 
-    return 0;
+    /*
+    printf("PATH = %s\n\n", g_getenv("PATH"));
+    printf("PYTHONPATH = %s\n\n", g_getenv("PYTHONPATH"));
+
+    gchar *p = g_find_program_in_path("python");
+    if (p) {
+        printf("python in %s\n\n", p);
+        g_free(p);
+    } else {
+        printf("python not found\n\n");
+    }*/
+
+    g_free(python);
+    g_free(scripts);
+    g_free(perl);
+    g_free(pythonlib);
+    g_free(pythondll);
+    
+    g_free(python_s);
+    g_free(pythonlib_s);
+    g_free(pythondll_s);
+
+    g_free(new_path);
+    g_free(new_pythonpath);
 }
 #endif
 
-/**
- * Add INKSCAPE_EXTENSIONDIR to PYTHONPATH so that extensions in users home
- * can find inkex.py et al. (Bug #197475)
- */
-static int set_extensions_env()
+static void set_extensions_env()
 {
-    char *oldenv = getenv("PYTHONPATH");
-    Glib::ustring tmp = INKSCAPE_EXTENSIONDIR;
-    if (oldenv != NULL) {
-        tmp += G_SEARCHPATH_SEPARATOR;
-        tmp += oldenv;
+    gchar const *pythonpath = g_getenv("PYTHONPATH");
+    gchar *extdir;
+    gchar *new_pythonpath;
+    
+#ifdef WIN32
+    extdir = g_win32_locale_filename_from_utf8(INKSCAPE_EXTENSIONDIR);
+#else
+    extdir = g_strdup(INKSCAPE_EXTENSIONDIR);
+#endif
+
+    // On some platforms, INKSCAPE_EXTENSIONDIR is not absolute,
+    // but relative to the directory that contains the Inkscape executable.
+    // Since we spawn Python chdir'ed into the script's directory,
+    // we need to obtain the absolute path here.
+    if (!g_path_is_absolute(extdir)) {
+        gchar *curdir = g_get_current_dir();
+        gchar *extdir_new = g_build_filename(curdir, extdir, NULL);
+        g_free(extdir);
+        g_free(curdir);
+        extdir = extdir_new;
     }
-    g_setenv("PYTHONPATH", tmp.c_str(), TRUE);
 
-    return 0;
+    if (pythonpath) {
+        new_pythonpath = g_strdup_printf("%s" G_SEARCHPATH_SEPARATOR_S "%s",
+                                         extdir, pythonpath);
+        g_free(extdir);
+    } else {
+        new_pythonpath = extdir;
+    }
+
+    g_setenv("PYTHONPATH", new_pythonpath, TRUE);
+    g_free(new_pythonpath);
+    //printf("PYTHONPATH = %s\n", g_getenv("PYTHONPATH"));
 }
-
 
 /**
  * This is the classic main() entry point of the program, though on some
@@ -562,60 +593,52 @@ main(int argc, char **argv)
 #endif
 
 #ifdef WIN32
-    /*
-      Set the current directory to the directory of the
-      executable.  This seems redundant, but is needed for
-      when inkscape.exe is executed from another directory.
-      We use relative paths on win32.
-      HKCR\svgfile\shell\open\command is a good example
-    */
-    Glib::ustring homedir = _win32_getExePath();
-    // TODO these should use xxxW() calls explicitly and convert UTF-16 <--> UTF-8
-    SetCurrentDirectory(homedir.c_str());
-    _win32_set_inkscape_env(homedir);
+    gchar *exedir = g_strdup(win32_getExePath().data());
+    _win32_set_inkscape_env(exedir);
+
+# ifdef ENABLE_NLS
+    // obtain short path to executable dir and pass it
+    // to bindtextdomain (it doesn't understand UTF-8)
+    gchar *shortexedir = g_win32_locale_filename_from_utf8(exedir);
+    gchar *localepath = g_build_filename(shortexedir, PACKAGE_LOCALE_DIR, NULL);
+    bindtextdomain(GETTEXT_PACKAGE, localepath);
+    g_free(shortexedir);
+    g_free(localepath);
+# endif
+    g_free(exedir);
+
     // Don't touch the registry (works fine without it) for Inkscape Portable
     gchar const *val = g_getenv("INKSCAPE_PORTABLE_PROFILE_DIR");
     if (!val) {
         RegistryTool rt;
         rt.setPathInfo();
     }
-#endif
-
-    // Prevents errors like "Unable to wrap GdkPixbuf..." (in nr-filter-image.cpp for example)
-    Gtk::Main::init_gtkmm_internals();
-
-    // Bug #197475
-    set_extensions_env();
-
-   /**
-    * Call bindtextdomain() for various machines's paths
-    */
-#ifdef ENABLE_NLS
-#ifdef WIN32
-    Glib::ustring localePath = homedir;
-    localePath += "\\";
-    localePath += PACKAGE_LOCALE_DIR;
-    bindtextdomain(GETTEXT_PACKAGE, localePath.c_str());
-#else
-#ifdef ENABLE_BINRELOC
+#elif defined(ENABLE_NLS)
+# ifdef ENABLE_BINRELOC
     bindtextdomain(GETTEXT_PACKAGE, BR_LOCALEDIR(""));
-#else
+# else
     bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
+# endif
 #endif
-#endif
+
+    // the bit below compiles regardless of platform
+#ifdef ENABLE_NLS
     // Allow the user to override the locale directory by setting
     // the environment variable INKSCAPE_LOCALEDIR.
-    char *inkscape_localedir = getenv("INKSCAPE_LOCALEDIR");
+    char const *inkscape_localedir = g_getenv("INKSCAPE_LOCALEDIR");
     if (inkscape_localedir != NULL) {
         bindtextdomain(GETTEXT_PACKAGE, inkscape_localedir);
     }
-#endif
 
+    // common setup
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
-
-#ifdef ENABLE_NLS
     textdomain(GETTEXT_PACKAGE);
 #endif
+
+    set_extensions_env();
+
+    // Prevents errors like "Unable to wrap GdkPixbuf..." (in nr-filter-image.cpp for example)
+    Gtk::Main::init_gtkmm_internals();
 
     LIBXML_TEST_VERSION
 
@@ -626,8 +649,7 @@ main(int argc, char **argv)
     gboolean use_gui;
 
 #ifndef WIN32
-    // TODO use g_getenv() and g_setenv() that use filename encoding, which is UTF-8 on Windows
-    use_gui = (getenv("DISPLAY") != NULL);
+    use_gui = (g_getenv("DISPLAY") != NULL);
 #else
     use_gui = TRUE;
 #endif
