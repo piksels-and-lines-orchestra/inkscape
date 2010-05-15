@@ -699,20 +699,27 @@ dnl ******************************
 dnl Check for dbus functionality
 dnl ******************************
 
-PKG_CHECK_MODULES(DBUS, dbus-glib-1, with_dbus=yes, with_dbus=no)
-if test "x$with_dbus" = "xyes"; then
-	AC_DEFINE(WITH_DBUS,1,[Build in dbus])
-	if test "x$with_localinstall" = "xyes"; then
-		DBUSSERVICEDIR="${datadir}/dbus-1/services/"
-	else
-		DBUSSERVICEDIR=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`
-	fi
-	AC_SUBST(DBUSSERVICEDIR)
-fi
-AM_CONDITIONAL(WITH_DBUS, test "x$with_dbus" = "xyes")
+AC_ARG_ENABLE(dbusapi,
+       [  --enable-dbusapi       compile with support for DBus interface],
+       enable_dbusapi=$enableval,enable_dbusapi=yes)
+AC_DEFINE(WITH_DBUS,1,[Build in dbus])
 
-AC_SUBST(DBUS_LIBS)
-AC_SUBST(DBUS_CFLAGS)
+if test "x$dbusapi" = "xyes"; then
+	PKG_CHECK_MODULES(DBUS, dbus-glib-1, with_dbus=yes, with_dbus=no)
+	if test "x$with_dbus" = "xyes"; then
+		if test "x$with_localinstall" = "xyes"; then
+			DBUSSERVICEDIR="${datadir}/dbus-1/services/"
+		else
+			DBUSSERVICEDIR=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`
+		fi
+		AC_SUBST(DBUSSERVICEDIR)
+	fi
+
+	AC_SUBST(DBUS_LIBS)
+	AC_SUBST(DBUS_CFLAGS)
+fi
+
+AM_CONDITIONAL(WITH_DBUS, test "x$with_dbus" = "xyes")
 
 dnl ******************************
 dnl Check for ImageMagick Magick++ 
