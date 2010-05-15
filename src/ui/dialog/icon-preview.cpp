@@ -7,7 +7,7 @@
  *   Other dudes from The Inkscape Organization
  *
  * Copyright (C) 2004 Bob Jamison
- * Copyright (C) 2005 Jon A. Cruz
+ * Copyright (C) 2005,2010 Jon A. Cruz
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -18,6 +18,7 @@
 #include <gtk/gtk.h>
 #include <glib/gmem.h>
 #include <glibmm/i18n.h>
+#include <gtkmm/alignment.h>
 #include <gtkmm/buttonbox.h>
 #include <gtkmm/stock.h>
 
@@ -42,7 +43,7 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
 
 namespace Inkscape {
 namespace UI {
-namespace Dialogs {
+namespace Dialog {
 
 
 IconPreviewPanel &IconPreviewPanel::getInstance()
@@ -80,9 +81,17 @@ void IconPreviewPanel::on_button_clicked(int which)
  */
 IconPreviewPanel::IconPreviewPanel() :
     UI::Widget::Panel("", "/dialogs/iconpreview", SP_VERB_VIEW_ICON_PREVIEW),
+    deskTrack(),
+    desktop(0),
+    document(0),
+    timer(0),
+    pending(false),
     hot(1),
-    refreshButton(0),
-    selectionButton(0)
+    selectionButton(0),
+    desktopChangeConn(),
+    docReplacedConn(),
+    docModConn(),
+    selChangedConn()
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     numEntries = 0;
@@ -138,12 +147,18 @@ IconPreviewPanel::IconPreviewPanel() :
 
     Gtk::VBox* magBox = new Gtk::VBox();
 
-    magBox->pack_start( magnified );
+    Gtk::Frame *magFrame = Gtk::manage(new Gtk::Frame(_("Magnified:")));
+    magFrame->add( magnified );
+
+    magBox->pack_start( *magFrame, Gtk::PACK_EXPAND_WIDGET );
     magBox->pack_start( magLabel, Gtk::PACK_SHRINK );
 
 
-    Gtk::VBox * verts = new Gtk::VBox();
-    for ( int i = 0; i < numEntries; i++ ) {
+    Gtk::VBox *verts = new Gtk::VBox();
+    Gtk::HBox *horiz = 0;
+    int previous = 0;
+    int avail = 0;
+    for ( int i = numEntries - 1; i >= 0; --i ) {
         pixMem[i] = new guchar[4 * sizes[i] * sizes[i]];
         memset( pixMem[i], 0x00, 4 *  sizes[i] * sizes[i] );
 
@@ -153,44 +168,86 @@ IconPreviewPanel::IconPreviewPanel() :
         Glib::ustring label(*labels[i]);
         buttons[i] = new Gtk::ToggleToolButton(label);
         buttons[i]->set_active( i == hot );
-        buttons[i]->set_icon_widget(*images[i]);
+        Gtk::Frame *frame = new Gtk::Frame();
+        frame->set_shadow_type(Gtk::SHADOW_ETCHED_IN);
+        frame->add(*images[i]);
+        buttons[i]->set_icon_widget(*Gtk::manage(frame));
 
         tips.set_tip((*buttons[i]), label);
 
         buttons[i]->signal_clicked().connect( sigc::bind<int>( sigc::mem_fun(*this, &IconPreviewPanel::on_button_clicked), i) );
 
 
-        verts->add(*buttons[i]);
+        Gtk::Alignment *align = Gtk::manage(new Gtk::Alignment(0.5, 0.5, 0, 0));
+        align->add(*buttons[i]);
+
+        int pad = 12;
+        if ((avail == 0) && (previous == 0)) {
+            verts->pack_end(*align, Gtk::PACK_SHRINK);
+            previous = sizes[i];
+            avail = sizes[i];
+        } else {
+            if ((avail < pad) || ((sizes[i] > avail) && (sizes[i] < previous))) {
+                horiz = 0;
+            }
+            if ((horiz == 0) && (sizes[i] <= previous)) {
+                avail = previous;
+            }
+            if (sizes[i] <= avail) {
+                if (!horiz) {
+                    horiz = Gtk::manage(new Gtk::HBox());
+                    avail = previous;
+                    verts->pack_end(*horiz, Gtk::PACK_SHRINK);
+                }
+                horiz->pack_start(*align, Gtk::PACK_EXPAND_WIDGET);
+                avail -= sizes[i];
+                avail -= pad; // a little extra for padding
+            } else {
+                horiz = 0;
+                verts->pack_end(*align, Gtk::PACK_SHRINK);
+            }
+        }
     }
 
     iconBox.pack_start(splitter);
     splitter.pack1( *magBox, true, true );
-    splitter.pack2( *verts, false, false );
+    Gtk::Frame *actuals = Gtk::manage(new Gtk::Frame(_("Actual Size:")));
+    actuals->add(*verts);
+    splitter.pack2( *actuals, false, false );
 
 
-    //## The Refresh button
-
-
-    Gtk::HButtonBox* holder = new Gtk::HButtonBox( Gtk::BUTTONBOX_END );
-    _getContents()->pack_end(*holder, false, false);
-
-    selectionButton = new Gtk::ToggleButton(_("Selection")); // , GTK_RESPONSE_APPLY
-    holder->pack_start( *selectionButton, false, false );
+    selectionButton = new Gtk::CheckButton(_("Selection")); // , GTK_RESPONSE_APPLY
+    magBox->pack_start( *selectionButton, Gtk::PACK_SHRINK );
     tips.set_tip((*selectionButton), _("Selection only or whole document"));
     selectionButton->signal_clicked().connect( sigc::mem_fun(*this, &IconPreviewPanel::modeToggled) );
 
     gint val = prefs->getBool("/iconpreview/selectionOnly");
     selectionButton->set_active( val != 0 );
 
-    refreshButton = new Gtk::Button(Gtk::Stock::REFRESH); // , GTK_RESPONSE_APPLY
-    holder->pack_end( *refreshButton, false, false );
-    tips.set_tip((*refreshButton), _("Refresh the icons"));
-    refreshButton->signal_clicked().connect( sigc::mem_fun(*this, &IconPreviewPanel::refreshPreview) );
 
-
-    _getContents()->pack_start(iconBox, Gtk::PACK_EXPAND_WIDGET);
+    _getContents()->pack_start(iconBox, Gtk::PACK_SHRINK);
 
     show_all_children();
+
+    // Connect this up last
+    desktopChangeConn = deskTrack.connectDesktopChanged( sigc::mem_fun(*this, &IconPreviewPanel::setDesktop) );
+    deskTrack.connect(GTK_WIDGET(gobj()));
+}
+
+IconPreviewPanel::~IconPreviewPanel()
+{
+    setDesktop(0);
+    if (timer) {
+        timer->stop();
+        delete timer;
+        timer = 0;
+    }
+
+    selChangedConn.disconnect();
+    docModConn.disconnect();
+    docReplacedConn.disconnect();
+    desktopChangeConn.disconnect();
+    deskTrack.disconnect();
 }
 
 //#########################################################################
@@ -198,11 +255,51 @@ IconPreviewPanel::IconPreviewPanel() :
 //#########################################################################
 
 
+void IconPreviewPanel::setDesktop( SPDesktop* desktop )
+{
+    Panel::setDesktop(desktop);
+
+    SPDocument *newDoc = (desktop) ? desktop->doc() : 0;
+
+    if ( desktop != this->desktop ) {
+        docReplacedConn.disconnect();
+        selChangedConn.disconnect();
+
+        this->desktop = Panel::getDesktop();
+        if ( this->desktop ) {
+            docReplacedConn = this->desktop->connectDocumentReplaced(sigc::hide<0>(sigc::mem_fun(this, &IconPreviewPanel::setDocument)));
+            if (this->desktop->selection) {
+                selChangedConn = desktop->selection->connectChanged(sigc::hide(sigc::mem_fun(this, &IconPreviewPanel::queueRefresh)));
+            }
+        }
+    }
+    setDocument(newDoc);
+    deskTrack.setBase(desktop);
+}
+
+void IconPreviewPanel::setDocument( SPDocument *document )
+{
+    if (this->document != document) {
+        docModConn.disconnect();
+
+        this->document = document;
+        if (this->document) {
+            docModConn = this->document->connectModified(sigc::hide(sigc::mem_fun(this, &IconPreviewPanel::queueRefresh)));
+            queueRefresh();
+        }
+    }
+}
+
 void IconPreviewPanel::refreshPreview()
 {
     SPDesktop *desktop = getDesktop();
-    if ( desktop ) {
-
+    if (!timer) {
+        timer = new Glib::Timer();
+    }
+    if (timer->elapsed() < 0.1) {
+        // Do not refresh too quickly
+        queueRefresh();
+    } else if ( desktop ) {
         if ( selectionButton && selectionButton->get_active() )
         {
             Inkscape::Selection * sel = sp_desktop_selection(desktop);
@@ -225,14 +322,38 @@ void IconPreviewPanel::refreshPreview()
                     renderPreview(target);
                 }
             }
-        }
-        else
-        {
+        } else {
             SPObject *target = desktop->currentRoot();
             if ( target ) {
                 renderPreview(target);
             }
         }
+        timer->reset();
+    }
+}
+
+bool IconPreviewPanel::refreshCB()
+{
+    bool callAgain = true;
+    if (!timer) {
+        timer = new Glib::Timer();
+    }
+    if ( timer->elapsed() > 0.1 ) {
+        callAgain = false;
+        refreshPreview();
+        pending = false;
+    }
+    return callAgain;
+}
+
+void IconPreviewPanel::queueRefresh()
+{
+    if (!pending) {
+        pending = true;
+        if (!timer) {
+            timer = new Glib::Timer();
+        }
+        Glib::signal_idle().connect( sigc::mem_fun(this, &IconPreviewPanel::refreshCB), Glib::PRIORITY_DEFAULT_IDLE );
     }
 }
 
@@ -288,7 +409,6 @@ void IconPreviewPanel::updateMagnify()
     magnified.queue_draw();
     magnified.get_parent()->queue_draw();
 }
-
 
 } //namespace Dialogs
 } //namespace UI

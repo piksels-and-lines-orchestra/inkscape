@@ -469,9 +469,8 @@ void InkscapePreferences::initPageTools()
     AddSelcueCheckbox(_page_tweak, "/tools/tweak", true);
     AddGradientCheckbox(_page_tweak, "/tools/tweak", false);
 
- //Spray
+    //Spray
     this->AddPage(_page_spray, _("Spray"), iter_tools, PREFS_PAGE_TOOLS_SPRAY);
-    this->AddNewObjectsStyle(_page_spray, "/tools/spray", _("Paint objects with:"));
     AddSelcueCheckbox(_page_spray, "/tools/spray", true);
     AddGradientCheckbox(_page_spray, "/tools/spray", false);
 
@@ -943,7 +942,7 @@ void InkscapePreferences::initPageCMS()
 
     _cms_proof_intent.init("/options/softproof/intent", intentLabels, intentValues, numIntents, 0);
     _page_cms.add_line( false, _("Device rendering intent:"), _cms_proof_intent, "",
-                        _("The rendering intent to use to calibrate display output"), false);
+                        _("The rendering intent to use to calibrate device output"), false);
 
     _cms_proof_blackpoint.init( _("Black point compensation"), "/options/softproof/bpc", false);
     _page_cms.add_line( false, "", _cms_proof_blackpoint, "",
@@ -1096,7 +1095,7 @@ void InkscapePreferences::initPageSVGOutput()
     _page_svgoutput.add_group_header( _("Numbers"));
 
     _svgoutput_numericprecision.init("/options/svgoutput/numericprecision", 1.0, 16.0, 1.0, 2.0, 8.0, true, false);
-    _page_svgoutput.add_line( false, _("Numeric precision:"), _svgoutput_numericprecision, "", _("How many digits to write after the decimal dot"), false);
+    _page_svgoutput.add_line( false, _("Numeric precision:"), _svgoutput_numericprecision, "", _("Significant figures of the values written to the SVG file"), false);
 
     _svgoutput_minimumexponent.init("/options/svgoutput/minimumexponent", -32.0, -1, 1.0, 2.0, -8.0, true, false);
     _page_svgoutput.add_line( false, _("Minimum exponent:"), _svgoutput_minimumexponent, "", _("The smallest number written to SVG is 10 to the power of this exponent; anything smaller is written as zero"), false);

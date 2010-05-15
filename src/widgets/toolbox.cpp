@@ -213,7 +213,7 @@ static struct {
     { "SPTweakContext",   "tweak_toolbox",   0, sp_tweak_toolbox_prep,              "TweakToolbar",
       SP_VERB_CONTEXT_TWEAK_PREFS, "/tools/tweak", N_("Color/opacity used for color tweaking")},
     { "SPSprayContext",   "spray_toolbox",   0, sp_spray_toolbox_prep,              "SprayToolbar",
-      SP_VERB_CONTEXT_SPRAY_PREFS, "/tools/spray", N_("Color/opacity used for color spraying")},
+      SP_VERB_INVALID, 0, 0},
     { "SPZoomContext",   "zoom_toolbox",   0, sp_zoom_toolbox_prep,              "ZoomToolbar",
       SP_VERB_INVALID, 0, 0},
     { "SPStarContext",   "star_toolbox",   0, sp_star_toolbox_prep,              "StarToolbar",
@@ -1507,7 +1507,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* act = ink_toggle_action_new( "NodesShowTransformHandlesAction",
                                                       _("Show Transform Handles"),
-                                                      _("Show node transformation handles"),
+                                                      _("Show transformation handles for selected nodes"),
                                                       "node-transform",
                                                       secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
@@ -1518,7 +1518,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* act = ink_toggle_action_new( "NodesShowHandlesAction",
                                                       _("Show Handles"),
-                                                      _("Show the Bezier handles of selected nodes"),
+                                                      _("Show Bezier handles of selected nodes"),
                                                       INKSCAPE_ICON_SHOW_NODE_HANDLES,
                                                       secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
@@ -1529,7 +1529,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* act = ink_toggle_action_new( "NodesShowHelperpath",
                                                       _("Show Outline"),
-                                                      _("Show the outline of the path"),
+                                                      _("Show path outline (without path effects)"),
                                                       INKSCAPE_ICON_SHOW_PATH_OUTLINE,
                                                       secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
@@ -1540,7 +1540,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkAction* inky = ink_action_new( "EditNextLPEParameterAction",
                                           _("Next path effect parameter"),
-                                          _("Show next path effect parameter for editing"),
+                                          _("Show next editable path effect parameter"),
                                           INKSCAPE_ICON_PATH_EFFECT_PARAMETER_NEXT,
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_nextLPEparam), desktop );
@@ -1551,7 +1551,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* inky = ink_toggle_action_new( "ObjectEditClipPathAction",
                                           _("Edit clipping paths"),
-                                          _("Show editing controls for clipping paths of selected objects"),
+                                          _("Show clipping path(s) of selected object(s)"),
                                           INKSCAPE_ICON_PATH_CLIP_EDIT,
                                           secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1562,7 +1562,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* inky = ink_toggle_action_new( "ObjectEditMaskPathAction",
                                           _("Edit masks"),
-                                          _("Show editing controls for masks of selected objects"),
+                                          _("Show mask(s) of selected object(s)"),
                                           INKSCAPE_ICON_PATH_MASK_EDIT,
                                           secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -4639,8 +4639,11 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         /* Standard_deviation */
         gchar const* labels[] = {_("(minimum scatter)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum scatter)")};
         gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
+
+        //TRANSLATORS: only translate "string" in "context|string".
+        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayStandard_deviationAction",
-                                                              _("Scatter"), _("Scatter:"), _("Increase to scatter sprayed objects."),
+                                                              Q_("Toolbox|Scatter"), Q_("Toolbox|Scatter:"), _("Increase to scatter sprayed objects."),
                                                               "/tools/spray/standard_deviation", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-standard_deviation",
                                                               1, 100, 1.0, 10.0,
@@ -4746,8 +4749,11 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     {   /* Scale */
         gchar const* labels[] = {_("(low scale variation)"), 0, 0, _("(default)"), 0, 0, _("(high scale variation)")};
         gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
+
+        //TRANSLATORS: only translate "string" in "context|string".
+        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayScaleAction",
-                                                              _("Scale"), _("Scale:"),
+                                                              Q_("Toolbox|Scale"), Q_("Toolbox|Scale:"),
                                                               // xgettext:no-c-format
                                                               _("Variation in the scale of the sprayed objects. 0% for the same scale than the original object."),
                                                               "/tools/spray/scale_variation", 0,
@@ -6239,15 +6245,19 @@ static void cell_data_func(GtkCellLayout * /*cell_layout*/,
         Glib::ustring sample = prefs->getString("/tools/text/font_sample");
         gchar *const sample_escaped = g_markup_escape_text(sample.data(), -1);
 
-    std::stringstream markup;
-    markup << family_escaped << "  <span foreground='gray' font_family='"
-           << family_escaped << "'>" << sample_escaped << "</span>";
-    g_object_set (G_OBJECT (cell), "markup", markup.str().c_str(), NULL);
+        std::stringstream markup;
+        markup << family_escaped << "  <span foreground='gray' font_family='"
+               << family_escaped << "'>" << sample_escaped << "</span>";
+        g_object_set (G_OBJECT (cell), "markup", markup.str().c_str(), NULL);
 
         g_free(sample_escaped);
     } else {
         g_object_set (G_OBJECT (cell), "markup", family_escaped, NULL);
     }
+    // This doesn't work for two reasons... it set both selected and not selected backgrounds
+    // to white.. which means that white foreground text is invisible. It also only effects
+    // the text region, leaving the padding untouched.
+    // g_object_set (G_OBJECT (cell), "cell-background", "white", "cell-background-set", true, NULL);
 
     g_free(family);
     g_free(family_escaped);
@@ -7171,17 +7181,27 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
 
         Ink_ComboBoxEntry_Action* act = ink_comboboxentry_action_new( "TextFontFamilyAction",
                                                                       _("Font Family"),
-                                                                      _("Select Font Family"),
+                                                                      _("Select Font Family (Alt-X to access)"),
                                                                       NULL,
                                                                       GTK_TREE_MODEL(model),
-                                                                      -1,                // Set width
+                                                                      -1,                // Entry width
+                                                                      50,                // Extra list width
                                                                       (gpointer)cell_data_func ); // Cell layout
         ink_comboboxentry_action_popup_enable( act ); // Enable entry completion
         gchar *const warning = _("Font not found on system");
         ink_comboboxentry_action_set_warning( act, warning ); // Show icon with tooltip if missing font
+        ink_comboboxentry_action_set_altx_name( act, "altx-text" ); // Set Alt-X keyboard shortcut
         g_signal_connect( G_OBJECT(act), "changed", G_CALLBACK(sp_text_fontfamily_value_changed), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
         g_object_set_data( holder, "TextFontFamilyAction", act );
+
+        // Change style of drop-down from menu to list
+        gtk_rc_parse_string (
+            "style \"dropdown-as-list-style\"\n"
+            "{\n"
+            "    GtkComboBox::appears-as-list = 1\n"
+            "}\n"
+            "widget \"*.TextFontFamilyAction_combobox\" style \"dropdown-as-list-style\"");
     }
 
     /* Font size */
@@ -7349,8 +7369,8 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             GTK_WIDGET(desktop->canvas),          /* focusTarget */
             NULL,                                 /* unit selector */
             holder,                               /* dataKludge */
-            FALSE,                                /* altx? */
-            NULL,                                 /* altx_mark? */
+            FALSE,                                /* set alt-x keyboard shortcut? */
+            NULL,                                 /* altx_mark */
             0.0, 10.0, 0.01, 0.10,                /* lower, upper, step (arrow up/down), page up/down */
             labels, values, G_N_ELEMENTS(labels), /* drop down menu */
             sp_text_lineheight_value_changed,     /* callback */
@@ -7379,8 +7399,8 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             GTK_WIDGET(desktop->canvas),          /* focusTarget */
             NULL,                                 /* unit selector */
             holder,                               /* dataKludge */
-            FALSE,                                /* altx? */
-            NULL,                                 /* altx_mark? */
+            FALSE,                                /* set alt-x keyboard shortcut? */
+            NULL,                                 /* altx_mark */
             -100.0, 100.0, 0.01, 0.10,            /* lower, upper, step (arrow up/down), page up/down */
             labels, values, G_N_ELEMENTS(labels), /* drop down menu */
             sp_text_wordspacing_value_changed,    /* callback */
@@ -7409,8 +7429,8 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             GTK_WIDGET(desktop->canvas),          /* focusTarget */
             NULL,                                 /* unit selector */
             holder,                               /* dataKludge */
-            FALSE,                                /* altx? */
-            NULL,                                 /* altx_mark? */
+            FALSE,                                /* set alt-x keyboard shortcut? */
+            NULL,                                 /* altx_mark */
             -100.0, 100.0, 0.01, 0.10,            /* lower, upper, step (arrow up/down), page up/down */
             labels, values, G_N_ELEMENTS(labels), /* drop down menu */
             sp_text_letterspacing_value_changed,  /* callback */

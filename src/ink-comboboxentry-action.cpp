@@ -4,9 +4,12 @@
  *   Setting GtkEntryBox width in characters.
  *   Passing a function for formatting cells.
  *   Displaying a warning if text isn't in list.
+ *   Setting names for GtkComboBoxEntry and GtkEntry (actionName_combobox, actionName_entry)
+ *     to allow setting resources.
  *
  * Author(s):
  *   Tavmjong Bah
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 2010 Authors
  *
@@ -34,7 +37,7 @@ static GtkWidget* create_tool_item( GtkAction* action );
 static GtkWidget* create_menu_item( GtkAction* action );
 
 // Internal
-static gint get_active_row_from_text( Ink_ComboBoxEntry_Action* action, gchar* target_text );
+static gint get_active_row_from_text( Ink_ComboBoxEntry_Action* action, const gchar* target_text );
 
 // Callbacks
 static void combo_box_changed_cb( GtkComboBoxEntry* widget, gpointer data );
@@ -45,7 +48,8 @@ enum {
   PROP_MODEL = 1,
   PROP_COMBOBOX,
   PROP_ENTRY,
-  PROP_WIDTH,
+  PROP_ENTRY_WIDTH,
+  PROP_EXTRA_WIDTH,
   PROP_CELL_DATA_FUNC,
   PROP_POPUP
 };
@@ -86,8 +90,12 @@ static void ink_comboboxentry_action_set_property (GObject *object, guint proper
     action->entry = GTK_ENTRY( g_value_get_object( value ));
     break;
 
-  case PROP_WIDTH:
-    action->width = g_value_get_int( value );
+  case PROP_ENTRY_WIDTH:
+    action->entry_width = g_value_get_int( value );
+    break;
+
+  case PROP_EXTRA_WIDTH:
+    action->extra_width = g_value_get_int( value );
     break;
 
   case PROP_CELL_DATA_FUNC:
@@ -122,8 +130,12 @@ static void ink_comboboxentry_action_get_property (GObject *object, guint proper
     g_value_set_object (value, action->entry);
     break;
 
-  case PROP_WIDTH:
-    g_value_set_int (value, action->width);
+  case PROP_ENTRY_WIDTH:
+    g_value_set_int (value, action->entry_width);
+    break;
+
+  case PROP_EXTRA_WIDTH:
+    g_value_set_int (value, action->extra_width);
     break;
 
   case PROP_CELL_DATA_FUNC:
@@ -141,7 +153,7 @@ static void ink_comboboxentry_action_get_property (GObject *object, guint proper
 
 static void
 ink_comboboxentry_action_connect_proxy (GtkAction *action,
-					GtkWidget *proxy)
+                                        GtkWidget *proxy)
 {
   /* Override any proxy properties. */
   //  if (GTK_IS_MENU_ITEM (proxy)) {
@@ -171,72 +183,81 @@ static void ink_comboboxentry_action_class_init (Ink_ComboBoxEntry_ActionClass *
   ink_comboboxentry_action_parent_class = GTK_ACTION_CLASS(g_type_class_peek_parent (klass) );
 
   g_object_class_install_property (
-				   gobject_class,
-				   PROP_MODEL,
-				   g_param_spec_object ("model",
-							"Tree Model",
-							"Tree Model",
-							GTK_TYPE_TREE_MODEL,
-							(GParamFlags)G_PARAM_READWRITE));
+                                   gobject_class,
+                                   PROP_MODEL,
+                                   g_param_spec_object ("model",
+                                                        "Tree Model",
+                                                        "Tree Model",
+                                                        GTK_TYPE_TREE_MODEL,
+                                                        (GParamFlags)G_PARAM_READWRITE));
   g_object_class_install_property (
-				   gobject_class,
-				   PROP_COMBOBOX,
-				   g_param_spec_object ("combobox",
-							"GtkComboBoxEntry",
-							"GtkComboBoxEntry",
-							GTK_TYPE_WIDGET,
-							(GParamFlags)G_PARAM_READABLE));
+                                   gobject_class,
+                                   PROP_COMBOBOX,
+                                   g_param_spec_object ("combobox",
+                                                        "GtkComboBoxEntry",
+                                                        "GtkComboBoxEntry",
+                                                        GTK_TYPE_WIDGET,
+                                                        (GParamFlags)G_PARAM_READABLE));
   g_object_class_install_property (
-				   gobject_class,
-				   PROP_ENTRY,
-				   g_param_spec_object ("entry",
-							"GtkEntry",
-							"GtkEntry",
-							GTK_TYPE_WIDGET,
-							(GParamFlags)G_PARAM_READABLE));
+                                   gobject_class,
+                                   PROP_ENTRY,
+                                   g_param_spec_object ("entry",
+                                                        "GtkEntry",
+                                                        "GtkEntry",
+                                                        GTK_TYPE_WIDGET,
+                                                        (GParamFlags)G_PARAM_READABLE));
   g_object_class_install_property (
-				   gobject_class,
-				   PROP_WIDTH,
-				   g_param_spec_int ("width",
-						     "EntryBox width",
-						     "EntryBox width (characters)",
-						     -1.0, 100, -1.0,
-						     (GParamFlags)G_PARAM_READWRITE));
+                                   gobject_class,
+                                   PROP_ENTRY_WIDTH,
+                                   g_param_spec_int ("entry_width",
+                                                     "EntryBox width",
+                                                     "EntryBox width (characters)",
+                                                     -1.0, 100, -1.0,
+                                                     (GParamFlags)G_PARAM_READWRITE));
 
   g_object_class_install_property (
-				   gobject_class,
-				   PROP_CELL_DATA_FUNC,
-				   g_param_spec_pointer ("cell_data_func",
-							 "Cell Data Func",
-							 "Cell Deta Function",
-							 (GParamFlags)G_PARAM_READWRITE));
+                                   gobject_class,
+                                   PROP_EXTRA_WIDTH,
+                                   g_param_spec_int ("extra_width",
+                                                     "Extra width",
+                                                     "Extra width (px)",
+                                                     -1.0, 500, -1.0,
+                                                     (GParamFlags)G_PARAM_READWRITE));
 
   g_object_class_install_property (
-				   gobject_class,
-				   PROP_POPUP,
-				   g_param_spec_boolean ("popup",
-							 "Entry Popup",
-							 "Entry Popup",
-							 false,
-							 (GParamFlags)G_PARAM_READWRITE));
+                                   gobject_class,
+                                   PROP_CELL_DATA_FUNC,
+                                   g_param_spec_pointer ("cell_data_func",
+                                                         "Cell Data Func",
+                                                         "Cell Deta Function",
+                                                         (GParamFlags)G_PARAM_READWRITE));
+
+  g_object_class_install_property (
+                                   gobject_class,
+                                   PROP_POPUP,
+                                   g_param_spec_boolean ("popup",
+                                                         "Entry Popup",
+                                                         "Entry Popup",
+                                                         false,
+                                                         (GParamFlags)G_PARAM_READWRITE));
 
   // We need to know when GtkComboBoxEvent or Menu ready for reading
   signals[CHANGED] = g_signal_new( "changed",
-				   G_TYPE_FROM_CLASS(klass),
-				   G_SIGNAL_RUN_FIRST,
-				   G_STRUCT_OFFSET(Ink_ComboBoxEntry_ActionClass, changed),
-				   NULL, NULL,
-				   g_cclosure_marshal_VOID__VOID,
-				   G_TYPE_NONE, 0);
+                                   G_TYPE_FROM_CLASS(klass),
+                                   G_SIGNAL_RUN_FIRST,
+                                   G_STRUCT_OFFSET(Ink_ComboBoxEntry_ActionClass, changed),
+                                   NULL, NULL,
+                                   g_cclosure_marshal_VOID__VOID,
+                                   G_TYPE_NONE, 0);
 
   // Probably not needed... originally to keep track of key-presses.
   signals[ACTIVATED] = g_signal_new( "activated",
-				   G_TYPE_FROM_CLASS(klass),
-				   G_SIGNAL_RUN_FIRST,
-				   G_STRUCT_OFFSET(Ink_ComboBoxEntry_ActionClass, activated),
-				   NULL, NULL,
-				   g_cclosure_marshal_VOID__VOID,
-				   G_TYPE_NONE, 0);
+                                   G_TYPE_FROM_CLASS(klass),
+                                   G_SIGNAL_RUN_FIRST,
+                                   G_STRUCT_OFFSET(Ink_ComboBoxEntry_ActionClass, activated),
+                                   NULL, NULL,
+                                   g_cclosure_marshal_VOID__VOID,
+                                   G_TYPE_NONE, 0);
 
 }
 
@@ -245,8 +266,12 @@ static void ink_comboboxentry_action_init (Ink_ComboBoxEntry_Action *action)
   action->active = -1;
   action->text = NULL;
   action->entry_completion = NULL;
+#if !GTK_CHECK_VERSION(2,16,0)
+  action->indicator = NULL;
+#endif
   action->popup = false;
   action->warning = NULL;
+  action->altx_name = NULL;
 }
 
 GType ink_comboboxentry_action_get_type ()
@@ -268,9 +293,9 @@ GType ink_comboboxentry_action_get_type ()
     };
 
     ink_comboboxentry_action_type = g_type_register_static (GTK_TYPE_ACTION,
-							    "Ink_ComboBoxEntry_Action",
-							    &ink_comboboxentry_action_info,
-							    (GTypeFlags)0 );
+                                                            "Ink_ComboBoxEntry_Action",
+                                                            &ink_comboboxentry_action_info,
+                                                            (GTypeFlags)0 );
   }
 
   return ink_comboboxentry_action_type;
@@ -278,24 +303,26 @@ GType ink_comboboxentry_action_get_type ()
 
 
 Ink_ComboBoxEntry_Action *ink_comboboxentry_action_new (const gchar   *name,
-							const gchar   *label,
-							const gchar   *tooltip,
-							const gchar   *stock_id,
-							GtkTreeModel  *model,
-							gint           width,
-							void          *cell_data_func )
+                                                        const gchar   *label,
+                                                        const gchar   *tooltip,
+                                                        const gchar   *stock_id,
+                                                        GtkTreeModel  *model,
+                                                        gint           entry_width,
+                                                        gint           extra_width,
+                                                        void          *cell_data_func )
 {
   g_return_val_if_fail (name != NULL, NULL);
 
   return (Ink_ComboBoxEntry_Action*)g_object_new (INK_COMBOBOXENTRY_TYPE_ACTION,
-						  "name",           name,
-						  "label",          label,
-						  "tooltip",        tooltip,
-						  "stock-id",       stock_id,
-						  "model",          model,
-						  "width",          width,
-						  "cell_data_func", cell_data_func,
-						  NULL);
+                                                  "name",           name,
+                                                  "label",          label,
+                                                  "tooltip",        tooltip,
+                                                  "stock-id",       stock_id,
+                                                  "model",          model,
+                                                  "entry_width",    entry_width,
+                                                  "extra_width",    extra_width,
+                                                  "cell_data_func", cell_data_func,
+                                                  NULL);
 }
 
 // Create a widget for a toolbar.
@@ -307,11 +334,31 @@ GtkWidget* create_tool_item( GtkAction* action )
 
     Ink_ComboBoxEntry_Action* ink_comboboxentry_action = INK_COMBOBOXENTRY_ACTION( action );
 
+    gchar *action_name = g_strdup( gtk_action_get_name( action ) );
+    gchar *combobox_name = g_strjoin( NULL, action_name, "_combobox", NULL );
+    gchar *entry_name =    g_strjoin( NULL, action_name, "_entry", NULL );
+    g_free( action_name );
+
     item = GTK_WIDGET( gtk_tool_item_new() );
 
     GtkWidget* comboBoxEntry = gtk_combo_box_entry_new_with_model( ink_comboboxentry_action->model, 0 );
+    // Name it so we can muck with it using an RC file
+    gtk_widget_set_name( comboBoxEntry, combobox_name );
+    g_free( combobox_name );
 
-    gtk_container_add( GTK_CONTAINER(item), comboBoxEntry ); 
+    {
+        GtkWidget *align = gtk_alignment_new(0, 0.5, 0, 0);
+#if GTK_CHECK_VERSION(2,16,0)
+        gtk_container_add( GTK_CONTAINER(align), comboBoxEntry );
+#else // GTK_CHECK_VERSION(2,16,0)
+        GtkWidget *hbox = gtk_hbox_new( FALSE, 0 );
+        ink_comboboxentry_action->indicator = gtk_image_new_from_stock(GTK_STOCK_DIALOG_WARNING, GTK_ICON_SIZE_SMALL_TOOLBAR);
+        gtk_box_pack_start( GTK_BOX(hbox), comboBoxEntry, TRUE, TRUE, 0 );
+        gtk_box_pack_start( GTK_BOX(hbox), ink_comboboxentry_action->indicator, FALSE, FALSE, 0 );
+        gtk_container_add( GTK_CONTAINER(align), hbox );
+#endif // GTK_CHECK_VERSION(2,16,0)
+        gtk_container_add( GTK_CONTAINER(item), align );
+    }
 
     ink_comboboxentry_action->combobox = GTK_COMBO_BOX_ENTRY(comboBoxEntry);
 
@@ -325,23 +372,42 @@ GtkWidget* create_tool_item( GtkAction* action )
       gtk_cell_layout_clear( GTK_CELL_LAYOUT( comboBoxEntry ) );
       gtk_cell_layout_pack_start( GTK_CELL_LAYOUT( comboBoxEntry ), cell, true );
       gtk_cell_layout_set_cell_data_func (GTK_CELL_LAYOUT( comboBoxEntry ), cell,
-					  GtkCellLayoutDataFunc (ink_comboboxentry_action->cell_data_func),
-					  NULL, NULL );
+                                          GtkCellLayoutDataFunc (ink_comboboxentry_action->cell_data_func),
+                                          NULL, NULL );
+    }
+
+    // Optionally widen the combobox width... which widens the drop-down list in list mode.
+    if( ink_comboboxentry_action->extra_width > 0 ) {
+      GtkRequisition req;
+      gtk_widget_size_request( GTK_WIDGET( ink_comboboxentry_action->combobox ), &req );
+      gtk_widget_set_size_request( GTK_WIDGET( ink_comboboxentry_action->combobox ),
+				   req.width + ink_comboboxentry_action->extra_width, -1 );
     }
 
     // Get reference to GtkEntry and fiddle a bit with it.
     GtkWidget *child = gtk_bin_get_child( GTK_BIN(comboBoxEntry) );
+
+    // Name it so we can muck with it using an RC file
+    gtk_widget_set_name( child, entry_name );
+    g_free( entry_name );
+
     if( child && GTK_IS_ENTRY( child ) ) {
+
       ink_comboboxentry_action->entry = GTK_ENTRY(child);
 
       // Change width
-      if( ink_comboboxentry_action->width > 0 ) {
-	gtk_entry_set_width_chars (GTK_ENTRY (child), ink_comboboxentry_action->width );
+      if( ink_comboboxentry_action->entry_width > 0 ) {
+          gtk_entry_set_width_chars (GTK_ENTRY (child), ink_comboboxentry_action->entry_width );
       }
 
       // Add pop-up entry completion if required
       if( ink_comboboxentry_action->popup ) {
-	ink_comboboxentry_action_popup_enable( ink_comboboxentry_action );
+          ink_comboboxentry_action_popup_enable( ink_comboboxentry_action );
+      }
+
+      // Add altx_name if required
+      if( ink_comboboxentry_action->altx_name ) {
+          g_object_set_data( G_OBJECT( child ), ink_comboboxentry_action->altx_name, ink_comboboxentry_action->entry );
       }
 
       // Add signal for GtkEntry to check if finished typing.
@@ -349,8 +415,10 @@ GtkWidget* create_tool_item( GtkAction* action )
 
     }
 
+#if GTK_CHECK_VERSION(2,16,0)
     gtk_action_connect_proxy( GTK_ACTION( action ), item );
-      
+#endif
+
     gtk_widget_show_all( item );
 
   } else {
@@ -358,7 +426,7 @@ GtkWidget* create_tool_item( GtkAction* action )
     item = ink_comboboxentry_action_parent_class->create_tool_item( action );
 
   }
-    
+
   return item;
 }
 
@@ -369,7 +437,7 @@ GtkWidget* create_menu_item( GtkAction* action )
 
     item = ink_comboboxentry_action_parent_class->create_menu_item( action );
     g_warning( "ink_comboboxentry_action: create_menu_item not implemented" );
-    // One can easily modify ege-select-one-action routine to implement this. 
+    // One can easily modify ege-select-one-action routine to implement this.
   return item;
 }
 
@@ -391,7 +459,7 @@ gchar* ink_comboboxentry_action_get_active_text( Ink_ComboBoxEntry_Action* actio
   return text;
 }
 
-gboolean ink_comboboxentry_action_set_active_text( Ink_ComboBoxEntry_Action* ink_comboboxentry_action, gchar* text ) {
+gboolean ink_comboboxentry_action_set_active_text( Ink_ComboBoxEntry_Action* ink_comboboxentry_action, const gchar* text ) {
 
   g_free( ink_comboboxentry_action->text );
   ink_comboboxentry_action->text = g_strdup( text );
@@ -412,18 +480,27 @@ gboolean ink_comboboxentry_action_set_active_text( Ink_ComboBoxEntry_Action* ink
 
     // Show or hide warning
     if( ink_comboboxentry_action->active == -1 && ink_comboboxentry_action->warning != NULL ) {
+#if GTK_CHECK_VERSION(2,16,0)
       gtk_entry_set_icon_from_icon_name( ink_comboboxentry_action->entry,
-					 GTK_ENTRY_ICON_SECONDARY,
-					 GTK_STOCK_DIALOG_WARNING );
+                                         GTK_ENTRY_ICON_SECONDARY,
+                                         GTK_STOCK_DIALOG_WARNING );
       // Can't add tooltip until icon set
       gtk_entry_set_icon_tooltip_text( ink_comboboxentry_action->entry,
-				       GTK_ENTRY_ICON_SECONDARY,
-				       ink_comboboxentry_action->warning );
-
+                                       GTK_ENTRY_ICON_SECONDARY,
+                                       ink_comboboxentry_action->warning );
+#else // GTK_CHECK_VERSION(2,16,0)
+      gtk_image_set_from_stock( GTK_IMAGE(ink_comboboxentry_action->indicator), GTK_STOCK_DIALOG_WARNING, GTK_ICON_SIZE_SMALL_TOOLBAR);
+      gtk_widget_set_tooltip_text( ink_comboboxentry_action->indicator, ink_comboboxentry_action->warning );
+#endif // GTK_CHECK_VERSION(2,16,0)
     } else {
+#if GTK_CHECK_VERSION(2,16,0)
       gtk_entry_set_icon_from_icon_name( GTK_ENTRY(ink_comboboxentry_action->entry),
-					 GTK_ENTRY_ICON_SECONDARY,
-					 NULL );
+                                         GTK_ENTRY_ICON_SECONDARY,
+                                         NULL );
+#else // GTK_CHECK_VERSION(2,16,0)
+      gtk_image_set_from_stock( GTK_IMAGE(ink_comboboxentry_action->indicator), NULL, GTK_ICON_SIZE_SMALL_TOOLBAR);
+      gtk_widget_set_tooltip_text( ink_comboboxentry_action->indicator, NULL );
+#endif // GTK_CHECK_VERSION(2,16,0)
     }
   }
 
@@ -432,13 +509,25 @@ gboolean ink_comboboxentry_action_set_active_text( Ink_ComboBoxEntry_Action* ink
   return found;
 }
 
-void ink_comboboxentry_action_set_width( Ink_ComboBoxEntry_Action* action, gint width ) {
+void ink_comboboxentry_action_set_entry_width( Ink_ComboBoxEntry_Action* action, gint entry_width ) {
 
-  action->width = width;
+  action->entry_width = entry_width;
 
   // Widget may not have been created....
   if( action->entry ) {
-    gtk_entry_set_width_chars( GTK_ENTRY(action->entry), width );
+    gtk_entry_set_width_chars( GTK_ENTRY(action->entry), entry_width );
+  }
+}
+
+void ink_comboboxentry_action_set_extra_width( Ink_ComboBoxEntry_Action* action, gint extra_width ) {
+
+  action->extra_width = extra_width;
+
+  // Widget may not have been created....
+  if( action->combobox ) {
+    GtkRequisition req;
+    gtk_widget_size_request( GTK_WIDGET( action->combobox ), &req );
+    gtk_widget_set_size_request( GTK_WIDGET( action->combobox ), req.width + action->extra_width, -1 );
   }
 }
 
@@ -472,26 +561,42 @@ void ink_comboboxentry_action_popup_disable( Ink_ComboBoxEntry_Action* action ) 
 
   if( action->entry_completion ) {
     gtk_object_destroy( GTK_OBJECT( action->entry_completion ) );
+    action->entry_completion = 0;
   }
 }
 
-void     ink_comboboxentry_action_set_warning( Ink_ComboBoxEntry_Action* action, gchar* warning ) {
+void     ink_comboboxentry_action_set_warning( Ink_ComboBoxEntry_Action* action, const gchar* warning ) {
 
   g_free( action->warning );
   action->warning = g_strdup( warning );
 
   // Widget may not have been created....
   if( action->entry ) {
+#if GTK_CHECK_VERSION(2,16,0)
     gtk_entry_set_icon_tooltip_text( GTK_ENTRY(action->entry),
-				     GTK_ENTRY_ICON_SECONDARY,
-				     action->warning );
+                                     GTK_ENTRY_ICON_SECONDARY,
+                                     action->warning );
+#else // GTK_CHECK_VERSION(2,16,0)
+    gtk_image_set_from_stock( GTK_IMAGE(action->indicator), action->warning ? GTK_STOCK_DIALOG_WARNING : 0, GTK_ICON_SIZE_SMALL_TOOLBAR );
+#endif // GTK_CHECK_VERSION(2,16,0)
+  }
+}
+
+void     ink_comboboxentry_action_set_altx_name( Ink_ComboBoxEntry_Action* action, const gchar* altx_name ) {
+
+  g_free( action->altx_name );
+  action->altx_name = g_strdup( altx_name );
+
+  // Widget may not have been created....
+  if( action->entry ) {
+    g_object_set_data( G_OBJECT(action->entry), action->altx_name, action->entry );
   }
 }
 
 // Internal ---------------------------------------------------
 
 // Return row of active text or -1 if not found.
-gint get_active_row_from_text( Ink_ComboBoxEntry_Action* action, gchar* target_text ) {
+gint get_active_row_from_text( Ink_ComboBoxEntry_Action* action, const gchar* target_text ) {
 
   // Check if text in list
   gint row = 0;
@@ -571,7 +676,7 @@ static void entry_activate_cb( GtkEntry* widget, gpointer data ) {
 
 }
 
-static gboolean match_selected_cb( GtkEntryCompletion* widget, GtkTreeModel* model, GtkTreeIter* iter, gpointer data )
+static gboolean match_selected_cb( GtkEntryCompletion* /*widget*/, GtkTreeModel* model, GtkTreeIter* iter, gpointer data )
 {
   // Get action
   Ink_ComboBoxEntry_Action *ink_comboboxentry_action = INK_COMBOBOXENTRY_ACTION( data );
@@ -583,7 +688,7 @@ static gboolean match_selected_cb( GtkEntryCompletion* widget, GtkTreeModel* mod
 
     // Set text in GtkEntry
     gtk_entry_set_text (GTK_ENTRY (entry), family );
-    
+
     // Set text in GtkAction
     g_free( ink_comboboxentry_action->text );
     ink_comboboxentry_action->text = family;
