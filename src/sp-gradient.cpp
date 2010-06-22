@@ -31,6 +31,7 @@
 #include <sigc++/functors/ptr_fun.h>
 #include <sigc++/adaptors/bind.h>
 
+#include "display/inkscape-cairo.h"
 #include "libnr/nr-gradient.h"
 #include "libnr/nr-pixops.h"
 #include "svg/svg.h"
@@ -1425,7 +1426,7 @@ static SPPainter *sp_lineargradient_painter_new(SPPaintServer *ps,
                                                 Geom::Matrix const &parent_transform,
                                                 NRRect const *bbox);
 static void sp_lineargradient_painter_free(SPPaintServer *ps, SPPainter *painter);
-
+static cairo_pattern_t *sp_lineargradient_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 static void sp_lg_fill(SPPainter *painter, NRPixBlock *pb);
 
 static SPGradientClass *lg_parent_class;
@@ -1469,6 +1470,7 @@ static void sp_lineargradient_class_init(SPLinearGradientClass *klass)
 
     ps_class->painter_new = sp_lineargradient_painter_new;
     ps_class->painter_free = sp_lineargradient_painter_free;
+    ps_class->pattern_new = sp_lineargradient_create_pattern;
 }
 
 /**
@@ -1700,6 +1702,7 @@ static SPPainter *sp_radialgradient_painter_new(SPPaintServer *ps,
                                                 Geom::Matrix const &parent_transform,
                                                 NRRect const *bbox);
 static void sp_radialgradient_painter_free(SPPaintServer *ps, SPPainter *painter);
+static cairo_pattern_t *sp_radialgradient_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 static void sp_rg_fill(SPPainter *painter, NRPixBlock *pb);
 
@@ -1744,6 +1747,7 @@ static void sp_radialgradient_class_init(SPRadialGradientClass *klass)
 
     ps_class->painter_new = sp_radialgradient_painter_new;
     ps_class->painter_free = sp_radialgradient_painter_free;
+    ps_class->pattern_new = sp_radialgradient_create_pattern;
 }
 
 /**
@@ -1948,6 +1952,86 @@ sp_rg_fill(SPPainter *painter, NRPixBlock *pb)
     }
 
     nr_render((NRRenderer *) &rgp->rgr, pb, NULL);
+}
+
+/* CAIRO RENDERING STUFF */
+
+static void
+sp_gradient_pattern_common_setup(cairo_pattern_t *cp,
+                                 SPGradient *gr,
+                                 NRRect const *bbox,
+                                 double opacity)
+{
+    // set spread type
+    switch (sp_gradient_get_spread(gr)) {
+    case SP_GRADIENT_SPREAD_REFLECT:
+        cairo_pattern_set_extend(cp, CAIRO_EXTEND_REFLECT);
+        break;
+    case SP_GRADIENT_SPREAD_REPEAT:
+        cairo_pattern_set_extend(cp, CAIRO_EXTEND_REPEAT);
+        break;
+    case SP_GRADIENT_SPREAD_PAD:
+    default:
+        cairo_pattern_set_extend(cp, CAIRO_EXTEND_PAD);
+        break;
+    }
+
+    // add stops
+    for (std::vector<SPGradientStop>::iterator i = gr->vector.stops.begin();
+         i != gr->vector.stops.end(); ++i)
+    {
+        // multiply stop opacity by paint opacity
+        cairo_pattern_add_color_stop_rgba(cp, i->offset,
+            i->color.v.c[0], i->color.v.c[1], i->color.v.c[2], i->opacity * opacity);
+    }
+
+    // set pattern matrix
+    Geom::Matrix gs2user = gr->gradientTransform;
+    if (gr->units == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
+        Geom::Matrix bbox2user(bbox->x1 - bbox->x0, 0, 0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        gs2user *= bbox2user;
+    }
+    ink_cairo_pattern_set_matrix(cp, gs2user.inverse());
+}
+
+static cairo_pattern_t *
+sp_radialgradient_create_pattern(SPPaintServer *ps,
+                                 cairo_t */* ct */,
+                                 NRRect const *bbox,
+                                 double opacity)
+{
+    SPRadialGradient *rg = SP_RADIALGRADIENT(ps);
+    SPGradient *gr = SP_GRADIENT(ps);
+
+    if (!gr->color) sp_gradient_ensure_colors(gr);
+
+    cairo_pattern_t *cp = cairo_pattern_create_radial(
+        rg->fx.computed, rg->fy.computed, 0,
+        rg->cx.computed, rg->cy.computed, rg->r.computed);
+
+    sp_gradient_pattern_common_setup(cp, gr, bbox, opacity);
+
+    return cp;
+}
+
+static cairo_pattern_t *
+sp_lineargradient_create_pattern(SPPaintServer *ps,
+                                 cairo_t */* ct */,
+                                 NRRect const *bbox,
+                                 double opacity)
+{
+    SPLinearGradient *lg = SP_LINEARGRADIENT(ps);
+    SPGradient *gr = SP_GRADIENT(ps);
+
+    if (!gr->color) sp_gradient_ensure_colors(gr);
+
+    cairo_pattern_t *cp = cairo_pattern_create_linear(
+        lg->x1.computed, lg->y1.computed,
+        lg->x2.computed, lg->y2.computed);
+
+    sp_gradient_pattern_common_setup(cp, gr, bbox, opacity);
+
+    return cp;
 }
 
 /*

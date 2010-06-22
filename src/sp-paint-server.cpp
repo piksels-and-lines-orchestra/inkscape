@@ -26,6 +26,7 @@ static void sp_paint_server_init(SPPaintServer *ps);
 static void sp_paint_server_release(SPObject *object);
 
 static void sp_painter_stale_fill(SPPainter *painter, NRPixBlock *pb);
+static cairo_pattern_t *sp_paint_server_create_dummy_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 static SPObjectClass *parent_class;
 static GSList *stale_painters = NULL;
@@ -55,6 +56,7 @@ static void sp_paint_server_class_init(SPPaintServerClass *psc)
 {
     SPObjectClass *sp_object_class = (SPObjectClass *) psc;
     sp_object_class->release = sp_paint_server_release;
+    psc->pattern_new = sp_paint_server_create_dummy_pattern;
     parent_class = (SPObjectClass *) g_type_class_ref(SP_TYPE_OBJECT);
 }
 
@@ -104,6 +106,36 @@ SPPainter *sp_paint_server_painter_new(SPPaintServer *ps,
     }
 
     return painter;
+}
+
+cairo_pattern_t *sp_paint_server_create_pattern(SPPaintServer *ps,
+                                                cairo_t *ct,
+                                                NRRect const *bbox,
+                                                double opacity)
+{
+    // NOTE: the ct argument is used for when rendering patterns
+    // to create a group, instead of explicitly creating a temporary surface
+    g_return_val_if_fail(ps != NULL, NULL);
+    g_return_val_if_fail(SP_IS_PAINT_SERVER(ps), NULL);
+    g_return_val_if_fail(bbox != NULL, NULL);
+
+    cairo_pattern_t *cp = NULL;
+    SPPaintServerClass *psc = (SPPaintServerClass *) G_OBJECT_GET_CLASS(ps);
+    if ( psc->pattern_new ) {
+        cp = (*psc->pattern_new)(ps, ct, bbox, opacity);
+    }
+
+    return cp;
+}
+
+static cairo_pattern_t *
+sp_paint_server_create_dummy_pattern(SPPaintServer */*ps*/,
+                                     cairo_t */* ct */,
+                                     NRRect const */*bbox*/,
+                                     double /* opacity */)
+{
+    cairo_pattern_t *cp = cairo_pattern_create_rgb(1.0, 0.0, 1.0);
+    return cp;
 }
 
 static void sp_paint_server_painter_free(SPPaintServer *ps, SPPainter *painter)

@@ -15,6 +15,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <cairo.h>
 #include <libnr/nr-pixblock.h>
 #include "sp-object.h"
 #include "uri-references.h"
@@ -57,11 +58,14 @@ struct SPPaintServerClass {
     SPPainter * (* painter_new) (SPPaintServer *ps, Geom::Matrix const &full_transform, Geom::Matrix const &parent_transform, const NRRect *bbox);
     /** Free SPPaint instance. */
     void (* painter_free) (SPPaintServer *ps, SPPainter *painter);
+
+    cairo_pattern_t *(*pattern_new)(SPPaintServer *ps, cairo_t *ct, const NRRect *bbox, double opacity);
 };
 
 GType sp_paint_server_get_type (void);
 
 SPPainter *sp_paint_server_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, Geom::Matrix const &parent_transform, const NRRect *bbox);
+cairo_pattern_t *sp_paint_server_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 SPPainter *sp_painter_free (SPPainter *painter);
 

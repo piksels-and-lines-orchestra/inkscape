@@ -1649,18 +1649,32 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
     buf.visible_rect.y0 = draw_y1;
     buf.visible_rect.x1 = draw_x2;
     buf.visible_rect.y1 = draw_y2;
-    GdkColor *color = &widget->style->bg[GTK_STATE_NORMAL];
-    buf.bg_color = (((color->red & 0xff00) << 8)
-                    | (color->green & 0xff00)
-                    | (color->blue >> 8));
     buf.is_empty = true;
+    //buf.bg_color = &widget->style->bg[GTK_STATE_NORMAL];
+    //buf.ct = nr_create_cairo_context_canvasbuf (&(buf.visible_rect), &buf);
+    buf.ct = gdk_cairo_create(widget->window);
 
-    buf.ct = nr_create_cairo_context_canvasbuf (&(buf.visible_rect), &buf);
+    // fix coordinates, clip all drawing to the tile and clear the background
+    // TODO: the translation is done to remain compatible with legacy code.
+    // Fix the code so it doesn't refer to buf.rect and remove the translation.
+    cairo_translate(buf.ct, x0 - canvas->x0, y0 - canvas->y0); // ?
+    cairo_rectangle(buf.ct, 0, 0, x1 - x0, y1 - y0);
+    //cairo_set_line_width(buf.ct, 3);
+    //cairo_set_source_rgba(buf.ct, 1.0, 0.0, 0.0, 0.1);
+    //cairo_stroke_preserve(buf.ct);
+    cairo_clip(buf.ct);
+
+    gdk_cairo_set_source_color(buf.ct, &widget->style->bg[GTK_STATE_NORMAL]);
+    cairo_set_operator(buf.ct, CAIRO_OPERATOR_SOURCE);
+    //cairo_rectangle(buf.ct, 0, 0, x1 - x0, y1 - y0);
+    cairo_paint(buf.ct);
+    cairo_set_operator(buf.ct, CAIRO_OPERATOR_OVER);
 
     if (canvas->root->flags & SP_CANVAS_ITEM_VISIBLE) {
         SP_CANVAS_ITEM_GET_CLASS (canvas->root)->render (canvas->root, &buf);
     }
 
+#if 0
 #if ENABLE_LCMS
     cmsHTRANSFORM transf = 0;
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -1702,22 +1716,22 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
 // use gdk_draw_rgb_image_dithalign, for unfortunately gdk can only handle 24 bpp, which cairo
 // cannot handle at all. Still, this way is currently faster even despite the blit with squeeze.
 
-///#define CANVAS_OUTPUT_VIA_CAIRO
+//#define CANVAS_OUTPUT_VIA_CAIRO
 
 #ifdef CANVAS_OUTPUT_VIA_CAIRO
 
-        buf.cst = cairo_image_surface_create_for_data (
+        cairo_surface_t *cst = cairo_image_surface_create_for_data (
             buf.buf,
             CAIRO_FORMAT_ARGB32,  // unpacked, i.e. 32 bits! one byte is unused
             x1 - x0, y1 - y0,
             buf.buf_rowstride
             );
         cairo_t *window_ct = gdk_cairo_create(SP_CANVAS_WINDOW (canvas));
-        cairo_set_source_surface (window_ct, buf.cst, x0 - canvas->x0, y0 - canvas->y0);
+        cairo_set_source_surface (window_ct, cst, x0 - canvas->x0, y0 - canvas->y0);
         cairo_paint (window_ct);
         cairo_destroy (window_ct);
-        cairo_surface_finish (buf.cst);
-        cairo_surface_destroy (buf.cst);
+        cairo_surface_finish (cst);
+        cairo_surface_destroy (cst);
 
 #else
 
@@ -1746,11 +1760,12 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
         nr_pixblock_release (&b4);
 #endif
     }
+#endif
 
-    cairo_surface_t *cst = cairo_get_target(buf.ct);
+    //cairo_surface_t *cst = cairo_get_target(buf.ct);
     cairo_destroy (buf.ct);
-    cairo_surface_finish (cst);
-    cairo_surface_destroy (cst);
+    //cairo_surface_finish (cst);
+    //cairo_surface_destroy (cst);
 
     if (canvas->rendermode != Inkscape::RENDERMODE_OUTLINE) {
         nr_pixelstore_256K_free (buf.buf);
@@ -1816,11 +1831,21 @@ sp_canvas_paint_rect_internal (PaintRectSetup const *setup, NRRectL this_rect)
 
     if (bw * bh < setup->max_pixels) {
         // We are small enough
+        GdkRectangle r;
+        r.x = this_rect.x0 - setup->canvas->x0;
+        r.y = this_rect.y0 - setup->canvas->y0;
+        r.width = this_rect.x1 - this_rect.x0;
+        r.height = this_rect.y1 - this_rect.y0;
+
+        GdkWindow *window = GTK_WIDGET(setup->canvas)->window;
+        gdk_window_begin_paint_rect(window, &r);
+
         sp_canvas_paint_single_buffer (setup->canvas,
                                        this_rect.x0, this_rect.y0,
                                        this_rect.x1, this_rect.y1,
                                        setup->big_rect.x0, setup->big_rect.y0,
                                        setup->big_rect.x1, setup->big_rect.y1, bw);
+        gdk_window_end_paint(window);
         return 1;
     }
 

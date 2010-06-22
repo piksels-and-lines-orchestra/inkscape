@@ -190,6 +190,7 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
     gint bw, bh;
  
     SPCanvasArena *arena = SP_CANVAS_ARENA (item);
+    SPCanvas *canvas = item->canvas;
 
     nr_arena_item_invoke_update (arena->root, NULL, &arena->gc,
                                  NR_ARENA_ITEM_STATE_BBOX | NR_ARENA_ITEM_STATE_RENDER,
@@ -209,19 +210,31 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
     area.x1 = buf->rect.x1;
     area.y1 = buf->rect.y1;
 
+    sp_canvas_prepare_buffer(buf);
+
     nr_pixblock_setup_extern (&cb, NR_PIXBLOCK_MODE_R8G8B8A8P, area.x0, area.y0, area.x1, area.y1,
                               buf->buf,
                               buf->buf_rowstride,
                               FALSE, FALSE);
 
     cb.visible_area = buf->visible_rect;
-    cairo_t *ct = nr_create_cairo_context (&area, &cb);
-    nr_arena_item_invoke_render (ct, arena->root, &area, &cb, 0);
+    //cairo_t *ct = nr_create_cairo_context (&area, &cb);
 
-    cairo_surface_t *cst = cairo_get_target(ct);
-    cairo_destroy (ct);
-    cairo_surface_finish (cst);
-    cairo_surface_destroy (cst);
+    cairo_save(buf->ct);
+    //cairo_translate(buf->ct, area.x0 - canvas->x0, area.y0 - canvas->y0);
+    nr_arena_item_invoke_render (buf->ct, arena->root, &area, &cb, 0);
+    cairo_restore(buf->ct);
+
+    //cairo_surface_t *cst = cairo_get_target(ct);
+
+    //cairo_save(buf->ct);
+    //cairo_set_source_surface(buf->ct, cst, 0, 0);
+    //cairo_paint(buf->ct);
+    //cairo_restore(buf->ct);
+
+    //cairo_destroy (ct);
+    //cairo_surface_finish (cst);
+    //cairo_surface_destroy (cst);
 
     nr_pixblock_release (&cb);
 }

@@ -19,10 +19,13 @@
 struct NRPixBlock;
 class SPCanvasBuf;
 
-cairo_t *nr_create_cairo_context_canvasbuf (NRRectL *area, SPCanvasBuf *b);
 cairo_t *nr_create_cairo_context (NRRectL *area, NRPixBlock *pb);
 void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv, Geom::Matrix trans, Geom::OptRect area, bool optimize_stroke, double stroke_width);
 void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv);
+
+void ink_cairo_set_source_rgba32(cairo_t *ct, guint32 rgba);
+void ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m);
+void ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m);
 
 #endif
 /*

@@ -106,11 +106,7 @@ sp_ctrlline_render (SPCanvasItem *item, SPCanvasBuf *buf)
     if (cl->s == cl->e)
         return;
 
-    sp_canvas_prepare_buffer (buf);
-
-    guint32 rgba = cl->rgba;
-    cairo_set_source_rgba(buf->ct, SP_RGBA32_B_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_R_F(rgba), SP_RGBA32_A_F(rgba));
-
+    ink_cairo_set_source_rgba32(buf->ct, cl->rgba);
     cairo_set_line_width(buf->ct, 1);
     cairo_new_path(buf->ct);
 

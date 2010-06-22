@@ -13,6 +13,7 @@
 #include "display-forward.h"
 #include "sodipodi-ctrl.h"
 #include "libnr/nr-pixops.h"
+#include "display/inkscape-cairo.h"
 
 enum {
     ARG_0,
@@ -176,11 +177,14 @@ sp_ctrl_set_arg (GtkObject *object, GtkArg *arg, guint arg_id)
             sp_canvas_item_request_update (item);
             break;
 
-        case ARG_FILL_COLOR:
-            ctrl->fill_color = GTK_VALUE_INT (*arg);
+        case ARG_FILL_COLOR: {
+            // treat colors with zero alpha as opaque
+            guint32 fill = GTK_VALUE_INT (*arg);
+            fill = ((fill & 0xff) == 0 && fill) ? fill | 0xff : fill;
+            ctrl->fill_color = fill;
             ctrl->build = FALSE;
             sp_canvas_item_request_update (item);
-            break;
+            } break;
 
         case ARG_STROKED:
             ctrl->stroked = GTK_VALUE_BOOL (*arg);
@@ -188,11 +192,14 @@ sp_ctrl_set_arg (GtkObject *object, GtkArg *arg, guint arg_id)
             sp_canvas_item_request_update (item);
             break;
 
-        case ARG_STROKE_COLOR:
-            ctrl->stroke_color = GTK_VALUE_INT (*arg);
+        case ARG_STROKE_COLOR: {
+            // treat colors with zero alpha as opaque
+            guint32 stroke = GTK_VALUE_INT (*arg);
+            stroke = ((stroke & 0xff) == 0 && stroke) ? stroke | 0xff : stroke;
+            ctrl->stroke_color = stroke;
             ctrl->build = FALSE;
             sp_canvas_item_request_update (item);
-            break;
+            } break;
 
         case ARG_PIXBUF:
             pixbuf  = (GdkPixbuf*)(GTK_VALUE_POINTER (*arg));
@@ -298,11 +305,11 @@ sp_ctrl_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_item)
 static void
 sp_ctrl_build_cache (SPCtrl *ctrl)
 {
-    guchar * p, *q;
-    gint size, x, y, z, s, a, side, c;
-    guint8 fr, fg, fb, fa, sr, sg, sb, sa;
+    //guchar * p, *q;
+    //int size, x, y, z, s, a, side, c;
+    //guint8 fr, fg, fb, fa, sr, sg, sb, sa;
 
-    if (ctrl->filled) {
+    /*if (ctrl->filled) {
         fr = (ctrl->fill_color >> 24) & 0xff;
         fg = (ctrl->fill_color >> 16) & 0xff;
         fb = (ctrl->fill_color >> 8) & 0xff;
@@ -317,147 +324,85 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
         sa = (ctrl->stroke_color) & 0xff;
     } else {
         sr = fr; sg = fg; sb = fb; sa = fa;
+    }*/
+
+    int w, h; // for clarity; w and h are always odd
+    w = h = (ctrl->span * 2 +1);
+    int c = ctrl->span ;
+
+    if (ctrl->cache) {
+        cairo_surface_finish(ctrl->cache);
+        cairo_surface_destroy(ctrl->cache);
     }
+    ctrl->cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+    cairo_t *cr = cairo_create(ctrl->cache);
 
-
-    side = (ctrl->span * 2 +1);
-    c = ctrl->span ;
-    size = (side) * (side) * 4;
-    if (side < 2) return;
-
-    if (ctrl->cache)
-        g_free (ctrl->cache);
-    ctrl->cache = (guchar*)g_malloc (size);
+    bool supress_fill = false;
+    bool supress_paint = false;
 
     switch (ctrl->shape) {
         case SP_CTRL_SHAPE_SQUARE:
-            p = ctrl->cache;
-            for (x=0; x < side; x++) {
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
-            }
-            for (y = 2; y < side; y++) {
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
-                for (x=2; x < side; x++) {
-                    *p++ = fr; *p++ = fg; *p++ = fb; *p++ = fa;
-                }
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
-            }
-            for (x=0; x < side; x++) {
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
-            }
+            cairo_rectangle(cr, 0, 0, w, h);
             ctrl->build = TRUE;
             break;
 
         case SP_CTRL_SHAPE_DIAMOND:
-            p = ctrl->cache;
-            for (y = 0; y < side; y++) {
-                z = abs (c - y);
-                for (x = 0; x < z; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                }
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
-                for (; x < side - z -1; x++) {
-                    *p++ = fr; *p++ = fg; *p++ = fb; *p++ = fa;
-                }
-                if (z != c) {
-                    *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
-                }
-                for (; x < side; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                }
-            }
+            cairo_move_to(cr, c, 0); // c stands for "center" - it is half of the width / height
+            cairo_line_to(cr, w, c);
+            cairo_line_to(cr, c, h);
+            cairo_line_to(cr, 0, c);
+            cairo_close_path(cr);
+            ctrl->build = TRUE;
             break;
 
         case SP_CTRL_SHAPE_CIRCLE:
-            p = ctrl->cache;
-            q = p + size -1;
-            s = -1;
-            for (y = 0; y <= c ; y++) {
-                a = abs (c - y);
-                z = (gint)(0.0 + sqrt ((c+.4)*(c+.4) - a*a));
-                x = 0;
-                while (x < c-z) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                    *q-- = 0x00; *q-- = 0x00; *q-- = 0x00; *q-- = 0x00;
-                    x++;
-                }
-                do {
-                    *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
-                    *q-- = sa; *q-- = sb; *q-- = sg; *q-- = sr;
-                    x++;
-                } while (x < c-s);
-                while (x < MIN(c+s+1, c+z)) {
-                    *p++ = fr;   *p++ = fg;   *p++ = fb;   *p++ = fa;
-                    *q-- = fa;   *q-- = fb;   *q-- = fg;   *q-- = fr;
-                    x++;
-                }
-                do {
-                    *p++ = sr;   *p++ = sg;   *p++ = sb;   *p++ = sa;
-                    *q-- = sa; *q-- = sb; *q-- = sg; *q-- = sr;
-                    x++;
-                } while (x <= c+z);
-                while (x < side) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                    *q-- = 0x00; *q-- = 0x00; *q-- = 0x00; *q-- = 0x00;
-                    x++;
-                }
-                s = z;
-            }
+            cairo_arc(cr, 0.5+c, 0.5+c, c, 0, 2*M_PI);
+            cairo_close_path(cr);
             ctrl->build = TRUE;
             break;
 
         case SP_CTRL_SHAPE_CROSS:
-            p = ctrl->cache;
-            for (y = 0; y < side; y++) {
-                z = abs (c - y);
-                for (x = 0; x < c-z; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                }
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
-                for (; x < c + z; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                }
-                if (z != 0) {
-                    *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
-                }
-                for (; x < side; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                }
-            }
+            cairo_move_to(cr, 0.5+c, 0); // top stroke
+            cairo_line_to(cr, 0.5+c, c);
+            cairo_move_to(cr, w, 0.5+c); // right stroke
+            cairo_line_to(cr, w, c+1);
+            cairo_move_to(cr, 0.5+c, h); // bottom stroke
+            cairo_line_to(cr, 0.5+c, c+1);
+            cairo_move_to(cr, 0, 0.5+c); // left stroke
+            cairo_line_to(cr, c, 0.5+c);
+            supress_fill = true;
             ctrl->build = TRUE;
             break;
 
         case SP_CTRL_SHAPE_BITMAP:
             if (ctrl->pixbuf) {
-                unsigned char *px;
-                unsigned int rs;
-                px = gdk_pixbuf_get_pixels (ctrl->pixbuf);
-                rs = gdk_pixbuf_get_rowstride (ctrl->pixbuf);
-                for (y = 0; y < side; y++){
-                    unsigned char *s, *d;
-                    s = px + y * rs;
-                    d = ctrl->cache + 4 * side * y;
-                    for (x = 0; x < side; x++) {
-                        if (s[3] < 0x80) {
-                            d[0] = 0x00;
-                            d[1] = 0x00;
-                            d[2] = 0x00;
-                            d[3] = 0x00;
-                        } else if (s[0] < 0x80) {
-                            d[0] = sr;
-                            d[1] = sg;
-                            d[2] = sb;
-                            d[3] = sa;
+                gdk_cairo_set_source_pixbuf(cr, ctrl->pixbuf, 0, 0);
+                cairo_paint(cr);
+                cairo_surface_flush(ctrl->cache);
+
+                // TODO lame!!! find a way to do this without direct pixel manipulation.
+                int stride = cairo_image_surface_get_stride(ctrl->cache);
+                guint32 *px = reinterpret_cast<guint32*>(cairo_image_surface_get_data(ctrl->cache));
+
+                // fix byte order. fill_color is 0xrrggbbaa, cairo needs 0xaarrggbb.
+                // both quantities are native-endian, so it should be portable.
+                guint32 fill = ctrl->fill_color;
+                guint32 stroke = ctrl->stroke_color;
+                fill = ((fill & 0xff) << 24) | ((fill & 0xffffff00) >> 8);
+                stroke = ((stroke & 0xff) << 24) | ((stroke & 0xffffff00) >> 8);
+
+                for (int i = 0; i < h; ++i) {
+                    for (int j = 0; j < w; ++j) {
+                        int index = i * stride / 4 + j;
+                        if (px[index] & 0xff000000) {
+                            px[index] = px[index] ? stroke : fill;
                         } else {
-                            d[0] = fr;
-                            d[1] = fg;
-                            d[2] = fb;
-                            d[3] = fa;
+                            px[index] = 0;
                         }
-                        s += 4;
-                        d += 4;
                     }
                 }
+                cairo_surface_mark_dirty(ctrl->cache);
+                supress_paint = true;
             } else {
                 g_print ("control has no pixmap\n");
             }
@@ -466,19 +411,9 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
 
         case SP_CTRL_SHAPE_IMAGE:
             if (ctrl->pixbuf) {
-                guint r = gdk_pixbuf_get_rowstride (ctrl->pixbuf);
-                guchar * pix;
-                q = gdk_pixbuf_get_pixels (ctrl->pixbuf);
-                p = ctrl->cache;
-                for (y = 0; y < side; y++){
-                    pix = q + (y * r);
-                    for (x = 0; x < side; x++) {
-                        *p++ = *pix++;
-                        *p++ = *pix++;
-                        *p++ = *pix++;
-                        *p++ = *pix++;
-                    }
-                }
+                gdk_cairo_set_source_pixbuf(cr, ctrl->pixbuf, 0, 0);
+                cairo_paint(cr);
+                supress_paint = true;
             } else {
                 g_print ("control has no pixmap\n");
             }
@@ -489,6 +424,20 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
             break;
     }
 
+    if (ctrl->build && !supress_paint) {
+        if (ctrl->filled && !supress_fill) {
+            ink_cairo_set_source_rgba32(cr, ctrl->fill_color);
+            cairo_fill_preserve(cr);
+        }
+        if (ctrl->stroked) {
+            ink_cairo_set_source_rgba32(cr, ctrl->stroke_color);
+            cairo_set_line_width(cr, 2);
+            cairo_clip_preserve(cr);
+            cairo_stroke(cr);
+        }
+    }
+
+    cairo_destroy(cr);
 }
 
 // composite background, foreground, alpha for xor mode
@@ -499,28 +448,73 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
 static void
 sp_ctrl_render (SPCanvasItem *item, SPCanvasBuf *buf)
 {
-    gint y0, y1, y, x0,x1,x;
-    guchar *p, *q, a;
+    //gint y0, y1, y, x0,x1,x;
+    //guchar *p, *q, a;
 
     SPCtrl *ctrl = SP_CTRL (item);
 
     if (!ctrl->defined) return;
     if ((!ctrl->filled) && (!ctrl->stroked)) return;
 
-    sp_canvas_prepare_buffer (buf);
-
     // the control-image is rendered into ctrl->cache
     if (!ctrl->build) {
         sp_ctrl_build_cache (ctrl);
     }
 
+    cairo_set_source_surface(buf->ct, ctrl->cache,
+        ctrl->box.x0 - buf->rect.x0, ctrl->box.y0 - buf->rect.y0);
+    cairo_paint(buf->ct);
+
+    /*
+    double x0 = ctrl->box.x0;
+    double y0 = ctrl->box.y0;
+    double w = ctrl->box.x1 - ctrl->box.x0 + 1;
+    double h = ctrl->box.y1 - ctrl->box.y0 + 1;
+    //guint32 fill = ctrl->fill_color;
+    //fill = (fill & 0xff == 0 && fill) ? fill | 0xff : fill;
+    
+
+    switch (ctrl->shape) {
+    case SP_CTRL_SHAPE_SQUARE:
+        cairo_rectangle(buf->ct, x0, y0, w, h);
+        break;
+    case SP_CTRL_SHAPE_DIAMOND:
+        cairo_move_to(buf->ct, x0 + w/2, y0);
+        cairo_line_to(buf->ct, x0 + w, y0 + h/2);
+        cairo_line_to(buf->ct, x0 + w/2, y0 + h);
+        cairo_line_to(buf->ct, x0, y0 + h/2);
+        cairo_close_path(buf->ct);
+        break;
+    //case SP_CTRL_SHAPE_CIRCLE:
+    default:
+        cairo_arc(buf->ct, x0 + w/2, y0 + h/2, w/2, 0, 2*M_PI);
+        cairo_close_path(buf->ct);
+        break;
+    }
+
+    //if (ctrl->mode == SP_CTRL_MODE_XOR) {
+    //    cairo_set_operator(buf->ct, CAIRO_OPERATOR_XOR);
+    //}
+    if (ctrl->filled) {
+        ink_cairo_set_source_rgba32(buf->ct, ctrl->fill_color);
+        cairo_fill_preserve(buf->ct);
+    }
+    if (ctrl->stroked) {
+        ink_cairo_set_source_rgba32(buf->ct, ctrl->stroke_color);
+        cairo_set_line_width(buf->ct, 2);
+        cairo_clip_preserve(buf->ct);
+        cairo_stroke_preserve(buf->ct);
+    }
+
+    cairo_new_path(buf->ct);
+    cairo_restore(buf->ct);*/
+
+    #if 0
     // then we render from ctrl->cache
     y0 = MAX (ctrl->box.y0, buf->rect.y0);
     y1 = MIN (ctrl->box.y1, buf->rect.y1 - 1);
     x0 = MAX (ctrl->box.x0, buf->rect.x0);
     x1 = MIN (ctrl->box.x1, buf->rect.x1 - 1);
-
-    bool colormode;
 
     for (y = y0; y <= y1; y++) {
         p = buf->buf + (y - buf->rect.y0) * buf->buf_rowstride + (x0 - buf->rect.x0) * 4;
@@ -548,6 +542,7 @@ sp_ctrl_render (SPCanvasItem *item, SPCanvasBuf *buf)
             }
         }
     }
+    #endif
     ctrl->shown = TRUE;
 }
 

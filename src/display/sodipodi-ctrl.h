@@ -50,7 +50,7 @@ struct SPCtrl : public SPCanvasItem{
     bool _moved;
 
     NRRectL box;   /* NB! x1 & y1 are included */
-    guchar *cache;
+    cairo_surface_t *cache;
     GdkPixbuf * pixbuf;
 
     void moveto(Geom::Point const p);

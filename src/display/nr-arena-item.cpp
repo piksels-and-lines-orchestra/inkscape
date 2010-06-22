@@ -369,6 +369,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
             return item->state | NR_ARENA_ITEM_STATE_RENDER;
     }
 
+#if 0
     NRPixBlock cpb;
     if (item->px) {
         /* Has cache pixblock, render this and return */
@@ -386,9 +387,9 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
         pb->empty = FALSE;
         return item->state | NR_ARENA_ITEM_STATE_RENDER;
     }
-
+#endif
     NRPixBlock *dpb = pb;
-
+#if 0
     /* Setup cache if we can */
     if ((!(flags & NR_ARENA_ITEM_RENDER_NO_CACHE)) &&
         (carea.x0 <= item->drawbox.x0) && (carea.y0 <= item->drawbox.y0) &&
@@ -411,12 +412,14 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
         // Set nocache flag for downstream rendering
         flags |= NR_ARENA_ITEM_RENDER_NO_CACHE;
     }
+#endif
 
     /* Determine, whether we need temporary buffer */
-    if (item->clip || item->mask
+/*    if (item->clip || item->mask
         || ((item->opacity != 255) && !item->render_opacity)
         || (item->filter && filter) || item->background_new
-        || (item->parent && item->parent->background_pb)) {
+        || (item->parent && item->parent->background_pb))*/
+    if (0) {
 
         /* Setup and render item buffer */
         NRPixBlock ipb;
@@ -575,7 +578,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
         item->background_pb = NULL;
     } else {
         /* Just render */
-        unsigned int state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, &carea, dpb, flags);
+        unsigned int state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, const_cast<NRRectL*>(area), dpb, flags);
         if (state & NR_ARENA_ITEM_STATE_INVALID) {
             /* Clean up and return error */
             if (dpb != pb)

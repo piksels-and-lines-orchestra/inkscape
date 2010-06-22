@@ -53,12 +53,14 @@ nr_create_cairo_context_for_data (NRRectL *area, NRRectL *buf_area, unsigned cha
     return ct;
 }
 
+#if 0
 /** Creates a cairo context to render to the given SPCanvasBuf on the given area */
 cairo_t *
 nr_create_cairo_context_canvasbuf (NRRectL */*area*/, SPCanvasBuf *b)
 {
     return nr_create_cairo_context_for_data (&(b->rect), &(b->rect), b->buf, b->buf_rowstride);
 }
+#endif
 
 
 /** Creates a cairo context to render to the given NRPixBlock on the given area */
@@ -234,6 +236,39 @@ feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv)
     for(Geom::PathVector::const_iterator it = pathv.begin(); it != pathv.end(); ++it) {
         feed_path_to_cairo(ct, *it);
     }
+}
+
+void
+ink_cairo_set_source_rgba32(cairo_t *ct, guint32 rgba)
+{
+    cairo_set_source_rgba(ct, SP_RGBA32_R_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_B_F(rgba), SP_RGBA32_A_F(rgba));
+}
+
+static void
+ink_cairo_convert_matrix(cairo_matrix_t &cm, Geom::Matrix const &m)
+{
+    cm.xx = m[0];
+    cm.xy = m[2];
+    cm.x0 = m[4];
+    cm.yx = m[1];
+    cm.yy = m[3];
+    cm.y0 = m[5];
+}
+
+void
+ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m)
+{
+    cairo_matrix_t cm;
+    ink_cairo_convert_matrix(cm, m);
+    cairo_transform(ct, &cm);
+}
+
+void
+ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m)
+{
+    cairo_matrix_t cm;
+    ink_cairo_convert_matrix(cm, m);
+    cairo_pattern_set_matrix(cp, &cm);
 }
 
 /*

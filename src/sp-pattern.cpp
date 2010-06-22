@@ -23,6 +23,7 @@
 #include <2geom/transforms.h>
 #include "macros.h"
 #include "svg/svg.h"
+#include "display/inkscape-cairo.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-group.h"
 #include "attributes.h"
@@ -76,6 +77,7 @@ static void pattern_ref_modified (SPObject *ref, guint flags, SPPattern *pattern
 
 static SPPainter *sp_pattern_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, Geom::Matrix const &parent_transform, const NRRect *bbox);
 static void sp_pattern_painter_free (SPPaintServer *ps, SPPainter *painter);
+static cairo_pattern_t *sp_pattern_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 static SPPaintServerClass * pattern_parent_class;
 
@@ -123,6 +125,7 @@ sp_pattern_class_init (SPPatternClass *klass)
 
 	ps_class->painter_new = sp_pattern_painter_new;
 	ps_class->painter_free = sp_pattern_painter_free;
+    ps_class->pattern_new = sp_pattern_create_pattern;
 }
 
 static void
@@ -1016,3 +1019,128 @@ sp_pat_fill (SPPainter *painter, NRPixBlock *pb)
      } 
 	}
 }
+
+static cairo_pattern_t *
+sp_pattern_create_pattern(SPPaintServer *ps,
+                          cairo_t *base_ct,
+                          NRRect const *bbox,
+                          double opacity)
+{
+    SPPattern *pat = SP_PATTERN (ps);
+    Geom::Matrix ps2user;
+    bool needs_opacity = (1.0 - opacity) >= 1e-3;
+    bool visible = opacity >= 1e-3;
+
+    if (!visible)
+        return NULL;
+
+    if (pat->viewBox_set) {
+        gdouble tmp_x = pattern_width (pat) / (pattern_viewBox(pat)->x1 - pattern_viewBox(pat)->x0);
+        gdouble tmp_y = pattern_height (pat) / (pattern_viewBox(pat)->y1 - pattern_viewBox(pat)->y0);
+
+        // FIXME: preserveAspectRatio must be taken into account here too!
+        Geom::Matrix vb2ps (tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
+
+        ps2user = vb2ps * pattern_patternTransform(pat);
+    } else {
+        /* No viewbox, have to parse units */
+        ps2user = pattern_patternTransform(pat);
+        if (pattern_patternContentUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
+            /* BBox to user coordinate system */
+            Geom::Matrix bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+            ps2user *= bbox2user;
+        }
+        ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
+    }
+
+    /* Create arena */
+    NRArena *arena = NRArena::create();
+    unsigned int dkey = sp_item_display_key_new (1);
+    NRArenaGroup *root = NRArenaGroup::create(arena);
+
+    /* Show items */
+    for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
+        // find the first one with item children
+        if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) {
+            for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+                if (SP_IS_ITEM (child)) {
+                    // for each item in pattern, show it on our arena, add to the group,
+                    // and connect to the release signal in case the item gets deleted
+                    NRArenaItem *cai;
+                    cai = sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_REFERENCE_FLAGS);
+                    nr_arena_item_append_child (root, cai);
+                }
+            }
+            break; // do not go further up the chain if children are found
+        }
+    }
+
+    double x = pattern_x(pat);
+    double y = pattern_y(pat);
+    double w = pattern_width(pat);
+    double h = pattern_height(pat);
+
+    cairo_matrix_t cm;
+    cairo_get_matrix(base_ct, &cm);
+    Geom::Matrix full(cm.xx, cm.yx, cm.xy, cm.yy, 0, 0);
+
+    // oversample the pattern slightly
+    // TODO: find optimum value. Maybe sqrt(2)?
+    Geom::Point c(Geom::Point(w, h)*ps2user.descrim()*full.descrim()*1.2);
+    c[Geom::X] = ceil(c[Geom::X]);
+    c[Geom::Y] = ceil(c[Geom::Y]);
+    Geom::Matrix t = Geom::Scale(c[Geom::X]/w, c[Geom::Y]/h);
+
+    NRRectL one_tile;
+    one_tile.x0 = (int) floor(x);
+    one_tile.y0 = (int) floor(y);
+    one_tile.x1 = (int) ceil(x+w);
+    one_tile.y1 = (int) ceil(y+h);
+
+    cairo_surface_t *target = cairo_get_target(base_ct);
+    cairo_surface_t *temp = cairo_surface_create_similar(target, CAIRO_CONTENT_COLOR_ALPHA,
+        c[Geom::X], c[Geom::Y]);
+    cairo_t *ct = cairo_create(temp);
+    ink_cairo_transform(ct, t);
+
+    // render pattern.
+    if (needs_opacity) {
+        cairo_push_group(ct); // this group is for pattern + opacity
+    }
+
+    // TODO: make sure there are no leaks.
+    NRPixBlock pb;
+    nr_pixblock_setup (&pb, NR_PIXBLOCK_MODE_R8G8B8A8N, one_tile.x0, one_tile.y0,
+        one_tile.x1, one_tile.y1, TRUE);
+    NRGC gc(NULL);
+    gc.transform = Geom::identity();
+    nr_arena_item_invoke_update (root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
+    nr_arena_item_invoke_render (ct, root, &one_tile, &pb, 0);
+    nr_object_unref(arena);
+    nr_pixblock_release(&pb);
+
+    if (needs_opacity) {
+        cairo_pop_group_to_source(ct); // pop raw pattern
+        cairo_paint_with_alpha(ct, opacity); // apply opacity
+    }
+
+    cairo_pattern_t *cp = cairo_pattern_create_for_surface(temp);
+    cairo_surface_destroy(temp);
+
+    // Apply transformation to user space. Also compensate for oversampling.
+    ink_cairo_pattern_set_matrix(cp, ps2user.inverse() * t);
+    cairo_pattern_set_extend(cp, CAIRO_EXTEND_REPEAT);
+
+    return cp;
+}
+
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0)(case-label . +))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :

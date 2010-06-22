@@ -115,6 +115,9 @@ struct NRArenaShape : public NRArenaItem {
     /* State data */
     Geom::Matrix ctm;
 
+    cairo_pattern_t *fill_pattern;
+    cairo_pattern_t *stroke_pattern;
+
     SPPainter *fill_painter;
     SPPainter *stroke_painter;
     // the 2 cached polygons, for rasterizations uses

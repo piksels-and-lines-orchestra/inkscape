@@ -145,6 +145,8 @@ nr_arena_shape_finalize(NRObject *object)
     if (shape->cached_stroke) delete shape->cached_stroke;
     if (shape->fill_painter) sp_painter_free(shape->fill_painter);
     if (shape->stroke_painter) sp_painter_free(shape->stroke_painter);
+    if (shape->fill_pattern) cairo_pattern_destroy(shape->fill_pattern);
+    if (shape->stroke_pattern) cairo_pattern_destroy(shape->stroke_pattern);
 
     if (shape->style) sp_style_unref(shape->style);
     if (shape->curve) shape->curve->unref();
@@ -317,13 +319,15 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
         delete shape->stroke_shp;
         shape->stroke_shp = NULL;
     }
-    if (shape->fill_painter) {
-        sp_painter_free(shape->fill_painter);
-        shape->fill_painter = NULL;
+
+    // clear Cairo patterns to force update
+    if (shape->fill_pattern) {
+        cairo_pattern_destroy(shape->fill_pattern);
+        shape->fill_pattern = NULL;
     }
-    if (shape->stroke_painter) {
-        sp_painter_free(shape->stroke_painter);
-        shape->stroke_painter = NULL;
+    if (shape->stroke_pattern) {
+        cairo_pattern_destroy(shape->stroke_pattern);
+        shape->stroke_pattern = NULL;
     }
 
     if (!shape->curve || 
@@ -366,31 +370,10 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
     item->bbox.x1 = static_cast<NR::ICoord>(ceil ((*boundingbox)[0][1]));
     item->bbox.y1 = static_cast<NR::ICoord>(ceil ((*boundingbox)[1][1]));
 
-    item->render_opacity = TRUE;
-    if ( shape->_fill.paint.type() == NRArenaShape::Paint::SERVER ) {
-        if (gc && gc->parent) {
-            shape->fill_painter = sp_paint_server_painter_new(shape->_fill.paint.server(),
-                                                              gc->transform, gc->parent->transform,
-                                                              &shape->paintbox);
-        }
-        item->render_opacity = FALSE;
-    }
-    if ( shape->_stroke.paint.type() == NRArenaShape::Paint::SERVER ) {
-        if (gc && gc->parent) {
-            shape->stroke_painter = sp_paint_server_painter_new(shape->_stroke.paint.server(),
-                                                                gc->transform, gc->parent->transform,
-                                                                &shape->paintbox);
-        }
-        item->render_opacity = FALSE;
-    }
-    if (  (shape->_fill.paint.type() != NRArenaShape::Paint::NONE && 
-           shape->_stroke.paint.type() != NRArenaShape::Paint::NONE)
-          || (shape->markers)
-        )
-    {
-        // don't merge item opacity with paint opacity if there is a stroke on the fill, or markers on stroke
-        item->render_opacity = FALSE;
-    }
+    // to render opacity, use Cairo groups
+    item->render_opacity = FALSE;
+
+    // update patterns when rendering
 
     if (beststate & NR_ARENA_ITEM_STATE_BBOX) {
         for (NRArenaItem *child = shape->markers; child != NULL; child = child->next) {
@@ -745,92 +728,6 @@ cairo_arena_shape_render_outline(cairo_t *ct, NRArenaItem *item, Geom::OptRect a
     return item->state;
 }
 
-// cairo stroke rendering (flat color only so far!):
-// works on canvas, but wrongs the colors in nonpremul buffers: icons and png export
-// (need to switch them to premul before this can be enabled)
-void
-cairo_arena_shape_render_stroke(NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
-{
-    NRArenaShape *shape = NR_ARENA_SHAPE(item);
-    SPStyle const *style = shape->style;
-
-    float const scale = shape->ctm.descrim();
-
-    if (fabs(shape->_stroke.width * scale) < 0.01)
-        return;
-
-    cairo_t *ct = nr_create_cairo_context (area, pb);
-
-    if (!ct)
-        return;
-
-    guint32 rgba;
-    if ( item->render_opacity ) {
-        rgba = shape->_stroke.paint.color().toRGBA32( shape->_stroke.opacity *
-                                                      SP_SCALE24_TO_FLOAT(style->opacity.value) );
-    } else {
-        rgba = shape->_stroke.paint.color().toRGBA32( shape->_stroke.opacity );
-    }
-
-    // FIXME: we use RGBA buffers but cairo writes BGRA (on i386), so we must cheat 
-    // by setting color channels in the "wrong" order
-    cairo_set_source_rgba(ct, SP_RGBA32_B_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_R_F(rgba), SP_RGBA32_A_F(rgba));
-
-    float style_width = MAX(0.125, shape->_stroke.width * scale);
-    cairo_set_line_width(ct, style_width);
-
-    switch (shape->_stroke.cap) {
-        case NRArenaShape::BUTT_CAP:
-            cairo_set_line_cap(ct, CAIRO_LINE_CAP_BUTT);
-            break;
-        case NRArenaShape::ROUND_CAP:
-            cairo_set_line_cap(ct, CAIRO_LINE_CAP_ROUND);
-            break;
-        case NRArenaShape::SQUARE_CAP:
-            cairo_set_line_cap(ct, CAIRO_LINE_CAP_SQUARE);
-            break;
-    }
-    switch (shape->_stroke.join) {
-        case NRArenaShape::MITRE_JOIN:
-            cairo_set_line_join(ct, CAIRO_LINE_JOIN_MITER);
-            break;
-        case NRArenaShape::ROUND_JOIN:
-            cairo_set_line_join(ct, CAIRO_LINE_JOIN_ROUND);
-            break;
-        case NRArenaShape::BEVEL_JOIN:
-            cairo_set_line_join(ct, CAIRO_LINE_JOIN_BEVEL);
-            break;
-    }
-
-    cairo_set_miter_limit (ct, style->stroke_miterlimit.value);
-
-    if (style->stroke_dash.n_dash) {
-        NRVpathDash dash;
-        dash.offset = style->stroke_dash.offset * scale;
-        dash.n_dash = style->stroke_dash.n_dash;
-        dash.dash = g_new(double, dash.n_dash);
-        for (int i = 0; i < dash.n_dash; i++) {
-            dash.dash[i] = style->stroke_dash.dash[i] * scale;
-        }
-        cairo_set_dash (ct, dash.dash, dash.n_dash, dash.offset);
-        g_free(dash.dash);
-    }
-
-    cairo_set_tolerance(ct, 0.1);
-    cairo_new_path(ct);
-
-    feed_pathvector_to_cairo (ct, shape->curve->get_pathvector(), shape->ctm, to_2geom(area->upgrade()), true, style_width);
-
-    cairo_stroke(ct);
-
-    cairo_surface_t *cst = cairo_get_target(ct);
-    cairo_destroy (ct);
-    cairo_surface_finish (cst);
-    cairo_surface_destroy (cst);
-
-    pb->empty = FALSE;
-}
-
 /**
  * Renders the item.  Markers are just composed into the parent buffer.
  */
@@ -841,9 +738,10 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
 
     if (!shape->curve) return item->state;
     if (!shape->style) return item->state;
+    if (!ct) return item->state;
 
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
-    bool print_colors_preview = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW);
+    //bool print_colors_preview = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW);
 
     if (outline) { // cairo outline rendering
 
@@ -875,6 +773,121 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
 
     SPStyle const *style = shape->style;
 
+    // set up context and feed path
+    float opacity = SP_SCALE24_TO_FLOAT(shape->style->opacity.value);
+    bool needs_opacity = ((1.0 - opacity) >= 1e-3);
+
+    cairo_save(ct);
+    //cairo_new_path(ct); // we assume the context is clean
+    cairo_translate(ct, -area->x0, -area->y0);
+    ink_cairo_transform(ct, shape->ctm);
+
+    // update fill and stroke paints.
+    // this cannot be done during nr_arena_shape_update, because we need a Cairo context
+    // to use groups for svg:pattern
+    if (!shape->fill_pattern) {
+        switch (shape->_fill.paint.type()) {
+        case NRArenaShape::Paint::SERVER: {
+            SPPaintServer *ps = shape->_fill.paint.server();
+            shape->fill_pattern = sp_paint_server_create_pattern(ps, ct, &shape->paintbox, shape->_fill.opacity);
+            } break;
+        case NRArenaShape::Paint::COLOR: {
+            SPColor const &c = shape->_fill.paint.color();
+            shape->fill_pattern = cairo_pattern_create_rgba(
+                c.v.c[0], c.v.c[1], c.v.c[2], shape->_fill.opacity);
+            } break;
+        default: break;
+        }
+    }
+
+    if (!shape->stroke_pattern) {
+        switch (shape->_stroke.paint.type()) {
+        case NRArenaShape::Paint::SERVER: {
+            SPPaintServer *ps = shape->_stroke.paint.server();
+            shape->stroke_pattern = sp_paint_server_create_pattern(ps, ct, &shape->paintbox, shape->_stroke.opacity);
+            } break;
+        case NRArenaShape::Paint::COLOR: {
+            SPColor const &c = shape->_stroke.paint.color();
+            shape->stroke_pattern = cairo_pattern_create_rgba(
+                c.v.c[0], c.v.c[1], c.v.c[2], shape->_stroke.opacity);
+            } break;
+        default: break;
+        }
+    }
+
+    if (shape->fill_pattern || shape->stroke_pattern) {
+
+        if (needs_opacity) {
+            cairo_push_group(ct);
+        }
+
+        // TODO: remove segments outside of bbox when no dashes present
+        feed_pathvector_to_cairo(ct, shape->curve->get_pathvector());
+
+        if (shape->fill_pattern) {
+            switch (shape->_fill.rule) {
+                case NRArenaShape::EVEN_ODD:
+                    cairo_set_fill_rule(ct, CAIRO_FILL_RULE_EVEN_ODD);
+                    break;
+                default:
+                    cairo_set_fill_rule(ct, CAIRO_FILL_RULE_WINDING);
+                    break;
+            }
+            cairo_set_source(ct, shape->fill_pattern);
+            cairo_fill_preserve(ct);
+        }
+
+        if (shape->stroke_pattern) {
+            //    float style_width = shape->_stroke.width * scale;
+            cairo_set_line_width(ct, shape->_stroke.width);
+
+            // stroke caps
+            switch (shape->_stroke.cap) {
+                case NRArenaShape::BUTT_CAP:
+                    cairo_set_line_cap(ct, CAIRO_LINE_CAP_BUTT);
+                    break;
+                case NRArenaShape::ROUND_CAP:
+                    cairo_set_line_cap(ct, CAIRO_LINE_CAP_ROUND);
+                    break;
+                case NRArenaShape::SQUARE_CAP:
+                    cairo_set_line_cap(ct, CAIRO_LINE_CAP_SQUARE);
+                    break;
+            }
+            // stroke join
+            switch (shape->_stroke.join) {
+                case NRArenaShape::MITRE_JOIN:
+                    cairo_set_line_join(ct, CAIRO_LINE_JOIN_MITER);
+                    break;
+                case NRArenaShape::ROUND_JOIN:
+                    cairo_set_line_join(ct, CAIRO_LINE_JOIN_ROUND);
+                    break;
+                case NRArenaShape::BEVEL_JOIN:
+                    cairo_set_line_join(ct, CAIRO_LINE_JOIN_BEVEL);
+                    break;
+            }
+
+            // miter limit
+            cairo_set_miter_limit (ct, style->stroke_miterlimit.value);
+
+            // dashes
+            if (style->stroke_dash.n_dash) {
+                cairo_set_dash (ct, style->stroke_dash.dash, style->stroke_dash.n_dash,
+                    style->stroke_dash.offset);
+            }
+            cairo_set_source(ct, shape->stroke_pattern);
+            cairo_stroke_preserve(ct);
+        }
+        cairo_new_path(ct); // clear path
+
+        if (needs_opacity) {
+            cairo_pop_group_to_source(ct);
+            cairo_paint_with_alpha(ct, opacity);
+        }
+    } // has fill or stroke pattern
+
+    cairo_restore(ct);
+
+/*
     if (shape->fill_shp) {
         NRPixBlock m;
         guint32 rgba;
@@ -917,10 +930,11 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         nr_pixblock_release(&m);
     }
 
-    if (shape->stroke_shp && shape->_stroke.paint.type() == NRArenaShape::Paint::COLOR) {
+    if (shape->_stroke.paint.type() == NRArenaShape::Paint::COLOR) {
 
-        // cairo_arena_shape_render_stroke(item, area, pb);
+        
 
+        
         guint32 rgba;
         NRPixBlock m;
 
@@ -951,6 +965,7 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         pb->empty = FALSE;
 
         nr_pixblock_release(&m);
+        
 
     } else if (shape->stroke_shp && shape->_stroke.paint.type() == NRArenaShape::Paint::SERVER) {
 
@@ -973,8 +988,8 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         }
 
         nr_pixblock_release(&m);
-    }
-
+    } 
+*/
     } // non-cairo non-outline branch
 
     /* Render markers into parent buffer */
