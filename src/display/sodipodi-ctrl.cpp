@@ -337,7 +337,6 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
     ctrl->cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
     cairo_t *cr = cairo_create(ctrl->cache);
 
-    bool supress_fill = false;
     bool supress_paint = false;
 
     switch (ctrl->shape) {
@@ -362,15 +361,13 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
             break;
 
         case SP_CTRL_SHAPE_CROSS:
-            cairo_move_to(cr, 0.5+c, 0); // top stroke
-            cairo_line_to(cr, 0.5+c, c);
-            cairo_move_to(cr, w, 0.5+c); // right stroke
-            cairo_line_to(cr, w, c+1);
-            cairo_move_to(cr, 0.5+c, h); // bottom stroke
-            cairo_line_to(cr, 0.5+c, c+1);
-            cairo_move_to(cr, 0, 0.5+c); // left stroke
-            cairo_line_to(cr, c, 0.5+c);
-            supress_fill = true;
+            cairo_move_to(cr, 0.5, 0.5);
+            cairo_line_to(cr, -0.5+w, -0.5+h);
+            cairo_move_to(cr, -0.5+w, 0.5); // right stroke
+            cairo_line_to(cr, 0.5, -0.5+h);
+            cairo_set_line_width(cr, 1);
+            cairo_stroke(cr);
+            supress_paint = true;
             ctrl->build = TRUE;
             break;
 
@@ -425,7 +422,7 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
     }
 
     if (ctrl->build && !supress_paint) {
-        if (ctrl->filled && !supress_fill) {
+        if (ctrl->filled) {
             ink_cairo_set_source_rgba32(cr, ctrl->fill_color);
             cairo_fill_preserve(cr);
         }
