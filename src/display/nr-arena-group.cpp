@@ -35,7 +35,7 @@ static void nr_arena_group_set_child_position (NRArenaItem *item, NRArenaItem *c
 
 static unsigned int nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
 static unsigned int nr_arena_group_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-static unsigned int nr_arena_group_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb);
+static unsigned int nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area);
 static NRArenaItem *nr_arena_group_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
 
 static NRArenaItemClass *parent_class;
@@ -233,7 +233,7 @@ nr_arena_group_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
 }
 
 static unsigned int
-nr_arena_group_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
+nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area)
 {
     NRArenaGroup *group = NR_ARENA_GROUP (item);
 
@@ -241,7 +241,7 @@ nr_arena_group_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
 
     /* Just compose children into parent buffer */
     for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
-        ret = nr_arena_item_invoke_clip (child, area, pb);
+        ret = nr_arena_item_invoke_clip (ct, child, area);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) break;
     }
 

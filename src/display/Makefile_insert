@@ -33,6 +33,8 @@ ink_common_sources += \
 	display/canvas-temporary-item-list.h	\
 	display/canvas-text.h	\
 	display/canvas-text.cpp	\
+	display/cairo-utils.h	\
+	display/cairo-utils.cpp	\
 	display/curve.cpp	\
 	display/curve.h	\
 	display/display-forward.h	\

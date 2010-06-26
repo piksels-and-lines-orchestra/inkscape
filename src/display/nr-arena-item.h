@@ -129,7 +129,7 @@ struct NRArenaItemClass : public NRObjectClass {
 
     unsigned int (* update) (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
     unsigned int (* render) (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-    unsigned int (* clip) (NRArenaItem *item, NRRectL *area, NRPixBlock *pb);
+    unsigned int (* clip) (cairo_t *ct, NRArenaItem *item, NRRectL *area);
     NRArenaItem * (* pick) (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
 };
 
@@ -159,7 +159,7 @@ unsigned int nr_arena_item_invoke_update (NRArenaItem *item, NRRectL *area, NRGC
 
 unsigned int nr_arena_item_invoke_render(cairo_t *ct, NRArenaItem *item, NRRectL const *area, NRPixBlock *pb, unsigned int flags);
 
-unsigned int nr_arena_item_invoke_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb);
+unsigned int nr_arena_item_invoke_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area);
 NRArenaItem *nr_arena_item_invoke_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
 
 void nr_arena_item_request_update (NRArenaItem *item, unsigned int reset, unsigned int propagate);

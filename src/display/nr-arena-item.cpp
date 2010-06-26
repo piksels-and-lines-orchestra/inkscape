@@ -17,9 +17,11 @@
 
 #include <cstring>
 #include <string>
+#include <cairomm/cairomm.h>
 
 #include <libnr/nr-blit.h>
 #include <libnr/nr-pixops.h>
+#include "display/cairo-utils.h"
 #include "nr-arena.h"
 #include "nr-arena-item.h"
 #include "gc-core.h"
@@ -321,6 +323,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
                            NR_ARENA_ITEM_STATE_INVALID);
     nr_return_val_if_fail (item->state & NR_ARENA_ITEM_STATE_BBOX,
                            item->state);
+    if (!ct) return item->state;
 
 #ifdef NR_ARENA_ITEM_VERBOSE
     printf ("Invoke render %p: %d %d - %d %d\n", item, area->x0, area->y0,
@@ -341,78 +344,36 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
     }
 
     if (outline) {
-    // No caching in outline mode for now; investigate if it really gives any advantage with cairo.
-    // Also no attempts to clip anything; just render everything: item, clip, mask   
-            // First, render the object itself 
-            unsigned int state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, &carea, pb, flags);
-            if (state & NR_ARENA_ITEM_STATE_INVALID) {
-                /* Clean up and return error */
-                item->state |= NR_ARENA_ITEM_STATE_INVALID;
-                return item->state;
-            }
+        // No caching in outline mode for now; investigate if it really gives any advantage with cairo.
+        // Also no attempts to clip anything; just render everything: item, clip, mask   
+        // First, render the object itself 
+        unsigned int state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, &carea, pb, flags);
+        if (state & NR_ARENA_ITEM_STATE_INVALID) {
+            /* Clean up and return error */
+            item->state |= NR_ARENA_ITEM_STATE_INVALID;
+            return item->state;
+        }
 
-            // render clip and mask, if any
-            guint32 saved_rgba = item->arena->outlinecolor; // save current outline color
-            // render clippath as an object, using a different color
-            Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-            if (item->clip) {
-                item->arena->outlinecolor = prefs->getInt("/options/wireframecolors/clips", 0x00ff00ff); // green clips
-                NR_ARENA_ITEM_VIRTUAL (item->clip, render) (ct, item->clip, &carea, pb, flags);
-            } 
-            // render mask as an object, using a different color
-            if (item->mask) {
-                item->arena->outlinecolor = prefs->getInt("/options/wireframecolors/masks", 0x0000ffff); // blue masks
-                NR_ARENA_ITEM_VIRTUAL (item->mask, render) (ct, item->mask, &carea, pb, flags);
-            }
-            item->arena->outlinecolor = saved_rgba; // restore outline color
+        // render clip and mask, if any
+        guint32 saved_rgba = item->arena->outlinecolor; // save current outline color
+        // render clippath as an object, using a different color
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        if (item->clip) {
+            item->arena->outlinecolor = prefs->getInt("/options/wireframecolors/clips", 0x00ff00ff); // green clips
+            NR_ARENA_ITEM_VIRTUAL (item->clip, render) (ct, item->clip, &carea, pb, flags);
+        } 
+        // render mask as an object, using a different color
+        if (item->mask) {
+            item->arena->outlinecolor = prefs->getInt("/options/wireframecolors/masks", 0x0000ffff); // blue masks
+            NR_ARENA_ITEM_VIRTUAL (item->mask, render) (ct, item->mask, &carea, pb, flags);
+        }
+        item->arena->outlinecolor = saved_rgba; // restore outline color
 
-            return item->state | NR_ARENA_ITEM_STATE_RENDER;
-    }
-
-#if 0
-    NRPixBlock cpb;
-    if (item->px) {
-        /* Has cache pixblock, render this and return */
-        nr_pixblock_setup_extern (&cpb, NR_PIXBLOCK_MODE_R8G8B8A8P,
-                                  /* fixme: This probably cannot overflow, because we render only if visible */
-                                  /* fixme: and pixel cache is there only for small items */
-                                  /* fixme: But this still needs extra check (Lauris) */
-                                  item->drawbox.x0, item->drawbox.y0,
-                                  item->drawbox.x1, item->drawbox.y1,
-                                  item->px,
-                                  4 * (item->drawbox.x1 - item->drawbox.x0), FALSE,
-                                  FALSE);
-        nr_blit_pixblock_pixblock (pb, &cpb);
-        nr_pixblock_release (&cpb);
-        pb->empty = FALSE;
         return item->state | NR_ARENA_ITEM_STATE_RENDER;
     }
-#endif
-    NRPixBlock *dpb = pb;
+
 #if 0
-    /* Setup cache if we can */
-    if ((!(flags & NR_ARENA_ITEM_RENDER_NO_CACHE)) &&
-        (carea.x0 <= item->drawbox.x0) && (carea.y0 <= item->drawbox.y0) &&
-        (carea.x1 >= item->drawbox.x1) && (carea.y1 >= item->drawbox.y1) &&
-        (((item->drawbox.x1 - item->drawbox.x0) * (item->drawbox.y1 -
-                                             item->drawbox.y0)) <= 4096)) {
-        // Item drawbox is fully in renderable area and size is acceptable
-        carea.x0 = item->drawbox.x0;
-        carea.y0 = item->drawbox.y0;
-        carea.x1 = item->drawbox.x1;
-        carea.y1 = item->drawbox.y1;
-        item->px =
-            new (GC::ATOMIC) unsigned char[4 * (carea.x1 - carea.x0) *
-                                           (carea.y1 - carea.y0)];
-        nr_pixblock_setup_extern (&cpb, NR_PIXBLOCK_MODE_R8G8B8A8P, carea.x0,
-                                  carea.y0, carea.x1, carea.y1, item->px,
-                                  4 * (carea.x1 - carea.x0), TRUE, TRUE);
-        cpb.visible_area = pb->visible_area;
-        dpb = &cpb;
-        // Set nocache flag for downstream rendering
-        flags |= NR_ARENA_ITEM_RENDER_NO_CACHE;
-    }
-#endif
+    NRPixBlock *dpb = pb;
 
     /* Determine, whether we need temporary buffer */
 /*    if (item->clip || item->mask
@@ -596,12 +557,59 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
         pb->empty = FALSE;
         item->state |= NR_ARENA_ITEM_STATE_IMAGE;
     }
+#endif
+
+    using namespace Inkscape;
+
+    // clipping and masks
+    unsigned int state;
+    Cairo::Context cct(ct);
+    Cairo::RefPtr<Cairo::Pattern> mask;
+    CairoSave clipsave(ct);
+    CairoGroup maskgroup(ct);
+    CairoGroup drawgroup(ct);
+
+    if (item->clip) {
+        clipsave.save();
+        state = nr_arena_item_invoke_clip(ct, item->clip, const_cast<NRRectL*>(area));
+        if (state & NR_ARENA_ITEM_STATE_INVALID) {
+            item->state |= NR_ARENA_ITEM_STATE_INVALID;
+            return item->state;
+        }
+
+        cct.clip();
+    }
+
+    if (item->mask) {
+        maskgroup.push_with_content(CAIRO_CONTENT_ALPHA);
+
+        state = NR_ARENA_ITEM_VIRTUAL (item->mask, render) (ct, item->mask, const_cast<NRRectL*>(area), pb, flags);
+        if (state & NR_ARENA_ITEM_STATE_INVALID) {
+            item->state |= NR_ARENA_ITEM_STATE_INVALID;
+            return item->state;
+        }
+        mask = maskgroup.popmm();
+    }
+
+    if (mask) {
+        drawgroup.push();
+    }
+    state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, const_cast<NRRectL*>(area), pb, flags);
+    if (state & NR_ARENA_ITEM_STATE_INVALID) {
+        /* Clean up and return error */
+        item->state |= NR_ARENA_ITEM_STATE_INVALID;
+        return item->state;
+    }
+    if (mask) {
+        drawgroup.pop_to_source();
+        cct.mask(mask);
+    }
 
     return item->state | NR_ARENA_ITEM_STATE_RENDER;
 }
 
 unsigned int
-nr_arena_item_invoke_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
+nr_arena_item_invoke_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area)
 {
     nr_return_val_if_fail (item != NULL, NR_ARENA_ITEM_STATE_INVALID);
     nr_return_val_if_fail (NR_IS_ARENA_ITEM (item),
@@ -610,12 +618,12 @@ nr_arena_item_invoke_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
      * NR_ARENA_ITEM_STATE_CLIP (and showed a warning on the console);
      * anyone know why we stopped doing so?
      */
-    nr_return_val_if_fail ((pb->area.x1 - pb->area.x0) >=
+    /*nr_return_val_if_fail ((pb->area.x1 - pb->area.x0) >=
                            (area->x1 - area->x0),
                            NR_ARENA_ITEM_STATE_INVALID);
     nr_return_val_if_fail ((pb->area.y1 - pb->area.y0) >=
                            (area->y1 - area->y0),
-                           NR_ARENA_ITEM_STATE_INVALID);
+                           NR_ARENA_ITEM_STATE_INVALID);*/
 
 #ifdef NR_ARENA_ITEM_VERBOSE
     printf ("Invoke clip by %p: %d %d - %d %d, item bbox %d %d - %d %d\n",
@@ -627,7 +635,7 @@ nr_arena_item_invoke_clip (NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
         /* Need render that item */
         if (((NRArenaItemClass *) NR_OBJECT_GET_CLASS (item))->clip) {
             return ((NRArenaItemClass *) NR_OBJECT_GET_CLASS (item))->
-                clip (item, area, pb);
+                clip (ct, item, area);
         }
     }
 

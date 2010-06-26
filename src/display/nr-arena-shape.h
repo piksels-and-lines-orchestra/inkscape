@@ -17,6 +17,7 @@
 #define NR_ARENA_SHAPE(obj) (NR_CHECK_INSTANCE_CAST ((obj), NR_TYPE_ARENA_SHAPE, NRArenaShape))
 #define NR_IS_ARENA_SHAPE(obj) (NR_CHECK_INSTANCE_TYPE ((obj), NR_TYPE_ARENA_SHAPE))
 
+#include <cairo.h>
 #include "display/display-forward.h"
 #include "display/canvas-bpath.h"
 #include "forward.h"
@@ -91,23 +92,6 @@ struct NRArenaShape : public NRArenaItem {
         }
     };
 
-    enum FillRule {
-        EVEN_ODD,
-        NONZERO
-    };
-
-    enum CapType {
-        ROUND_CAP,
-        SQUARE_CAP,
-        BUTT_CAP
-    };
-
-    enum JoinType {
-        ROUND_JOIN,
-        BEVEL_JOIN,
-        MITRE_JOIN
-    };
-
     /* Shape data */
     SPCurve *curve;
     SPStyle *style;
@@ -117,37 +101,15 @@ struct NRArenaShape : public NRArenaItem {
 
     cairo_pattern_t *fill_pattern;
     cairo_pattern_t *stroke_pattern;
+    cairo_path_t *path;
 
-    SPPainter *fill_painter;
-    SPPainter *stroke_painter;
-    // the 2 cached polygons, for rasterizations uses
-    Shape *fill_shp;
-    Shape *stroke_shp;
-    // the stroke width of stroke_shp, to detect when it changes (on normal/outline switching) and rebuild
-    float cached_width;
     // delayed_shp=true means the *_shp polygons are not computed yet
     // they'll be computed on demand in *_render(), *_pick() or *_clip()
     // the goal is to not uncross polygons that are outside the viewing region
     bool    delayed_shp;
     // approximate bounding box, for the case when the polygons have been delayed
     NRRectL approx_bbox;
-    // cache for transformations: cached_fill and cached_stroke are
-    // polygons computed for the cached_fctm and cache_sctm respectively
-    // when the transformation changes interactively (tracked by the
-    // SP_OBJECT_USER_MODIFIED_FLAG_B), we check if it's an isometry wrt
-    // the cached ctm. if it's an isometry, just apply it to the cached
-    // polygon to get the *_shp polygon.  Otherwise, recompute so this
-    // works fine for translation and rotation, but not scaling and
-    // skewing
-    Geom::Matrix cached_fctm;
-    Geom::Matrix cached_sctm;
-    NRRectL cached_farea;
-    NRRectL cached_sarea;
-    bool cached_fpartialy;
-    bool cached_spartialy;
 
-    Shape *cached_fill;
-    Shape *cached_stroke;
     /* Markers */
     NRArenaItem *markers;
 
@@ -164,29 +126,21 @@ struct NRArenaShape : public NRArenaItem {
     void setFill(SPPaintServer *server);
     void setFill(SPColor const &color);
     void setFillOpacity(double opacity);
-    void setFillRule(FillRule rule);
+    void setFillRule(cairo_fill_rule_t rule);
 
     void setStroke(SPPaintServer *server);
     void setStroke(SPColor const &color);
     void setStrokeOpacity(double opacity);
     void setStrokeWidth(double width);
-    void setLineCap(CapType cap);
-    void setLineJoin(JoinType join);
+    void setLineCap(cairo_line_cap_t cap);
+    void setLineJoin(cairo_line_join_t join);
     void setMitreLimit(double limit);
 
     void setPaintBox(Geom::Rect const &pbox);
 
     void _invalidateCachedFill() {
-        if (cached_fill) {
-            delete cached_fill;
-            cached_fill = NULL;
-        }
     }
     void _invalidateCachedStroke() {
-        if (cached_stroke) {
-            delete cached_stroke;
-            cached_stroke = NULL;
-        }
     }
 
     struct Style {
@@ -195,17 +149,17 @@ struct NRArenaShape : public NRArenaItem {
         double opacity;
     };
     struct FillStyle : public Style {
-        FillStyle() : rule(EVEN_ODD) {}
-        FillRule rule;
+        FillStyle() : rule(CAIRO_FILL_RULE_EVEN_ODD) {}
+        cairo_fill_rule_t rule;
     } _fill;
     struct StrokeStyle : public Style {
         StrokeStyle()
-            : cap(ROUND_CAP), join(ROUND_JOIN),
+            : cap(CAIRO_LINE_CAP_ROUND), join(CAIRO_LINE_JOIN_ROUND),
               width(0.0), mitre_limit(0.0)
         {}
 
-        CapType cap;
-        JoinType join;
+        cairo_line_cap_t cap;
+        cairo_line_join_t join;
         double width;
         double mitre_limit;
     } _stroke;

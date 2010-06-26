@@ -44,7 +44,7 @@ static void nr_arena_glyphs_init(NRArenaGlyphs *glyphs);
 static void nr_arena_glyphs_finalize(NRObject *object);
 
 static guint nr_arena_glyphs_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset);
-static guint nr_arena_glyphs_clip(NRArenaItem *item, NRRectL *area, NRPixBlock *pb);
+static guint nr_arena_glyphs_clip(cairo_t *ct, NRArenaItem *item, NRRectL *area);
 static NRArenaItem *nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
 
 static NRArenaItemClass *glyphs_parent_class;
@@ -220,7 +220,7 @@ nr_arena_glyphs_update(NRArenaItem *item, NRRectL */*area*/, NRGC *gc, guint /*s
 }
 
 static guint
-nr_arena_glyphs_clip(NRArenaItem *item, NRRectL */*area*/, NRPixBlock */*pb*/)
+nr_arena_glyphs_clip(cairo_t *ct, NRArenaItem *item, NRRectL */*area*/)
 {
     NRArenaGlyphs *glyphs;
 
@@ -319,7 +319,7 @@ static void nr_arena_glyphs_group_finalize(NRObject *object);
 
 static guint nr_arena_glyphs_group_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset);
 static unsigned int nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-static unsigned int nr_arena_glyphs_group_clip(NRArenaItem *item, NRRectL *area, NRPixBlock *pb);
+static unsigned int nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, NRRectL *area);
 static NRArenaItem *nr_arena_glyphs_group_pick(NRArenaItem *item, Geom::Point p, gdouble delta, unsigned int sticky);
 
 static NRArenaGroupClass *group_parent_class;
@@ -572,17 +572,18 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
 }
 
 static unsigned int
-nr_arena_glyphs_group_clip(NRArenaItem *item, NRRectL *area, NRPixBlock *pb)
+nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, NRRectL *area)
 {
     NRArenaGroup *group = NR_ARENA_GROUP(item);
 
     guint ret = item->state;
 
     /* Render children fill mask */
+    /*
     for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
         ret = nr_arena_glyphs_fill_mask(NR_ARENA_GLYPHS(child), area, pb);
         if (!(ret & NR_ARENA_ITEM_STATE_RENDER)) return ret;
-    }
+    }*/
 
     return ret;
 }

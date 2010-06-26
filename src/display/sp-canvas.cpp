@@ -1650,19 +1650,20 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
     buf.visible_rect.x1 = draw_x2;
     buf.visible_rect.y1 = draw_y2;
     buf.is_empty = true;
-    //buf.bg_color = &widget->style->bg[GTK_STATE_NORMAL];
-    //buf.ct = nr_create_cairo_context_canvasbuf (&(buf.visible_rect), &buf);
-    buf.ct = gdk_cairo_create(widget->window);
+    //buf.ct = gdk_cairo_create(widget->window);
+
+    // create temporary surface
+    cairo_surface_t *imgs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, x1 - x0, y1 - y0);
+    buf.ct = cairo_create(imgs);
+    //cairo_translate(buf.ct, -x0, -y0);
 
     // fix coordinates, clip all drawing to the tile and clear the background
-    // TODO: the translation is done to remain compatible with legacy code.
-    // Fix the code so it doesn't refer to buf.rect and remove the translation.
-    cairo_translate(buf.ct, x0 - canvas->x0, y0 - canvas->y0); // ?
-    cairo_rectangle(buf.ct, 0, 0, x1 - x0, y1 - y0);
+    //cairo_translate(buf.ct, x0 - canvas->x0, y0 - canvas->y0);
+    //cairo_rectangle(buf.ct, 0, 0, x1 - x0, y1 - y0);
     //cairo_set_line_width(buf.ct, 3);
     //cairo_set_source_rgba(buf.ct, 1.0, 0.0, 0.0, 0.1);
     //cairo_stroke_preserve(buf.ct);
-    cairo_clip(buf.ct);
+    //cairo_clip(buf.ct);
 
     gdk_cairo_set_source_color(buf.ct, &widget->style->bg[GTK_STATE_NORMAL]);
     cairo_set_operator(buf.ct, CAIRO_OPERATOR_SOURCE);
@@ -1762,8 +1763,21 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
     }
 #endif
 
+    // output to X
+    cairo_destroy(buf.ct);
+
+    cairo_t *xct = gdk_cairo_create(widget->window);
+    cairo_translate(xct, x0 - canvas->x0, y0 - canvas->y0);
+    cairo_rectangle(xct, 0, 0, x1-x0, y1-y0);
+    cairo_clip(xct);
+    cairo_set_source_surface(xct, imgs, 0, 0);
+    cairo_set_operator(xct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(xct);
+    cairo_destroy(xct);
+    cairo_surface_destroy(imgs);
+
     //cairo_surface_t *cst = cairo_get_target(buf.ct);
-    cairo_destroy (buf.ct);
+    //cairo_destroy (buf.ct);
     //cairo_surface_finish (cst);
     //cairo_surface_destroy (cst);
 
@@ -1831,21 +1845,21 @@ sp_canvas_paint_rect_internal (PaintRectSetup const *setup, NRRectL this_rect)
 
     if (bw * bh < setup->max_pixels) {
         // We are small enough
-        GdkRectangle r;
+        /*GdkRectangle r;
         r.x = this_rect.x0 - setup->canvas->x0;
         r.y = this_rect.y0 - setup->canvas->y0;
         r.width = this_rect.x1 - this_rect.x0;
         r.height = this_rect.y1 - this_rect.y0;
 
         GdkWindow *window = GTK_WIDGET(setup->canvas)->window;
-        gdk_window_begin_paint_rect(window, &r);
+        gdk_window_begin_paint_rect(window, &r);*/
 
         sp_canvas_paint_single_buffer (setup->canvas,
                                        this_rect.x0, this_rect.y0,
                                        this_rect.x1, this_rect.y1,
                                        setup->big_rect.x0, setup->big_rect.y0,
                                        setup->big_rect.x1, setup->big_rect.y1, bw);
-        gdk_window_end_paint(window);
+        //gdk_window_end_paint(window);
         return 1;
     }
 
