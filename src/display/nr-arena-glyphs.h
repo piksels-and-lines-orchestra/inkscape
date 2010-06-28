@@ -17,12 +17,12 @@
 #define NR_ARENA_GLYPHS(obj) (NR_CHECK_INSTANCE_CAST ((obj), NR_TYPE_ARENA_GLYPHS, NRArenaGlyphs))
 #define NR_IS_ARENA_GLYPHS(obj) (NR_CHECK_INSTANCE_TYPE ((obj), NR_TYPE_ARENA_GLYPHS))
 
-#include <libnrtype/nrtype-forward.h>
-
-#include <display/display-forward.h>
-#include <forward.h>
-#include <sp-paint-server.h>
-#include <display/nr-arena-item.h>
+#include "libnrtype/nrtype-forward.h"
+#include "display/display-forward.h"
+#include "forward.h"
+#include "sp-paint-server.h"
+#include "display/nr-arena-item.h"
+#include "display/nr-style.h"
 
 #define test_glyph_liv
 
@@ -32,21 +32,10 @@ NRType nr_arena_glyphs_get_type (void);
 
 struct NRArenaGlyphs : public NRArenaItem {
 	/* Glyphs data */
-	SPStyle *style;
 	Geom::Matrix g_transform;
 	font_instance *font;
 	gint glyph;
-
-	raster_font *rfont;
-	raster_font *sfont;
 	float x, y;
-
-//	Geom::Matrix cached_tr;
-//	Shape  *cached_shp;
-//	bool   cached_shp_dirty;
-//	bool   cached_style_dirty;
-	
-//	Shape  *stroke_shp;
 
 	static NRArenaGlyphs *create(NRArena *arena) {
 		NRArenaGlyphs *obj=reinterpret_cast<NRArenaGlyphs *>(nr_object_new(NR_TYPE_ARENA_GLYPHS));
@@ -79,11 +68,8 @@ typedef struct NRArenaGlyphsGroupClass NRArenaGlyphsGroupClass;
 NRType nr_arena_glyphs_group_get_type (void);
 
 struct NRArenaGlyphsGroup : public NRArenaGroup {
-  //SPStyle *style;
 	NRRect paintbox;
-	/* State data */
-	SPPainter *fill_painter;
-	SPPainter *stroke_painter;
+	NRStyle nrstyle;
 
 	static NRArenaGlyphsGroup *create(NRArena *arena) {
 		NRArenaGlyphsGroup *obj=reinterpret_cast<NRArenaGlyphsGroup *>(nr_object_new(NR_TYPE_ARENA_GLYPHS_GROUP));

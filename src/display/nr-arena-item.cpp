@@ -565,8 +565,8 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
     unsigned int state;
     Cairo::Context cct(ct);
     Cairo::RefPtr<Cairo::Pattern> mask;
-    CairoSave clipsave(ct);
-    CairoGroup maskgroup(ct);
+    CairoSave clipsave(ct); // RAII for save / restore
+    CairoGroup maskgroup(ct); // RAII for push_group / pop_group
     CairoGroup drawgroup(ct);
 
     if (item->clip) {

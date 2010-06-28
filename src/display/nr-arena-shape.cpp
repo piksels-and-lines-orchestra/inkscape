@@ -23,6 +23,7 @@
 #include <libnr/nr-convert2geom.h>
 #include <2geom/pathvector.h>
 #include <2geom/curves.h>
+#include <livarot/Shape.h>
 #include <livarot/Path.h>
 #include <livarot/float-line.h>
 #include <livarot/int-line.h>
@@ -110,20 +111,14 @@ nr_arena_shape_init(NRArenaShape *shape)
     shape->style = NULL;
     shape->paintbox.x0 = shape->paintbox.y0 = 0.0F;
     shape->paintbox.x1 = shape->paintbox.y1 = 256.0F;
-
     shape->ctm.setIdentity();
-
     shape->delayed_shp = false;
-
-    shape->fill_pattern = NULL;
-    shape->stroke_pattern = NULL;
     shape->path = NULL;
 
     shape->approx_bbox.x0 = shape->approx_bbox.y0 = 0;
     shape->approx_bbox.x1 = shape->approx_bbox.y1 = 0;
 
     shape->markers = NULL;
-
     shape->last_pick = NULL;
     shape->repick_after = 0;
 }
@@ -133,10 +128,7 @@ nr_arena_shape_finalize(NRObject *object)
 {
     NRArenaShape *shape = (NRArenaShape *) object;
 
-    if (shape->fill_pattern) cairo_pattern_destroy(shape->fill_pattern);
-    if (shape->stroke_pattern) cairo_pattern_destroy(shape->stroke_pattern);
     if (shape->path) cairo_path_destroy(shape->path);
-
     if (shape->style) sp_style_unref(shape->style);
     if (shape->curve) shape->curve->unref();
 
@@ -267,14 +259,7 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     // clear Cairo data to force update
-    if (shape->fill_pattern) {
-        cairo_pattern_destroy(shape->fill_pattern);
-        shape->fill_pattern = NULL;
-    }
-    if (shape->stroke_pattern) {
-        cairo_pattern_destroy(shape->stroke_pattern);
-        shape->stroke_pattern = NULL;
-    }
+    shape->nrstyle.update();
     if (shape->path) {
         cairo_path_destroy(shape->path);
         shape->path = NULL;
@@ -283,17 +268,18 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
     if (shape->curve) {
         boundingbox = bounds_exact_transformed(shape->curve->get_pathvector(), gc->transform);
 
-        if (boundingbox && (shape->_stroke.paint.type() != NRArenaShape::Paint::NONE || outline)) {
+        if (boundingbox && (shape->nrstyle.stroke.type != NRStyle::PAINT_NONE || outline)) {
             float width, scale;
             scale = gc->transform.descrim();
-            width = MAX(0.125, shape->_stroke.width * scale);
-            if ( fabs(shape->_stroke.width * scale) > 0.01 ) {
+            width = MAX(0.125, shape->nrstyle.stroke_width * scale);
+            if ( fabs(shape->nrstyle.stroke_width * scale) > 0.01 ) { // FIXME: this is always true
                 boundingbox->expandBy(width);
             }
             // those pesky miters, now
-            float miterMax=width*shape->_stroke.mitre_limit;
+            float miterMax = width * shape->nrstyle.miter_limit;
             if ( miterMax > 0.01 ) {
-                // grunt mode. we should compute the various miters instead (one for each point on the curve)
+                // grunt mode. we should compute the various miters instead
+                // (one for each point on the curve)
                 boundingbox->expandBy(miterMax);
             }
         }
@@ -316,8 +302,8 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
     if (!shape->curve || 
         !shape->style ||
         shape->curve->is_empty() ||
-        (( shape->_fill.paint.type() == NRArenaShape::Paint::NONE ) &&
-         ( shape->_stroke.paint.type() == NRArenaShape::Paint::NONE && !outline) ))
+        (( shape->nrstyle.fill.type != NRStyle::PAINT_NONE ) &&
+         ( shape->nrstyle.stroke.type != NRStyle::PAINT_NONE && !outline) ))
     {
         //item->bbox = shape->approx_bbox;
         return NR_ARENA_ITEM_STATE_ALL;
@@ -384,12 +370,8 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         if (ret & NR_ARENA_ITEM_STATE_INVALID) return ret;
 
     } else {
-        SPStyle const *style = shape->style;
-
-        // set up context and feed path
-        float opacity = SP_SCALE24_TO_FLOAT(shape->style->opacity.value);
-        bool needs_opacity = ((1.0 - opacity) >= 1e-3);
-
+        bool needs_opacity = ((1.0 - shape->nrstyle.opacity) >= 0.01);
+        bool has_stroke, has_fill;
         // we assume the context has no path
         cairo_save(ct);
         cairo_translate(ct, -area->x0, -area->y0);
@@ -398,76 +380,33 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         // update fill and stroke paints.
         // this cannot be done during nr_arena_shape_update, because we need a Cairo context
         // to render svg:pattern
-        if (!shape->fill_pattern) {
-            switch (shape->_fill.paint.type()) {
-            case NRArenaShape::Paint::SERVER: {
-                SPPaintServer *ps = shape->_fill.paint.server();
-                shape->fill_pattern = sp_paint_server_create_pattern(ps, ct, &shape->paintbox, shape->_fill.opacity);
-                } break;
-            case NRArenaShape::Paint::COLOR: {
-                SPColor const &c = shape->_fill.paint.color();
-                shape->fill_pattern = cairo_pattern_create_rgba(
-                    c.v.c[0], c.v.c[1], c.v.c[2], shape->_fill.opacity);
-                } break;
-            default: break;
-            }
-        }
+        has_fill   = shape->nrstyle.prepareFill(ct, &shape->paintbox);
+        has_stroke = shape->nrstyle.prepareStroke(ct, &shape->paintbox);
 
-        if (!shape->stroke_pattern) {
-            switch (shape->_stroke.paint.type()) {
-            case NRArenaShape::Paint::SERVER: {
-                SPPaintServer *ps = shape->_stroke.paint.server();
-                shape->stroke_pattern = sp_paint_server_create_pattern(ps, ct, &shape->paintbox, shape->_stroke.opacity);
-                } break;
-            case NRArenaShape::Paint::COLOR: {
-                SPColor const &c = shape->_stroke.paint.color();
-                shape->stroke_pattern = cairo_pattern_create_rgba(
-                    c.v.c[0], c.v.c[1], c.v.c[2], shape->_stroke.opacity);
-                } break;
-            default: break;
-            }
-        }
-
-        if (shape->fill_pattern || shape->stroke_pattern) {
-
+        if (has_fill || has_stroke) {
             if (needs_opacity) {
                 cairo_push_group(ct);
             }
 
             // TODO: remove segments outside of bbox when no dashes present
             feed_pathvector_to_cairo(ct, shape->curve->get_pathvector());
-
-            if (shape->fill_pattern) {
-                cairo_set_fill_rule(ct, shape->_fill.rule);
-                cairo_set_source(ct, shape->fill_pattern);
+            if (has_fill) {
+                shape->nrstyle.applyFill(ct);
                 cairo_fill_preserve(ct);
             }
-
-            if (shape->stroke_pattern) {
-                cairo_set_line_width(ct, shape->_stroke.width);
-                cairo_set_line_cap(ct, shape->_stroke.cap);
-                cairo_set_line_join(ct, shape->_stroke.join);
-                cairo_set_miter_limit (ct, style->stroke_miterlimit.value);
-
-                // dashes
-                if (style->stroke_dash.n_dash) {
-                    cairo_set_dash (ct, style->stroke_dash.dash, style->stroke_dash.n_dash,
-                        style->stroke_dash.offset);
-                }
-                cairo_set_source(ct, shape->stroke_pattern);
+            if (has_stroke) {
+                shape->nrstyle.applyStroke(ct);
                 cairo_stroke_preserve(ct);
             }
             cairo_new_path(ct); // clear path
 
             if (needs_opacity) {
                 cairo_pop_group_to_source(ct);
-                cairo_paint_with_alpha(ct, opacity);
+                cairo_paint_with_alpha(ct, shape->nrstyle.opacity);
             }
         } // has fill or stroke pattern
-
         cairo_restore(ct);
-
-    } // non-cairo non-outline branch
+    }
 
     /* Render markers into parent buffer */
     for (NRArenaItem *child = shape->markers; child != NULL; child = child->next) {
@@ -522,17 +461,17 @@ nr_arena_shape_pick(NRArenaItem *item, Geom::Point p, double delta, unsigned int
     double width;
     if (outline) {
         width = 0.5;
-    } else if (shape->_stroke.paint.type() != NRArenaShape::Paint::NONE && shape->_stroke.opacity > 1e-3) {
+    } else if (shape->nrstyle.stroke.type != NRStyle::PAINT_NONE && shape->nrstyle.stroke.opacity > 1e-3) {
         float const scale = shape->ctm.descrim();
-        width = MAX(0.125, shape->_stroke.width * scale) / 2;
+        width = MAX(0.125, shape->nrstyle.stroke_width * scale) / 2;
     } else {
         width = 0;
     }
 
     double dist = NR_HUGE;
     int wind = 0;
-    bool needfill = (shape->_fill.paint.type() != NRArenaShape::Paint::NONE 
-             && shape->_fill.opacity > 1e-3 && !outline);
+    bool needfill = (shape->nrstyle.fill.type != NRStyle::PAINT_NONE 
+             && shape->nrstyle.fill.opacity > 1e-3 && !outline);
 
     if (item->arena->canvasarena) {
         Geom::Rect viewbox = item->arena->canvasarena->item.canvas->getViewbox();
@@ -614,61 +553,6 @@ void nr_arena_shape_set_path(NRArenaShape *shape, SPCurve *curve,bool justTrans)
     nr_arena_item_request_update(NR_ARENA_ITEM(shape), NR_ARENA_ITEM_STATE_ALL, FALSE);
 }
 
-void NRArenaShape::setFill(SPPaintServer *server) {
-    _fill.paint.set(server);
-    _invalidateCachedFill();
-}
-
-void NRArenaShape::setFill(SPColor const &color) {
-    _fill.paint.set(color);
-    _invalidateCachedFill();
-}
-
-void NRArenaShape::setFillOpacity(double opacity) {
-    _fill.opacity = opacity;
-    _invalidateCachedFill();
-}
-
-void NRArenaShape::setFillRule(cairo_fill_rule_t rule) {
-    _fill.rule = rule;
-    _invalidateCachedFill();
-}
-
-void NRArenaShape::setStroke(SPPaintServer *server) {
-    _stroke.paint.set(server);
-    _invalidateCachedStroke();
-}
-
-void NRArenaShape::setStroke(SPColor const &color) {
-    _stroke.paint.set(color);
-    _invalidateCachedStroke();
-}
-
-void NRArenaShape::setStrokeOpacity(double opacity) {
-    _stroke.opacity = opacity;
-    _invalidateCachedStroke();
-}
-
-void NRArenaShape::setStrokeWidth(double width) {
-    _stroke.width = width;
-    _invalidateCachedStroke();
-}
-
-void NRArenaShape::setMitreLimit(double limit) {
-    _stroke.mitre_limit = limit;
-    _invalidateCachedStroke();
-}
-
-void NRArenaShape::setLineCap(cairo_line_cap_t cap) {
-    _stroke.cap = cap;
-    _invalidateCachedStroke();
-}
-
-void NRArenaShape::setLineJoin(cairo_line_join_t join) {
-    _stroke.join = join;
-    _invalidateCachedStroke();
-}
-
 /** nr_arena_shape_set_style
  *
  * Unrefs any existing style and ref's to the given one, then requests an update of the arena
@@ -683,76 +567,7 @@ nr_arena_shape_set_style(NRArenaShape *shape, SPStyle *style)
     if (shape->style) sp_style_unref(shape->style);
     shape->style = style;
 
-    if ( style->fill.isPaintserver() ) {
-        shape->setFill(style->getFillPaintServer());
-    } else if ( style->fill.isColor() ) {
-        shape->setFill(style->fill.value.color);
-    } else if ( style->fill.isNone() ) {
-        shape->setFill(NULL);
-    } else {
-        g_assert_not_reached();
-    }
-    shape->setFillOpacity(SP_SCALE24_TO_FLOAT(style->fill_opacity.value));
-    switch (style->fill_rule.computed) {
-        case SP_WIND_RULE_EVENODD: {
-            shape->setFillRule(CAIRO_FILL_RULE_EVEN_ODD);
-            break;
-        }
-        case SP_WIND_RULE_NONZERO: {
-            shape->setFillRule(CAIRO_FILL_RULE_WINDING);
-            break;
-        }
-        default: {
-            g_assert_not_reached();
-        }
-    }
-
-    if ( style->stroke.isPaintserver() ) {
-        shape->setStroke(style->getStrokePaintServer());
-    } else if ( style->stroke.isColor() ) {
-        shape->setStroke(style->stroke.value.color);
-    } else if ( style->stroke.isNone() ) {
-        shape->setStroke(NULL);
-    } else {
-        g_assert_not_reached();
-    }
-    shape->setStrokeWidth(style->stroke_width.computed);
-    shape->setStrokeOpacity(SP_SCALE24_TO_FLOAT(style->stroke_opacity.value));
-    switch (style->stroke_linecap.computed) {
-        case SP_STROKE_LINECAP_ROUND: {
-            shape->setLineCap(CAIRO_LINE_CAP_ROUND);
-            break;
-        }
-        case SP_STROKE_LINECAP_SQUARE: {
-            shape->setLineCap(CAIRO_LINE_CAP_SQUARE);
-            break;
-        }
-        case SP_STROKE_LINECAP_BUTT: {
-            shape->setLineCap(CAIRO_LINE_CAP_BUTT);
-            break;
-        }
-        default: {
-            g_assert_not_reached();
-        }
-    }
-    switch (style->stroke_linejoin.computed) {
-        case SP_STROKE_LINEJOIN_ROUND: {
-            shape->setLineJoin(CAIRO_LINE_JOIN_ROUND);
-            break;
-        }
-        case SP_STROKE_LINEJOIN_BEVEL: {
-            shape->setLineJoin(CAIRO_LINE_JOIN_BEVEL);
-            break;
-        }
-        case SP_STROKE_LINEJOIN_MITER: {
-            shape->setLineJoin(CAIRO_LINE_JOIN_MITER);
-            break;
-        }
-        default: {
-            g_assert_not_reached();
-        }
-    }
-    shape->setMitreLimit(style->stroke_miterlimit.value);
+    shape->nrstyle.set(style);
 
     //if shape has a filter
     if (style->filter.set && style->getFilter()) {
