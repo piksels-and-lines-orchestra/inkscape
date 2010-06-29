@@ -1063,14 +1063,14 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
 
     // create arena and group
     NRArena *arena = NRArena::create();
-    unsigned dkey = sp_item_display_key_new(1);
+    unsigned dkey = SPItem::display_key_new(1);
 
     // show items and render them
     for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
             for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
                 if (SP_IS_ITEM (child)) {
-                    sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_REFERENCE_FLAGS);
+                    SP_ITEM (child)->invoke_show (arena, dkey, SP_ITEM_REFERENCE_FLAGS);
                     _renderer->renderItem(pattern_ctx, SP_ITEM (child));
                 }
             }
@@ -1099,7 +1099,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
             for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
                 if (SP_IS_ITEM (child)) {
-                    sp_item_invoke_hide (SP_ITEM (child), dkey);
+                    SP_ITEM (child)->invoke_hide (dkey);
                 }
             }
             break; // do not go further up the chain if children are found

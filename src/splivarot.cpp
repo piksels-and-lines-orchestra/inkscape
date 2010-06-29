@@ -451,11 +451,11 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
     // adjust style properties that depend on a possible transform in the source object in order
     // to get a correct style attribute for the new path
     SPItem* item_source = SP_ITEM(source);
-    Geom::Matrix i2doc(sp_item_i2doc_affine(item_source));
-    sp_item_adjust_stroke(item_source, i2doc.descrim());
-    sp_item_adjust_pattern(item_source, i2doc);
-    sp_item_adjust_gradient(item_source, i2doc);
-    sp_item_adjust_livepatheffect(item_source, i2doc);
+    Geom::Matrix i2doc(item_source->i2doc_affine());
+    item_source->adjust_stroke(i2doc.descrim());
+    item_source->adjust_pattern(i2doc);
+    item_source->adjust_gradient(i2doc);
+    item_source->adjust_livepatheffect(i2doc);
 
     Inkscape::XML::Node *repr_source = SP_OBJECT_REPR(source);
 
@@ -484,7 +484,7 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
 
     // premultiply by the inverse of parent's repr
     SPItem *parent_item = SP_ITEM(sp_desktop_document(desktop)->getObjectByRepr(parent));
-    Geom::Matrix local (sp_item_i2doc_affine(parent_item));
+    Geom::Matrix local (parent_item->i2doc_affine());
     gchar *transform = sp_svg_transform_write(local.inverse());
 
     // now that we have the result, add it on the canvas
@@ -620,7 +620,7 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Matrix 
         Inkscape::XML::Node *m_repr = SP_OBJECT_REPR(marker_item)->duplicate(xml_doc);
         g_repr->appendChild(m_repr);
         SPItem *marker_item = (SPItem *) doc->getObjectByRepr(m_repr);
-        sp_item_write_transform(marker_item, m_repr, tr);
+        marker_item->doWriteTransform(m_repr, tr);
     }
 }
 
@@ -1089,7 +1089,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                 // restore title, description, id, transform
                 repr->setAttribute("id", id);
                 SPItem *newitem = (SPItem *) doc->getObjectByRepr(repr);
-                sp_item_write_transform(newitem, repr, transform);
+                newitem->doWriteTransform(repr, transform);
                 if (title) {
                 	newitem->setTitle(title);
                 }
@@ -1189,7 +1189,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                 repr->setAttribute("id", id);
 
                 SPItem *newitem = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
-                sp_item_write_transform(newitem, repr, transform);
+                newitem->doWriteTransform(repr, transform);
                 if (title) {
                 	newitem->setTitle(title);
                 }
@@ -1321,7 +1321,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
 
     Geom::Matrix const transform(item->transform);
 
-    sp_item_write_transform(item, SP_OBJECT_REPR(item), Geom::identity());
+    item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
 
     style = g_strdup(SP_OBJECT(item)->repr->attribute("style"));
 
@@ -1472,11 +1472,11 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
         if ( updating ) {
             // on conserve l'original
             // we reapply the transform to the original (offset will feel it)
-            sp_item_write_transform(item, SP_OBJECT_REPR(item), transform);
+            item->doWriteTransform(SP_OBJECT_REPR(item), transform);
         } else {
             // delete original, apply the transform to the offset
             SP_OBJECT(item)->deleteObject(false);
-            sp_item_write_transform(nitem, repr, transform);
+            nitem->doWriteTransform(repr, transform);
         }
 
         // The object just created from a temporary repr is only a seed.
@@ -1546,7 +1546,7 @@ sp_selected_path_do_offset(SPDesktop *desktop, bool expand, double prefOffset)
 
         Geom::Matrix const transform(item->transform);
 
-        sp_item_write_transform(item, SP_OBJECT_REPR(item), Geom::identity());
+        item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
 
         gchar *style = g_strdup(SP_OBJECT_REPR(item)->attribute("style"));
 
@@ -1719,7 +1719,7 @@ sp_selected_path_do_offset(SPDesktop *desktop, bool expand, double prefOffset)
             SPItem *newitem = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
 
             // reapply the transform
-            sp_item_write_transform(newitem, repr, transform);
+            newitem->doWriteTransform(repr, transform);
 
             repr->setAttribute("id", id);
 
@@ -1788,7 +1788,7 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
     }
 
     // correct virtual size by full transform (bug #166937)
-    size /= sp_item_i2doc_affine(item).descrim();
+    size /= item->i2doc_affine().descrim();
 
     // save the transform, to re-apply it after simplification
     Geom::Matrix const transform(item->transform);
@@ -1798,7 +1798,7 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
        this is necessary so that the item is transformed twice back and forth,
        allowing all compensations to cancel out regardless of the preferences
     */
-    sp_item_write_transform(item, SP_OBJECT_REPR(item), Geom::identity());
+    item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
 
     gchar *style = g_strdup(SP_OBJECT_REPR(item)->attribute("style"));
     gchar *mask = g_strdup(SP_OBJECT_REPR(item)->attribute("mask"));
@@ -1878,7 +1878,7 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
     SPItem *newitem = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
 
     // reapply the transform
-    sp_item_write_transform(newitem, repr, transform);
+    newitem->doWriteTransform(repr, transform);
 
     // restore title & description
     if (title) {
@@ -1943,7 +1943,7 @@ sp_selected_path_simplify_items(SPDesktop *desktop,
           continue;
 
         if (simplifyIndividualPaths) {
-            Geom::OptRect itemBbox = item->getBounds(sp_item_i2d_affine(item));
+            Geom::OptRect itemBbox = item->getBounds(item->i2d_affine());
             if (itemBbox) {
                 simplifySize      = L2(itemBbox->dimensions());
             } else {
@@ -2088,7 +2088,7 @@ pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool t
     
     if (doTransformation) {
         if (transformFull) {
-            *dest *= extraPreAffine * sp_item_i2doc_affine(item) * extraPostAffine;
+            *dest *= extraPreAffine * item->i2doc_affine() * extraPostAffine;
         } else {
             *dest *= extraPreAffine * (Geom::Matrix)item->transform * extraPostAffine;
         }

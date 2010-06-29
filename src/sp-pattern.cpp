@@ -327,12 +327,12 @@ sp_pattern_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape::
 	if (SP_IS_ITEM (ochild)) {
 
 		SPPaintServer *ps = SP_PAINT_SERVER (pat);
-		unsigned position = sp_item_pos_in_parent(SP_ITEM(ochild));
+		unsigned position = SP_ITEM(ochild)->pos_in_parent();
 
 		for (SPPainter *p = ps->painters; p != NULL; p = p->next) {
 
 			SPPatPainter *pp = (SPPatPainter *) p;
-			NRArenaItem *ai = sp_item_invoke_show (SP_ITEM (ochild), pp->arena, pp->dkey, SP_ITEM_REFERENCE_FLAGS);
+			NRArenaItem *ai = SP_ITEM (ochild)->invoke_show (pp->arena, pp->dkey, SP_ITEM_REFERENCE_FLAGS);
 
 			if (ai) {
 				nr_arena_item_add_child (pp->root, ai, NULL);
@@ -524,7 +524,7 @@ pattern_tile (GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Matr
 			dup_transform = Geom::identity();
 		dup_transform *= move;
 
-		sp_item_write_transform(copy, SP_OBJECT_REPR(copy), dup_transform, NULL, false);
+		copy->doWriteTransform(SP_OBJECT_REPR(copy), dup_transform, NULL, false);
 	}
 
 	Inkscape::GC::release(repr);
@@ -645,7 +645,7 @@ sp_pattern_painter_release (SPObject *obj, SPPatPainter *painter)
     painter->_release_connections->erase(obj);
 	}
 
-	sp_item_invoke_hide(SP_ITEM(obj), painter->dkey);
+	SP_ITEM(obj)->invoke_hide(painter->dkey);
 }
 
 /**
@@ -727,7 +727,7 @@ sp_pattern_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, G
 	/* Create arena */
 	pp->arena = NRArena::create();
 
-	pp->dkey = sp_item_display_key_new (1);
+	pp->dkey = SPItem::display_key_new (1);
 
 	/* Create group */
 	pp->root = NRArenaGroup::create(pp->arena);
@@ -741,7 +741,7 @@ sp_pattern_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, G
 					// for each item in pattern,
 					NRArenaItem *cai;
 					// show it on our arena,
-					cai = sp_item_invoke_show (SP_ITEM (child), pp->arena, pp->dkey, SP_ITEM_REFERENCE_FLAGS);
+					cai = SP_ITEM (child)->invoke_show (pp->arena, pp->dkey, SP_ITEM_REFERENCE_FLAGS);
 					// add to the group,
 					nr_arena_item_append_child (pp->root, cai);
 					// and connect to the release signal in case the item gets deleted

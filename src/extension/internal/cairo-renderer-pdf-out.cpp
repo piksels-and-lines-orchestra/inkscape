@@ -79,8 +79,8 @@ pdf_render_document_to_file(SPDocument *doc, gchar const *filename, unsigned int
     /* Create new arena */
     NRArena *arena = NRArena::create();
     nr_arena_set_renderoffscreen (arena);
-    unsigned dkey = sp_item_display_key_new(1);
-    sp_item_invoke_show(base, arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    unsigned dkey = SPItem::display_key_new(1);
+    base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
 
     /* Create renderer and context */
     CairoRenderer *renderer = new CairoRenderer();
@@ -102,7 +102,7 @@ pdf_render_document_to_file(SPDocument *doc, gchar const *filename, unsigned int
     }
 
     /* Release arena */
-    sp_item_invoke_hide(base, dkey);
+    base->invoke_hide(dkey);
     nr_object_unref((NRObject *) arena);
 
     renderer->destroyContext(ctx);

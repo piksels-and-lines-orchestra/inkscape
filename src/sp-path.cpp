@@ -171,7 +171,7 @@ sp_path_convert_to_guides(SPItem *item)
 
     std::list<std::pair<Geom::Point, Geom::Point> > pts;
 
-    Geom::Matrix const i2d (sp_item_i2d_affine(SP_ITEM(path)));
+    Geom::Matrix const i2d (SP_ITEM(path)->i2d_affine());
 
     Geom::PathVector const & pv = curve->get_pathvector();
     for(Geom::PathVector::const_iterator pit = pv.begin(); pit != pv.end(); ++pit) {
@@ -392,16 +392,16 @@ sp_path_set_transform(SPItem *item, Geom::Matrix const &xform)
     }
 
     // Adjust stroke
-    sp_item_adjust_stroke(item, xform.descrim());
+    item->adjust_stroke(xform.descrim());
 
     // Adjust pattern fill
-    sp_item_adjust_pattern(item, xform);
+    item->adjust_pattern(xform);
 
     // Adjust gradient fill
-    sp_item_adjust_gradient(item, xform);
+    item->adjust_gradient(xform);
 
     // Adjust LPE
-    sp_item_adjust_livepatheffect(item, xform);
+    item->adjust_livepatheffect(xform);
 
     item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG);
 

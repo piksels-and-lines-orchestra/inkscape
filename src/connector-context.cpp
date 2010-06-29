@@ -965,7 +965,7 @@ connector_handle_motion_notify(SPConnectorContext *const cc, GdkEventMotion cons
                 m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
 
                 // Update the hidden path
-                Geom::Matrix i2d = sp_item_i2d_affine(cc->clickeditem);
+                Geom::Matrix i2d = (cc->clickeditem)->i2d_affine();
                 Geom::Matrix d2i = i2d.inverse();
                 SPPath *path = SP_PATH(cc->clickeditem);
                 SPCurve *curve = path->original_curve ? path->original_curve : path->curve;
@@ -1088,7 +1088,7 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
                         m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
                         sp_knot_set_position(cc->selected_handle, p, 0);
                         ConnectionPoint& cp = cc->connpthandles[cc->selected_handle];
-                        cp.pos = p * sp_item_dt2i_affine(cc->active_shape);
+                        cp.pos = p * (cc->active_shape)->dt2i_affine();
                         cc->active_shape->avoidRef->updateConnectionPoint(cp);
                     }
 
@@ -1104,7 +1104,7 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
 
                     ConnectionPoint cp;
                     cp.type = ConnPointUserDefined;
-                    cp.pos = p * sp_item_dt2i_affine(cc->active_shape);
+                    cp.pos = p * (cc->active_shape)->dt2i_affine();
                     cp.dir = Avoid::ConnDirAll;
                     g_object_unref(cc->selected_handle);
                     cc->active_shape->avoidRef->addConnectionPoint(cp);
@@ -1182,7 +1182,7 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
                     // Obtain original position
                     ConnectionPoint const& cp = cc->connpthandles[cc->selected_handle];
                     SPDesktop *desktop = SP_EVENT_CONTEXT_DESKTOP(cc);
-                    const Geom::Matrix& i2doc = sp_item_i2doc_affine(cc->active_shape);
+                    const Geom::Matrix& i2doc = (cc->active_shape)->i2doc_affine();
                     sp_knot_set_position(cc->selected_handle, cp.pos * i2doc * desktop->doc2dt(), 0);
                     cc->state = SP_CONNECTOR_CONTEXT_IDLE;
                     desktop->messageStack()->flash( Inkscape::NORMAL_MESSAGE,
@@ -1204,7 +1204,7 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
                         m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
                         sp_knot_set_position(cc->selected_handle, p, 0);
                         ConnectionPoint& cp = cc->connpthandles[cc->selected_handle];
-                        cp.pos = p * sp_item_dt2i_affine(cc->active_shape);
+                        cp.pos = p * (cc->active_shape)->dt2i_affine();
                         cc->active_shape->avoidRef->updateConnectionPoint(cp);
                     }
 
@@ -1235,7 +1235,7 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
 
                     ConnectionPoint cp;
                     cp.type = ConnPointUserDefined;
-                    cp.pos = p * sp_item_dt2i_affine(cc->active_shape);
+                    cp.pos = p * (cc->active_shape)->dt2i_affine();
                     cp.dir = Avoid::ConnDirAll;
                     g_object_unref(cc->selected_handle);
                     cc->active_shape->avoidRef->addConnectionPoint(cp);
@@ -1431,7 +1431,7 @@ spcc_flush_white(SPConnectorContext *cc, SPCurve *gc)
 
         /* Attach repr */
         cc->newconn = SP_ITEM(desktop->currentLayer()->appendChildRepr(repr));
-        cc->newconn->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+        cc->newconn->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
 
         bool connection = false;
         sp_object_setAttribute(cc->newconn, "inkscape:connector-type",
@@ -1593,7 +1593,7 @@ endpt_handler(SPKnot */*knot*/, GdkEvent *event, SPConnectorContext *cc)
 
                 // Show the red path for dragging.
                 cc->red_curve = SP_PATH(cc->clickeditem)->original_curve ? SP_PATH(cc->clickeditem)->original_curve->copy() : SP_PATH(cc->clickeditem)->curve->copy();
-                Geom::Matrix i2d = sp_item_i2d_affine(cc->clickeditem);
+                Geom::Matrix i2d = (cc->clickeditem)->i2d_affine();
                 cc->red_curve->transform(i2d);
                 sp_canvas_bpath_set_bpath(SP_CANVAS_BPATH(cc->red_bpath), cc->red_curve);
 
@@ -1752,7 +1752,7 @@ cc_set_active_conn(SPConnectorContext *cc, SPItem *item)
     g_assert( SP_IS_PATH(item) );
 
     SPCurve *curve = SP_PATH(item)->original_curve ? SP_PATH(item)->original_curve : SP_PATH(item)->curve;
-    Geom::Matrix i2d = sp_item_i2d_affine(item);
+    Geom::Matrix i2d = item->i2d_affine();
 
     if (cc->active_conn == item)
     {

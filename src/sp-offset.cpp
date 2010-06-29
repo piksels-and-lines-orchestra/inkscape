@@ -510,7 +510,7 @@ sp_offset_set_shape(SPShape *shape)
         theRes->ConvertToForme (orig, 1, originaux);
 
         SPItem *item = shape;
-        Geom::OptRect bbox = sp_item_bbox_desktop (item);
+        Geom::OptRect bbox = item->getBboxDesktop ();
         if ( bbox ) {
             gdouble size = L2(bbox->dimensions());
             gdouble const exp = item->transform.descrim();
@@ -1049,7 +1049,7 @@ sp_offset_move_compensate(Geom::Matrix const *mp, SPItem */*original*/, SPOffset
     item->transform *= compensate;
 
     // commit the compensation
-    sp_item_write_transform(item, SP_OBJECT_REPR(item), item->transform, &advertized_move);
+    item->doWriteTransform(SP_OBJECT_REPR(item), item->transform, &advertized_move);
     SP_OBJECT(item)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 

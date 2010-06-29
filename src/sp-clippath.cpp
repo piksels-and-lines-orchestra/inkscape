@@ -166,8 +166,7 @@ sp_clippath_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::
     if (SP_IS_ITEM(ochild)) {
         SPClipPath *cp = SP_CLIPPATH(object);
         for (SPClipPathView *v = cp->display; v != NULL; v = v->next) {
-            NRArenaItem *ac = sp_item_invoke_show(SP_ITEM(ochild),
-                                                  NR_ARENA_ITEM_ARENA(v->arenaitem),
+            NRArenaItem *ac = SP_ITEM(ochild)->invoke_show(                                                  NR_ARENA_ITEM_ARENA(v->arenaitem),
                                                   v->key,
                                                   SP_ITEM_REFERENCE_FLAGS);
             if (ac) {
@@ -267,7 +266,7 @@ sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key)
 
     for (SPObject *child = sp_object_first_child(SP_OBJECT(cp)) ; child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
-            NRArenaItem *ac = sp_item_invoke_show(SP_ITEM(child), arena, key, SP_ITEM_REFERENCE_FLAGS);
+            NRArenaItem *ac = SP_ITEM(child)->invoke_show(arena, key, SP_ITEM_REFERENCE_FLAGS);
             if (ac) {
                 /* The order is not important in clippath */
                 nr_arena_item_add_child(ai, ac, NULL);
@@ -293,7 +292,7 @@ sp_clippath_hide(SPClipPath *cp, unsigned int key)
 
     for (SPObject *child = sp_object_first_child(SP_OBJECT(cp)) ; child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
-            sp_item_invoke_hide(SP_ITEM(child), key);
+            SP_ITEM(child)->invoke_hide(key);
         }
     }
 
@@ -331,13 +330,13 @@ sp_clippath_get_bbox(SPClipPath *cp, NRRect *bbox, Geom::Matrix const &transform
     for (i = sp_object_first_child(SP_OBJECT(cp)); i && !SP_IS_ITEM(i); i = SP_OBJECT_NEXT(i)){};
     if (!i) return;
 
-    sp_item_invoke_bbox_full(SP_ITEM(i), bbox, Geom::Matrix(SP_ITEM(i)->transform) * transform, SPItem::GEOMETRIC_BBOX, FALSE);
+    SP_ITEM(i)->invoke_bbox_full( bbox, Geom::Matrix(SP_ITEM(i)->transform) * transform, SPItem::GEOMETRIC_BBOX, FALSE);
     SPObject *i_start = i;
 
     while (i != NULL) {
         if (i != i_start) {
             NRRect i_box;
-            sp_item_invoke_bbox_full(SP_ITEM(i), &i_box, Geom::Matrix(SP_ITEM(i)->transform) * transform, SPItem::GEOMETRIC_BBOX, FALSE);
+            SP_ITEM(i)->invoke_bbox_full( &i_box, Geom::Matrix(SP_ITEM(i)->transform) * transform, SPItem::GEOMETRIC_BBOX, FALSE);
             nr_rect_d_union (bbox, bbox, &i_box);
         }
         i = SP_OBJECT_NEXT(i);
@@ -400,7 +399,7 @@ sp_clippath_create (GSList *reprs, SPDocument *document, Geom::Matrix const* app
         if (NULL != applyTransform) {
             Geom::Matrix transform (item->transform);
             transform *= (*applyTransform);
-            sp_item_write_transform(item, SP_OBJECT_REPR(item), transform);
+            item->doWriteTransform(SP_OBJECT_REPR(item), transform);
         }
     }
 

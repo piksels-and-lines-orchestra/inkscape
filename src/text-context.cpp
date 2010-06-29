@@ -432,7 +432,7 @@ sp_text_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEve
                 } else {
                     SP_CTRLRECT(tc->indicator)->setColor(0x0000ff7f, false, 0);
                 }
-                Geom::OptRect ibbox = sp_item_bbox_desktop(item_ungrouped);
+                Geom::OptRect ibbox = item_ungrouped->getBboxDesktop();
                 if (ibbox) {
                     SP_CTRLRECT(tc->indicator)->setRectangle(*ibbox);
                 }
@@ -498,7 +498,7 @@ sp_text_context_setup_text(SPTextContext *tc)
     /* yes, it's immediate .. why does it matter? */
     sp_desktop_selection(ec->desktop)->set(text_item);
     Inkscape::GC::release(rtext);
-    text_item->transform = sp_item_i2doc_affine(SP_ITEM(ec->desktop->currentLayer())).inverse();
+    text_item->transform = SP_ITEM(ec->desktop->currentLayer())->i2doc_affine().inverse();
 
     text_item->updateRepr();
     sp_document_done(sp_desktop_document(ec->desktop), SP_VERB_CONTEXT_TEXT,
@@ -1570,8 +1570,8 @@ sp_text_context_update_cursor(SPTextContext *tc,  bool scroll_to_see)
     if (tc->text) {
         Geom::Point p0, p1;
         sp_te_get_cursor_coords(tc->text, tc->text_sel_end, p0, p1);
-        Geom::Point const d0 = p0 * sp_item_i2d_affine(SP_ITEM(tc->text));
-        Geom::Point const d1 = p1 * sp_item_i2d_affine(SP_ITEM(tc->text));
+        Geom::Point const d0 = p0 * SP_ITEM(tc->text)->i2d_affine();
+        Geom::Point const d1 = p1 * SP_ITEM(tc->text)->i2d_affine();
 
         // scroll to show cursor
         if (scroll_to_see) {
@@ -1612,7 +1612,7 @@ sp_text_context_update_cursor(SPTextContext *tc,  bool scroll_to_see)
                     SP_CTRLRECT(tc->frame)->setColor(0x0000ff7f, false, 0);
                 }
                 sp_canvas_item_show(tc->frame);
-                Geom::OptRect frame_bbox = sp_item_bbox_desktop(frame);
+                Geom::OptRect frame_bbox = frame->getBboxDesktop();
                 if (frame_bbox) {
                     SP_CTRLRECT(tc->frame)->setRectangle(*frame_bbox);
                 }
@@ -1652,7 +1652,7 @@ static void sp_text_context_update_text_selection(SPTextContext *tc)
 
     std::vector<Geom::Point> quads;
     if (tc->text != NULL)
-        quads = sp_te_create_selection_quads(tc->text, tc->text_sel_start, tc->text_sel_end, sp_item_i2d_affine(tc->text));
+        quads = sp_te_create_selection_quads(tc->text, tc->text_sel_start, tc->text_sel_end, (tc->text)->i2d_affine());
     for (unsigned i = 0 ; i < quads.size() ; i += 4) {
         SPCanvasItem *quad_canvasitem;
         quad_canvasitem = sp_canvas_item_new(sp_desktop_controls(tc->desktop), SP_TYPE_CTRLQUADR, NULL);

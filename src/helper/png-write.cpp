@@ -371,7 +371,7 @@ hide_other_items_recursively(SPObject *o, GSList *list, unsigned dkey)
          && !SP_IS_GROUP(o)
          && !g_slist_find(list, o) )
     {
-        sp_item_invoke_hide(SP_ITEM(o), dkey);
+        SP_ITEM(o)->invoke_hide(dkey);
     }
 
     // recurse
@@ -461,10 +461,10 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
     NRArena *const arena = NRArena::create();
     // export with maximum blur rendering quality
     nr_arena_set_renderoffscreen(arena);
-    unsigned const dkey = sp_item_display_key_new(1);
+    unsigned const dkey = SPItem::display_key_new(1);
 
     /* Create ArenaItems and set transform */
-    ebp.root = sp_item_invoke_show(SP_ITEM(sp_document_root(doc)), arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    ebp.root = SP_ITEM(sp_document_root(doc))->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
     nr_arena_item_set_transform(NR_ARENA_ITEM(ebp.root), affine);
 
     // We show all and then hide all items we don't want, instead of showing only requested items,
@@ -490,7 +490,7 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
     }
 
     // Hide items, this releases arenaitem
-    sp_item_invoke_hide(SP_ITEM(sp_document_root(doc)), dkey);
+    SP_ITEM(sp_document_root(doc))->invoke_hide(dkey);
 
     /* Free arena */
     nr_object_unref((NRObject *) arena);

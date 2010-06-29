@@ -442,7 +442,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
     } else {
         if (mode == TWEAK_MODE_MOVE) {
 
-            Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
+            Geom::OptRect a = item->getBounds(item->i2doc_affine());
             if (a) {
                 double x = Geom::L2(a->midpoint() - p)/radius;
                 if (a->contains(p)) x = 0;
@@ -455,7 +455,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
         } else if (mode == TWEAK_MODE_MOVE_IN_OUT) {
 
-            Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
+            Geom::OptRect a = item->getBounds(item->i2doc_affine());
             if (a) {
                 double x = Geom::L2(a->midpoint() - p)/radius;
                 if (a->contains(p)) x = 0;
@@ -469,7 +469,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
         } else if (mode == TWEAK_MODE_MOVE_JITTER) {
 
-            Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
+            Geom::OptRect a = item->getBounds(item->i2doc_affine());
             if (a) {
                 double dp = g_random_double_range(0, M_PI*2);
                 double dr = g_random_double_range(0, radius);
@@ -484,7 +484,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
         } else if (mode == TWEAK_MODE_SCALE) {
 
-            Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
+            Geom::OptRect a = item->getBounds(item->i2doc_affine());
             if (a) {
                 double x = Geom::L2(a->midpoint() - p)/radius;
                 if (a->contains(p)) x = 0;
@@ -497,7 +497,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
         } else if (mode == TWEAK_MODE_ROTATE) {
 
-            Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
+            Geom::OptRect a = item->getBounds(item->i2doc_affine());
             if (a) {
                 double x = Geom::L2(a->midpoint() - p)/radius;
                 if (a->contains(p)) x = 0;
@@ -510,7 +510,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
         } else if (mode == TWEAK_MODE_MORELESS) {
 
-            Geom::OptRect a = item->getBounds(sp_item_i2doc_affine(item));
+            Geom::OptRect a = item->getBounds(item->i2doc_affine());
             if (a) {
                 double x = Geom::L2(a->midpoint() - p)/radius;
                 if (a->contains(p)) x = 0;
@@ -562,7 +562,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
 
         // skip those paths whose bboxes are entirely out of reach with our radius
-        Geom::OptRect bbox = item->getBounds(sp_item_i2doc_affine(item));
+        Geom::OptRect bbox = item->getBounds(item->i2doc_affine());
         if (bbox) {
             bbox->expandBy(radius);
             if (!bbox->contains(p)) {
@@ -580,7 +580,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
         Shape *theShape = new Shape;
         Shape *theRes = new Shape;
-        Geom::Matrix i2doc(sp_item_i2doc_affine(item));
+        Geom::Matrix i2doc(item->i2doc_affine());
 
         orig->ConvertWithBackData((0.08 - (0.07 * fidelity)) / i2doc.descrim()); // default 0.059
         orig->Fill(theShape, 0);
@@ -801,7 +801,7 @@ tweak_colors_in_gradient (SPItem *item, bool fill_or_stroke,
     if (!gradient || !SP_IS_GRADIENT(gradient))
         return;
 
-    Geom::Matrix i2d (sp_item_i2doc_affine (item));
+    Geom::Matrix i2d (item->i2doc_affine ());
     Geom::Point p = p_w * i2d.inverse();
     p *= (gradient->gradientTransform).inverse();
     // now p is in gradient's original coordinates
@@ -940,7 +940,7 @@ sp_tweak_color_recursive (guint mode, SPItem *item, SPItem *item_at_point,
         if (!style) {
             return false;
         }
-        Geom::OptRect bbox = item->getBounds(sp_item_i2doc_affine(item),
+        Geom::OptRect bbox = item->getBounds(item->i2doc_affine(),
                                                         SPItem::GEOMETRIC_BBOX);
         if (!bbox) {
             return false;
@@ -970,14 +970,14 @@ sp_tweak_color_recursive (guint mode, SPItem *item, SPItem *item_at_point,
         if (this_force > 0.002) {
 
             if (do_blur) {
-                Geom::OptRect bbox = item->getBounds(sp_item_i2doc_affine(item),
+                Geom::OptRect bbox = item->getBounds(item->i2doc_affine(),
                                                         SPItem::GEOMETRIC_BBOX);
                 if (!bbox) {
                     return did;
                 }
 
                 double blur_now = 0;
-                Geom::Matrix i2d = sp_item_i2d_affine (item);
+                Geom::Matrix i2d = item->i2d_affine ();
                 if (style->filter.set && style->getFilter()) {
                     //cycle through filter primitives
                     SPObject *primitive_obj = style->getFilter()->children;

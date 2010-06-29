@@ -118,7 +118,7 @@ sp_file_new(const Glib::ustring &templ)
     char *templName = NULL;
     if (templ.size()>0)
         templName = (char *)templ.c_str();
-    SPDocument *doc = sp_document_new(templName, TRUE, true);
+    SPDocument *doc = SPDocument::createDoc(templName, TRUE, true);
     g_return_val_if_fail(doc != NULL, NULL);
 
     SPDesktop *dt;
@@ -128,7 +128,7 @@ sp_file_new(const Glib::ustring &templ)
     } else {
         SPViewWidget *dtw = sp_desktop_widget_new(sp_document_namedview(doc, NULL));
         g_return_val_if_fail(dtw != NULL, NULL);
-        sp_document_unref(doc);
+        doc->doUnref();
 
         sp_create_window(dtw, TRUE);
         dt = static_cast<SPDesktop*>(dtw->view);
@@ -250,7 +250,7 @@ sp_file_open(const Glib::ustring &uri,
 
         doc->virgin = FALSE;
         // everyone who cares now has a reference, get rid of ours
-        sp_document_unref(doc);
+        doc->doUnref();
         // resize the window to match the document properties
         sp_namedview_window_from_document(desktop);
         sp_namedview_update_layers_from_document(desktop);
@@ -1049,7 +1049,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
             // preserve parent and viewBox transformations
             // c2p is identity matrix at this point unless sp_document_ensure_up_to_date is called
             sp_document_ensure_up_to_date(doc);
-            Geom::Matrix affine = SP_ROOT(SP_DOCUMENT_ROOT(doc))->c2p * sp_item_i2doc_affine(SP_ITEM(place_to_insert)).inverse();
+            Geom::Matrix affine = SP_ROOT(SP_DOCUMENT_ROOT(doc))->c2p * SP_ITEM(place_to_insert)->i2doc_affine().inverse();
             sp_selection_apply_affine(selection, desktop->dt2doc() * affine * desktop->doc2dt(), true, false);
 
             // move to mouse pointer
@@ -1063,7 +1063,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
             }
         }
 
-        sp_document_unref(doc);
+        doc->doUnref();
         sp_document_done(in_doc, SP_VERB_FILE_IMPORT,
                          _("Import"));
 

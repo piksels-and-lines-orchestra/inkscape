@@ -569,7 +569,7 @@ sp_image_get_type (void)
             (GInstanceInitFunc) sp_image_init,
             NULL,       /* value_table */
         };
-        image_type = g_type_register_static (sp_item_get_type (), "SPImage", &image_info, (GTypeFlags)0);
+        image_type = g_type_register_static (SPItem::getType (), "SPImage", &image_info, (GTypeFlags)0);
     }
     return image_type;
 }
@@ -585,7 +585,7 @@ sp_image_class_init (SPImageClass * klass)
     sp_object_class = (SPObjectClass *) klass;
     item_class = (SPItemClass *) klass;
 
-    parent_class = (SPItemClass*)g_type_class_ref (sp_item_get_type ());
+    parent_class = (SPItemClass*)g_type_class_ref (SPItem::getType ());
 
     sp_object_class->build = sp_image_build;
     sp_object_class->release = sp_image_release;
@@ -1352,7 +1352,7 @@ static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
         double const y0 = image.y.computed;
         double const x1 = x0 + image.width.computed;
         double const y1 = y0 + image.height.computed;
-        Geom::Matrix const i2d (sp_item_i2d_affine (item));
+        Geom::Matrix const i2d (item->i2d_affine ());
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y0) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));

@@ -1219,12 +1219,12 @@ EditWidget::shutdown()
         switch (response)
         {
             case Gtk::RESPONSE_YES:
-                sp_document_ref(doc);
+                doc->doRef();
                 sp_namedview_document_from_window(_desktop);
                 if (sp_file_save_document(*this, doc)) {
-                    sp_document_unref(doc);
+                    doc->doUnref();
                 } else { // save dialog cancelled or save failed
-                    sp_document_unref(doc);
+                    doc->doUnref();
                     return TRUE;
                 }
                 break;
@@ -1270,11 +1270,11 @@ EditWidget::shutdown()
         switch (response)
         {
             case Gtk::RESPONSE_YES:
-                sp_document_ref(doc);
+                doc->doRef();
                 if (sp_file_save_document(*this, doc)) {
-                    sp_document_unref(doc);
+                    doc->doUnref();
                 } else { // save dialog cancelled or save failed
-                    sp_document_unref(doc);
+                    doc->doUnref();
                     return TRUE;
                 }
                 break;
@@ -1394,7 +1394,7 @@ EditWidget::updateScrollbars (double scale)
                      Geom::Point(2 * sp_document_width(doc), 2 * sp_document_height(doc))  );
     SPObject* root = doc->root;
     SPItem* item = SP_ITEM(root);
-    Geom::OptRect deskarea = Geom::unify(darea, sp_item_bbox_desktop(item));
+    Geom::OptRect deskarea = Geom::unify(darea, item->getBboxDesktop());
 
     /* Canvas region we always show unconditionally */
     Geom::Rect carea( Geom::Point(deskarea->min()[Geom::X] * scale - 64, deskarea->max()[Geom::Y] * -scale - 64),

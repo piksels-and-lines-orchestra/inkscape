@@ -17,6 +17,7 @@
  */
 
 #include "forward.h"
+#include "sp-item.h"
 #include "2geom/forward.h"
 
 namespace Inkscape { class Selection; }

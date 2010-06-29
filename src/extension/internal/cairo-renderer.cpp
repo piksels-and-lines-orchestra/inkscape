@@ -186,7 +186,7 @@ static void sp_shape_render (SPItem *item, CairoRenderContext *ctx)
 
     if (!shape->curve) return;
 
-    sp_item_invoke_bbox(item, &pbox, Geom::identity(), TRUE);
+    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
 
     SPStyle* style = SP_OBJECT_STYLE (item);
 
@@ -449,7 +449,7 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
 
     // Get the bounding box of the selection in document coordinates.
     Geom::OptRect bbox = 
-           item->getBounds(sp_item_i2d_affine(item), SPItem::RENDERING_BBOX);
+           item->getBounds(item->i2d_affine(), SPItem::RENDERING_BBOX);
 
     if (!bbox) // no bbox, e.g. empty group
         return;
@@ -480,7 +480,7 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
                                  (Geom::Matrix)(Geom::Translate (shift_x, shift_y));
 
     // ctx matrix already includes item transformation. We must substract.
-    Geom::Matrix t_item =  sp_item_i2d_affine (item);
+    Geom::Matrix t_item =  item->i2d_affine ();
     Geom::Matrix t = t_on_document * t_item.inverse();
 
     // Do the export
@@ -611,7 +611,7 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
         d.x1 = sp_document_width(doc);
         d.y1 = sp_document_height(doc);
     } else {
-        sp_item_invoke_bbox(base, &d, sp_item_i2d_affine(base), TRUE, SPItem::RENDERING_BBOX);
+        base->invoke_bbox( &d, base->i2d_affine(), TRUE, SPItem::RENDERING_BBOX);
     }
 
     if (ctx->_vector_based_target) {

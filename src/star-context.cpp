@@ -432,7 +432,7 @@ static void sp_star_drag(SPStarContext *sc, Geom::Point p, guint state)
 
         sc->item = SP_ITEM(desktop->currentLayer()->appendChildRepr(repr));
         Inkscape::GC::release(repr);
-        sc->item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+        sc->item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
         sc->item->updateRepr();
 
         sp_canvas_force_full_redraw_after_interruptions(desktop->canvas, 5);

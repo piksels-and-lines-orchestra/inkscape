@@ -297,7 +297,7 @@ sp_shape_update (SPObject *object, SPCtx *ctx, unsigned int flags)
         /* Dimension marker views */
         for (SPItemView *v = item->display; v != NULL; v = v->next) {
             if (!v->arenaitem->key) {
-                NR_ARENA_ITEM_SET_KEY (v->arenaitem, sp_item_display_key_new (SP_MARKER_LOC_QTY));
+                NR_ARENA_ITEM_SET_KEY (v->arenaitem, SPItem::display_key_new (SP_MARKER_LOC_QTY));
             }
             for (int i = 0 ; i < SP_MARKER_LOC_QTY ; i++) {
                 if (shape->marker[i]) {
@@ -609,7 +609,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
 
                                     // get bbox of the marker with that transform
                                     NRRect marker_bbox;
-                                    sp_item_invoke_bbox (marker_item, &marker_bbox, from_2geom(tr), true);
+                                    marker_item->invoke_bbox ( &marker_bbox, from_2geom(tr), true);
                                     // union it with the shape bbox
                                     nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                 }
@@ -637,7 +637,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
                                     }
                                     tr = marker_item->transform * marker->c2p * tr * transform;
                                     NRRect marker_bbox;
-                                    sp_item_invoke_bbox (marker_item, &marker_bbox, from_2geom(tr), true);
+                                    marker_item->invoke_bbox ( &marker_bbox, from_2geom(tr), true);
                                     nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                 }
                                 // MID position
@@ -664,7 +664,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
                                             }
                                             tr = marker_item->transform * marker->c2p * tr * transform;
                                             NRRect marker_bbox;
-                                            sp_item_invoke_bbox (marker_item, &marker_bbox, from_2geom(tr), true);
+                                            marker_item->invoke_bbox ( &marker_bbox, from_2geom(tr), true);
                                             nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                         }
 
@@ -685,7 +685,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
                                     }
                                     tr = marker_item->transform * marker->c2p * tr * transform;
                                     NRRect marker_bbox;
-                                    sp_item_invoke_bbox (marker_item, &marker_bbox, tr, true);
+                                    marker_item->invoke_bbox ( &marker_bbox, tr, true);
                                     nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                 }
                             }
@@ -720,7 +720,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
 
                                     // get bbox of the marker with that transform
                                     NRRect marker_bbox;
-                                    sp_item_invoke_bbox (marker_item, &marker_bbox, tr, true);
+                                    marker_item->invoke_bbox ( &marker_bbox, tr, true);
                                     // union it with the shape bbox
                                     nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                 }
@@ -749,7 +749,7 @@ sp_shape_print_invoke_marker_printing(SPObject* obj, Geom::Matrix tr, SPStyle* s
 
     Geom::Matrix old_tr = marker_item->transform;
     marker_item->transform = tr;
-    sp_item_invoke_print (marker_item, ctx);
+    marker_item->invoke_print (ctx);
     marker_item->transform = old_tr;
 }
 /**
@@ -777,13 +777,13 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
         }
 
     /* fixme: Think (Lauris) */
-    sp_item_invoke_bbox(item, &pbox, Geom::identity(), TRUE);
+    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
     dbox.x0 = 0.0;
     dbox.y0 = 0.0;
     dbox.x1 = sp_document_width (SP_OBJECT_DOCUMENT (item));
     dbox.y1 = sp_document_height (SP_OBJECT_DOCUMENT (item));
-    sp_item_bbox_desktop (item, &bbox);
-    Geom::Matrix const i2d(sp_item_i2d_affine(item));
+    item->getBboxDesktop (&bbox);
+    Geom::Matrix const i2d(item->i2d_affine());
 
     SPStyle* style = SP_OBJECT_STYLE (item);
 
@@ -899,7 +899,7 @@ sp_shape_show (SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int 
 
         /* provide key and dimension the marker views */
         if (!arenaitem->key) {
-            NR_ARENA_ITEM_SET_KEY (arenaitem, sp_item_display_key_new (SP_MARKER_LOC_QTY));
+            NR_ARENA_ITEM_SET_KEY (arenaitem, SPItem::display_key_new (SP_MARKER_LOC_QTY));
         }
 
         for (int i = 0; i < SP_MARKER_LOC_QTY; i++) {
@@ -1197,10 +1197,10 @@ static void sp_shape_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
     if (pathv.empty())
         return;
 
-    Geom::Matrix const i2d (sp_item_i2d_affine (item));
+    Geom::Matrix const i2d (item->i2d_affine ());
 
     if (snapprefs->getSnapObjectMidpoints()) {
-        Geom::OptRect bbox = item->getBounds(sp_item_i2d_affine(item));
+        Geom::OptRect bbox = item->getBounds(item->i2d_affine());
         if (bbox) {
             p.push_back(Inkscape::SnapCandidatePoint(bbox->midpoint(), Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
         }

@@ -2,6 +2,7 @@
 #define __SP_GUIDE_ATTACHMENT_H__
 
 #include <forward.h>
+#include "sp-item.h"
 
 class SPGuideAttachment {
 public:

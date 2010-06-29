@@ -146,7 +146,7 @@ StyleSubject::iterator StyleSubject::CurrentLayer::begin() {
 Geom::OptRect StyleSubject::CurrentLayer::getBounds(SPItem::BBoxType type) {
     SPObject *layer = _getLayer();
     if (layer && SP_IS_ITEM(layer)) {
-        return sp_item_bbox_desktop(SP_ITEM(layer), type);
+        return SP_ITEM(layer)->getBboxDesktop(type);
     } else {
         return Geom::OptRect();
     }

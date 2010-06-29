@@ -256,7 +256,7 @@ GimpGrad::open (Inkscape::Extension::Input */*module*/, gchar const *filename)
 
         fclose(gradient);
 
-        return sp_document_new_from_mem(outsvg.c_str(), outsvg.length(), TRUE);
+        return SPDocument::createDocFromMem(outsvg.c_str(), outsvg.length(), TRUE);
     }
 
 error:

@@ -180,8 +180,7 @@ sp_mask_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape::XML
 	if (SP_IS_ITEM (ochild)) {
 		SPMask *cp = SP_MASK (object);
 		for (SPMaskView *v = cp->display; v != NULL; v = v->next) {
-			NRArenaItem *ac = sp_item_invoke_show (SP_ITEM (ochild),
-							       NR_ARENA_ITEM_ARENA (v->arenaitem),
+			NRArenaItem *ac = SP_ITEM (ochild)->invoke_show (							       NR_ARENA_ITEM_ARENA (v->arenaitem),
 							       v->key,
 							       SP_ITEM_REFERENCE_FLAGS);
 			if (ac) {
@@ -289,7 +288,7 @@ sp_mask_create (GSList *reprs, SPDocument *document, Geom::Matrix const* applyTr
         if (NULL != applyTransform) {
             Geom::Matrix transform (item->transform);
             transform *= (*applyTransform);
-            sp_item_write_transform(item, SP_OBJECT_REPR(item), transform);
+            item->doWriteTransform(SP_OBJECT_REPR(item), transform);
         }
     }
 
@@ -313,7 +312,7 @@ sp_mask_show (SPMask *mask, NRArena *arena, unsigned int key)
 
 	for (SPObject *child = sp_object_first_child(SP_OBJECT(mask)) ; child != NULL; child = SP_OBJECT_NEXT(child)) {
 		if (SP_IS_ITEM (child)) {
-			NRArenaItem *ac = sp_item_invoke_show (SP_ITEM (child), arena, key, SP_ITEM_REFERENCE_FLAGS);
+			NRArenaItem *ac = SP_ITEM (child)->invoke_show (arena, key, SP_ITEM_REFERENCE_FLAGS);
 			if (ac) {
 				/* The order is not important in mask */
 				nr_arena_item_add_child (ai, ac, NULL);
@@ -339,7 +338,7 @@ sp_mask_hide (SPMask *cp, unsigned int key)
 
 	for (SPObject *child = sp_object_first_child(SP_OBJECT(cp)); child != NULL; child = SP_OBJECT_NEXT(child)) {
 		if (SP_IS_ITEM (child)) {
-			sp_item_invoke_hide (SP_ITEM (child), key);
+			SP_ITEM(child)->invoke_hide (key);
 		}
 	}
 

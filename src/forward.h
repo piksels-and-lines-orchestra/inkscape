@@ -64,15 +64,15 @@ class SPObjectClass;
 
 GType sp_object_get_type ();
 
-class SPItem;
-class SPItemClass;
+//class SPItem;
+//class SPItemClass;
 
-#define SP_TYPE_ITEM (sp_item_get_type ())
-#define SP_ITEM(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_ITEM, SPItem))
-#define SP_ITEM_CLASS(clazz) (G_TYPE_CHECK_CLASS_CAST((clazz), SP_TYPE_ITEM, SPItemClass))
-#define SP_IS_ITEM(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_ITEM))
+//#define SP_TYPE_ITEM (sp_item_get_type ())
+//#define SP_ITEM(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_ITEM, SPItem))
+//#define SP_ITEM_CLASS(clazz) (G_TYPE_CHECK_CLASS_CAST((clazz), SP_TYPE_ITEM, SPItemClass))
+//#define SP_IS_ITEM(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_ITEM))
 
-GType sp_item_get_type ();
+//GType sp_item_get_type ();
 
 class SPGroup;
 class SPGroupClass;

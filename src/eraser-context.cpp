@@ -723,7 +723,7 @@ set_to_accumulated(SPEraserContext *dc)
 
             SPItem *item=SP_ITEM(desktop->currentLayer()->appendChildRepr(dc->repr));
             Inkscape::GC::release(dc->repr);
-            item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+            item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
             item->updateRepr();
         }
         Geom::PathVector pathv = dc->accumulated->get_pathvector() * desktop->dt2doc();

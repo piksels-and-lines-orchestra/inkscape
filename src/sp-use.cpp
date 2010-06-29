@@ -289,7 +289,7 @@ sp_use_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, uns
                                                use->y.computed)
                              * transform );
         Geom::OptRect optbbox;
-        sp_item_invoke_bbox_full(child, optbbox, ct, flags, FALSE);
+        child->invoke_bbox_full( optbbox, ct, flags, FALSE);
         if (optbbox) {
             bbox->x0 = (*optbbox)[0][0];
             bbox->y0 = (*optbbox)[1][0];
@@ -312,7 +312,7 @@ sp_use_print(SPItem *item, SPPrintContext *ctx)
     }
 
     if (use->child && SP_IS_ITEM(use->child)) {
-        sp_item_invoke_print(SP_ITEM(use->child), ctx);
+        SP_ITEM(use->child)->invoke_print(ctx);
     }
 
     if (translated) {
@@ -336,7 +336,7 @@ sp_use_description(SPItem *item)
              * a <use>, and giving its description. */
         }
         ++recursion_depth;
-        char *child_desc = sp_item_description(SP_ITEM(use->child));
+        char *child_desc = SP_ITEM(use->child)->description();
         --recursion_depth;
 
         ret = g_strdup_printf(_("<b>Clone</b> of: %s"), child_desc);
@@ -357,7 +357,7 @@ sp_use_show(SPItem *item, NRArena *arena, unsigned key, unsigned flags)
     nr_arena_group_set_style(NR_ARENA_GROUP(ai), SP_OBJECT_STYLE(item));
 
     if (use->child) {
-        NRArenaItem *ac = sp_item_invoke_show(SP_ITEM(use->child), arena, key, flags);
+        NRArenaItem *ac = SP_ITEM(use->child)->invoke_show(arena, key, flags);
         if (ac) {
             nr_arena_item_add_child(ai, ac, NULL);
         }
@@ -375,7 +375,7 @@ sp_use_hide(SPItem *item, unsigned key)
     SPUse *use = SP_USE(item);
 
     if (use->child) {
-        sp_item_invoke_hide(SP_ITEM(use->child), key);
+        SP_ITEM(use->child)->invoke_hide(key);
     }
 
     if (((SPItemClass *) parent_class)->hide) {
@@ -512,7 +512,7 @@ sp_use_move_compensate(Geom::Matrix const *mp, SPItem */*original*/, SPUse *self
     // commit the compensation
     SPItem *item = SP_ITEM(self);
     item->transform *= clone_move;
-    sp_item_write_transform(item, SP_OBJECT_REPR(item), item->transform, &advertized_move);
+    item->doWriteTransform(SP_OBJECT_REPR(item), item->transform, &advertized_move);
     SP_OBJECT(item)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
@@ -543,7 +543,7 @@ sp_use_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPUse *use)
 
                 for (SPItemView *v = item->display; v != NULL; v = v->next) {
                     NRArenaItem *ai;
-                    ai = sp_item_invoke_show(SP_ITEM(use->child), NR_ARENA_ITEM_ARENA(v->arenaitem), v->key, v->flags);
+                    ai = SP_ITEM(use->child)->invoke_show(NR_ARENA_ITEM_ARENA(v->arenaitem), v->key, v->flags);
                     if (ai) {
                         nr_arena_item_add_child(v->arenaitem, ai, NULL);
                     }
@@ -736,7 +736,7 @@ sp_use_unlink(SPUse *use)
     {
         Geom::Matrix nomove(Geom::identity());
         // Advertise ourselves as not moving.
-        sp_item_write_transform(item, SP_OBJECT_REPR(item), t, &nomove);
+        item->doWriteTransform(SP_OBJECT_REPR(item), t, &nomove);
     }
     return item;
 }

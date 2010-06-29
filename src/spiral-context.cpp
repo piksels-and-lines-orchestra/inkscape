@@ -420,7 +420,7 @@ sp_spiral_drag(SPSpiralContext *sc, Geom::Point p, guint state)
 
         sc->item = (SPItem *) desktop->currentLayer()->appendChildRepr(repr);
         Inkscape::GC::release(repr);
-        sc->item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+        sc->item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
         sc->item->updateRepr();
 
         sp_canvas_force_full_redraw_after_interruptions(desktop->canvas, 5);

@@ -80,7 +80,7 @@ sp_te_input_is_empty (SPObject const *item)
 Inkscape::Text::Layout::iterator
 sp_te_get_position_by_coords (SPItem const *item, Geom::Point const &i_p)
 {
-    Geom::Matrix im (sp_item_i2d_affine (item));
+    Geom::Matrix im (item->i2d_affine ());
     im = im.inverse();
 
     Geom::Point p = i_p * im;
@@ -956,7 +956,7 @@ sp_te_adjust_kerning_screen (SPItem *item, Inkscape::Text::Layout::iterator cons
     // divide increment by zoom
     // divide increment by matrix expansion
     gdouble factor = 1 / desktop->current_zoom();
-    Geom::Matrix t (sp_item_i2doc_affine(item));
+    Geom::Matrix t (item->i2doc_affine());
     factor = factor / t.descrim();
     by = factor * by;
 
@@ -1008,7 +1008,7 @@ sp_te_adjust_rotation_screen(SPItem *text, Inkscape::Text::Layout::iterator cons
     // divide increment by zoom
     // divide increment by matrix expansion
     gdouble factor = 1 / desktop->current_zoom();
-    Geom::Matrix t (sp_item_i2doc_affine(text));
+    Geom::Matrix t (text->i2doc_affine());
     factor = factor / t.descrim();
     Inkscape::Text::Layout const *layout = te_get_layout(text);
     if (layout == NULL) return;
@@ -1112,7 +1112,7 @@ sp_te_adjust_tspan_letterspacing_screen(SPItem *text, Inkscape::Text::Layout::it
     gdouble const zoom = desktop->current_zoom();
     gdouble const zby = (by
                          / (zoom * (nb_let > 1 ? nb_let - 1 : 1))
-                         / to_2geom(sp_item_i2doc_affine(SP_ITEM(source_obj))).descrim());
+                         / to_2geom(SP_ITEM(source_obj)->i2doc_affine()).descrim());
     val += zby;
 
     if (start == end) {
@@ -1184,7 +1184,7 @@ sp_te_adjust_linespacing_screen (SPItem *text, Inkscape::Text::Layout::iterator 
     gdouble zby = by / (desktop->current_zoom() * (line_count == 0 ? 1 : line_count));
 
     // divide increment by matrix expansion
-    Geom::Matrix t (sp_item_i2doc_affine (SP_ITEM(text)));
+    Geom::Matrix t (SP_ITEM(text)->i2doc_affine ());
     zby = zby / t.descrim();
 
     switch (style->line_height.unit) {
@@ -1861,7 +1861,7 @@ void sp_te_apply_style(SPItem *text, Inkscape::Text::Layout::iterator const &sta
     SPCSSAttr *css_set = sp_repr_css_attr_new();
     sp_repr_css_merge(css_set, (SPCSSAttr*) css);
     {
-        Geom::Matrix const local(sp_item_i2doc_affine(SP_ITEM(common_ancestor)));
+        Geom::Matrix const local(SP_ITEM(common_ancestor)->i2doc_affine());
         double const ex(local.descrim());
         if ( ( ex != 0. )
              && ( ex != 1. ) ) {

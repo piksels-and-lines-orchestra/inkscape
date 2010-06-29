@@ -64,10 +64,11 @@ namespace Proj {
 class SPDocumentPrivate;
 
 /// Typed SVG document implementation.
-struct SPDocument : public Inkscape::GC::Managed<>,
+class SPDocument : public Inkscape::GC::Managed<>,
                     public Inkscape::GC::Finalized,
                     public Inkscape::GC::Anchored
 {
+	public:
     typedef sigc::signal<void, SPObject *> IDChangedSignal;
     typedef sigc::signal<void> ResourcesChangedSignal;
     typedef sigc::signal<void, guint> ModifiedSignal;
@@ -180,13 +181,17 @@ public:
     sigc::connection _desktop_activated_connection;
 
     void fitToRect(Geom::Rect const &rect, bool with_margins = false);
+	static SPDocument *createDoc(const gchar *uri, unsigned int keepalive, bool make_new = false);
+	static SPDocument *createDocFromMem(const gchar *buffer, gint length, unsigned int keepalive);
+	SPDocument *doRef();
+	SPDocument *doUnref();
 };
 
-SPDocument *sp_document_new(const gchar *uri, unsigned int keepalive, bool make_new = false);
-SPDocument *sp_document_new_from_mem(const gchar *buffer, gint length, unsigned int keepalive);
+//SPDocument *sp_document_new(const gchar *uri, unsigned int keepalive, bool make_new = false);
+//SPDocument *sp_document_new_from_mem(const gchar *buffer, gint length, unsigned int keepalive);
 
-SPDocument *sp_document_ref(SPDocument *doc);
-SPDocument *sp_document_unref(SPDocument *doc);
+//SPDocument *sp_document_ref(SPDocument *doc);
+//SPDocument *sp_document_unref(SPDocument *doc);
 
 
 SPDocument *sp_document_create(Inkscape::XML::Document *rdoc, gchar const *uri, gchar const *base, gchar const *name, unsigned int keepalive);

@@ -47,7 +47,7 @@
 
 #include <dom/util/ziptool.h>
 #include <dom/io/domstream.h>
-
+#include "sp-item.h"
 
 namespace Inkscape
 {

@@ -14,7 +14,7 @@
 
 #include "display/nr-arena-forward.h"
 #include "forward.h"
-
+#include "sp-item.h"
 namespace Inkscape {
 namespace Extension {
 

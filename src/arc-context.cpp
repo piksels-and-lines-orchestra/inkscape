@@ -417,7 +417,7 @@ static void sp_arc_drag(SPArcContext *ac, Geom::Point pt, guint state)
 
         ac->item = SP_ITEM(desktop->currentLayer()->appendChildRepr(repr));
         Inkscape::GC::release(repr);
-        ac->item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+        ac->item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
         ac->item->updateRepr();
 
         sp_canvas_force_full_redraw_after_interruptions(desktop->canvas, 5);
@@ -441,7 +441,7 @@ static void sp_arc_drag(SPArcContext *ac, Geom::Point pt, guint state)
         Geom::Point c = r.midpoint();
         if (!ctrl_save) {
             if (fabs(dir[Geom::X]) > 1E-6 && fabs(dir[Geom::Y]) > 1E-6) {
-                Geom::Matrix const i2d (sp_item_i2d_affine (ac->item));
+                Geom::Matrix const i2d ((ac->item)->i2d_affine ());
                 Geom::Point new_dir = pt * i2d - c;
                 new_dir[Geom::X] *= dir[Geom::Y] / dir[Geom::X];
                 double lambda = new_dir.length() / dir[Geom::Y];

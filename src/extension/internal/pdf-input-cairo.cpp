@@ -58,7 +58,7 @@ PdfInputCairo::open(Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 
-    SPDocument * doc = sp_document_new_from_mem(output->c_str(), output->length(), TRUE);
+    SPDocument * doc = SPDocument::createDocFromMem(output->c_str(), output->length(), TRUE);
 
     delete output;
     g_object_unref(page);

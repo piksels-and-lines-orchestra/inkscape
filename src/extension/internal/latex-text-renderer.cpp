@@ -311,7 +311,7 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     }
 
     // get rotation
-    Geom::Matrix i2doc = sp_item_i2doc_affine(item);
+    Geom::Matrix i2doc = item->i2doc_affine();
     Geom::Matrix wotransl = i2doc.without_translation();
     double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
     bool has_rotation = !Geom::are_near(degrees,0.);
@@ -412,7 +412,7 @@ Flowing in rectangle is possible, not in arb shape.
     }
 
     // get rotation
-    Geom::Matrix i2doc = sp_item_i2doc_affine(item);
+    Geom::Matrix i2doc = item->i2doc_affine();
     Geom::Matrix wotransl = i2doc.without_translation();
     double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
     bool has_rotation = !Geom::are_near(degrees,0.);
@@ -498,7 +498,7 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
         d = Geom::Rect( Geom::Point(0,0),
                         Geom::Point(sp_document_width(doc), sp_document_height(doc)) );
     } else {
-        sp_item_invoke_bbox(base, d, sp_item_i2d_affine(base), TRUE, SPItem::RENDERING_BBOX);
+        base->invoke_bbox( d, base->i2d_affine(), TRUE, SPItem::RENDERING_BBOX);
     }
     if (!d) {
         g_message("LaTeXTextRenderer: could not retrieve boundingbox.");

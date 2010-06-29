@@ -147,7 +147,7 @@ Gtk::Widget *build_splash_widget() {
     // should be in UTF-*8..
 
     char *about=g_build_filename(INKSCAPE_SCREENSDIR, _("about.svg"), NULL);
-    SPDocument *doc=sp_document_new (about, TRUE);
+    SPDocument *doc=SPDocument::createDoc (about, TRUE);
     g_free(about);
     g_return_val_if_fail(doc != NULL, NULL);
 
@@ -162,7 +162,7 @@ Gtk::Widget *build_splash_widget() {
     double width=sp_document_width(doc);
     double height=sp_document_height(doc);
     
-    sp_document_unref(doc);
+    doc->doUnref();
 
     sp_svg_view_widget_set_resize(SP_SVG_VIEW_WIDGET(v), FALSE, (int)width, (int)height);
 

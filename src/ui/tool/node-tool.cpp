@@ -374,7 +374,7 @@ void gather_items(InkNodeTool *nt, SPItem *base, SPObject *obj, Inkscape::UI::Sh
         ShapeRecord r;
         r.item = item;
         // TODO add support for objectBoundingBox
-        r.edit_transform = base ? sp_item_i2doc_affine(base) : Geom::identity();
+        r.edit_transform = base ? base->i2doc_affine() : Geom::identity();
         r.role = role;
         if (s.insert(r).second) {
             // this item was encountered the first time
@@ -467,7 +467,7 @@ gint ink_node_tool_root_handler(SPEventContext *event_context, GdkEvent *event)
 
             nt->flashed_item = over_item;
             SPCurve *c = sp_path_get_curve_for_edit(SP_PATH(over_item));
-            c->transform(sp_item_i2d_affine(over_item));
+            c->transform(over_item->i2d_affine());
             SPCanvasItem *flash = sp_canvas_bpath_new(sp_desktop_tempgroup(desktop), c);
             sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(flash),
                 prefs->getInt("/tools/nodes/highlight_color", 0xff0000ff), 1.0,

@@ -1318,7 +1318,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                 ( !SP_OBJECT_STYLE(item)->stroke.isNone() ?
                                   desktop->current_zoom() *
                                   SP_OBJECT_STYLE (item)->stroke_width.computed *
-                                  to_2geom(sp_item_i2d_affine(item)).descrim() * 0.5
+                                  to_2geom(item->i2d_affine()).descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 
@@ -1421,7 +1421,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                 ( !SP_OBJECT_STYLE(item)->stroke.isNone() ?
                                   desktop->current_zoom() *
                                   SP_OBJECT_STYLE (item)->stroke_width.computed *
-                                  to_2geom(sp_item_i2d_affine(item)).descrim() * 0.5
+                                  to_2geom(item->i2d_affine()).descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 

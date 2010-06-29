@@ -122,11 +122,11 @@ void Inkscape::ObjectSnapper::_findCandidates(SPObject* parent,
                         // we should also consider that path or mask for snapping to
                         obj = SP_OBJECT(item->clip_ref->getObject());
                         if (obj) {
-                            _findCandidates(obj, it, false, bbox_to_snap, snap_dim, true, sp_item_i2doc_affine(item));
+                            _findCandidates(obj, it, false, bbox_to_snap, snap_dim, true, item->i2doc_affine());
                         }
                         obj = SP_OBJECT(item->mask_ref->getObject());
                         if (obj) {
-                            _findCandidates(obj, it, false, bbox_to_snap, snap_dim, true, sp_item_i2doc_affine(item));
+                            _findCandidates(obj, it, false, bbox_to_snap, snap_dim, true, item->i2doc_affine());
                         }
                     }
                 }
@@ -138,12 +138,11 @@ void Inkscape::ObjectSnapper::_findCandidates(SPObject* parent,
                     if (clip_or_mask) {
                         // Oh oh, this will get ugly. We cannot use sp_item_i2d_affine directly because we need to
                         // insert an additional transformation in document coordinates (code copied from sp_item_i2d_affine)
-                        sp_item_invoke_bbox(item,
-                            bbox_of_item,
-                            sp_item_i2doc_affine(item) * additional_affine * _snapmanager->getDesktop()->doc2dt(),
+                        item->invoke_bbox(bbox_of_item,
+                            item->i2doc_affine() * additional_affine * _snapmanager->getDesktop()->doc2dt(),
                             true);
                     } else {
-                        sp_item_invoke_bbox(item, bbox_of_item, sp_item_i2d_affine(item), true);
+                        item->invoke_bbox( bbox_of_item, item->i2d_affine(), true);
                     }
                     if (bbox_of_item) {
                         // See if the item is within range
@@ -227,7 +226,7 @@ void Inkscape::ObjectSnapper::_collectNodes(Inkscape::SnapSourceType const &t,
                     _snapmanager->snapprefs.setSnapIntersectionCS(false);
                 }
 
-                sp_item_snappoints(root_item, *_points_to_snap_to, &_snapmanager->snapprefs);
+                root_item->getSnappoints(*_points_to_snap_to, &_snapmanager->snapprefs);
 
                 if (_snapmanager->snapprefs.getSnapToItemPath()) {
                     _snapmanager->snapprefs.setSnapIntersectionCS(old_pref);
@@ -239,7 +238,7 @@ void Inkscape::ObjectSnapper::_collectNodes(Inkscape::SnapSourceType const &t,
                 // Discard the bbox of a clipped path / mask, because we don't want to snap to both the bbox
                 // of the item AND the bbox of the clipping path at the same time
                 if (!(*i).clip_or_mask) {
-                    Geom::OptRect b = sp_item_bbox_desktop(root_item, bbox_type);
+                    Geom::OptRect b = root_item->getBboxDesktop(bbox_type);
                     getBBoxPoints(b, _points_to_snap_to, true, _snapmanager->snapprefs.getSnapToBBoxNode(), _snapmanager->snapprefs.getSnapBBoxEdgeMidpoints(), _snapmanager->snapprefs.getSnapBBoxMidpoints());
                 }
             }
@@ -351,7 +350,7 @@ void Inkscape::ObjectSnapper::_collectPaths(Inkscape::SnapCandidatePoint const &
                 root_item = sp_use_root(SP_USE((*i).item));
                 g_return_if_fail(root_item);
             } else {
-                i2doc = sp_item_i2doc_affine((*i).item);
+                i2doc = (*i).item->i2doc_affine();
                 root_item = (*i).item;
             }
 
@@ -398,10 +397,10 @@ void Inkscape::ObjectSnapper::_collectPaths(Inkscape::SnapCandidatePoint const &
                     // of the item AND the bbox of the clipping path at the same time
                     if (!(*i).clip_or_mask) {
                         Geom::OptRect rect;
-                        sp_item_invoke_bbox(root_item, rect, i2doc, TRUE, bbox_type);
+                        root_item->invoke_bbox( rect, i2doc, TRUE, bbox_type);
                         if (rect) {
                             Geom::PathVector *path = _getPathvFromRect(*rect);
-                            rect = sp_item_bbox_desktop(root_item, bbox_type);
+                            rect = root_item->getBboxDesktop(bbox_type);
                             _paths_to_snap_to->push_back(Inkscape::SnapCandidatePath(path, SNAPTARGET_BBOX_EDGE, rect));
                         }
                     }

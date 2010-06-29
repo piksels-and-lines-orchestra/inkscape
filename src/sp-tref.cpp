@@ -359,7 +359,7 @@ sp_tref_description(SPItem *item)
         char *child_desc;
 
         if (SP_IS_ITEM(referred)) {
-            child_desc = sp_item_description(SP_ITEM(referred));
+            child_desc = SP_ITEM(referred)->description();
         } else {
             child_desc = g_strdup("");
         }

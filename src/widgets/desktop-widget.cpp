@@ -879,12 +879,12 @@ SPDesktopWidget::shutdown()
             {
                 Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
 
-                sp_document_ref(doc);
+                doc->doRef();
                 sp_namedview_document_from_window(desktop);
                 if (sp_file_save_document(*window, doc)) {
-                    sp_document_unref(doc);
+                    doc->doUnref();
                 } else { // save dialog cancelled or save failed
-                    sp_document_unref(doc);
+                    doc->doUnref();
                     return TRUE;
                 }
 
@@ -937,14 +937,14 @@ SPDesktopWidget::shutdown()
             switch (response) {
             case GTK_RESPONSE_YES:
             {
-                sp_document_ref(doc);
+                doc->doRef();
 
                 Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
 
                 if (sp_file_save_dialog(*window, doc, Inkscape::Extension::FILE_SAVE_METHOD_INKSCAPE_SVG)) {
-                    sp_document_unref(doc);
+                    doc->doUnref();
                 } else { // save dialog cancelled or save failed
-                    sp_document_unref(doc);
+                    doc->doUnref();
                     return TRUE;
                 }
 
@@ -1806,7 +1806,7 @@ sp_desktop_widget_update_scrollbars (SPDesktopWidget *dtw, double scale)
                      Geom::Point(2 * sp_document_width(doc), 2 * sp_document_height(doc))  );
     SPObject* root = doc->root;
     SPItem* item = SP_ITEM(root);
-    Geom::OptRect deskarea = Geom::unify(darea, sp_item_bbox_desktop(item));
+    Geom::OptRect deskarea = Geom::unify(darea, item->getBboxDesktop());
 
     /* Canvas region we always show unconditionally */
     Geom::Rect carea( Geom::Point(deskarea->min()[Geom::X] * scale - 64, deskarea->max()[Geom::Y] * -scale - 64),

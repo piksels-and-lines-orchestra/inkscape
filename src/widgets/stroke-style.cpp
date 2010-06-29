@@ -182,7 +182,7 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
         return NULL; // sandbox broken?
 
     // Find object's bbox in document
-    Geom::Matrix const i2doc(sp_item_i2doc_affine(SP_ITEM(object)));
+    Geom::Matrix const i2doc(SP_ITEM(object)->i2doc_affine());
     Geom::OptRect dbox = SP_ITEM(object)->getBounds(i2doc);
 
     if (!dbox) {
@@ -242,8 +242,8 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
 {
     // Do this here, outside of loop, to speed up preview generation:
     NRArena const *arena = NRArena::create();
-    unsigned const visionkey = sp_item_display_key_new(1);
-    NRArenaItem *root =  sp_item_invoke_show(SP_ITEM(SP_DOCUMENT_ROOT (sandbox)), (NRArena *) arena, visionkey, SP_ITEM_SHOW_DISPLAY);
+    unsigned const visionkey = SPItem::display_key_new(1);
+    NRArenaItem *root =  SP_ITEM(SP_DOCUMENT_ROOT (sandbox))->invoke_show((NRArena *) arena, visionkey, SP_ITEM_SHOW_DISPLAY);
 
     for (; marker_list != NULL; marker_list = marker_list->next) {
         Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) marker_list->data);
@@ -280,7 +280,7 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
         m->append(*i);
     }
 
-    sp_item_invoke_hide(SP_ITEM(sp_document_root(sandbox)), visionkey);
+    SP_ITEM(sp_document_root(sandbox))->invoke_hide(visionkey);
     nr_object_unref((NRObject *) arena);
 }
 
@@ -342,7 +342,7 @@ gchar const *buffer = "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:sodipodi=
 
 "</svg>";
 
-    return sp_document_new_from_mem (buffer, strlen(buffer), FALSE);
+    return SPDocument::createDocFromMem (buffer, strlen(buffer), FALSE);
 }
 
 static void
@@ -373,7 +373,7 @@ ink_marker_menu_create_menu(Gtk::Menu *m, gchar const *menu_id, SPDocument *doc,
     if (markers_doc == NULL) {
         char *markers_source = g_build_filename(INKSCAPE_MARKERSDIR, "markers.svg", NULL);
         if (Inkscape::IO::file_test(markers_source, G_FILE_TEST_IS_REGULAR)) {
-            markers_doc = sp_document_new(markers_source, FALSE);
+            markers_doc = SPDocument::createDoc(markers_source, FALSE);
         }
         g_free(markers_source);
     }

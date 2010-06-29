@@ -578,7 +578,7 @@ sp_textpath_to_text(SPObject *tp)
     SPObject *text = SP_OBJECT_PARENT(tp);
 
     NRRect bbox;
-    sp_item_invoke_bbox(SP_ITEM(text), &bbox, sp_item_i2doc_affine(SP_ITEM(text)), TRUE);
+    SP_ITEM(text)->invoke_bbox( &bbox, SP_ITEM(text)->i2doc_affine(), TRUE);
     Geom::Point xy(bbox.x0, bbox.y0);
 
     // make a list of textpath children

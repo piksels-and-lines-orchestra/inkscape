@@ -875,7 +875,7 @@ ink_pattern_menu_populate_menu(GtkWidget *m, SPDocument *doc)
     if (patterns_doc == NULL) {
         char *patterns_source = g_build_filename(INKSCAPE_PATTERNSDIR, "patterns.svg", NULL);
         if (Inkscape::IO::file_test(patterns_source, G_FILE_TEST_IS_REGULAR)) {
-            patterns_doc = sp_document_new(patterns_source, FALSE);
+            patterns_doc = SPDocument::createDoc(patterns_source, FALSE);
         }
         g_free(patterns_source);
     }

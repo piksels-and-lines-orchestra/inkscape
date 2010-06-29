@@ -17,7 +17,7 @@
 #include <gtk/gtkstyle.h>
 
 #include "forward.h"
-
+#include "sp-item.h"
 
 /**
  *  Create a new document window.

@@ -104,14 +104,14 @@ sp_print_preview_document(SPDocument *doc)
         /* Create new arena */
         mod->base = SP_ITEM(sp_document_root(doc));
         mod->arena = NRArena::create();
-        mod->dkey = sp_item_display_key_new(1);
-        mod->root = sp_item_invoke_show(mod->base, mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+        mod->dkey = SPItem::display_key_new(1);
+        mod->root = (mod->base)->invoke_show(mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
         /* Print document */
         ret = mod->begin(doc);
-        sp_item_invoke_print(mod->base, &context);
+        (mod->base)->invoke_print(&context);
         ret = mod->finish();
         /* Release arena */
-        sp_item_invoke_hide(mod->base, mod->dkey);
+        (mod->base)->invoke_hide(mod->dkey);
         mod->base = NULL;
         mod->root = NULL;
         nr_object_unref((NRObject *) mod->arena);
@@ -129,9 +129,9 @@ sp_print_document(Gtk::Window& parentWindow, SPDocument *doc)
     // Build arena
     SPItem      *base = SP_ITEM(sp_document_root(doc));
     NRArena    *arena = NRArena::create();
-    unsigned int dkey = sp_item_display_key_new(1);
+    unsigned int dkey = SPItem::display_key_new(1);
     // TODO investigate why we are grabbing root and then ignoring it.
-    NRArenaItem *root = sp_item_invoke_show(base, arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    NRArenaItem *root = base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
 
     // Run print dialog
     Inkscape::UI::Dialog::Print printop(doc,base);
@@ -139,7 +139,7 @@ sp_print_document(Gtk::Window& parentWindow, SPDocument *doc)
     (void)res; // TODO handle this
 
     // Release arena
-    sp_item_invoke_hide(base, dkey);
+    base->invoke_hide(dkey);
     nr_object_unref((NRObject *) arena);
 }
 
@@ -165,14 +165,14 @@ sp_print_document_to_file(SPDocument *doc, gchar const *filename)
     /* Create new arena */
     mod->base = SP_ITEM(sp_document_root(doc));
     mod->arena = NRArena::create();
-    mod->dkey = sp_item_display_key_new(1);
-    mod->root = sp_item_invoke_show(mod->base, mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+    mod->dkey = SPItem::display_key_new(1);
+    mod->root = (mod->base)->invoke_show(mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
     /* Print document */
     ret = mod->begin(doc);
-    sp_item_invoke_print(mod->base, &context);
+    (mod->base)->invoke_print(&context);
     ret = mod->finish();
     /* Release arena */
-    sp_item_invoke_hide(mod->base, mod->dkey);
+    (mod->base)->invoke_hide(mod->dkey);
     mod->base = NULL;
     mod->root = NULL;
     nr_object_unref((NRObject *) mod->arena);

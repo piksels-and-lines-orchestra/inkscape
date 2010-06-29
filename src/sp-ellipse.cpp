@@ -281,7 +281,7 @@ static void sp_genericellipse_snappoints(SPItem const *item, std::vector<Inkscap
 
     SPGenericEllipse *ellipse = SP_GENERICELLIPSE(item);
     sp_genericellipse_normalize(ellipse);
-    Geom::Matrix const i2d = sp_item_i2d_affine(item);
+    Geom::Matrix const i2d = item->i2d_affine();
 
     // figure out if we have a slice, while guarding against rounding errors
     bool slice = false;

@@ -393,7 +393,7 @@ makeInkboardDesktop(SPDocument* doc)
     {
         SPViewWidget *dtw = sp_desktop_widget_new(sp_document_namedview(doc, NULL));
         g_return_val_if_fail(dtw != NULL, NULL);
-        sp_document_unref(doc);
+        doc->doUnref();
 
         sp_create_window(dtw, TRUE);
         dt = static_cast<SPDesktop*>(dtw->view);

@@ -405,7 +405,7 @@ SPConnEndPair::reroutePathFromLibavoid(void)
 
     recreateCurve( curve, _connRef, _connCurvature );
 
-    Geom::Matrix doc2item = sp_item_i2doc_affine(SP_ITEM(_path)).inverse();
+    Geom::Matrix doc2item = SP_ITEM(_path)->i2doc_affine().inverse();
     curve->transform(doc2item);
 
     return true;

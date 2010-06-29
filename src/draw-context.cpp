@@ -438,7 +438,7 @@ spdc_attach_selection(SPDrawContext *dc, Inkscape::Selection */*sel*/)
         /* Curve list */
         /* We keep it in desktop coordinates to eliminate calculation errors */
         SPCurve *norm = sp_path_get_curve_for_edit (SP_PATH(item));
-        norm->transform(sp_item_i2d_affine(dc->white_item));
+        norm->transform((dc->white_item)->i2d_affine());
         g_return_if_fail( norm != NULL );
         dc->white_curves = g_slist_reverse(norm->split());
         norm->unref();
@@ -656,7 +656,7 @@ spdc_flush_white(SPDrawContext *dc, SPCurve *gc)
 
     /* Now we have to go back to item coordinates at last */
     c->transform( dc->white_item
-                            ? sp_item_dt2i_affine(dc->white_item)
+                            ? (dc->white_item)->dt2i_affine()
                             : SP_EVENT_CONTEXT_DESKTOP(dc)->dt2doc() );
 
     SPDesktop *desktop = SP_EVENT_CONTEXT_DESKTOP(dc);
@@ -694,7 +694,7 @@ spdc_flush_white(SPDrawContext *dc, SPCurve *gc)
 
             dc->selection->set(repr);
             Inkscape::GC::release(repr);
-            item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+            item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
             item->updateRepr();
         }
 
@@ -836,8 +836,8 @@ void spdc_create_single_dot(SPEventContext *ec, Geom::Point const &pt, char cons
        current stroke width, multiplied by the amount specified in the preferences */
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
-    Geom::Matrix const i2d (sp_item_i2d_affine (item));
-    Geom::Point pp = pt * i2d.inverse();
+    Geom::Matrix const i2d (item->i2d_affine ());
+    Geom::Point pp = pt;
     double rad = 0.5 * prefs->getDouble(tool_path + "/dot-size", 3.0);
     if (event_state & GDK_MOD1_MASK) {
         /* TODO: We vary the dot size between 0.5*rad and 1.5*rad, where rad is the dot size
@@ -856,6 +856,7 @@ void spdc_create_single_dot(SPEventContext *ec, Geom::Point const &pt, char cons
     sp_repr_set_svg_double (repr, "sodipodi:rx", rad * stroke_width);
     sp_repr_set_svg_double (repr, "sodipodi:ry", rad * stroke_width);
     item->updateRepr();
+    item->set_item_transform(i2d.inverse());
 
     sp_desktop_selection(desktop)->set(item);
 

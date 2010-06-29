@@ -387,14 +387,14 @@ Geom::Point SPAvoidRef::getConnectionPointPos(const int type, const int id)
 {
     g_assert(item);
     Geom::Point pos;
-    const Geom::Matrix& transform = sp_item_i2doc_affine(item);
+    const Geom::Matrix& transform = item->i2doc_affine();
     // TODO investigate why this was asking for the active desktop:
     SPDesktop *desktop = inkscape_active_desktop();
 
     if ( type == ConnPointDefault )
     {
         // For now, just default to the centre of the item
-        Geom::OptRect bbox = item->getBounds(sp_item_i2doc_affine(item));
+        Geom::OptRect bbox = item->getBounds(item->i2doc_affine());
         pos = (bbox) ? bbox->midpoint() : Geom::Point(0, 0);
     }
     else
@@ -504,7 +504,7 @@ static Avoid::Polygon avoid_item_poly(SPItem const *item)
     g_assert(desktop != NULL);
     double spacing = desktop->namedview->connector_spacing;
 
-    Geom::Matrix itd_mat = sp_item_i2doc_affine(item);
+    Geom::Matrix itd_mat = item->i2doc_affine();
     std::vector<Geom::Point> hull_points;
     hull_points = approxItemWithPoints(item, itd_mat);
 

@@ -31,7 +31,7 @@ GroupBBoxEffect::original_bbox(SPLPEItem *lpeitem, bool absolute)
     
     Geom::Matrix transform;
     if (absolute) {
-        transform = sp_item_i2doc_affine(item);
+        transform = item->i2doc_affine();
     }
     else {
         transform = Geom::identity();

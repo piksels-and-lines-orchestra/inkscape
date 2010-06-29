@@ -25,7 +25,7 @@ public:
     {
         if ( _doc )
         {
-            sp_document_unref( _doc );
+            _doc->doUnref();
         }
     }
 

@@ -439,7 +439,7 @@ sp_document_create(Inkscape::XML::Document *rdoc,
  * appears in document list.
  */
 SPDocument *
-sp_document_new(gchar const *uri, unsigned int keepalive, bool make_new)
+SPDocument::createDoc(gchar const *uri, unsigned int keepalive, bool make_new)
 {
     SPDocument *doc;
     Inkscape::XML::Document *rdoc;
@@ -490,7 +490,7 @@ sp_document_new(gchar const *uri, unsigned int keepalive, bool make_new)
 }
 
 SPDocument *
-sp_document_new_from_mem(gchar const *buffer, gint length, unsigned int keepalive)
+SPDocument::createDocFromMem(gchar const *buffer, gint length, unsigned int keepalive)
 {
     SPDocument *doc;
     Inkscape::XML::Document *rdoc;
@@ -515,18 +515,18 @@ sp_document_new_from_mem(gchar const *buffer, gint length, unsigned int keepaliv
 }
 
 SPDocument *
-sp_document_ref(SPDocument *doc)
+SPDocument::doRef()
 {
-    g_return_val_if_fail(doc != NULL, NULL);
-    Inkscape::GC::anchor(doc);
-    return doc;
+    //g_return_val_if_fail(doc != NULL, NULL);
+    Inkscape::GC::anchor(this);
+    return this;
 }
 
 SPDocument *
-sp_document_unref(SPDocument *doc)
+SPDocument::doUnref()
 {
-    g_return_val_if_fail(doc != NULL, NULL);
-    Inkscape::GC::release(doc);
+    //g_return_val_if_fail(doc != NULL, NULL);
+    Inkscape::GC::release(this);
     return NULL;
 }
 
@@ -1126,7 +1126,7 @@ static GSList *find_items_in_area(GSList *s, SPGroup *group, unsigned int dkey, 
             s = find_items_in_area(s, SP_GROUP(o), dkey, area, test);
         } else {
             SPItem *child = SP_ITEM(o);
-            Geom::OptRect box = sp_item_bbox_desktop(child);
+            Geom::OptRect box = child->getBboxDesktop();
             if ( box && test(area, *box) && (take_insensitive || child->isVisibleAndUnlocked(dkey))) {
                 s = g_slist_append(s, child);
             }
@@ -1168,7 +1168,7 @@ sp_document_item_from_list_at_point_bottom(unsigned int dkey, SPGroup *group, GS
         if (!SP_IS_ITEM(o)) continue;
 
         SPItem *item = SP_ITEM(o);
-        NRArenaItem *arenaitem = sp_item_get_arenaitem(item, dkey);
+        NRArenaItem *arenaitem = item->get_arenaitem(dkey);
         if (arenaitem && nr_arena_item_invoke_pick(arenaitem, p, delta, 1) != NULL
             && (take_insensitive || item->isVisibleAndUnlocked(dkey))) {
             if (g_slist_find((GSList *) list, item) != NULL)
@@ -1219,7 +1219,7 @@ find_item_at_point(unsigned int dkey, SPGroup *group, Geom::Point const p, gbool
 
         } else {
             SPItem *child = SP_ITEM(o);
-            NRArenaItem *arenaitem = sp_item_get_arenaitem(child, dkey);
+            NRArenaItem *arenaitem = child->get_arenaitem(dkey);
 
             // seen remembers the last (topmost) of items pickable at this point
             if (arenaitem && nr_arena_item_invoke_pick(arenaitem, p, delta, 1) != NULL
@@ -1252,7 +1252,7 @@ find_group_at_point(unsigned int dkey, SPGroup *group, Geom::Point const p)
         }
         if (SP_IS_GROUP(o) && SP_GROUP(o)->effectiveLayerMode(dkey) != SPGroup::LAYER ) {
             SPItem *child = SP_ITEM(o);
-            NRArenaItem *arenaitem = sp_item_get_arenaitem(child, dkey);
+            NRArenaItem *arenaitem = child->get_arenaitem(dkey);
 
             // seen remembers the last (topmost) of groups pickable at this point
             if (arenaitem && nr_arena_item_invoke_pick(arenaitem, p, delta, 1) != NULL) {

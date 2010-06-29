@@ -133,7 +133,7 @@ text_put_on_path()
         parent->appendChild(repr);
 
         SPItem *new_item = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
-        sp_item_write_transform(new_item, repr, text->transform);
+        new_item->doWriteTransform(repr, text->transform);
         SP_OBJECT(new_item)->updateRepr();
 
         Inkscape::GC::release(repr);
@@ -433,7 +433,7 @@ text_unflow ()
         rtext->setAttribute("style", SP_OBJECT_REPR(flowtext)->attribute("style")); // fixme: transfer style attrs too; and from descendants
 
         NRRect bbox;
-        sp_item_invoke_bbox(SP_ITEM(flowtext), &bbox, sp_item_i2doc_affine(SP_ITEM(flowtext)), TRUE);
+        SP_ITEM(flowtext)->invoke_bbox( &bbox, SP_ITEM(flowtext)->i2doc_affine(), TRUE);
         Geom::Point xy(bbox.x0, bbox.y0);
         if (xy[Geom::X] != 1e18 && xy[Geom::Y] != 1e18) {
             sp_repr_set_svg_double(rtext, "x", xy[Geom::X]);
@@ -518,7 +518,7 @@ flowtext_to_text()
         parent->addChild(repr, SP_OBJECT_REPR(item));
 
         SPItem *new_item = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
-        sp_item_write_transform(new_item, repr, item->transform);
+        new_item->doWriteTransform(repr, item->transform);
         SP_OBJECT(new_item)->updateRepr();
     
         Inkscape::GC::release(repr);

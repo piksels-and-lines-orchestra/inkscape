@@ -355,16 +355,16 @@ box3d_set_transform(SPItem *item, Geom::Matrix const &xform)
             SPItem *childitem = SP_ITEM(child);
 
             // Adjust stroke width
-            sp_item_adjust_stroke(childitem, sqrt(fabs(sw * sh)));
+            childitem->adjust_stroke(sqrt(fabs(sw * sh)));
 
             // Adjust pattern fill
-            sp_item_adjust_pattern(childitem, xform);
+            childitem->adjust_pattern(xform);
 
             // Adjust gradient fill
-            sp_item_adjust_gradient(childitem, xform);
+            childitem->adjust_gradient(xform);
 
             // Adjust LPE
-            sp_item_adjust_livepatheffect(childitem, xform);
+            childitem->adjust_livepatheffect(xform);
         }
     }
 
@@ -393,7 +393,7 @@ box3d_get_corner_screen (SPBox3D const *box, guint id, bool item_coords) {
     if (!box3d_get_perspective(box)) {
         return Geom::Point (NR_HUGE, NR_HUGE);
     }
-    Geom::Matrix const i2d (sp_item_i2d_affine (SP_ITEM(box)));
+    Geom::Matrix const i2d (SP_ITEM(box)->i2d_affine ());
     if (item_coords) {
         return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_corner).affine() * i2d.inverse();
     } else {
@@ -417,7 +417,7 @@ box3d_get_center_screen (SPBox3D *box) {
     if (!box3d_get_perspective(box)) {
         return Geom::Point (NR_HUGE, NR_HUGE);
     }
-    Geom::Matrix const i2d (sp_item_i2d_affine (SP_ITEM(box)));
+    Geom::Matrix const i2d (SP_ITEM(box)->i2d_affine ());
     return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_center).affine() * i2d.inverse();
 }
 
@@ -1392,7 +1392,7 @@ box3d_convert_to_guides(SPItem *item) {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     if (!prefs->getBool("/tools/shapes/3dbox/convertguides", true)) {
-        sp_item_convert_to_guides(SP_ITEM(box));
+        SP_ITEM(box)->convert_to_guides();
         return;
     }
 

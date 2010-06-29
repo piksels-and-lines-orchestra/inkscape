@@ -379,13 +379,13 @@ sp_rect_set_transform(SPItem *item, Geom::Matrix const &xform)
     sp_rect_set_shape(rect);
 
     // Adjust stroke width
-    sp_item_adjust_stroke(item, sqrt(fabs(sw * sh)));
+    item->adjust_stroke(sqrt(fabs(sw * sh)));
 
     // Adjust pattern fill
-    sp_item_adjust_pattern(item, xform * ret.inverse());
+    item->adjust_pattern(xform * ret.inverse());
 
     // Adjust gradient fill
-    sp_item_adjust_gradient(item, xform * ret.inverse());
+    item->adjust_gradient(xform * ret.inverse());
 
     item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG);
 
@@ -570,7 +570,7 @@ static void sp_rect_snappoints(SPItem const *item, std::vector<Inkscape::SnapCan
 
     SPRect *rect = SP_RECT(item);
 
-    Geom::Matrix const i2d (sp_item_i2d_affine (item));
+    Geom::Matrix const i2d (item->i2d_affine ());
 
     Geom::Point p0 = Geom::Point(rect->x.computed, rect->y.computed) * i2d;
     Geom::Point p1 = Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2d;
@@ -603,13 +603,13 @@ sp_rect_convert_to_guides(SPItem *item) {
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     if (!prefs->getBool("/tools/shapes/rect/convertguides", true)) {
-        sp_item_convert_to_guides(SP_ITEM(rect));
+        SP_ITEM(rect)->convert_to_guides();
         return;
     }
 
     std::list<std::pair<Geom::Point, Geom::Point> > pts;
 
-    Geom::Matrix const i2d (sp_item_i2d_affine(SP_ITEM(rect)));
+    Geom::Matrix const i2d (SP_ITEM(rect)->i2d_affine());
 
     Geom::Point A1(Geom::Point(rect->x.computed, rect->y.computed) * i2d);
     Geom::Point A2(Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2d);

@@ -83,7 +83,7 @@ KnotHolder::~KnotHolder() {
 void
 KnotHolder::update_knots()
 {
-    Geom::Matrix const i2d(sp_item_i2d_affine(item));
+    Geom::Matrix const i2d(item->i2d_affine());
 
     for(std::list<KnotHolderEntity *>::iterator i = entity.begin(); i != entity.end(); ++i) {
         KnotHolderEntity *e = *i;
@@ -163,8 +163,8 @@ KnotHolder::knot_moved_handler(SPKnot *knot, Geom::Point const &p, guint state)
     for(std::list<KnotHolderEntity *>::iterator i = this->entity.begin(); i != this->entity.end(); ++i) {
         KnotHolderEntity *e = *i;
         if (e->knot == knot) {
-            Geom::Point const q = p * sp_item_i2d_affine(item).inverse();
-            e->knot_set(q, e->knot->drag_origin * sp_item_i2d_affine(item).inverse(), state);
+            Geom::Point const q = p * item->i2d_affine().inverse();
+            e->knot_set(q, e->knot->drag_origin * item->i2d_affine().inverse(), state);
             break;
         }
     }

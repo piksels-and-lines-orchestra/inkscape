@@ -485,10 +485,10 @@ static void do_trace(bitmap_coords_info bci, guchar *trace_px, SPDesktop *deskto
 
         SPObject *reprobj = document->getObjectByRepr(pathRepr);
         if (reprobj) {
-            sp_item_write_transform(SP_ITEM(reprobj), pathRepr, transform, NULL);
+            SP_ITEM(reprobj)->doWriteTransform(pathRepr, transform, NULL);
             
             // premultiply the item transform by the accumulated parent transform in the paste layer
-            Geom::Matrix local (sp_item_i2doc_affine(SP_GROUP(desktop->currentLayer())));
+            Geom::Matrix local (SP_GROUP(desktop->currentLayer())->i2doc_affine());
             if (!local.isIdentity()) {
                 gchar const *t_str = pathRepr->attribute("transform");
                 Geom::Matrix item_t (Geom::identity());
@@ -774,7 +774,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
 
     /* Create new arena */
     NRArena *arena = NRArena::create();
-    unsigned dkey = sp_item_display_key_new(1);
+    unsigned dkey = SPItem::display_key_new(1);
 
     sp_document_ensure_up_to_date (document);
     
@@ -807,7 +807,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     Geom::Matrix affine = scale * Geom::Translate(-origin * scale);
     
     /* Create ArenaItems and set transform */
-    NRArenaItem *root = sp_item_invoke_show(SP_ITEM(sp_document_root(document)), arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    NRArenaItem *root = SP_ITEM(sp_document_root(document))->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
     nr_arena_item_set_transform(NR_ARENA_ITEM(root), affine);
 
     NRGC gc(NULL);
@@ -850,7 +850,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     nr_pixblock_release(&B);
     
     // Hide items
-    sp_item_invoke_hide(SP_ITEM(sp_document_root(document)), dkey);
+    SP_ITEM(sp_document_root(document))->invoke_hide(dkey);
     
     nr_object_unref((NRObject *) arena);
     

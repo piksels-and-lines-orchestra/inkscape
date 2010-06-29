@@ -273,7 +273,7 @@ main (int argc, const char **argv)
 			    ss.slides = g_renew (char *, ss.slides, ss.size);
 			}
 
-			ss.doc = sp_document_new_from_mem ((const gchar *)gba->data,
+			ss.doc = SPDocument::createDocFromMem ((const gchar *)gba->data,
 							   gba->len,
 							   TRUE);
 			gchar *last_filename = jar_file_reader.get_last_filename();
@@ -299,7 +299,7 @@ main (int argc, const char **argv)
 		ss.slides[ss.length++] = strdup (argv[i]);
 
                 if (!ss.doc) {
-                    ss.doc = sp_document_new (ss.slides[ss.current], TRUE, false);
+                    ss.doc = SPDocument::createDoc (ss.slides[ss.current], TRUE, false);
                     if (!ss.doc)
                         ++ss.current;
 		}
@@ -325,7 +325,7 @@ main (int argc, const char **argv)
 
     sp_document_ensure_up_to_date (ss.doc);
     ss.view = sp_svg_view_widget_new (ss.doc);
-    sp_document_unref (ss.doc);
+    (ss.doc)->doUnref ();
     sp_svg_view_widget_set_resize (SP_SVG_VIEW_WIDGET (ss.view), FALSE,
                                    sp_document_width (ss.doc), sp_document_height (ss.doc));
     gtk_widget_show (ss.view);
@@ -459,7 +459,7 @@ sp_svgview_show_next (struct SPSlideShow *ss)
     SPDocument *doc = NULL;
     int current = ss->current;
     while (!doc && (current < ss->length - 1)) {
-        doc = sp_document_new (ss->slides[++current], TRUE, false);
+        doc = SPDocument::createDoc (ss->slides[++current], TRUE, false);
     }
 
     sp_svgview_set_document(ss, doc, current);
@@ -475,7 +475,7 @@ sp_svgview_show_prev (struct SPSlideShow *ss)
     SPDocument *doc = NULL;
     int current = ss->current;
     while (!doc && (current > 0)) {
-        doc = sp_document_new (ss->slides[--current], TRUE, false);
+        doc = SPDocument::createDoc (ss->slides[--current], TRUE, false);
     }
 
     sp_svgview_set_document(ss, doc, current);
@@ -493,7 +493,7 @@ sp_svgview_goto_first (struct SPSlideShow *ss)
     while ( !doc && (current < ss->length - 1)) {
         if (current == ss->current)
             break;
-        doc = sp_document_new (ss->slides[current++], TRUE, false);
+        doc = SPDocument::createDoc (ss->slides[current++], TRUE, false);
     }
 
     sp_svgview_set_document(ss, doc, current - 1);
@@ -511,7 +511,7 @@ sp_svgview_goto_last (struct SPSlideShow *ss)
     while (!doc && (current >= 0)) {
         if (current == ss->current)
             break;
-        doc = sp_document_new (ss->slides[current--], TRUE, false);
+        doc = SPDocument::createDoc (ss->slides[current--], TRUE, false);
     }
 
     sp_svgview_set_document(ss, doc, current + 1);

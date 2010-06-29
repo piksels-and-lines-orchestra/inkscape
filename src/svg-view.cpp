@@ -41,7 +41,7 @@ SPSVGView::~SPSVGView()
 {
     if (doc() && _drawing)
     {
-        sp_item_invoke_hide (SP_ITEM (sp_document_root (doc())), _dkey);
+        SP_ITEM (sp_document_root (doc()))->invoke_hide (_dkey);
         _drawing = NULL;
     }
 }
@@ -152,7 +152,7 @@ arena_handler (SPCanvasArena */*arena*/, NRArenaItem *ai, GdkEvent *event, SPSVG
 				spev.type = SP_EVENT_ACTIVATE;
                                 if ( spitem != 0 )
 				{
-				  sp_item_event (spitem, &spev);
+				  spitem->emitEvent (spev);
                                 }
       			}
 		}
@@ -166,7 +166,7 @@ arena_handler (SPCanvasArena */*arena*/, NRArenaItem *ai, GdkEvent *event, SPSVG
 		spev.data = svgview;
                 if ( spitem != 0 )
 		{
-		  sp_item_event (spitem, &spev);
+		  spitem->emitEvent (spev);
                 }
 		break;
 	case GDK_LEAVE_NOTIFY:
@@ -174,7 +174,7 @@ arena_handler (SPCanvasArena */*arena*/, NRArenaItem *ai, GdkEvent *event, SPSVG
 		spev.data = svgview;
                 if ( spitem != 0 )
 		{
-		  sp_item_event (spitem, &spev);
+		  spitem->emitEvent (spev);
                 }
 		break;
 	default:
@@ -191,7 +191,7 @@ void
 SPSVGView::setDocument (SPDocument *document)
 {
     if (doc()) {
-        sp_item_invoke_hide (SP_ITEM (sp_document_root (doc())), _dkey);
+        SP_ITEM (sp_document_root (doc()))->invoke_hide (_dkey);
     }
 
     if (!_drawing) {
@@ -200,8 +200,7 @@ SPSVGView::setDocument (SPDocument *document)
     }
 
     if (document) {
-        NRArenaItem *ai = sp_item_invoke_show (
-                SP_ITEM (sp_document_root (document)),
+        NRArenaItem *ai = SP_ITEM (sp_document_root (document))->invoke_show (
                 SP_CANVAS_ARENA (_drawing)->arena,
                 _dkey,
                 SP_ITEM_SHOW_DISPLAY);

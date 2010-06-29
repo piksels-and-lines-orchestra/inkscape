@@ -76,10 +76,10 @@ Editor::init()
     //
     gchar const *tmpl = g_build_filename ((INKSCAPE_TEMPLATESDIR), "default.svg", NULL);
     bool have_default = Inkscape::IO::file_test (tmpl, G_FILE_TEST_IS_REGULAR);
-    SPDocument *doc = sp_document_new (have_default? tmpl:0, true, true);
+    SPDocument *doc = SPDocument::createDoc (have_default? tmpl:0, true, true);
     g_return_val_if_fail (doc != 0, false);
     Inkscape::UI::View::EditWidget *ew = new Inkscape::UI::View::EditWidget (doc);
-    sp_document_unref (doc);
+    doc->doUnref ();
     _window = ew->getWindow();
     return ew != 0;
 }
@@ -129,7 +129,7 @@ Editor::createDesktop (SPDocument* doc)
 {
     g_assert (doc != 0);
     (new Inkscape::UI::View::EditWidget (doc))->present();
-    sp_document_unref (doc);
+    doc->doUnref ();
     SPDesktop *dt = getActiveDesktop();
     reactivateDesktop (dt);
     return dt;

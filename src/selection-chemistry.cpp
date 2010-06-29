@@ -241,7 +241,7 @@ void sp_selection_copy_impl(GSList const *items, GSList **clip, Inkscape::XML::D
 
     // Copy item reprs:
     for (GSList *i = (GSList *) sorted_items; i != NULL; i = i->next) {
-        sp_selection_copy_one(SP_OBJECT_REPR(i->data), sp_item_i2doc_affine(SP_ITEM(i->data)), clip, xml_doc);
+        sp_selection_copy_one(SP_OBJECT_REPR(i->data), SP_ITEM(i->data)->i2doc_affine(), clip, xml_doc);
     }
 
     *clip = g_slist_reverse(*clip);
@@ -259,7 +259,7 @@ GSList *sp_selection_paste_impl(SPDocument *doc, SPObject *parent, GSList **clip
         Inkscape::XML::Node *copy = repr->duplicate(xml_doc);
 
         // premultiply the item transform by the accumulated parent transform in the paste layer
-        Geom::Matrix local(sp_item_i2doc_affine(SP_ITEM(parent)));
+        Geom::Matrix local(SP_ITEM(parent)->i2doc_affine());
         if (!local.isIdentity()) {
             gchar const *t_str = copy->attribute("transform");
             Geom::Matrix item_t(Geom::identity());
@@ -584,7 +584,7 @@ void sp_selection_group_impl(GSList *p, Inkscape::XML::Node *group, Inkscape::XM
             Geom::Matrix item_t(Geom::identity());
             if (t_str)
                 sp_svg_transform_read(t_str, &item_t);
-            item_t *= sp_item_i2doc_affine(SP_ITEM(doc->getObjectByRepr(current->parent())));
+            item_t *= SP_ITEM(doc->getObjectByRepr(current->parent()))->i2doc_affine();
             // FIXME: when moving both clone and original from a transformed group (either by
             // grouping into another parent, or by cut/paste) the transform from the original's
             // parent becomes embedded into original itself, and this affects its clones. Fix
@@ -770,7 +770,7 @@ enclose_items(GSList const *items)
 
     Geom::OptRect r;
     for (GSList const *i = items; i; i = i->next) {
-        r = Geom::unify(r, sp_item_bbox_desktop((SPItem *) i->data));
+        r = Geom::unify(r, ((SPItem *) i->data)->getBboxDesktop());
     }
     return r;
 }
@@ -826,7 +826,7 @@ sp_selection_raise(SPDesktop *desktop)
             for (SPObject *newref = child->next; newref; newref = newref->next) {
                 // if the sibling is an item AND overlaps our selection,
                 if (SP_IS_ITEM(newref)) {
-                    Geom::OptRect newref_bbox = sp_item_bbox_desktop(SP_ITEM(newref));
+                    Geom::OptRect newref_bbox = SP_ITEM(newref)->getBboxDesktop();
                     if ( newref_bbox && selected->intersects(*newref_bbox) ) {
                         // AND if it's not one of our selected objects,
                         if (!g_slist_find((GSList *) items, newref)) {
@@ -923,7 +923,7 @@ sp_selection_lower(SPDesktop *desktop)
             for (SPObject *newref = prev_sibling(child); newref; newref = prev_sibling(newref)) {
                 // if the sibling is an item AND overlaps our selection,
                 if (SP_IS_ITEM(newref)) {
-                    Geom::OptRect ref_bbox = sp_item_bbox_desktop(SP_ITEM(newref));
+                    Geom::OptRect ref_bbox = SP_ITEM(newref)->getBboxDesktop();
                     if ( ref_bbox && selected->intersects(*ref_bbox) ) {
                         // AND if it's not one of our selected objects,
                         if (!g_slist_find((GSList *) items, newref)) {
@@ -1047,7 +1047,7 @@ take_style_from_item(SPItem *item)
     }
 
     // FIXME: also transform gradient/pattern fills, by forking? NO, this must be nondestructive
-    double ex = to_2geom(sp_item_i2doc_affine(item)).descrim();
+    double ex = to_2geom(item->i2doc_affine()).descrim();
     if (ex != 1.0) {
         css = sp_css_attr_scale(css, ex);
     }
@@ -1383,7 +1383,7 @@ void sp_selection_apply_affine(Inkscape::Selection *selection, Geom::Matrix cons
                     continue;
                 for (SPObject *use = region->firstChild() ; use ; use = SP_OBJECT_NEXT(use)) {
                     if (!SP_IS_USE(use)) continue;
-                    sp_item_write_transform(SP_USE(use), SP_OBJECT_REPR(use), item->transform.inverse(), NULL, compensate);
+                    SP_USE(use)->doWriteTransform(SP_OBJECT_REPR(use), item->transform.inverse(), NULL, compensate);
                 }
             }
         } else if (transform_clone_with_original) {
@@ -1395,7 +1395,7 @@ void sp_selection_apply_affine(Inkscape::Selection *selection, Geom::Matrix cons
             sp_object_read_attr(SP_OBJECT(item), "transform");
 
             // calculate the matrix we need to apply to the clone to cancel its induced transform from its original
-            Geom::Matrix parent2dt = sp_item_i2d_affine(SP_ITEM(SP_OBJECT_PARENT(item)));
+            Geom::Matrix parent2dt = SP_ITEM(SP_OBJECT_PARENT(item))->i2d_affine();
             Geom::Matrix t = parent2dt * affine * parent2dt.inverse();
             Geom::Matrix t_inv = t.inverse();
             Geom::Matrix result = t_inv * item->transform * t;
@@ -1409,25 +1409,25 @@ void sp_selection_apply_affine(Inkscape::Selection *selection, Geom::Matrix cons
 
                 if (prefs_parallel) {
                     Geom::Matrix move = result * clone_move * t_inv;
-                    sp_item_write_transform(item, SP_OBJECT_REPR(item), move, &move, compensate);
+                    item->doWriteTransform(SP_OBJECT_REPR(item), move, &move, compensate);
 
                 } else if (prefs_unmoved) {
                     //if (SP_IS_USE(sp_use_get_original(SP_USE(item))))
                     //    clone_move = Geom::identity();
                     Geom::Matrix move = result * clone_move;
-                    sp_item_write_transform(item, SP_OBJECT_REPR(item), move, &t, compensate);
+                    item->doWriteTransform(SP_OBJECT_REPR(item), move, &t, compensate);
                 }
 
             } else {
                 // just apply the result
-                sp_item_write_transform(item, SP_OBJECT_REPR(item), result, &t, compensate);
+                item->doWriteTransform(SP_OBJECT_REPR(item), result, &t, compensate);
             }
 
         } else {
             if (set_i2d) {
-                sp_item_set_i2d_affine(item, sp_item_i2d_affine(item) * (Geom::Matrix)affine);
+                item->set_i2d_affine(item->i2d_affine() * (Geom::Matrix)affine);
             }
-            sp_item_write_transform(item, SP_OBJECT_REPR(item), item->transform, NULL, compensate);
+            item->doWriteTransform(SP_OBJECT_REPR(item), item->transform, NULL, compensate);
         }
 
         // if we're moving the actual object, not just updating the repr, we can transform the
@@ -1993,7 +1993,7 @@ SPItem *next_item(SPDesktop *desktop, GSList *path, SPObject *root,
 void scroll_to_show_item(SPDesktop *desktop, SPItem *item)
 {
     Geom::Rect dbox = desktop->get_display_area();
-    Geom::OptRect sbox = sp_item_bbox_desktop(item);
+    Geom::OptRect sbox = item->getBboxDesktop();
 
     if ( sbox && dbox.contains(*sbox) == false ) {
         Geom::Point const s_dt = sbox->midpoint();
@@ -2224,8 +2224,8 @@ sp_select_clone_original(SPDesktop *desktop)
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         bool highlight = prefs->getBool("/options/highlightoriginal/value");
         if (highlight) {
-            Geom::OptRect a = item->getBounds(sp_item_i2d_affine(item));
-            Geom::OptRect b = original->getBounds(sp_item_i2d_affine(original));
+            Geom::OptRect a = item->getBounds(item->i2d_affine());
+            Geom::OptRect b = original->getBounds(original->i2d_affine());
             if ( a && b ) {
                 // draw a flashing line between the objects
                 SPCurve *curve = new SPCurve();
@@ -2284,7 +2284,7 @@ void sp_selection_to_marker(SPDesktop *desktop, bool apply)
     // bottommost object, after sorting
     SPObject *parent = SP_OBJECT_PARENT(items->data);
 
-    Geom::Matrix parent_transform(sp_item_i2doc_affine(SP_ITEM(parent)));
+    Geom::Matrix parent_transform(SP_ITEM(parent)->i2doc_affine());
 
     // remember the position of the first item
     gint pos = SP_OBJECT_REPR(items->data)->position();
@@ -2338,7 +2338,7 @@ static void sp_selection_to_guides_recursive(SPItem *item, bool deleteitem, bool
             sp_selection_to_guides_recursive(SP_ITEM(i->data), deleteitem, wholegroups);
         }
     } else {
-        sp_item_convert_item_to_guides(item);
+        item->convert_item_to_guides();
 
         if (deleteitem) {
             SP_OBJECT(item)->deleteObject(true);
@@ -2407,7 +2407,7 @@ sp_selection_tile(SPDesktop *desktop, bool apply)
     // bottommost object, after sorting
     SPObject *parent = SP_OBJECT_PARENT(items->data);
 
-    Geom::Matrix parent_transform(sp_item_i2doc_affine(SP_ITEM(parent)));
+    Geom::Matrix parent_transform(SP_ITEM(parent)->i2doc_affine());
 
     // remember the position of the first item
     gint pos = SP_OBJECT_REPR(items->data)->position();
@@ -2531,7 +2531,7 @@ sp_selection_untile(SPDesktop *desktop)
             sp_document_ensure_up_to_date(doc);
 
             Geom::Matrix transform( i->transform * pat_transform );
-            sp_item_write_transform(i, SP_OBJECT_REPR(i), transform);
+            i->doWriteTransform(SP_OBJECT_REPR(i), transform);
 
             new_select = g_slist_prepend(new_select, i);
         }
@@ -2744,7 +2744,7 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
     }
 
     // Calculate the matrix that will be applied to the image so that it exactly overlaps the source objects
-    Geom::Matrix eek(sp_item_i2d_affine(SP_ITEM(parent_object)));
+    Geom::Matrix eek(SP_ITEM(parent_object)->i2d_affine());
     Geom::Matrix t;
 
     double shift_x = bbox.x0;
@@ -3128,7 +3128,7 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
             // transform mask, so it is moved the same spot where mask was applied
             Geom::Matrix transform(mask_item->transform);
             transform *= (*it).second->transform;
-            sp_item_write_transform(mask_item, SP_OBJECT_REPR(mask_item), transform);
+            mask_item->doWriteTransform(SP_OBJECT_REPR(mask_item), transform);
         }
 
         g_slist_free(items_to_move);
@@ -3205,7 +3205,7 @@ fit_canvas_to_drawing(SPDocument *doc, bool with_margins)
 
     sp_document_ensure_up_to_date(doc);
     SPItem const *const root = SP_ITEM(doc->root);
-    Geom::OptRect const bbox(root->getBounds(sp_item_i2d_affine(root)));
+    Geom::OptRect const bbox(root->getBounds(root->i2d_affine()));
     if (bbox) {
         doc->fitToRect(*bbox, with_margins);
         return true;

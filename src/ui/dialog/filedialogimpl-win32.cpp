@@ -887,14 +887,14 @@ bool FileOpenDialogImplWin32::set_svg_preview()
 
     gchar *utf8string = g_utf16_to_utf8((const gunichar2*)_path_string,
         _MAX_PATH, NULL, NULL, NULL);
-    SPDocument *svgDoc = sp_document_new (utf8string, true);
+    SPDocument *svgDoc = SPDocument::createDoc (utf8string, true);
     g_free(utf8string);
 
     // Check the document loaded properly
     if(svgDoc == NULL) return false;
     if(svgDoc->root == NULL)
     {
-        sp_document_unref(svgDoc);
+        svgDoc->doUnref();
         return false;
     }
 
@@ -918,8 +918,8 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     // write object bbox to area
     Geom::OptRect maybeArea(area);
     sp_document_ensure_up_to_date (svgDoc);
-    sp_item_invoke_bbox((SPItem *) svgDoc->root, maybeArea,
-        sp_item_i2d_affine((SPItem *)(svgDoc->root)), TRUE);
+    static_cast<(SPItem *)>(svgDoc->root)->invoke_bbox( maybeArea,
+        static_cast<(SPItem *)>(svgDoc->root)->i2d_affine(), TRUE);
 
     NRArena *const arena = NRArena::create();
 
@@ -949,7 +949,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     // Fail if the pixblock failed to allocate
     if(pixBlock.data.px == NULL)
     {
-        sp_document_unref(svgDoc);
+        svgDoc->doUnref();
         return false;
     }
 
@@ -961,7 +961,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     nr_arena_item_invoke_render(NULL, root, &bbox, &pixBlock, /*0*/NR_ARENA_ITEM_RENDER_NO_CACHE);
 
     // Tidy up
-    sp_document_unref(svgDoc);
+    svgDoc->doUnref();
     sp_item_invoke_hide((SPItem*)(svgDoc->root), key);
     nr_object_unref((NRObject *) arena);
 

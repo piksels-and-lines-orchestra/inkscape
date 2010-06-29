@@ -626,7 +626,7 @@ Transformation::applyPageMove(Inkscape::Selection *selection)
                      it != selected.end();
                      ++it)
                 {
-                    Geom::OptRect bbox = sp_item_bbox_desktop(*it);
+                    Geom::OptRect bbox = (*it)->getBboxDesktop();
                     if (bbox) {
                         sorted.push_back(BBoxSort(*it, *bbox, Geom::X, x > 0? 1. : 0., x > 0? 0. : 1.));
                     }
@@ -650,7 +650,7 @@ Transformation::applyPageMove(Inkscape::Selection *selection)
                      it != selected.end();
                      ++it)
                 {
-                    Geom::OptRect bbox = sp_item_bbox_desktop(*it);
+                    Geom::OptRect bbox = (*it)->getBboxDesktop();
                     if (bbox) {
                         sorted.push_back(BBoxSort(*it, *bbox, Geom::Y, y > 0? 1. : 0., y > 0? 0. : 1.));
                     }
@@ -694,7 +694,7 @@ Transformation::applyPageScale(Inkscape::Selection *selection)
             Geom::Scale scale (0,0);
             // the values are increments!
             if (_units_scale.isAbsolute()) {
-                Geom::OptRect bbox(sp_item_bbox_desktop(item));
+                Geom::OptRect bbox(item->getBboxDesktop());
                 if (bbox) {
                     double new_width = scaleX;
                     if (fabs(new_width) < 1e-6) new_width = 1e-6; // not 0, as this would result in a nasty no-bbox object
@@ -781,7 +781,7 @@ Transformation::applyPageSkew(Inkscape::Selection *selection)
             } else { // absolute displacement
                 double skewX = _scalar_skew_horizontal.getValue("px");
                 double skewY = _scalar_skew_vertical.getValue("px");
-                Geom::OptRect bbox(sp_item_bbox_desktop(item));
+                Geom::OptRect bbox(item->getBboxDesktop());
                 if (bbox) {
                     double width = bbox->dimensions()[Geom::X];
                     double height = bbox->dimensions()[Geom::Y];
@@ -835,7 +835,7 @@ Transformation::applyPageTransform(Inkscape::Selection *selection)
     if (_check_replace_matrix.get_active()) {
         for (GSList const *l = selection->itemList(); l != NULL; l = l->next) {
             SPItem *item = SP_ITEM(l->data);
-            sp_item_set_item_transform(item, displayed);
+            item->set_item_transform(displayed);
             SP_OBJECT(item)->updateRepr();
         }
     } else {

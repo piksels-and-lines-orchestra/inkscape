@@ -119,7 +119,7 @@ PathManipulator::PathManipulator(MultiPathManipulator &mpm, SPPath *path,
     , _lpe_key(lpe_key)
 {
     if (_lpe_key.empty()) {
-        _i2d_transform = sp_item_i2d_affine(SP_ITEM(path));
+        _i2d_transform = SP_ITEM(path)->i2d_affine();
     } else {
         _i2d_transform = Geom::identity();
     }
@@ -988,7 +988,7 @@ void PathManipulator::_externalChange(unsigned type)
         } break;
     case PATH_CHANGE_TRANSFORM: {
         Geom::Matrix i2d_change = _d2i_transform;
-        _i2d_transform = sp_item_i2d_affine(SP_ITEM(_path));
+        _i2d_transform = SP_ITEM(_path)->i2d_affine();
         _d2i_transform = _i2d_transform.inverse();
         i2d_change *= _i2d_transform;
         for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {

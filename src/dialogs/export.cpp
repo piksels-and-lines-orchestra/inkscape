@@ -780,7 +780,7 @@ sp_export_selection_modified ( Inkscape::Application */*inkscape*/,
             if ( SP_ACTIVE_DESKTOP ) {
                 SPDocument *doc;
                 doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
-                Geom::OptRect bbox = sp_item_bbox_desktop (SP_ITEM (SP_DOCUMENT_ROOT (doc)), SPItem::RENDERING_BBOX);
+                Geom::OptRect bbox = SP_ITEM (SP_DOCUMENT_ROOT (doc))->getBboxDesktop (SPItem::RENDERING_BBOX);
                 if (bbox) {
                     sp_export_set_area (base, bbox->min()[Geom::X],
                                               bbox->min()[Geom::Y],
@@ -861,7 +861,7 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
                 /** \todo
                  * This returns wrong values if the document has a viewBox.
                  */
-                bbox = sp_item_bbox_desktop (SP_ITEM (SP_DOCUMENT_ROOT (doc)), SPItem::RENDERING_BBOX);
+                bbox = SP_ITEM (SP_DOCUMENT_ROOT (doc))->getBboxDesktop (SPItem::RENDERING_BBOX);
                 /* If the drawing is valid, then we'll use it and break
                    otherwise we drop through to the page settings */
                 if (bbox) {
@@ -1127,7 +1127,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
             }
 
             Geom::OptRect area;
-            sp_item_invoke_bbox(item, area, sp_item_i2d_affine((SPItem *) item), TRUE);
+            item->invoke_bbox( area, static_cast<SPItem *>(item)->i2d_affine(), TRUE);
             if (area) {
                 gint width = (gint) (area->width() * dpi / PX_PER_IN + 0.5);
                 gint height = (gint) (area->height() * dpi / PX_PER_IN + 0.5);
@@ -1498,7 +1498,7 @@ sp_export_detect_size(GtkObject * base) {
             case SELECTION_DRAWING: {
                 SPDocument *doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
 
-                Geom::OptRect bbox = sp_item_bbox_desktop (SP_ITEM (SP_DOCUMENT_ROOT (doc)), SPItem::RENDERING_BBOX);
+                Geom::OptRect bbox = SP_ITEM (SP_DOCUMENT_ROOT (doc))->getBboxDesktop (SPItem::RENDERING_BBOX);
 
                 // std::cout << "Drawing " << bbox2;
                 if ( bbox && sp_export_bbox_equal(*bbox,current_bbox) ) {

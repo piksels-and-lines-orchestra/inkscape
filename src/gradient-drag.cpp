@@ -1100,7 +1100,7 @@ GrDragger::updateTip ()
 
     if (g_slist_length (this->draggables) == 1) {
         GrDraggable *draggable = (GrDraggable *) this->draggables->data;
-        char *item_desc = sp_item_description(draggable->item);
+        char *item_desc = draggable->item->description();
         switch (draggable->point_type) {
             case POINT_LG_MID:
             case POINT_RG_MID1:
@@ -1738,7 +1738,7 @@ GrDrag::updateLevels ()
 
     for (GSList const* i = this->selection->itemList(); i != NULL; i = i->next) {
         SPItem *item = SP_ITEM(i->data);
-        Geom::OptRect rect = sp_item_bbox_desktop (item);
+        Geom::OptRect rect = item->getBboxDesktop ();
         if (rect) {
             // Remember the edges of the bbox and the center axis
             hor_levels.push_back(rect->min()[Geom::Y]);

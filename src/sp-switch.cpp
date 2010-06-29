@@ -168,7 +168,7 @@ void CSwitch::_showChildren (NRArena *arena, NRArenaItem *ai, unsigned int key, 
         if (SP_IS_ITEM (o)) {
             child = SP_ITEM (o);
             child->setEvaluated(o == evaluated_child);
-            ac = sp_item_invoke_show (child, arena, key, flags);
+            ac = child->invoke_show (arena, key, flags);
             if (ac) {
                 nr_arena_item_add_child (ai, ac, ar);
                 ar = ac;

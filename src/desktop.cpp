@@ -190,7 +190,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
     /* Setup Dialog Manager */
     _dlg_mgr = &Inkscape::UI::Dialog::DialogManager::getInstance();
 
-    dkey = sp_item_display_key_new (1);
+    dkey = SPItem::display_key_new (1);
 
     /* Connect document */
     setDocument (document);
@@ -277,7 +277,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
 
     _modified_connection = namedview->connectModified(sigc::bind<2>(sigc::ptr_fun(&_namedview_modified), this));
 
-    NRArenaItem *ai = sp_item_invoke_show (SP_ITEM (sp_document_root (document)),
+    NRArenaItem *ai = SP_ITEM (sp_document_root (document))->invoke_show (
             SP_CANVAS_ARENA (drawing)->arena,
             dkey,
             SP_ITEM_SHOW_DISPLAY);
@@ -394,7 +394,7 @@ void SPDesktop::destroy()
     }
 
     if (drawing) {
-        sp_item_invoke_hide (SP_ITEM (sp_document_root (doc())), dkey);
+        SP_ITEM (sp_document_root (doc()))->invoke_hide (dkey);
         drawing = NULL;
     }
 
@@ -552,7 +552,7 @@ bool SPDesktop::isLayer(SPObject *object) const {
 bool SPDesktop::isWithinViewport (SPItem *item) const
 {
     Geom::Rect const viewport = get_display_area();
-    Geom::OptRect const bbox = sp_item_bbox_desktop(item);
+    Geom::OptRect const bbox = item->getBboxDesktop();
     if (bbox) {
         return viewport.contains(*bbox);
     } else {
@@ -1075,7 +1075,7 @@ SPDesktop::zoom_drawing()
     SPItem *docitem = SP_ITEM (sp_document_root (doc()));
     g_return_if_fail (docitem != NULL);
 
-    Geom::OptRect d = sp_item_bbox_desktop(docitem);
+    Geom::OptRect d = docitem->getBboxDesktop();
 
     /* Note that the second condition here indicates that
     ** there are no items in the drawing.
@@ -1474,7 +1474,7 @@ SPDesktop::setDocument (SPDocument *doc)
 {
     if (this->doc() && doc) {
         namedview->hide(this);
-        sp_item_invoke_hide (SP_ITEM (sp_document_root (this->doc())), dkey);
+        SP_ITEM (sp_document_root (this->doc()))->invoke_hide (dkey);
     }
 
     if (_layer_hierarchy) {
@@ -1505,7 +1505,7 @@ SPDesktop::setDocument (SPDocument *doc)
         _modified_connection = namedview->connectModified(sigc::bind<2>(sigc::ptr_fun(&_namedview_modified), this));
         number = namedview->getViewCount();
 
-        ai = sp_item_invoke_show (SP_ITEM (sp_document_root (doc)),
+        ai = SP_ITEM (sp_document_root (doc))->invoke_show (
                 SP_CANVAS_ARENA (drawing)->arena,
                 dkey,
                 SP_ITEM_SHOW_DISPLAY);

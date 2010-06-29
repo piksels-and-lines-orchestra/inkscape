@@ -331,7 +331,7 @@ static void sp_group_snappoints (SPItem const *item, std::vector<Inkscape::SnapC
          o = SP_OBJECT_NEXT(o))
     {
         if (SP_IS_ITEM(o)) {
-            sp_item_snappoints(SP_ITEM(o), p, snapprefs);
+            SP_ITEM(o)->getSnappoints(p, snapprefs);
         }
     }
 }
@@ -353,7 +353,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     g_return_if_fail (!strcmp (grepr->name(), "svg:g") || !strcmp (grepr->name(), "svg:a") || !strcmp (grepr->name(), "svg:switch"));
 
     // this converts the gradient/pattern fill/stroke on the group, if any, to userSpaceOnUse
-    sp_item_adjust_paint_recursive (gitem, Geom::identity(), Geom::identity(), false);
+    gitem->adjust_paint_recursive (Geom::identity(), Geom::identity(), false);
 
     SPItem *pitem = SP_ITEM (SP_OBJECT_PARENT (gitem));
     Inkscape::XML::Node *prepr = SP_OBJECT_REPR (pitem);
@@ -377,7 +377,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
             /* Merging of style */
             // this converts the gradient/pattern fill/stroke, if any, to userSpaceOnUse; we need to do
             // it here _before_ the new transform is set, so as to use the pre-transform bbox
-            sp_item_adjust_paint_recursive (citem, Geom::identity(), Geom::identity(), false);
+            citem->adjust_paint_recursive (Geom::identity(), Geom::identity(), false);
 
             sp_style_merge_from_dying_parent(SP_OBJECT_STYLE(child), SP_OBJECT_STYLE(gitem));
             /*
@@ -487,7 +487,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
         // fill in the children list if non-null
         SPItem *item = (SPItem *) doc->getObjectByRepr(repr);
 
-        sp_item_write_transform(item, repr, item->transform, NULL, false);
+        item->doWriteTransform(repr, item->transform, NULL, false);
 
         Inkscape::GC::release(repr);
         if (children && SP_IS_ITEM (item))
@@ -604,7 +604,7 @@ void CGroup::onChildAdded(Inkscape::XML::Node *child) {
             NRArenaItem *ac;
 
             for (v = _group->display; v != NULL; v = v->next) {
-                ac = sp_item_invoke_show (SP_ITEM (ochild), NR_ARENA_ITEM_ARENA (v->arenaitem), v->key, v->flags);
+                ac = SP_ITEM (ochild)->invoke_show (NR_ARENA_ITEM_ARENA (v->arenaitem), v->key, v->flags);
 
                 if (ac) {
                     nr_arena_item_append_child (v->arenaitem, ac);
@@ -618,10 +618,10 @@ void CGroup::onChildAdded(Inkscape::XML::Node *child) {
             SPItemView *v;
             NRArenaItem *ac;
 
-            unsigned position = sp_item_pos_in_parent(SP_ITEM(ochild));
+            unsigned position = SP_ITEM(ochild)->pos_in_parent();
 
             for (v = _group->display; v != NULL; v = v->next) {
-                ac = sp_item_invoke_show (SP_ITEM (ochild), NR_ARENA_ITEM_ARENA (v->arenaitem), v->key, v->flags);
+                ac = SP_ITEM (ochild)->invoke_show (NR_ARENA_ITEM_ARENA (v->arenaitem), v->key, v->flags);
 
                 if (ac) {
                     nr_arena_item_add_child (v->arenaitem, ac, NULL);
@@ -709,7 +709,7 @@ void CGroup::calculateBBox(NRRect *bbox, Geom::Matrix const &transform, unsigned
         if (SP_IS_ITEM(o) && !SP_ITEM(o)->isHidden()) {
             SPItem *child = SP_ITEM(o);
             Geom::Matrix const ct(to_2geom(child->transform) * transform);
-            sp_item_invoke_bbox_full(child, dummy_bbox, ct, flags, FALSE);
+            child->invoke_bbox_full( dummy_bbox, ct, flags, FALSE);
         }
         l = g_slist_remove (l, o);
     }
@@ -722,7 +722,7 @@ void CGroup::onPrint(SPPrintContext *ctx) {
     while (l) {
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM(o)) {
-            sp_item_invoke_print (SP_ITEM (o), ctx);
+            SP_ITEM(o)->invoke_print (ctx);
         }
         l = g_slist_remove (l, o);
     }
@@ -771,7 +771,7 @@ void CGroup::_showChildren (NRArena *arena, NRArenaItem *ai, unsigned int key, u
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM (o)) {
             child = SP_ITEM (o);
-            ac = sp_item_invoke_show (child, arena, key, flags);
+            ac = child->invoke_show (arena, key, flags);
             if (ac) {
                 nr_arena_item_add_child (ai, ac, ar);
                 ar = ac;
@@ -789,7 +789,7 @@ void CGroup::hide (unsigned int key) {
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM (o)) {
             child = SP_ITEM (o);
-            sp_item_invoke_hide (child, key);
+            child->invoke_hide (key);
         }
         l = g_slist_remove (l, o);
     }
@@ -804,7 +804,7 @@ void CGroup::onOrderChanged (Inkscape::XML::Node *child, Inkscape::XML::Node *, 
     if ( ochild && SP_IS_ITEM(ochild) ) {
         /* TODO: this should be moved into SPItem somehow */
         SPItemView *v;
-        unsigned position = sp_item_pos_in_parent(SP_ITEM(ochild));
+        unsigned position = SP_ITEM(ochild)->pos_in_parent();
         for ( v = SP_ITEM (ochild)->display ; v != NULL ; v = v->next ) {
             nr_arena_item_set_order (v->arenaitem, position);
         }

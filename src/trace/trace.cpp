@@ -246,7 +246,7 @@ Tracer::sioxProcessImage(SPImage *img,
         return Glib::RefPtr<Gdk::Pixbuf>(NULL);
         }
 
-    NRArenaItem *aImg = sp_item_get_arenaitem(img, desktop->dkey);
+    NRArenaItem *aImg = img->get_arenaitem(desktop->dkey);
     //g_message("img: %d %d %d %d\n", aImg->bbox.x0, aImg->bbox.y0,
     //                                aImg->bbox.x1, aImg->bbox.y1);
 
@@ -264,7 +264,7 @@ Tracer::sioxProcessImage(SPImage *img,
     for (iter = sioxShapes.begin() ; iter!=sioxShapes.end() ; iter++)
         {
         SPItem *item = *iter;
-        NRArenaItem *aItem = sp_item_get_arenaitem(item, desktop->dkey);
+        NRArenaItem *aItem = item->get_arenaitem(desktop->dkey);
         arenaItems.push_back(aItem);
         }
 
@@ -549,7 +549,7 @@ void Tracer::traceThread()
         if (reprobj)
             {
             SPItem *newItem = SP_ITEM(reprobj);
-            sp_item_write_transform(newItem, pathRepr, tf, NULL);
+            newItem->doWriteTransform(pathRepr, tf, NULL);
             }
         if (nrPaths == 1)
             {

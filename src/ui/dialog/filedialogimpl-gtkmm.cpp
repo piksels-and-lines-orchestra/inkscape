@@ -123,9 +123,9 @@ findExpanderWidgets(Gtk::Container *parent,
 bool SVGPreview::setDocument(SPDocument *doc)
 {
     if (document)
-        sp_document_unref(document);
+        document->doUnref();
 
-    sp_document_ref(doc);
+    doc->doRef();
     document = doc;
 
     //This should remove it from the box, and free resources
@@ -151,7 +151,7 @@ bool SVGPreview::setFileName(Glib::ustring &theFileName)
      * I don't know why passing false to keepalive is bad.  But it
      * prevents the display of an svg with a non-ascii filename
      */
-    SPDocument *doc = sp_document_new (fileName.c_str(), true);
+    SPDocument *doc = SPDocument::createDoc (fileName.c_str(), true);
     if (!doc) {
         g_warning("SVGView: error loading document '%s'\n", fileName.c_str());
         return false;
@@ -159,7 +159,7 @@ bool SVGPreview::setFileName(Glib::ustring &theFileName)
 
     setDocument(doc);
 
-    sp_document_unref(doc);
+    doc->doUnref();
 
     return true;
 }
@@ -172,7 +172,7 @@ bool SVGPreview::setFromMem(char const *xmlBuffer)
         return false;
 
     gint len = (gint)strlen(xmlBuffer);
-    SPDocument *doc = sp_document_new_from_mem(xmlBuffer, len, 0);
+    SPDocument *doc = SPDocument::createDocFromMem(xmlBuffer, len, 0);
     if (!doc) {
         g_warning("SVGView: error loading buffer '%s'\n",xmlBuffer);
         return false;
@@ -180,7 +180,7 @@ bool SVGPreview::setFromMem(char const *xmlBuffer)
 
     setDocument(doc);
 
-    sp_document_unref(doc);
+    doc->doUnref();
 
     Inkscape::GC::request_early_collection();
 

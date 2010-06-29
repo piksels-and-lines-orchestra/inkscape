@@ -599,7 +599,7 @@ sp_dyna_draw_context_root_handler(SPEventContext *event_context,
                     }
 
                     // calculate pointer point in the guide item's coords
-                    motion_to_curve = sp_item_dt2i_affine(selected) * sp_item_i2doc_affine(selected);
+                    motion_to_curve = selected->dt2i_affine() * selected->i2doc_affine();
                     pointer = motion_dt * motion_to_curve;
 
                     // calculate the nearest point on the guide path
@@ -1012,7 +1012,7 @@ set_to_accumulated(SPDynaDrawContext *dc, bool unionize, bool subtract)
 
             SPItem *item=SP_ITEM(desktop->currentLayer()->appendChildRepr(dc->repr));
             Inkscape::GC::release(dc->repr);
-            item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+            item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
             item->updateRepr();
         }
         Geom::PathVector pathv = dc->accumulated->get_pathvector() * desktop->dt2doc();

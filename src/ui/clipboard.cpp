@@ -335,7 +335,7 @@ bool ClipboardManagerImpl::paste(SPDesktop *desktop, bool in_place)
     }
 
     _pasteDocument(desktop, tempdoc, in_place);
-    sp_document_unref(tempdoc);
+    tempdoc->doUnref();
 
     return true;
 }
@@ -421,7 +421,7 @@ bool ClipboardManagerImpl::pasteStyle(SPDesktop *desktop)
         _userWarn(desktop, _("No style on the clipboard."));
     }
 
-    sp_document_unref(tempdoc);
+    tempdoc->doUnref();
     return pasted;
 }
 
@@ -467,7 +467,7 @@ bool ClipboardManagerImpl::pasteSize(SPDesktop *desktop, bool separately, bool a
         if (separately) {
             for (GSList *i = const_cast<GSList*>(selection->itemList()) ; i ; i = i->next) {
                 SPItem *item = SP_ITEM(i->data);
-                Geom::OptRect obj_size = sp_item_bbox_desktop(item);
+                Geom::OptRect obj_size = item->getBboxDesktop();
                 if ( !obj_size ) {
                     continue;
                 }
@@ -484,7 +484,7 @@ bool ClipboardManagerImpl::pasteSize(SPDesktop *desktop, bool separately, bool a
         }
         pasted = true;
     }
-    sp_document_unref(tempdoc);
+    tempdoc->doUnref();
     return pasted;
 }
 
@@ -549,7 +549,7 @@ Glib::ustring ClipboardManagerImpl::getPathParameter(SPDesktop* desktop)
         *path = sp_repr_lookup_name(root, "svg:path", -1); // unlimited search depth
     if ( path == NULL ) {
         _userWarn(desktop, _("Clipboard does not contain a path."));
-        sp_document_unref(tempdoc);
+        tempdoc->doUnref();
         return "";
     }
     gchar const *svgd = path->attribute("d");
@@ -577,7 +577,7 @@ Glib::ustring ClipboardManagerImpl::getShapeOrTextObjectId(SPDesktop *desktop)
 
     if ( repr == NULL ) {
         _userWarn(desktop, _("Clipboard does not contain a path."));
-        sp_document_unref(tempdoc);
+        tempdoc->doUnref();
         return "";
     }
     gchar const *svgd = repr->attribute("id");
@@ -615,7 +615,7 @@ void ClipboardManagerImpl::_copySelection(Inkscape::Selection *selection)
         // write the complete accumulated transform passed to us
         // (we're dealing with unattached representations, so we write to their attributes
         // instead of using sp_item_set_transform)
-        gchar *transform_str = sp_svg_transform_write(sp_item_i2doc_affine(SP_ITEM(i->data)));
+        gchar *transform_str = sp_svg_transform_write(SP_ITEM(i->data)->i2doc_affine());
         obj_copy->setAttribute("transform", transform_str);
         g_free(transform_str);
     }
@@ -847,7 +847,7 @@ void ClipboardManagerImpl::_pasteDocument(SPDesktop *desktop, SPDocument *clipdo
     selection->setReprList(pasted_objects);
 
     // invers apply parent transform
-    Geom::Matrix doc2parent = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+    Geom::Matrix doc2parent = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
     sp_selection_apply_affine(selection, desktop->dt2doc() * doc2parent * desktop->doc2dt(), true, false);
 
     // Update (among other things) all curves in paths, for bounds() to work
@@ -1254,7 +1254,7 @@ void ClipboardManagerImpl::_onClear()
 void ClipboardManagerImpl::_createInternalClipboard()
 {
     if ( _clipboardSPDoc == NULL ) {
-        _clipboardSPDoc = sp_document_new(NULL, false, true);
+        _clipboardSPDoc = SPDocument::createDoc(NULL, false, true);
         //g_assert( _clipboardSPDoc != NULL );
         _defs = SP_OBJECT_REPR(SP_DOCUMENT_DEFS(_clipboardSPDoc));
         _doc = sp_document_repr_doc(_clipboardSPDoc);
@@ -1279,7 +1279,7 @@ void ClipboardManagerImpl::_createInternalClipboard()
 void ClipboardManagerImpl::_discardInternalClipboard()
 {
     if ( _clipboardSPDoc != NULL ) {
-        sp_document_unref(_clipboardSPDoc);
+        _clipboardSPDoc->doUnref();
         _clipboardSPDoc = NULL;
         _defs = NULL;
         _doc = NULL;

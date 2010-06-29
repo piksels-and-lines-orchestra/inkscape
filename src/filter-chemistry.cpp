@@ -319,7 +319,7 @@ new_filter_blend_gaussian_blur (SPDocument *document, const char *blendmode, gdo
 SPFilter *
 new_filter_simple_from_item (SPDocument *document, SPItem *item, const char *mode, gdouble radius)
 {
-    Geom::OptRect const r = sp_item_bbox_desktop(item, SPItem::GEOMETRIC_BBOX);
+    Geom::OptRect const r = item->getBboxDesktop(SPItem::GEOMETRIC_BBOX);
 
     double width;
     double height;
@@ -330,7 +330,7 @@ new_filter_simple_from_item (SPDocument *document, SPItem *item, const char *mod
         width = height = 0;
     }
 
-    Geom::Matrix i2d (sp_item_i2d_affine (item) );
+    Geom::Matrix i2d (item->i2d_affine () );
 
     return (new_filter_blend_gaussian_blur (document, mode, radius, i2d.descrim(), i2d.expansionX(), i2d.expansionY(), width, height));
 }
@@ -367,14 +367,14 @@ modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *item,
     }
 
     // Determine the required standard deviation value
-    Geom::Matrix i2d (sp_item_i2d_affine (item));
+    Geom::Matrix i2d (item->i2d_affine ());
     double expansion = i2d.descrim();
     double stdDeviation = radius;
     if (expansion != 0)
         stdDeviation /= expansion;
 
     // Get the object size
-    Geom::OptRect const r = sp_item_bbox_desktop(item, SPItem::GEOMETRIC_BBOX);
+    Geom::OptRect const r = item->getBboxDesktop(SPItem::GEOMETRIC_BBOX);
     double width;
     double height;
     if (r) {

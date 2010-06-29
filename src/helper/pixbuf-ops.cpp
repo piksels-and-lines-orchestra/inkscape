@@ -51,7 +51,7 @@ hide_other_items_recursively(SPObject *o, GSList *list, unsigned dkey)
          && !SP_IS_USE(o)
          && !g_slist_find(list, o) )
     {
-        sp_item_invoke_hide(SP_ITEM(o), dkey);
+        SP_ITEM(o)->invoke_hide(dkey);
     }
 
     // recurse
@@ -104,7 +104,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
      /* Create new arena for offscreen rendering*/
      NRArena *arena = NRArena::create();
      nr_arena_set_renderoffscreen(arena);
-     unsigned dkey = sp_item_display_key_new(1);
+     unsigned dkey = SPItem::display_key_new(1);
 
      sp_document_ensure_up_to_date (doc);
 
@@ -122,7 +122,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
      Geom::Matrix affine = scale * Geom::Translate(-origin * scale);
 
      /* Create ArenaItems and set transform */
-     NRArenaItem *root = sp_item_invoke_show(SP_ITEM(sp_document_root(doc)), arena, dkey, SP_ITEM_SHOW_DISPLAY);
+     NRArenaItem *root = SP_ITEM(sp_document_root(doc))->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
      nr_arena_item_set_transform(NR_ARENA_ITEM(root), affine);
 
      NRGC gc(NULL);
@@ -186,7 +186,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
     {
         g_warning("sp_generate_internal_bitmap: not enough memory to create pixel buffer. Need %lld.", size);
     }
-     sp_item_invoke_hide (SP_ITEM(sp_document_root(doc)), dkey);
+     SP_ITEM(sp_document_root(doc))->invoke_hide (dkey);
      nr_object_unref((NRObject *) arena);
 
 //    gdk_pixbuf_save (pixbuf, "C:\\temp\\internal.jpg", "jpeg", NULL, "quality","100", NULL);

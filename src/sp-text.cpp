@@ -249,7 +249,7 @@ sp_text_update (SPObject *object, SPCtx *ctx, guint flags)
         text->rebuildLayout();
 
         NRRect paintbox;
-        sp_item_invoke_bbox(text, &paintbox, Geom::identity(), TRUE);
+        text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
             text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
             nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), SP_OBJECT_STYLE(object));
@@ -275,7 +275,7 @@ sp_text_modified (SPObject *object, guint flags)
     if (flags & ( SP_OBJECT_STYLE_MODIFIED_FLAG )) {
         SPText *text = SP_TEXT (object);
         NRRect paintbox;
-        sp_item_invoke_bbox(text, &paintbox, Geom::identity(), TRUE);
+        text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
             text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
             nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), SP_OBJECT_STYLE(object));
@@ -387,7 +387,7 @@ sp_text_show(SPItem *item, NRArena *arena, unsigned /* key*/, unsigned /*flags*/
 
     // pass the bbox of the text object as paintbox (used for paintserver fills)
     NRRect paintbox;
-    sp_item_invoke_bbox(item, &paintbox, Geom::identity(), TRUE);
+    item->invoke_bbox( &paintbox, Geom::identity(), TRUE);
     group->layout.show(flowed, &paintbox);
 
     return flowed;
@@ -442,7 +442,7 @@ static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCan
     if (layout != NULL && layout->outputExists()) {
         boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
         if (pt) {
-            p.push_back(Inkscape::SnapCandidatePoint((*pt) * sp_item_i2d_affine(item), Inkscape::SNAPSOURCE_TEXT_BASELINE, Inkscape::SNAPTARGET_TEXT_BASELINE));
+            p.push_back(Inkscape::SnapCandidatePoint((*pt) * item->i2d_affine(), Inkscape::SNAPSOURCE_TEXT_BASELINE, Inkscape::SNAPTARGET_TEXT_BASELINE));
         }
     }
 }
@@ -483,13 +483,13 @@ sp_text_set_transform (SPItem *item, Geom::Matrix const &xform)
     text->_adjustFontsizeRecursive (item, ex);
 
     // Adjust stroke width
-    sp_item_adjust_stroke_width_recursive (item, ex);
+    item->adjust_stroke_width_recursive (ex);
 
     // Adjust pattern fill
-    sp_item_adjust_pattern(item, xform * ret.inverse());
+    item->adjust_pattern(xform * ret.inverse());
 
     // Adjust gradient fill
-    sp_item_adjust_gradient(item, xform * ret.inverse());
+    item->adjust_gradient(xform * ret.inverse());
 
     item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG | SP_TEXT_LAYOUT_MODIFIED_FLAG);
 
@@ -502,13 +502,13 @@ sp_text_print (SPItem *item, SPPrintContext *ctx)
     NRRect     pbox, dbox, bbox;
     SPText *group = SP_TEXT (item);
 
-    sp_item_invoke_bbox(item, &pbox, Geom::identity(), TRUE);
-    sp_item_bbox_desktop (item, &bbox);
+    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
+    item->getBboxDesktop (&bbox);
     dbox.x0 = 0.0;
     dbox.y0 = 0.0;
     dbox.x1 = sp_document_width (SP_OBJECT_DOCUMENT (item));
     dbox.y1 = sp_document_height (SP_OBJECT_DOCUMENT (item));
-    Geom::Matrix const ctm (sp_item_i2d_affine(item));
+    Geom::Matrix const ctm (item->i2d_affine());
 
     group->layout.print(ctx,&pbox,&dbox,&bbox,ctm);
 }

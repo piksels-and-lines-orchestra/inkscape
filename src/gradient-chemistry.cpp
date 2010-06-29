@@ -767,7 +767,7 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
 
     gradient = sp_gradient_convert_to_userspace (gradient, item, fill_or_stroke? "fill" : "stroke");
 
-    Geom::Matrix i2d (sp_item_i2d_affine (item));
+    Geom::Matrix i2d (item->i2d_affine ());
     Geom::Point p = p_w * i2d.inverse();
     p *= (gradient->gradientTransform).inverse();
     // now p is in gradient's original coordinates
@@ -1048,7 +1048,7 @@ sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool
                             bbox->min()[Geom::X], bbox->min()[Geom::Y]);
         }
     }
-    p *= Geom::Matrix(gradient->gradientTransform) * (Geom::Matrix)sp_item_i2d_affine(item);
+    p *= Geom::Matrix(gradient->gradientTransform) * (Geom::Matrix)item->i2d_affine();
     return from_2geom(p);
 }
 

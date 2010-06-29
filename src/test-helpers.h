@@ -32,7 +32,7 @@ T* createSuiteAndDocument( void (*fun)(T*&) )
         static_cast<void>(g_object_new(inkscape_get_type(), NULL));
     }
 
-    SPDocument* tmp = sp_document_new( NULL, TRUE, true );
+    SPDocument* tmp = SPDocument::createDoc( NULL, TRUE, true );
     if ( tmp ) {
         fun( suite );
         if ( suite )
@@ -41,7 +41,7 @@ T* createSuiteAndDocument( void (*fun)(T*&) )
         }
         else
         {
-            sp_document_unref( tmp );
+            tmp->doUnref();
         }
     }
 

@@ -177,7 +177,7 @@ sp_flowtext_update(SPObject *object, SPCtx *ctx, unsigned flags)
     group->rebuildLayout();
 
     NRRect paintbox;
-    sp_item_invoke_bbox(group, &paintbox, Geom::identity(), TRUE);
+    group->invoke_bbox( &paintbox, Geom::identity(), TRUE);
     for (SPItemView *v = group->display; v != NULL; v = v->next) {
         group->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
         nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), SP_OBJECT_STYLE(object));
@@ -199,7 +199,7 @@ sp_flowtext_modified(SPObject *object, guint flags)
     if (flags & ( SP_OBJECT_STYLE_MODIFIED_FLAG )) {
         SPFlowtext *text = SP_FLOWTEXT(object);
         NRRect paintbox;
-        sp_item_invoke_bbox(text, &paintbox, Geom::identity(), TRUE);
+        text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
             text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
             nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), SP_OBJECT_STYLE(object));
@@ -351,9 +351,9 @@ sp_flowtext_print(SPItem *item, SPPrintContext *ctx)
     SPFlowtext *group = SP_FLOWTEXT(item);
 
     NRRect pbox;
-    sp_item_invoke_bbox(item, &pbox, Geom::identity(), TRUE);
+    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
     NRRect bbox;
-    Geom::OptRect bbox_maybe = sp_item_bbox_desktop(item);
+    Geom::OptRect bbox_maybe = item->getBboxDesktop();
     if (!bbox_maybe) {
         return;
     }
@@ -364,7 +364,7 @@ sp_flowtext_print(SPItem *item, SPPrintContext *ctx)
     dbox.y0 = 0.0;
     dbox.x1 = sp_document_width(SP_OBJECT_DOCUMENT(item));
     dbox.y1 = sp_document_height(SP_OBJECT_DOCUMENT(item));
-    Geom::Matrix const ctm (sp_item_i2d_affine(item));
+    Geom::Matrix const ctm (item->i2d_affine());
 
     group->layout.print(ctx, &pbox, &dbox, &bbox, ctm);
 }
@@ -392,7 +392,7 @@ static void sp_flowtext_snappoints(SPItem const *item, std::vector<Inkscape::Sna
     if (layout != NULL && layout->outputExists()) {
         boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
         if (pt) {
-            p.push_back(Inkscape::SnapCandidatePoint((*pt) * sp_item_i2d_affine(item), Inkscape::SNAPSOURCE_TEXT_BASELINE, Inkscape::SNAPTARGET_TEXT_BASELINE));
+            p.push_back(Inkscape::SnapCandidatePoint((*pt) * item->i2d_affine(), Inkscape::SNAPSOURCE_TEXT_BASELINE, Inkscape::SNAPTARGET_TEXT_BASELINE));
         }
     }
 }
@@ -408,7 +408,7 @@ sp_flowtext_show(SPItem *item, NRArena *arena, unsigned/* key*/, unsigned /*flag
 
     // pass the bbox of the flowtext object as paintbox (used for paintserver fills)
     NRRect paintbox;
-    sp_item_invoke_bbox(item, &paintbox, Geom::identity(), TRUE);
+    item->invoke_bbox( &paintbox, Geom::identity(), TRUE);
     group->layout.show(flowed, &paintbox);
 
     return flowed;
@@ -742,7 +742,7 @@ SPItem *create_flowtext_with_internal_frame (SPDesktop *desktop, Geom::Point p0,
     Inkscape::GC::release(para_repr);
     Inkscape::GC::release(rect_repr);
 
-    ft_item->transform = sp_item_i2doc_affine(SP_ITEM(desktop->currentLayer())).inverse();
+    ft_item->transform = SP_ITEM(desktop->currentLayer())->i2doc_affine().inverse();
 
     return ft_item;
 }

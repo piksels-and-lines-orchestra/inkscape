@@ -533,7 +533,7 @@ static void sp_spiral_snappoints(SPItem const *item, std::vector<Inkscape::SnapC
     }
 
     if (snapprefs->getSnapObjectMidpoints()) {
-        Geom::Matrix const i2d (sp_item_i2d_affine (item));
+        Geom::Matrix const i2d (item->i2d_affine ());
         SPSpiral *spiral = SP_SPIRAL(item);
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(spiral->cx, spiral->cy) * i2d, Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
         // This point is the start-point of the spiral, which is also returned when _snap_to_itemnode has been set

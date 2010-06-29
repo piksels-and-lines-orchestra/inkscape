@@ -236,8 +236,8 @@ gint compare_text_bboxes (gconstpointer a, gconstpointer b)
     SPItem *i1 = SP_ITEM(a);
     SPItem *i2 = SP_ITEM(b);
 
-    Geom::OptRect bbox1 = i1->getBounds(sp_item_i2d_affine(i1));
-    Geom::OptRect bbox2 = i2->getBounds(sp_item_i2d_affine(i2));
+    Geom::OptRect bbox1 = i1->getBounds(i1->i2d_affine());
+    Geom::OptRect bbox2 = i2->getBounds(i2->i2d_affine());
     if (!bbox1 || !bbox2) {
         return 0;
     }
@@ -570,7 +570,7 @@ spellcheck_next_word()
 
         // draw rect
         std::vector<Geom::Point> points =
-            _layout->createSelectionShape(_begin_w, _end_w, sp_item_i2d_affine(_text));
+            _layout->createSelectionShape(_begin_w, _end_w, _text->i2d_affine());
         Geom::Point tl, br;
         tl = br = points.front();
         for (unsigned i = 0 ; i < points.size() ; i ++) {

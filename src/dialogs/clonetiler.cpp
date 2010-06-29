@@ -851,7 +851,7 @@ clonetiler_trace_hide_tiled_clones_recursively (SPObject *from)
 
     for (SPObject *o = sp_object_first_child(from); o != NULL; o = SP_OBJECT_NEXT(o)) {
         if (SP_IS_ITEM(o) && clonetiler_is_a_clone_of (o, NULL))
-            sp_item_invoke_hide(SP_ITEM(o), trace_visionkey); // FIXME: hide each tiled clone's original too!
+            SP_ITEM(o)->invoke_hide(trace_visionkey); // FIXME: hide each tiled clone's original too!
         clonetiler_trace_hide_tiled_clones_recursively (o);
     }
 }
@@ -861,13 +861,12 @@ clonetiler_trace_setup (SPDocument *doc, gdouble zoom, SPItem *original)
 {
     trace_arena = NRArena::create();
     /* Create ArenaItem and set transform */
-    trace_visionkey = sp_item_display_key_new(1);
+    trace_visionkey = SPItem::display_key_new(1);
     trace_doc = doc;
-    trace_root = sp_item_invoke_show( SP_ITEM(SP_DOCUMENT_ROOT (trace_doc)),
-                                      (NRArena *) trace_arena, trace_visionkey, SP_ITEM_SHOW_DISPLAY);
+    trace_root = SP_ITEM(SP_DOCUMENT_ROOT (trace_doc))->invoke_show((NRArena *) trace_arena, trace_visionkey, SP_ITEM_SHOW_DISPLAY);
 
     // hide the (current) original and any tiled clones, we only want to pick the background
-    sp_item_invoke_hide(original, trace_visionkey);
+    original->invoke_hide(trace_visionkey);
     clonetiler_trace_hide_tiled_clones_recursively (SP_OBJECT(SP_DOCUMENT_ROOT (trace_doc)));
 
     sp_document_root (trace_doc)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
@@ -954,7 +953,7 @@ static void
 clonetiler_trace_finish ()
 {
     if (trace_doc) {
-        sp_item_invoke_hide(SP_ITEM(sp_document_root(trace_doc)), trace_visionkey);
+        SP_ITEM(sp_document_root(trace_doc))->invoke_hide(trace_visionkey);
     }
     if (trace_arena) {
         ((NRObject *) trace_arena)->unreference();
@@ -1232,7 +1231,7 @@ clonetiler_apply( GtkWidget */*widget*/, void * )
         bool prefs_bbox = prefs->getBool("/tools/bounding_box", false);
         SPItem::BBoxType bbox_type = ( prefs_bbox ? 
             SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX );
-        Geom::OptRect r = SP_ITEM(obj)->getBounds(sp_item_i2doc_affine(SP_ITEM(obj)),
+        Geom::OptRect r = SP_ITEM(obj)->getBounds(SP_ITEM(obj)->i2doc_affine(),
                                                         bbox_type);
         if (r) {
             w = r->dimensions()[Geom::X];

@@ -918,7 +918,7 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
         SPObject *object = doc->getObjectById(name);
         if (object && SP_IS_ITEM(object)) {
             /* Find bbox in document */
-            Geom::Matrix const i2doc(sp_item_i2doc_affine(SP_ITEM(object)));
+            Geom::Matrix const i2doc(SP_ITEM(object)->i2doc_affine());
             Geom::OptRect dbox = SP_ITEM(object)->getBounds(i2doc);
 
             if ( SP_OBJECT_PARENT(object) == NULL )
@@ -1105,7 +1105,7 @@ static guchar *load_svg_pixels(gchar const *name,
         /* Try to load from document. */
         if (!info &&
             Inkscape::IO::file_test( doc_filename, G_FILE_TEST_IS_REGULAR ) &&
-            (doc = sp_document_new( doc_filename, FALSE )) ) {
+            (doc = SPDocument::createDoc( doc_filename, FALSE )) ) {
 
             //g_message("Loaded icon file %s", doc_filename);
             // prep the document
@@ -1113,7 +1113,7 @@ static guchar *load_svg_pixels(gchar const *name,
             /* Create new arena */
             NRArena *arena = NRArena::create();
             /* Create ArenaItem and set transform */
-            unsigned visionkey = sp_item_display_key_new(1);
+            unsigned visionkey = SPItem::display_key_new(1);
             /* fixme: Memory manage root if needed (Lauris) */
             // This needs to be fixed indeed; this leads to a memory leak of a few megabytes these days
             // because shapes are being rendered which are not being freed
@@ -1135,8 +1135,7 @@ static guchar *load_svg_pixels(gchar const *name,
             ==7014==    by 0x5E9DDE: nr_arena_group_render(_cairo*, NRArenaItem*, NRRectL*, NRPixBlock*, unsigned int) (nr-arena-group.cpp:228)
             ==7014==    by 0x5E72FB: nr_arena_item_invoke_render(_cairo*, NRArenaItem*, NRRectL const*, NRPixBlock*, unsigned int) (nr-arena-item.cpp:578)
             */
-            root = sp_item_invoke_show( SP_ITEM(SP_DOCUMENT_ROOT(doc)),
-                                        arena, visionkey, SP_ITEM_SHOW_DISPLAY );
+            root = SP_ITEM(SP_DOCUMENT_ROOT(doc))->invoke_show(arena, visionkey, SP_ITEM_SHOW_DISPLAY );
 
             // store into the cache
             info = new svg_doc_cache_t;
