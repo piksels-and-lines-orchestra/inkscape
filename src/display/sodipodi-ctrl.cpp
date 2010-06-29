@@ -392,7 +392,7 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
                     for (int j = 0; j < w; ++j) {
                         int index = i * stride / 4 + j;
                         if (px[index] & 0xff000000) {
-                            px[index] = px[index] ? stroke : fill;
+                            px[index] = (px[index] & 0x00ffffff) ? stroke : fill;
                         } else {
                             px[index] = 0;
                         }

@@ -1311,19 +1311,15 @@ sp_image_update_canvas_image (SPImage *image)
     }
 
     for (SPItemView *v = item->display; v != NULL; v = v->next) {
-        int pixskip = gdk_pixbuf_get_n_channels(image->pixbuf) * gdk_pixbuf_get_bits_per_sample(image->pixbuf) / 8;
-        int rs = gdk_pixbuf_get_rowstride(image->pixbuf);
         nr_arena_image_set_style(NR_ARENA_IMAGE(v->arenaitem), SP_OBJECT_STYLE(SP_OBJECT(image)));
-        if (image->aspect_align == SP_ASPECT_NONE) {
-            nr_arena_image_set_pixels(NR_ARENA_IMAGE(v->arenaitem),
-                                       gdk_pixbuf_get_pixels(image->pixbuf),
-                                       gdk_pixbuf_get_width(image->pixbuf),
-                                       gdk_pixbuf_get_height(image->pixbuf),
-                                       rs);
+        // TODO: reenable preserveAspectRatio
+        //if (image->aspect_align == SP_ASPECT_NONE) {
+            nr_arena_image_set_pixbuf(NR_ARENA_IMAGE(v->arenaitem),
+                                       image->pixbuf);
             nr_arena_image_set_geometry(NR_ARENA_IMAGE(v->arenaitem),
                                          image->x.computed, image->y.computed,
                                          image->width.computed, image->height.computed);
-        } else { // preserveAspectRatio
+        /*} else { // preserveAspectRatio
             nr_arena_image_set_pixels(NR_ARENA_IMAGE(v->arenaitem),
                                        gdk_pixbuf_get_pixels(image->pixbuf) + image->trimx*pixskip + image->trimy*rs,
                                        image->trimwidth,
@@ -1332,7 +1328,7 @@ sp_image_update_canvas_image (SPImage *image)
             nr_arena_image_set_geometry(NR_ARENA_IMAGE(v->arenaitem),
                                          image->viewx, image->viewy,
                                          image->viewwidth, image->viewheight);
-        }
+        }*/
     }
 }
 

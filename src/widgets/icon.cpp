@@ -913,6 +913,7 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
 {
     bool const dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpSvg");
     guchar *px = NULL;
+    int w, h, stride;
 
     if (doc) {
         SPObject *object = doc->getObjectById(name);
@@ -1010,19 +1011,59 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
                     g_message( "   area   --'%s'  (%f,%f)-(%f,%f)", name, (double)area.x0, (double)area.y0, (double)area.x1, (double)area.y1 );
                     g_message( "   ua     --'%s'  (%f,%f)-(%f,%f)", name, (double)ua.x0, (double)ua.y0, (double)ua.x1, (double)ua.y1 );
                 }
+
+                w = ua.x1 - ua.x0;
+                h = ua.y1 - ua.y0;
+                stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, w);
+
                 /* Set up pixblock */
-                px = g_new(guchar, 4 * psize * psize);
-                memset(px, 0x00, 4 * psize * psize);
+                px = g_new(guchar, stride * h);
+                memset(px, 0x00, stride * h);
+
                 /* Render */
+                cairo_surface_t *s = cairo_image_surface_create_for_data(px,
+                    CAIRO_FORMAT_ARGB32, w, h, stride);
+                cairo_t *ct = cairo_create(s);
+
                 NRPixBlock B;
                 nr_pixblock_setup_extern( &B, NR_PIXBLOCK_MODE_R8G8B8A8N,
                                           ua.x0, ua.y0, ua.x1, ua.y1,
                                           px + 4 * psize * (ua.y0 - area.y0) +
                                           4 * (ua.x0 - area.x0),
                                           4 * psize, FALSE, FALSE );
-                nr_arena_item_invoke_render(NULL, root, &ua, &B,
+                nr_arena_item_invoke_render(ct, root, &ua, &B,
                                              NR_ARENA_ITEM_RENDER_NO_CACHE );
                 nr_pixblock_release(&B);
+                cairo_destroy(ct);
+                cairo_surface_destroy(s);
+
+                // convert to GdkPixbuf format
+                guint32 *ipx = reinterpret_cast<guint32*>(px);
+                for (int i = 0; i < h; ++i) {
+                    for (int j = 0; j < w; ++j) {
+                        int index = i * stride / 4  + j;
+                        guint32 c = ipx[index];
+                        guint32 o = 0;
+                        guint32 a = (c & 0xff000000) >> 24;
+                        if (a != 0) {
+                            // extract color components
+                            guint32 r = (c & 0x00ff0000) >> 16;
+                            guint32 g = (c & 0x0000ff00) >> 8;
+                            guint32 b = (c & 0x000000ff);
+                            // unpremultiply; adding a/2 gives correct rounding
+                            r = (r * 255 + a/2) / a;
+                            b = (b * 255 + a/2) / a;
+                            g = (g * 255 + a/2) / a;
+                            // combine into output
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+                            o = (r) | (g << 8) | (b << 16) | (a << 24);
+#else
+                            o = (r << 24) | (g << 16) | (b << 8) | (a);
+#endif
+                        }
+                        ipx[index] = o;
+                    }
+                }
 
                 if ( Inkscape::Preferences::get()->getBool("/debug/icons/overlaySvg") ) {
                     sp_icon_overlay_pixels( px, psize, psize, 4 * psize, 0x00, 0x00, 0xff );
