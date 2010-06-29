@@ -12,16 +12,16 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <libnr/nr-blit.h>
 #include <gtk/gtksignal.h>
 
-#include <display/display-forward.h>
-#include <display/sp-canvas-util.h>
+#include "libnr/nr-blit.h"
+#include "display/display-forward.h"
+#include "display/sp-canvas-util.h"
 #include "helper/sp-marshal.h"
-#include <display/nr-arena.h>
-#include <display/nr-arena-group.h>
-#include <display/canvas-arena.h>
-#include <display/inkscape-cairo.h>
+#include "display/nr-arena.h"
+#include "display/nr-arena-group.h"
+#include "display/canvas-arena.h"
+#include "display/cairo-utils.h"
 
 enum {
     ARENA_EVENT,
@@ -190,7 +190,7 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
     gint bw, bh;
  
     SPCanvasArena *arena = SP_CANVAS_ARENA (item);
-    SPCanvas *canvas = item->canvas;
+    //SPCanvas *canvas = item->canvas;
 
     nr_arena_item_invoke_update (arena->root, NULL, &arena->gc,
                                  NR_ARENA_ITEM_STATE_BBOX | NR_ARENA_ITEM_STATE_RENDER,
@@ -218,23 +218,8 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
                               FALSE, FALSE);
 
     cb.visible_area = buf->visible_rect;
-    //cairo_t *ct = nr_create_cairo_context (&area, &cb);
 
-    cairo_save(buf->ct);
-    //cairo_translate(buf->ct, area.x0 - canvas->x0, area.y0 - canvas->y0);
     nr_arena_item_invoke_render (buf->ct, arena->root, &area, &cb, 0);
-    cairo_restore(buf->ct);
-
-    //cairo_surface_t *cst = cairo_get_target(ct);
-
-    //cairo_save(buf->ct);
-    //cairo_set_source_surface(buf->ct, cst, 0, 0);
-    //cairo_paint(buf->ct);
-    //cairo_restore(buf->ct);
-
-    //cairo_destroy (ct);
-    //cairo_surface_finish (cst);
-    //cairo_surface_destroy (cst);
 
     nr_pixblock_release (&cb);
 }

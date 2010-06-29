@@ -38,7 +38,7 @@ extern "C" {
 // takes doc, root, icon, and icon name to produce pixels
 guchar *
 sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
-                  const gchar *name, unsigned int psize );
+                  const gchar *name, unsigned int psize, unsigned &stride);
 }
 
 namespace Inkscape {
@@ -159,10 +159,11 @@ IconPreviewPanel::IconPreviewPanel() :
     int previous = 0;
     int avail = 0;
     for ( int i = numEntries - 1; i >= 0; --i ) {
-        pixMem[i] = new guchar[4 * sizes[i] * sizes[i]];
-        memset( pixMem[i], 0x00, 4 *  sizes[i] * sizes[i] );
+        int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, sizes[i]);
+        pixMem[i] = new guchar[sizes[i] * stride];
+        memset( pixMem[i], 0x00, sizes[i] * stride );
 
-        GdkPixbuf *pb = gdk_pixbuf_new_from_data( pixMem[i], GDK_COLORSPACE_RGB, TRUE, 8, sizes[i], sizes[i], sizes[i] * 4, /*(GdkPixbufDestroyNotify)g_free*/NULL, NULL );
+        GdkPixbuf *pb = gdk_pixbuf_new_from_data( pixMem[i], GDK_COLORSPACE_RGB, TRUE, 8, sizes[i], sizes[i], stride, /*(GdkPixbufDestroyNotify)g_free*/NULL, NULL );
         GtkImage* img = GTK_IMAGE( gtk_image_new_from_pixbuf( pb ) );
         images[i] = Glib::wrap(img);
         Glib::ustring label(*labels[i]);
@@ -384,14 +385,16 @@ void IconPreviewPanel::renderPreview( SPObject* obj )
                                  arena, visionkey, SP_ITEM_SHOW_DISPLAY );
 
     for ( int i = 0; i < numEntries; i++ ) {
-        guchar * px = sp_icon_doc_icon( doc, root, id, sizes[i] );
+        unsigned unused;
+        int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, sizes[i]);
+        guchar * px = sp_icon_doc_icon( doc, root, id, sizes[i], unused);
 //         g_message( " size %d %s", sizes[i], (px ? "worked" : "failed") );
         if ( px ) {
-            memcpy( pixMem[i], px, sizes[i] * sizes[i] * 4 );
+            memcpy( pixMem[i], px, sizes[i] * stride );
             g_free( px );
             px = 0;
         } else {
-            memset( pixMem[i], 0, sizes[i] * sizes[i] * 4 );
+            memset( pixMem[i], 0, sizes[i] * stride );
         }
         images[i]->queue_draw();
     }

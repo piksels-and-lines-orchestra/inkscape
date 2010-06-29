@@ -11,14 +11,14 @@
  * Released under GNU GPL
  */
 
-#include "display-forward.h"
-#include "sp-canvas-util.h"
-#include "sp-ctrlquadr.h"
-
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include "display/inkscape-cairo.h"
+
+#include "display-forward.h"
+#include "sp-canvas-util.h"
+#include "sp-ctrlquadr.h"
+#include "display/cairo-utils.h"
 #include "color.h"
 
 struct SPCtrlQuadr : public SPCanvasItem{

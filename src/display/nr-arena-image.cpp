@@ -18,7 +18,7 @@
 #include "../preferences.h"
 #include "nr-arena-image.h"
 #include "style.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "display/nr-arena.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-gaussian.h"

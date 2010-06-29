@@ -13,7 +13,7 @@
 #include "display-forward.h"
 #include "sodipodi-ctrl.h"
 #include "libnr/nr-pixops.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 
 enum {
     ARG_0,

@@ -27,8 +27,6 @@ ink_common_sources += \
 	display/gnome-canvas-acetate.h	\
 	display/guideline.cpp	\
 	display/guideline.h	\
-	display/inkscape-cairo.cpp      \
-	display/inkscape-cairo.h		\
 	display/nr-3dutils.cpp \
 	display/nr-3dutils.h \
 	display/nr-arena.cpp	\

@@ -42,7 +42,7 @@
 #endif // ENABLE_LCMS
 #include "display/rendermode.h"
 #include "libnr/nr-blit.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "debug/gdk-event-latency-tracker.h"
 #include "desktop.h"
 #include "sp-namedview.h"

@@ -18,8 +18,8 @@
 #include <cairo.h>
 #include <vector>
 #include "svg/svg.h"
-#include "inkscape-cairo.h"
-#include "nr-svgfonts.h"
+#include "display/cairo-utils.h"
+#include "display/nr-svgfonts.h"
 
 //*************************//
 // UserFont Implementation //

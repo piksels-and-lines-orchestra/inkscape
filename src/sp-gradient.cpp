@@ -31,7 +31,7 @@
 #include <sigc++/functors/ptr_fun.h>
 #include <sigc++/adaptors/bind.h>
 
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "libnr/nr-gradient.h"
 #include "libnr/nr-pixops.h"
 #include "svg/svg.h"

@@ -18,7 +18,7 @@
 #include "display-forward.h"
 #include "sp-canvas-util.h"
 #include "sodipodi-ctrlrect.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 
 /*
  * Currently we do not have point method, as it should always be painted

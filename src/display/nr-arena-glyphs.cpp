@@ -16,21 +16,19 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
-#include <libnr/nr-blit.h>
-#include <libnr/nr-convert2geom.h>
+#include "libnr/nr-blit.h"
+#include "libnr/nr-convert2geom.h"
 #include <2geom/matrix.h>
-#include "../style.h"
-#include "nr-arena.h"
-#include "nr-arena-glyphs.h"
+#include "style.h"
+#include "display/nr-arena.h"
+#include "display/nr-arena-glyphs.h"
 #include <cairo.h>
-#include "inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "helper/geom.h"
 
 #ifdef test_glyph_liv
 #include "../display/canvas-bpath.h"
-#include <libnrtype/font-instance.h>
-#include <libnrtype/raster-glyph.h>
-#include <libnrtype/RasterFont.h>
+#include "libnrtype/font-instance.h"
 
 // defined in nr-arena-shape.cpp
 void nr_pixblock_render_shape_mask_or(NRPixBlock &m, Shape *theS);

@@ -23,7 +23,7 @@
 #include <2geom/transforms.h>
 #include "macros.h"
 #include "svg/svg.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-group.h"
 #include "attributes.h"

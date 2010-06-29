@@ -16,7 +16,7 @@
 #include "display-forward.h"
 #include "sp-canvas-util.h"
 #include "canvas-text.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include <sstream>
 #include <string.h>
 #include "desktop.h"

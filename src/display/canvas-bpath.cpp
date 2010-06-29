@@ -16,12 +16,11 @@
 # include "config.h"
 #endif
 #include "color.h"
-#include "sp-canvas-util.h"
-#include "inkscape-cairo.h"
-#include "canvas-bpath.h"
+#include "display/sp-canvas-util.h"
+#include "display/canvas-bpath.h"
 #include "display/display-forward.h"
 #include "display/curve.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include <libnr/nr-pixops.h>
 #include "helper/geom.h"
 

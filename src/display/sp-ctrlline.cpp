@@ -19,15 +19,15 @@
  *
  */
 
-#include "display-forward.h"
-#include "sp-canvas-util.h"
-#include "sp-ctrlline.h"
-
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <color.h>
-#include "display/inkscape-cairo.h"
+
+#include "display/sp-ctrlline.h"
+#include "display/display-forward.h"
+#include "display/sp-canvas-util.h"
+#include "display/cairo-utils.h"
+#include "color.h"
 
 
 static void sp_ctrlline_class_init (SPCtrlLineClass *klass);
