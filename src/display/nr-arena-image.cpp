@@ -18,6 +18,7 @@
 #include "../preferences.h"
 #include "nr-arena-image.h"
 #include "style.h"
+#include "display/inkscape-cairo.h"
 #include "display/nr-arena.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-gaussian.h"
@@ -82,14 +83,13 @@ nr_arena_image_class_init (NRArenaImageClass *klass)
 static void
 nr_arena_image_init (NRArenaImage *image)
 {
-    image->px = NULL;
-
-    image->pxw = image->pxh = image->pxrs = 0;
+    image->pixbuf = NULL;
     image->x = image->y = 0.0;
     image->width = 256.0;
     image->height = 256.0;
 
     image->grid2px.setIdentity();
+    image->px2grid.setIdentity();
 
     image->style = 0;
     image->render_opacity = TRUE;
@@ -101,6 +101,8 @@ nr_arena_image_finalize (NRObject *object)
     NRArenaImage *image = NR_ARENA_IMAGE (object);
 
     image->px = NULL;
+    if (image->pixbuf != NULL)
+        g_object_unref(image->pixbuf);
 
     ((NRObjectClass *) parent_class)->finalize (object);
 }
@@ -118,9 +120,9 @@ nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned 
     /* Copy affine */
     grid2px = gc->transform.inverse();
     double hscale, vscale; // todo: replace with Geom::Scale
-    if (image->px) {
-        hscale = image->pxw / image->width;
-        vscale = image->pxh / image->height;
+    if (image->pixbuf) {
+        hscale = gdk_pixbuf_get_width(image->pixbuf) / image->width;
+        vscale = gdk_pixbuf_get_height(image->pixbuf) / image->height;
     } else {
         hscale = 1.0;
         vscale = 1.0;
@@ -137,7 +139,7 @@ nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned 
     image->grid2px[5] -= image->y * vscale;
 
     /* Calculate bbox */
-    if (image->px) {
+    if (image->pixbuf) {
         NRRect bbox;
 
         bbox.x0 = image->x;
@@ -170,58 +172,36 @@ nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned 
 #define b2i (image->grid2px)
 
 static unsigned int
-nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL */*area*/, NRPixBlock *pb, unsigned int /*flags*/ )
+nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int /*flags*/ )
 {
+    if (!ct)
+        return item->state;
+#if 0
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     nr_arena_image_x_sample = prefs->getInt("/options/bitmapoversample/value", 1);
     nr_arena_image_y_sample = nr_arena_image_x_sample;
-
+#endif
     bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     NRArenaImage *image = NR_ARENA_IMAGE (item);
 
-    Geom::Matrix d2s;
-
-    d2s[0] = b2i[0];
-    d2s[1] = b2i[1];
-    d2s[2] = b2i[2];
-    d2s[3] = b2i[3];
-    d2s[4] = b2i[0] * pb->area.x0 + b2i[2] * pb->area.y0 + b2i[4];
-    d2s[5] = b2i[1] * pb->area.x0 + b2i[3] * pb->area.y0 + b2i[5];
-
     if (!outline) {
+        if (!image->pixbuf) return item->state;
 
-        if (!image->px) return item->state;
+        // FIXME: at the moment gdk_cairo_set_source_pixbuf creates an ARGB copy
+        // of the pixbuf. Fix this in Cairo and/or GDK.
+        cairo_save(ct);
+        cairo_translate(ct, -area->x0, -area->y0);
+        gdk_cairo_set_source_pixbuf(ct, image->pixbuf, 0, 0);
 
-        guint32 Falpha = item->opacity;
-        if (Falpha < 1) return item->state;
+        cairo_pattern_t *p = cairo_get_source(ct);
+        ink_cairo_pattern_set_matrix(p, image->grid2px);
 
-        unsigned char * dpx = NR_PIXBLOCK_PX (pb);
-        int const drs = pb->rs;
-        int const dw = pb->area.x1 - pb->area.x0;
-        int const dh = pb->area.y1 - pb->area.y0;
-
-        unsigned char * spx = image->px;
-        int const srs = image->pxrs;
-        int const sw = image->pxw;
-        int const sh = image->pxh;
-
-        if (pb->mode == NR_PIXBLOCK_MODE_R8G8B8) {
-            /* fixme: This is not implemented yet (Lauris) */
-            /* nr_R8G8B8_R8G8B8_R8G8B8A8_N_TRANSFORM (dpx, dw, dh, drs, spx, sw, sh, srs, d2s, Falpha, nr_arena_image_x_sample, nr_arena_image_y_sample); */
-        } else if (pb->mode == NR_PIXBLOCK_MODE_R8G8B8A8P) {
-            nr_R8G8B8A8_P_R8G8B8A8_P_R8G8B8A8_N_TRANSFORM (dpx, dw, dh, drs, spx, sw, sh, srs, d2s, Falpha, nr_arena_image_x_sample, nr_arena_image_y_sample);
-        } else if (pb->mode == NR_PIXBLOCK_MODE_R8G8B8A8N) {
-            nr_R8G8B8A8_N_R8G8B8A8_N_R8G8B8A8_N_TRANSFORM (dpx, dw, dh, drs, spx, sw, sh, srs, d2s, Falpha, nr_arena_image_x_sample, nr_arena_image_y_sample);
-        }
-
-        pb->empty = FALSE;
+        cairo_paint_with_alpha(ct, ((double) item->opacity) / 255.0);
+        cairo_restore(ct);
 
     } else { // outline; draw a rect instead
-
-        if (!ct)
-            return item->state;
-
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         guint32 rgba = prefs->getInt("/options/wireframecolors/images", 0xff0000ff);
         // FIXME: we use RGBA buffers but cairo writes BGRA (on i386), so we must cheat
         // by setting color channels in the "wrong" order
@@ -252,7 +232,6 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL */*area*/, NRPixB
 
         pb->empty = FALSE;
     }
-
     return item->state;
 }
 
@@ -282,7 +261,7 @@ nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned in
 {
     NRArenaImage *image = NR_ARENA_IMAGE (item);
 
-    if (!image->px) return NULL;
+    if (!image->pixbuf) return NULL;
 
     bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
@@ -302,10 +281,10 @@ nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned in
 
     } else {
 
-        unsigned char *const pixels = image->px;
-        int const width = image->pxw;
-        int const height = image->pxh;
-        int const rowstride = image->pxrs;
+        unsigned char *const pixels = gdk_pixbuf_get_pixels(image->pixbuf);
+        int const width = gdk_pixbuf_get_width(image->pixbuf);
+        int const height = gdk_pixbuf_get_height(image->pixbuf);
+        int const rowstride = gdk_pixbuf_get_rowstride(image->pixbuf);
         Geom::Point tp = p * image->grid2px;
         int const ix = (int)(tp[Geom::X]);
         int const iy = (int)(tp[Geom::Y]);
@@ -322,15 +301,19 @@ nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned in
 /* Utility */
 
 void
-nr_arena_image_set_pixels (NRArenaImage *image, unsigned char const *px, unsigned int pxw, unsigned int pxh, unsigned int pxrs)
+nr_arena_image_set_pixbuf (NRArenaImage *image, GdkPixbuf *pb)
 {
     nr_return_if_fail (image != NULL);
     nr_return_if_fail (NR_IS_ARENA_IMAGE (image));
 
-    image->px = (unsigned char *) px;
-    image->pxw = pxw;
-    image->pxh = pxh;
-    image->pxrs = pxrs;
+    // when done in this order, it won't break if pb == image->pixbuf and the refcount is 1
+    if (pb != NULL) {
+        g_object_ref (pb);
+    }
+    if (image->pixbuf != NULL) {
+        g_object_unref(image->pixbuf);
+    }
+    image->pixbuf = pb;
 
     nr_arena_item_request_update (NR_ARENA_ITEM (image), NR_ARENA_ITEM_STATE_ALL, FALSE);
 }
