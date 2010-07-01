@@ -712,7 +712,7 @@ spdc_flush_white(SPDrawContext *dc, SPCurve *gc)
     c->unref();
 
     /* Flush pending updates */
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 }
 
 /**

@@ -614,9 +614,9 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         GSList *items = NULL;
                         if (r->getMode() == RUBBERBAND_MODE_RECT) {
                             Geom::OptRect const b = r->getRectangle();
-                            items = sp_document_items_in_box(sp_desktop_document(desktop), desktop->dkey, *b);
+                            items = sp_desktop_document(desktop)->items_in_box(desktop->dkey, *b);
                         } else if (r->getMode() == RUBBERBAND_MODE_TOUCHPATH) {
-                            items = sp_document_items_at_points(sp_desktop_document(desktop), desktop->dkey, r->getPoints());
+                            items = sp_desktop_document(desktop)->items_at_points(desktop->dkey, r->getPoints());
                         }
 
                         seltrans->resetState();

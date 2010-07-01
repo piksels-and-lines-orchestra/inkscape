@@ -18,7 +18,7 @@ ProfileManager::ProfileManager(SPDocument *document) :
     _doc(document),
     _knownProfiles()
 {
-    _resource_connection = sp_document_resources_changed_connect( _doc, "iccprofile", sigc::mem_fun(*this, &ProfileManager::_resourcesChanged) );
+    _resource_connection = _doc->resources_changed_connect(  "iccprofile", sigc::mem_fun(*this, &ProfileManager::_resourcesChanged) );
 }
 
 ProfileManager::~ProfileManager()
@@ -29,7 +29,7 @@ void ProfileManager::_resourcesChanged()
 {
     std::vector<SPObject*> newList;
     if (_doc) {
-        const GSList *current = sp_document_get_resource_list( _doc, "iccprofile" );
+        const GSList *current = _doc->get_resource_list( "iccprofile" );
         while ( current ) {
             newList.push_back(SP_OBJECT(current->data));
             current = g_slist_next(current);

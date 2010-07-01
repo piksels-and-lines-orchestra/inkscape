@@ -226,8 +226,8 @@ PrintWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
     };
     int res;
 
-    _PageWidth = sp_document_width (doc);
-    _PageHeight = sp_document_height (doc);
+    _PageWidth = doc->getWidth ();
+    _PageHeight = doc->getHeight ();
 
     di.lpszDocName = SP_DOCUMENT_NAME (doc);
 

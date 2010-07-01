@@ -178,7 +178,7 @@ sp_fefuncnode_build(SPObject *object, SPDocument *document, Inkscape::XML::Node 
 
 
 //is this necessary?
-    sp_document_add_resource(document, "fefuncnode", object); //maybe feFuncR, fefuncG, feFuncB and fefuncA ?
+    document->add_resource("fefuncnode", object); //maybe feFuncR, fefuncG, feFuncB and fefuncA ?
 }
 
 /**
@@ -191,7 +191,7 @@ sp_fefuncnode_release(SPObject *object)
 
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "fefuncnode", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("fefuncnode", SP_OBJECT(object));
     }
 
 //TODO: release resources here

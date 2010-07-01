@@ -608,8 +608,8 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
     NRRect d;
     if (pageBoundingBox) {
         d.x0 = d.y0 = 0;
-        d.x1 = sp_document_width(doc);
-        d.y1 = sp_document_height(doc);
+        d.x1 = doc->getWidth();
+        d.y1 = doc->getHeight();
     } else {
         base->invoke_bbox( &d, base->i2d_affine(), TRUE, SPItem::RENDERING_BBOX);
     }
@@ -631,7 +631,7 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
 
     if (ret && !pageBoundingBox)
     {
-        double high = sp_document_height(doc);
+        double high = doc->getHeight();
         if (ctx->_vector_based_target)
             high *= PT_PER_PX;
 

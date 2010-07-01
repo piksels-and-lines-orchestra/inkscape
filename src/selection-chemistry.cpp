@@ -2265,7 +2265,7 @@ void sp_selection_to_marker(SPDesktop *desktop, bool apply)
         return;
     }
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
     Geom::OptRect r = selection->bounds(SPItem::RENDERING_BBOX);
     boost::optional<Geom::Point> c = selection->center();
     if ( !r || !c ) {
@@ -2273,7 +2273,7 @@ void sp_selection_to_marker(SPDesktop *desktop, bool apply)
     }
 
     // calculate the transform to be applied to objects to move them to 0,0
-    Geom::Point move_p = Geom::Point(0, sp_document_height(doc)) - *c;
+    Geom::Point move_p = Geom::Point(0, doc->getHeight()) - *c;
     move_p[Geom::Y] = -move_p[Geom::Y];
     Geom::Matrix move = Geom::Matrix(Geom::Translate(move_p));
 
@@ -2389,14 +2389,14 @@ sp_selection_tile(SPDesktop *desktop, bool apply)
         return;
     }
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
     Geom::OptRect r = selection->bounds(SPItem::RENDERING_BBOX);
     if ( !r ) {
         return;
     }
 
     // calculate the transform to be applied to objects to move them to 0,0
-    Geom::Point move_p = Geom::Point(0, sp_document_height(doc)) - (r->min() + Geom::Point(0, r->dimensions()[Geom::Y]));
+    Geom::Point move_p = Geom::Point(0, doc->getHeight()) - (r->min() + Geom::Point(0, r->dimensions()[Geom::Y]));
     move_p[Geom::Y] = -move_p[Geom::Y];
     Geom::Matrix move = Geom::Matrix(Geom::Translate(move_p));
 
@@ -2528,7 +2528,7 @@ sp_selection_untile(SPDesktop *desktop)
            // use SPObject::setid when mental finishes it to steal ids of
 
             // this is needed to make sure the new item has curve (simply requestDisplayUpdate does not work)
-            sp_document_ensure_up_to_date(doc);
+            doc->ensure_up_to_date();
 
             Geom::Matrix transform( i->transform * pat_transform );
             i->doWriteTransform(SP_OBJECT_REPR(i), transform);
@@ -2640,7 +2640,7 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
 
     // Get the bounding box of the selection
     NRRect bbox;
-    sp_document_ensure_up_to_date(document);
+    document->ensure_up_to_date();
     selection->bounds(&bbox);
     if (NR_RECT_DFLS_TEST_EMPTY(&bbox)) {
         desktop->clearWaitingCursor();
@@ -2855,7 +2855,7 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
     }
     // /END FIXME
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     GSList *items = g_slist_copy((GSList *) selection->itemList());
 
@@ -3046,7 +3046,7 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     bool remove_original = prefs->getBool("/options/maskobject/remove", true);
     bool ungroup_masked = prefs->getBool("/options/maskobject/ungrouping", true);
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     gchar const *attributeName = apply_clip_path ? "clip-path" : "mask";
     std::map<SPObject*,SPItem*> referenced_objects;
@@ -3203,7 +3203,7 @@ fit_canvas_to_drawing(SPDocument *doc, bool with_margins)
 {
     g_return_val_if_fail(doc != NULL, false);
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
     SPItem const *const root = SP_ITEM(doc->root);
     Geom::OptRect const bbox(root->getBounds(root->i2d_affine()));
     if (bbox) {

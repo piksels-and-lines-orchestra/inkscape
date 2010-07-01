@@ -369,7 +369,7 @@ makeInkboardDocument(int code, gchar const* rootname, State::SessionType type, G
     Glib::ustring name = String::ucompose(
         _("Inkboard session (%1 to %2)"), SessionManager::instance().getClient().getJid(), to);
 
-    doc = sp_document_create(rdoc, NULL, NULL, name.c_str(), TRUE);
+    doc = SPDocument::createDoc(rdoc, NULL, NULL, name.c_str(), TRUE);
     g_return_val_if_fail(doc != NULL, NULL);
 
     return doc;

@@ -147,7 +147,7 @@ Gtk::Widget *build_splash_widget() {
     // should be in UTF-*8..
 
     char *about=g_build_filename(INKSCAPE_SCREENSDIR, _("about.svg"), NULL);
-    SPDocument *doc=SPDocument::createDoc (about, TRUE);
+    SPDocument *doc=SPDocument::createNewDoc (about, TRUE);
     g_free(about);
     g_return_val_if_fail(doc != NULL, NULL);
 
@@ -155,12 +155,12 @@ Gtk::Widget *build_splash_widget() {
     if ( version && SP_IS_TEXT(version) ) {
         sp_te_set_repr_text_multiline (SP_TEXT (version), Inkscape::version_string);
     }
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     GtkWidget *v=sp_svg_view_widget_new(doc);
 
-    double width=sp_document_width(doc);
-    double height=sp_document_height(doc);
+    double width=doc->getWidth();
+    double height=doc->getHeight();
     
     doc->doUnref();
 

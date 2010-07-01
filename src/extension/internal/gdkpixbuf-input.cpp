@@ -54,7 +54,7 @@ GdkpixbufInput::open(Inkscape::Extension::Input *mod, char const *uri)
             mime_type = "image/png";
         }
 
-        doc = SPDocument::createDoc(NULL, TRUE, TRUE);
+        doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
         bool saved = sp_document_get_undo_sensitive(doc);
         sp_document_set_undo_sensitive(doc, false); // no need to undo in this temporary document
 

@@ -139,7 +139,7 @@ text_put_on_path()
         Inkscape::GC::release(repr);
         text->deleteObject(); // delete the orignal flowtext
 
-        sp_document_ensure_up_to_date(sp_desktop_document(desktop));
+        sp_desktop_document(desktop)->ensure_up_to_date();
 
         selection->clear();
 

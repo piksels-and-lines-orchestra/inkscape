@@ -776,7 +776,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     NRArena *arena = NRArena::create();
     unsigned dkey = SPItem::display_key_new(1);
 
-    sp_document_ensure_up_to_date (document);
+    document->ensure_up_to_date ();
     
     SPItem *document_root = SP_ITEM(SP_DOCUMENT_ROOT(document));
     Geom::OptRect bbox = document_root->getBounds(Geom::identity());
@@ -798,7 +798,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     unsigned int height = (int)ceil(screen.height() * zoom_scale * padding);
 
     Geom::Point origin(screen.min()[Geom::X],
-                       sp_document_height(document) - screen.height() - screen.min()[Geom::Y]);
+                       document->getHeight() - screen.height() - screen.min()[Geom::Y]);
                     
     origin[Geom::X] = origin[Geom::X] + (screen.width() * ((1 - padding) / 2));
     origin[Geom::Y] = origin[Geom::Y] + (screen.height() * ((1 - padding) / 2));
@@ -905,7 +905,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     }
 
     for (unsigned int i = 0; i < fill_points.size(); i++) {
-        Geom::Point pw = Geom::Point(fill_points[i][Geom::X] / zoom_scale, sp_document_height(document) + (fill_points[i][Geom::Y] / zoom_scale)) * affine;
+        Geom::Point pw = Geom::Point(fill_points[i][Geom::X] / zoom_scale, document->getHeight() + (fill_points[i][Geom::Y] / zoom_scale)) * affine;
 
         pw[Geom::X] = (int)MIN(width - 1, MAX(0, pw[Geom::X]));
         pw[Geom::Y] = (int)MIN(height - 1, MAX(0, pw[Geom::Y]));

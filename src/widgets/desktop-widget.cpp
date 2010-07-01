@@ -708,8 +708,8 @@ sp_desktop_widget_realize (GtkWidget *widget)
     NRRect d;
     d.x0 = 0.0;
     d.y0 = 0.0;
-    d.x1 = sp_document_width (dtw->desktop->doc());
-    d.y1 = sp_document_height (dtw->desktop->doc());
+    d.x1 = (dtw->desktop->doc())->getWidth ();
+    d.y1 = (dtw->desktop->doc())->getHeight ();
 
     if ((fabs (d.x1 - d.x0) < 1.0) || (fabs (d.y1 - d.y0) < 1.0)) return;
 
@@ -1540,7 +1540,7 @@ bool SPDesktopWidget::onFocusInEvent(GdkEventFocus*)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     if (prefs->getBool("/options/bitmapautoreload/value", true)) {
-        GSList const *imageList = sp_document_get_resource_list(desktop->doc(), "image");
+        GSList const *imageList = (desktop->doc())->get_resource_list("image");
         for (GSList const *p = imageList; p; p = p->next) {
             SPImage* image = SP_IMAGE(p->data);
             sp_image_refresh_if_outdated( image );
@@ -1802,8 +1802,8 @@ sp_desktop_widget_update_scrollbars (SPDesktopWidget *dtw, double scale)
 
     /* The desktop region we always show unconditionally */
     SPDocument *doc = dtw->desktop->doc();
-    Geom::Rect darea ( Geom::Point(-sp_document_width(doc), -sp_document_height(doc)),
-                     Geom::Point(2 * sp_document_width(doc), 2 * sp_document_height(doc))  );
+    Geom::Rect darea ( Geom::Point(-doc->getWidth(), -doc->getHeight()),
+                     Geom::Point(2 * doc->getWidth(), 2 * doc->getHeight())  );
     SPObject* root = doc->root;
     SPItem* item = SP_ITEM(root);
     Geom::OptRect deskarea = Geom::unify(darea, item->getBboxDesktop());

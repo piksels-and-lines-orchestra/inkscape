@@ -85,14 +85,14 @@ sp_script_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     //Read values of key attributes from XML nodes into object.
     sp_object_read_attr(object, "xlink:href");
 
-    sp_document_add_resource(document, "script", object);
+    document->add_resource("script", object);
 }
 
 static void sp_script_release(SPObject *object)
 {
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "script", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("script", SP_OBJECT(object));
     }
 
     if (((SPObjectClass *) parent_class)->release)

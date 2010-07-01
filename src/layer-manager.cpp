@@ -183,7 +183,7 @@ void LayerManager::renameLayer( SPObject* obj, gchar const *label, bool uniquify
         }
 
         std::set<Glib::ustring> currentNames;
-        GSList const *layers=sp_document_get_resource_list(_document, "layer");
+        GSList const *layers=_document->get_resource_list("layer");
         SPObject *root=_desktop->currentRoot();
         if ( root ) {
             for ( GSList const *iter=layers ; iter ; iter = iter->next ) {
@@ -218,7 +218,7 @@ void LayerManager::_setDocument(SPDocument *document) {
     }
     _document = document;
     if (document) {
-        _resource_connection = sp_document_resources_changed_connect(document, "layer", sigc::mem_fun(*this, &LayerManager::_rebuild));
+        _resource_connection = document->resources_changed_connect("layer", sigc::mem_fun(*this, &LayerManager::_rebuild));
     }
     _rebuild();
 }
@@ -248,7 +248,7 @@ void LayerManager::_rebuild() {
     if (!_document) // http://sourceforge.net/mailarchive/forum.php?thread_name=5747bce9a7ed077c1b4fc9f0f4f8a5e0%40localhost&forum_name=inkscape-devel
         return;
 
-    GSList const *layers = sp_document_get_resource_list(_document, "layer");
+    GSList const *layers = _document->get_resource_list("layer");
     SPObject *root=_desktop->currentRoot();
     if ( root ) {
         _addOne(root);

@@ -924,7 +924,7 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
             if ( SP_OBJECT_PARENT(object) == NULL )
             {
                 dbox = Geom::Rect(Geom::Point(0, 0),
-                                Geom::Point(sp_document_width(doc), sp_document_height(doc)));
+                                Geom::Point(doc->getWidth(), doc->getHeight()));
             }
 
             /* This is in document coordinates, i.e. pixels */
@@ -1105,11 +1105,11 @@ static guchar *load_svg_pixels(gchar const *name,
         /* Try to load from document. */
         if (!info &&
             Inkscape::IO::file_test( doc_filename, G_FILE_TEST_IS_REGULAR ) &&
-            (doc = SPDocument::createDoc( doc_filename, FALSE )) ) {
+            (doc = SPDocument::createNewDoc( doc_filename, FALSE )) ) {
 
             //g_message("Loaded icon file %s", doc_filename);
             // prep the document
-            sp_document_ensure_up_to_date(doc);
+            doc->ensure_up_to_date();
             /* Create new arena */
             NRArena *arena = NRArena::create();
             /* Create ArenaItem and set transform */

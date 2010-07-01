@@ -118,7 +118,7 @@ sp_file_new(const Glib::ustring &templ)
     char *templName = NULL;
     if (templ.size()>0)
         templName = (char *)templ.c_str();
-    SPDocument *doc = SPDocument::createDoc(templName, TRUE, true);
+    SPDocument *doc = SPDocument::createNewDoc(templName, TRUE, true);
     g_return_val_if_fail(doc != NULL, NULL);
 
     SPDesktop *dt;
@@ -234,9 +234,9 @@ sp_file_open(const Glib::ustring &uri,
 
         if (existing && existing->virgin && replace_empty) {
             // If the current desktop is empty, open the document there
-            sp_document_ensure_up_to_date (doc);
+            doc->ensure_up_to_date ();
             desktop->change_document(doc);
-            sp_document_resized_signal_emit (doc, sp_document_width(doc), sp_document_height(doc));
+            doc->resized_signal_emit (doc->getWidth(), doc->getHeight());
         } else {
             if (!Inkscape::NSApplication::Application::getNewGui()) {
                 // create a whole new desktop and window
@@ -558,7 +558,7 @@ sp_file_vacuum()
 {
     SPDocument *doc = SP_ACTIVE_DOCUMENT;
 
-    unsigned int diff = vacuum_document (doc);
+    unsigned int diff = doc->vacuum_document ();
 
     sp_document_done(doc, SP_VERB_FILE_VACUUM,
                      _("Vacuum &lt;defs&gt;"));
@@ -1048,13 +1048,13 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
 
             // preserve parent and viewBox transformations
             // c2p is identity matrix at this point unless sp_document_ensure_up_to_date is called
-            sp_document_ensure_up_to_date(doc);
+            doc->ensure_up_to_date();
             Geom::Matrix affine = SP_ROOT(SP_DOCUMENT_ROOT(doc))->c2p * SP_ITEM(place_to_insert)->i2doc_affine().inverse();
             sp_selection_apply_affine(selection, desktop->dt2doc() * affine * desktop->doc2dt(), true, false);
 
             // move to mouse pointer
             {
-                sp_document_ensure_up_to_date(sp_desktop_document(desktop));
+                sp_desktop_document(desktop)->ensure_up_to_date();
                 Geom::OptRect sel_bbox = selection->bounds();
                 if (sel_bbox) {
                     Geom::Point m( desktop->point() - sel_bbox->midpoint() );

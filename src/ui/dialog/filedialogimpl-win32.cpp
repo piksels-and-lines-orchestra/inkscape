@@ -887,7 +887,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
 
     gchar *utf8string = g_utf16_to_utf8((const gunichar2*)_path_string,
         _MAX_PATH, NULL, NULL, NULL);
-    SPDocument *svgDoc = SPDocument::createDoc (utf8string, true);
+    SPDocument *svgDoc = SPDocument::createNewDoc (utf8string, true);
     g_free(utf8string);
 
     // Check the document loaded properly
@@ -899,8 +899,8 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     }
 
     // Get the size of the document
-    const double svgWidth = sp_document_width(svgDoc);
-    const double svgHeight = sp_document_height(svgDoc);
+    const double svgWidth = svgDoc->getWidth();
+    const double svgHeight = svgDoc->getHeight();
 
     // Find the minimum scale to fit the image inside the preview area
     const double scaleFactorX =    PreviewSize / svgWidth;
@@ -917,7 +917,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
 
     // write object bbox to area
     Geom::OptRect maybeArea(area);
-    sp_document_ensure_up_to_date (svgDoc);
+    svgDoc->ensure_up_to_date ();
     static_cast<(SPItem *)>(svgDoc->root)->invoke_bbox( maybeArea,
         static_cast<(SPItem *)>(svgDoc->root)->i2d_affine(), TRUE);
 

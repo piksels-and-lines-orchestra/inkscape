@@ -108,7 +108,7 @@ sp_mask_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *repr
 	sp_object_read_attr (object, "maskContentUnits");
 
 	/* Register ourselves */
-	sp_document_add_resource (document, "mask", object);
+	document->add_resource ("mask", object);
 }
 
 static void
@@ -116,7 +116,7 @@ sp_mask_release (SPObject * object)
 {
 	if (SP_OBJECT_DOCUMENT (object)) {
 		/* Unregister ourselves */
-		sp_document_remove_resource (SP_OBJECT_DOCUMENT (object), "mask", object);
+		SP_OBJECT_DOCUMENT (object)->remove_resource ("mask", object);
 	}
 
 	SPMask *cp = SP_MASK (object);

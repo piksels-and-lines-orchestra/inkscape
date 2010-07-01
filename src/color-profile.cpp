@@ -180,7 +180,7 @@ void ColorProfile::release( SPObject *object )
     // Unregister ourselves
     SPDocument* document = SP_OBJECT_DOCUMENT(object);
     if ( document ) {
-        sp_document_remove_resource (SP_OBJECT_DOCUMENT (object), "iccprofile", SP_OBJECT (object));
+        SP_OBJECT_DOCUMENT (object)->remove_resource ("iccprofile", SP_OBJECT (object));
     }
 
     ColorProfile *cprof = COLORPROFILE(object);
@@ -254,7 +254,7 @@ void ColorProfile::build( SPObject *object, SPDocument *document, Inkscape::XML:
 
     // Register
     if ( document ) {
-        sp_document_add_resource( document, "iccprofile", object );
+        document->add_resource( "iccprofile", object );
     }
 }
 
@@ -475,7 +475,7 @@ static int getLcmsIntent( guint svgIntent )
 static SPObject* bruteFind( SPDocument* document, gchar const* name )
 {
     SPObject* result = 0;
-    const GSList * current = sp_document_get_resource_list(document, "iccprofile");
+    const GSList * current = document->get_resource_list("iccprofile");
     while ( current && !result ) {
         if ( IS_COLORPROFILE(current->data) ) {
             ColorProfile* prof = COLORPROFILE(current->data);

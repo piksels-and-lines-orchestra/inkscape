@@ -87,14 +87,14 @@ Grid::effect (Inkscape::Extension::Effect *module, Inkscape::UI::View::View *doc
         /* get page size */
         SPDocument * doc = document->doc();
         bounding_area = Geom::Rect(  Geom::Point(0,0),
-                                     Geom::Point(sp_document_width(doc), sp_document_height(doc))  );
+                                     Geom::Point(doc->getWidth(), doc->getHeight())  );
     } else {
         Geom::OptRect bounds = selection->bounds();
         if (bounds) {
             bounding_area = *bounds;
         }
 
-        gdouble doc_height  =  sp_document_height(document->doc());
+        gdouble doc_height  =  (document->doc())->getHeight();
         Geom::Rect temprec = Geom::Rect(Geom::Point(bounding_area.min()[Geom::X], doc_height - bounding_area.min()[Geom::Y]),
                                     Geom::Point(bounding_area.max()[Geom::X], doc_height - bounding_area.max()[Geom::Y]));
 

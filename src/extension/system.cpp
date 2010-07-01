@@ -111,7 +111,7 @@ open(Extension *key, gchar const *filename)
        to make sure for this release -- TJG */
     doc->setModifiedSinceSave(false);
 
-    sp_document_set_uri(doc, filename);
+    doc->setUri(filename);
 
     return doc;
 }
@@ -269,7 +269,7 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
     saved_dataloss = g_strdup(repr->attribute("inkscape:dataloss"));
     if (official) {
         /* The document is changing name/uri. */
-        sp_document_change_uri_and_hrefs(doc, fileName);
+        doc->change_uri_and_hrefs(fileName);
     }
 
     // Update attributes:
@@ -302,7 +302,7 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
                 repr->setAttribute("inkscape:dataloss", saved_dataloss);
             }
             sp_document_set_undo_sensitive(doc, saved);
-            sp_document_change_uri_and_hrefs(doc, saved_uri);
+            doc->change_uri_and_hrefs(saved_uri);
         }
         doc->setModifiedSinceSave(saved_modified);
         // free used ressources

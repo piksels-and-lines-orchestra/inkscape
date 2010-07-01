@@ -851,7 +851,7 @@ void ClipboardManagerImpl::_pasteDocument(SPDesktop *desktop, SPDocument *clipdo
     sp_selection_apply_affine(selection, desktop->dt2doc() * doc2parent * desktop->doc2dt(), true, false);
 
     // Update (among other things) all curves in paths, for bounds() to work
-    sp_document_ensure_up_to_date(target_document);
+    target_document->ensure_up_to_date();
 
     // move selection either to original position (in_place) or to mouse pointer
     Geom::OptRect sel_bbox = selection->bounds();
@@ -1200,7 +1200,7 @@ void ClipboardManagerImpl::_onGet(Gtk::SelectionData &sel, guint /*info*/)
             guint32 bgcolor = 0x00000000;
 
             Geom::Point origin (SP_ROOT(_clipboardSPDoc->root)->x.computed, SP_ROOT(_clipboardSPDoc->root)->y.computed);
-            Geom::Rect area = Geom::Rect(origin, origin + sp_document_dimensions(_clipboardSPDoc));
+            Geom::Rect area = Geom::Rect(origin, origin + _clipboardSPDoc->getDimensions());
 
             unsigned long int width = (unsigned long int) (area.width() * dpi / PX_PER_IN + 0.5);
             unsigned long int height = (unsigned long int) (area.height() * dpi / PX_PER_IN + 0.5);
@@ -1254,7 +1254,7 @@ void ClipboardManagerImpl::_onClear()
 void ClipboardManagerImpl::_createInternalClipboard()
 {
     if ( _clipboardSPDoc == NULL ) {
-        _clipboardSPDoc = SPDocument::createDoc(NULL, false, true);
+        _clipboardSPDoc = SPDocument::createNewDoc(NULL, false, true);
         //g_assert( _clipboardSPDoc != NULL );
         _defs = SP_OBJECT_REPR(SP_DOCUMENT_DEFS(_clipboardSPDoc));
         _doc = sp_document_repr_doc(_clipboardSPDoc);

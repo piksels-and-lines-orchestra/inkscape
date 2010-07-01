@@ -460,7 +460,7 @@ void
 DocumentProperties::populate_linked_profiles_box()
 {
     _LinkedProfilesListStore->clear();
-    const GSList *current = sp_document_get_resource_list( SP_ACTIVE_DOCUMENT, "iccprofile" );
+    const GSList *current = SP_ACTIVE_DOCUMENT->get_resource_list( "iccprofile" );
     if (current) _emb_profiles_observer.set(SP_OBJECT(current->data)->parent);
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
@@ -517,7 +517,7 @@ void DocumentProperties::removeSelectedProfile(){
         }
     }
 
-    const GSList *current = sp_document_get_resource_list( SP_ACTIVE_DOCUMENT, "iccprofile" );
+    const GSList *current = SP_ACTIVE_DOCUMENT->get_resource_list( "iccprofile" );
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
         Inkscape::ColorProfile* prof = reinterpret_cast<Inkscape::ColorProfile*>(obj);
@@ -589,7 +589,7 @@ DocumentProperties::build_cms()
     _LinkedProfilesList.signal_button_release_event().connect_notify(sigc::mem_fun(*this, &DocumentProperties::linked_profiles_list_button_release));
     cms_create_popup_menu(_LinkedProfilesList, sigc::mem_fun(*this, &DocumentProperties::removeSelectedProfile));
 
-    const GSList *current = sp_document_get_resource_list( SP_ACTIVE_DOCUMENT, "defs" );
+    const GSList *current = SP_ACTIVE_DOCUMENT->get_resource_list( "defs" );
     if (current) {
         _emb_profiles_observer.set(SP_OBJECT(current->data)->parent);
     }
@@ -647,7 +647,7 @@ DocumentProperties::build_scripting()
 #endif // ENABLE_LCMS
 
 //TODO: review this observers code:
-    const GSList *current = sp_document_get_resource_list( SP_ACTIVE_DOCUMENT, "script" );
+    const GSList *current = SP_ACTIVE_DOCUMENT->get_resource_list( "script" );
     if (current) {
         _ext_scripts_observer.set(SP_OBJECT(current->data)->parent);
     }
@@ -686,7 +686,7 @@ void DocumentProperties::removeExternalScript(){
         }
     }
 
-    const GSList *current = sp_document_get_resource_list( SP_ACTIVE_DOCUMENT, "script" );
+    const GSList *current = SP_ACTIVE_DOCUMENT->get_resource_list( "script" );
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
         SPScript* script = (SPScript*) obj;
@@ -703,7 +703,7 @@ void DocumentProperties::removeExternalScript(){
 
 void DocumentProperties::populate_external_scripts_box(){
     _ExternalScriptsListStore->clear();
-    const GSList *current = sp_document_get_resource_list( SP_ACTIVE_DOCUMENT, "script" );
+    const GSList *current = SP_ACTIVE_DOCUMENT->get_resource_list( "script" );
     if (current) _ext_scripts_observer.set(SP_OBJECT(current->data)->parent);
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
@@ -822,8 +822,8 @@ DocumentProperties::update()
     if (nv->doc_units)
         _rum_deflt.setUnit (nv->doc_units);
 
-    double const doc_w_px = sp_document_width(sp_desktop_document(dt));
-    double const doc_h_px = sp_document_height(sp_desktop_document(dt));
+    double const doc_w_px = sp_desktop_document(dt)->getWidth();
+    double const doc_h_px = sp_desktop_document(dt)->getHeight();
     _page_sizer.setDim (doc_w_px, doc_h_px);
     _page_sizer.updateFitMarginsUI(SP_OBJECT_REPR(nv));
 

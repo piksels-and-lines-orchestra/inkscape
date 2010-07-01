@@ -1312,7 +1312,7 @@ SPObject::requestDisplayUpdate(unsigned int flags)
         if (parent) {
             parent->requestDisplayUpdate(SP_OBJECT_CHILD_MODIFIED_FLAG);
         } else {
-            sp_document_request_modified(SP_OBJECT_DOCUMENT(this));
+            SP_OBJECT_DOCUMENT(this)->request_modified();
         }
     }
 }
@@ -1396,7 +1396,7 @@ SPObject::requestModified(unsigned int flags)
         if (parent) {
             parent->requestModified(SP_OBJECT_CHILD_MODIFIED_FLAG);
         } else {
-            sp_document_request_modified(SP_OBJECT_DOCUMENT(this));
+            SP_OBJECT_DOCUMENT(this)->request_modified();
         }
     }
 }

@@ -155,7 +155,7 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     SPDocument *document = sp_desktop_document(desktop);
 
-    sp_document_ensure_up_to_date (document);
+    document->ensure_up_to_date ();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int prefs_bbox = prefs->getInt("/tools/bounding_box");
     SPItem::BBoxType bbox_type = (prefs_bbox ==0)?

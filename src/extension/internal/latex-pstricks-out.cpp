@@ -55,7 +55,7 @@ LatexOutput::save(Inkscape::Extension::Output *mod2, SPDocument *doc, gchar cons
     gchar * oldoutput;
     unsigned int ret;
 
-    sp_document_ensure_up_to_date (doc);
+    doc->ensure_up_to_date ();
 
     mod = Inkscape::Extension::get_print(SP_MODULE_KEY_PRINT_LATEX);
     oldconst = mod->get_param_string("destination");

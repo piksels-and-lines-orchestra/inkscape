@@ -109,7 +109,7 @@ emf_print_document_to_file(SPDocument *doc, gchar const *filename)
     gchar *oldoutput;
     unsigned int ret;
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     mod = Inkscape::Extension::get_print(PRINT_EMF_WIN32);
     oldconst = mod->get_param_string("destination");
@@ -2366,7 +2366,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
 
 //    std::cout << "SVG Output: " << std::endl << *(d.outsvg) << std::endl;
 
-    SPDocument *doc = SPDocument::createDocFromMem(d.outsvg->c_str(), d.outsvg->length(), TRUE);
+    SPDocument *doc = SPDocument::createNewDocFromMem(d.outsvg->c_str(), d.outsvg->length(), TRUE);
 
     delete d.outsvg;
     delete d.path;

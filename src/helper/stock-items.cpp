@@ -56,11 +56,11 @@ static SPObject * sp_marker_load_from_svg(gchar const *name, SPDocument *current
     if (!edoc && !doc) {
         gchar *markers = g_build_filename(INKSCAPE_MARKERSDIR, "/markers.svg", NULL);
         if (Inkscape::IO::file_test(markers, G_FILE_TEST_IS_REGULAR)) {
-            doc = SPDocument::createDoc(markers, FALSE);
+            doc = SPDocument::createNewDoc(markers, FALSE);
         }
         g_free(markers);
         if (doc) {
-            sp_document_ensure_up_to_date(doc);
+            doc->ensure_up_to_date();
         } else {
             edoc = TRUE;
         }
@@ -94,16 +94,16 @@ sp_pattern_load_from_svg(gchar const *name, SPDocument *current_doc)
     if (!edoc && !doc) {
         gchar *patterns = g_build_filename(INKSCAPE_PATTERNSDIR, "/patterns.svg", NULL);
         if (Inkscape::IO::file_test(patterns, G_FILE_TEST_IS_REGULAR)) {
-            doc = SPDocument::createDoc(patterns, FALSE);
+            doc = SPDocument::createNewDoc(patterns, FALSE);
         }
         if (!doc) {
         gchar *patterns = g_build_filename(CREATE_PATTERNSDIR, "/patterns.svg", NULL);
         if (Inkscape::IO::file_test(patterns, G_FILE_TEST_IS_REGULAR)) {
-            doc = SPDocument::createDoc(patterns, FALSE);
+            doc = SPDocument::createNewDoc(patterns, FALSE);
         }
         g_free(patterns);
         if (doc) {
-            sp_document_ensure_up_to_date(doc);
+            doc->ensure_up_to_date();
         } else {
             edoc = TRUE;
         }
@@ -137,16 +137,16 @@ sp_gradient_load_from_svg(gchar const *name, SPDocument *current_doc)
     if (!edoc && !doc) {
         gchar *gradients = g_build_filename(INKSCAPE_GRADIENTSDIR, "/gradients.svg", NULL);
         if (Inkscape::IO::file_test(gradients, G_FILE_TEST_IS_REGULAR)) {
-            doc = SPDocument::createDoc(gradients, FALSE);
+            doc = SPDocument::createNewDoc(gradients, FALSE);
         }
         if (!doc) {
         gchar *gradients = g_build_filename(CREATE_GRADIENTSDIR, "/gradients.svg", NULL);
         if (Inkscape::IO::file_test(gradients, G_FILE_TEST_IS_REGULAR)) {
-            doc = SPDocument::createDoc(gradients, FALSE);
+            doc = SPDocument::createNewDoc(gradients, FALSE);
         }
         g_free(gradients);
         if (doc) {
-            sp_document_ensure_up_to_date(doc);
+            doc->ensure_up_to_date();
         } else {
             edoc = TRUE;
         }

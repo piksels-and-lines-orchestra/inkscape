@@ -167,7 +167,7 @@ sp_pattern_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *r
 	sp_object_read_attr (object, "xlink:href");
 
 	/* Register ourselves */
-	sp_document_add_resource (document, "pattern", object);
+	document->add_resource ("pattern", object);
 }
 
 static void
@@ -179,7 +179,7 @@ sp_pattern_release (SPObject *object)
 
 	if (SP_OBJECT_DOCUMENT (object)) {
 		/* Unregister ourselves */
-		sp_document_remove_resource (SP_OBJECT_DOCUMENT (object), "pattern", SP_OBJECT (object));
+		SP_OBJECT_DOCUMENT (object)->remove_resource ("pattern", SP_OBJECT (object));
 	}
 
 	if (pat->ref) {

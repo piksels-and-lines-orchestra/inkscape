@@ -163,8 +163,8 @@ private :
         }
 
         case AlignAndDistribute::PAGE:
-            mp = Geom::Point(a.mx1 * sp_document_width(sp_desktop_document(desktop)),
-                           a.my1 * sp_document_height(sp_desktop_document(desktop)));
+            mp = Geom::Point(a.mx1 * sp_desktop_document(desktop)->getWidth(),
+                           a.my1 * sp_desktop_document(desktop)->getHeight());
             break;
 
         case AlignAndDistribute::DRAWING:
@@ -215,7 +215,7 @@ private :
              it != selected.end();
              it++)
         {
-            sp_document_ensure_up_to_date(sp_desktop_document (desktop));
+            sp_desktop_document (desktop)->ensure_up_to_date();
             if (!sel_as_group)
                 b = (*it)->getBboxDesktop();
             if (b) {
@@ -621,7 +621,7 @@ private :
             it != selected.end();
             ++it)
         {
-            sp_document_ensure_up_to_date(sp_desktop_document (desktop));
+            sp_desktop_document (desktop)->ensure_up_to_date();
             Geom::OptRect item_box = (*it)->getBboxDesktop ();
             if (item_box) {
                 // find new center, staying within bbox

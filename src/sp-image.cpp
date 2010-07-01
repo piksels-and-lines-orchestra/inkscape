@@ -646,7 +646,7 @@ sp_image_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     sp_object_read_attr (object, "color-profile");
 
     /* Register */
-    sp_document_add_resource (document, "image", object);
+    document->add_resource ("image", object);
 }
 
 static void
@@ -656,7 +656,7 @@ sp_image_release (SPObject *object)
 
     if (SP_OBJECT_DOCUMENT (object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource (SP_OBJECT_DOCUMENT (object), "image", SP_OBJECT (object));
+        SP_OBJECT_DOCUMENT (object)->remove_resource ("image", SP_OBJECT (object));
     }
 
     if (image->href) {

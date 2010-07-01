@@ -285,7 +285,7 @@ sp_gradient_reset_to_userspace (SPGradient *gr, SPItem *item)
     Inkscape::XML::Node *repr = SP_OBJECT_REPR(gr);
 
     // calculate the bbox of the item
-    sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(item));
+    SP_OBJECT_DOCUMENT(item)->ensure_up_to_date();
     Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
 
     if (!bbox)
@@ -345,7 +345,7 @@ sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar const *prop
         Inkscape::XML::Node *repr = SP_OBJECT_REPR(gr);
 
         // calculate the bbox of the item
-        sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(item));
+        SP_OBJECT_DOCUMENT(item)->ensure_up_to_date();
         Geom::Matrix bbox2user;
         Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
         if ( bbox ) {
@@ -1040,7 +1040,7 @@ sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool
     }
 
     if (SP_GRADIENT(gradient)->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
-        sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(item));
+        SP_OBJECT_DOCUMENT(item)->ensure_up_to_date();
         Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
         if (bbox) {
             p *= Geom::Matrix(bbox->dimensions()[Geom::X], 0,

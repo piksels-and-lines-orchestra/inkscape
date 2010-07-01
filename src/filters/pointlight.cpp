@@ -109,7 +109,7 @@ sp_fepointlight_build(SPObject *object, SPDocument *document, Inkscape::XML::Nod
     sp_object_read_attr(object, "z");
 
 //is this necessary?
-    sp_document_add_resource(document, "fepointlight", object);
+    document->add_resource("fepointlight", object);
 }
 
 /**
@@ -122,7 +122,7 @@ sp_fepointlight_release(SPObject *object)
 
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "fepointlight", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("fepointlight", SP_OBJECT(object));
     }
 
 //TODO: release resources here

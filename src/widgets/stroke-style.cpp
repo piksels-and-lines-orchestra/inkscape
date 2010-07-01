@@ -176,7 +176,7 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
     // object to render; note that the id is the same as that of the menu we're building
     SPObject *object = sandbox->getObjectById(menu_id);
     sp_document_root (sandbox)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
-    sp_document_ensure_up_to_date(sandbox);
+    sandbox->ensure_up_to_date();
 
     if (object == NULL || !SP_IS_ITEM(object))
         return NULL; // sandbox broken?
@@ -342,7 +342,7 @@ gchar const *buffer = "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:sodipodi=
 
 "</svg>";
 
-    return SPDocument::createDocFromMem (buffer, strlen(buffer), FALSE);
+    return SPDocument::createNewDocFromMem (buffer, strlen(buffer), FALSE);
 }
 
 static void
@@ -373,7 +373,7 @@ ink_marker_menu_create_menu(Gtk::Menu *m, gchar const *menu_id, SPDocument *doc,
     if (markers_doc == NULL) {
         char *markers_source = g_build_filename(INKSCAPE_MARKERSDIR, "markers.svg", NULL);
         if (Inkscape::IO::file_test(markers_source, G_FILE_TEST_IS_REGULAR)) {
-            markers_doc = SPDocument::createDoc(markers_source, FALSE);
+            markers_doc = SPDocument::createNewDoc(markers_source, FALSE);
         }
         g_free(markers_source);
     }
@@ -391,7 +391,7 @@ ink_marker_menu_create_menu(Gtk::Menu *m, gchar const *menu_id, SPDocument *doc,
 
     // suck in from markers.svg
     if (markers_doc) {
-        sp_document_ensure_up_to_date(doc);
+        doc->ensure_up_to_date();
         sp_marker_list_from_doc(m, doc, markers_doc, NULL, sandbox, menu_id);
     }
 

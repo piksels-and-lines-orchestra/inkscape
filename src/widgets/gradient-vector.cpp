@@ -249,7 +249,7 @@ static void sp_gvs_rebuild_gui_full(SPGradientVectorSelector *gvs)
     /* Pick up all gradients with vectors */
     GSList *gl = NULL;
     if (gvs->gr) {
-        const GSList *gradients = sp_document_get_resource_list(SP_OBJECT_DOCUMENT(gvs->gr), "gradient");
+        const GSList *gradients = SP_OBJECT_DOCUMENT(gvs->gr)->get_resource_list("gradient");
         for (const GSList *curr = gradients; curr; curr = curr->next) {
             SPGradient* grad = SP_GRADIENT(curr->data);
             if ( grad->hasStops() && (grad->isSwatch() == gvs->swatched) ) {

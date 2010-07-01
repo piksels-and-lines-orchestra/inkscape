@@ -1144,8 +1144,7 @@ void FilterEffectsDialog::FilterModifier::on_activate_desktop(Application*, SPDe
 
     me->_resource_changed.disconnect();
     me->_resource_changed =
-        sp_document_resources_changed_connect(sp_desktop_document(desktop), "filter",
-                                              sigc::mem_fun(me, &FilterModifier::update_filters));
+        sp_desktop_document(desktop)->resources_changed_connect("filter",sigc::mem_fun(me, &FilterModifier::update_filters));
 
     me->_dialog.setDesktop(desktop);
 
@@ -1262,7 +1261,7 @@ void FilterEffectsDialog::FilterModifier::update_filters()
 {
     SPDesktop* desktop = _dialog.getDesktop();
     SPDocument* document = sp_desktop_document(desktop);
-    const GSList* filters = sp_document_get_resource_list(document, "filter");
+    const GSList* filters = document->get_resource_list("filter");
 
     _model->clear();
 

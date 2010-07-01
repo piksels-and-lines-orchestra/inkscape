@@ -65,7 +65,7 @@ static bool
 ps_print_document_to_file(SPDocument *doc, gchar const *filename, unsigned int level, bool texttopath, bool omittext,
                           bool filtertobitmap, int resolution, const gchar * const exportId, bool exportDrawing, bool exportCanvas, bool eps = false)
 {
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     SPItem *base = NULL;
 

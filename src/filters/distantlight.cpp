@@ -105,7 +105,7 @@ sp_fedistantlight_build(SPObject *object, SPDocument *document, Inkscape::XML::N
     sp_object_read_attr(object, "elevation");
 
 //is this necessary?
-    sp_document_add_resource(document, "fedistantlight", object);
+    document->add_resource("fedistantlight", object);
 }
 
 /**
@@ -118,7 +118,7 @@ sp_fedistantlight_release(SPObject *object)
 
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "fedistantlight", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("fedistantlight", SP_OBJECT(object));
     }
 
 //TODO: release resources here

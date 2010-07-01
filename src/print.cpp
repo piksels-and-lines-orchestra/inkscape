@@ -90,7 +90,7 @@ sp_print_preview_document(SPDocument *doc)
     Inkscape::Extension::Print *mod;
     unsigned int ret;
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     mod = Inkscape::Extension::get_print(SP_MODULE_KEY_PRINT_DEFAULT);
 
@@ -124,7 +124,7 @@ sp_print_preview_document(SPDocument *doc)
 void
 sp_print_document(Gtk::Window& parentWindow, SPDocument *doc)
 {
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     // Build arena
     SPItem      *base = SP_ITEM(sp_document_root(doc));
@@ -152,7 +152,7 @@ sp_print_document_to_file(SPDocument *doc, gchar const *filename)
     gchar *oldoutput;
     unsigned int ret;
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     mod = Inkscape::Extension::get_print(SP_MODULE_KEY_PRINT_PS);
     oldconst = mod->get_param_string("destination");

@@ -362,8 +362,8 @@ sp_flowtext_print(SPItem *item, SPPrintContext *ctx)
     NRRect dbox;
     dbox.x0 = 0.0;
     dbox.y0 = 0.0;
-    dbox.x1 = sp_document_width(SP_OBJECT_DOCUMENT(item));
-    dbox.y1 = sp_document_height(SP_OBJECT_DOCUMENT(item));
+    dbox.x1 = SP_OBJECT_DOCUMENT(item)->getWidth();
+    dbox.y1 = SP_OBJECT_DOCUMENT(item)->getHeight();
     Geom::Matrix const ctm (item->i2d_affine());
 
     group->layout.print(ctx, &pbox, &dbox, &bbox, ctm);

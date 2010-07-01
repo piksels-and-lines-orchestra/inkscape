@@ -947,7 +947,7 @@ static Geom::Matrix getODFTransform(const SPItem *item)
     //### Get SVG-to-ODF transform
     Geom::Matrix tf (item->i2d_affine());
     //Flip Y into document coordinates
-    double doc_height    = sp_document_height(SP_ACTIVE_DOCUMENT);
+    double doc_height    = SP_ACTIVE_DOCUMENT->getHeight();
     Geom::Matrix doc2dt_tf = Geom::Matrix(Geom::Scale(1.0, -1.0));
     doc2dt_tf            = doc2dt_tf * Geom::Matrix(Geom::Translate(0, doc_height));
     tf                   = tf * doc2dt_tf;
@@ -968,7 +968,7 @@ static Geom::OptRect getODFBoundingBox(const SPItem *item)
     Geom::OptRect bbox;
     if (bbox_temp) {
         bbox = *bbox_temp;
-        double doc_height    = sp_document_height(SP_ACTIVE_DOCUMENT);
+        double doc_height    = SP_ACTIVE_DOCUMENT->getHeight();
         Geom::Matrix doc2dt_tf = Geom::Matrix(Geom::Scale(1.0, -1.0));
         doc2dt_tf            = doc2dt_tf * Geom::Matrix(Geom::Translate(0, doc_height));
         bbox                 = *bbox * doc2dt_tf;

@@ -182,19 +182,19 @@ Svg::open (Inkscape::Extension::Input */*mod*/, const gchar *uri)
 #ifdef WITH_GNOME_VFS
     if (!gnome_vfs_initialized() || gnome_vfs_uri_is_local(gnome_vfs_uri_new(uri))) {
         // Use built-in loader instead of VFS for this
-        return SPDocument::createDoc(uri, TRUE);
+        return SPDocument::createNewDoc(uri, TRUE);
     }
     gchar * buffer = _load_uri(uri);
     if (buffer == NULL) {
         g_warning("Error:  Could not open file '%s' with VFS\n", uri);
         return NULL;
     }
-    SPDocument * doc = SPDocument::createDocFromMem(buffer, strlen(buffer), 1);
+    SPDocument * doc = SPDocument::createNewDocFromMem(buffer, strlen(buffer), 1);
 
     g_free(buffer);
     return doc;
 #else
-    return SPDocument::createDoc(uri, TRUE);
+    return SPDocument::createNewDoc(uri, TRUE);
 #endif
 }
 

@@ -1020,7 +1020,7 @@ void sp_process_file_list(GSList *fl)
             g_warning("Specified document %s cannot be opened (does not exist or not a valid SVG file)", filename);
         } else {
             if (sp_vacuum_defs) {
-                vacuum_document(doc);
+                doc->vacuum_document();
             }
             if (sp_vacuum_defs && !sp_export_svg) {
                 // save under the name given in the command line
@@ -1197,7 +1197,7 @@ do_query_dimension (SPDocument *doc, bool extent, Geom::Dim2 const axis, const g
     }
 
     if (o) {
-        sp_document_ensure_up_to_date (doc);
+        doc->ensure_up_to_date ();
         SPItem *item = ((SPItem *) o);
 
         // "true" SVG bbox for scripting
@@ -1224,7 +1224,7 @@ do_query_all (SPDocument *doc)
     o = SP_DOCUMENT_ROOT(doc);
 
     if (o) {
-        sp_document_ensure_up_to_date (doc);
+        doc->ensure_up_to_date ();
         do_query_all_recurse(o);
     }
 }
@@ -1327,7 +1327,7 @@ sp_do_export_png(SPDocument *doc)
             }
 
             // write object bbox to area
-            sp_document_ensure_up_to_date (doc);
+            doc->ensure_up_to_date ();
             Geom::OptRect areaMaybe;
             static_cast<SPItem *>(o_area)->invoke_bbox( areaMaybe, static_cast<SPItem *>(o_area)->i2d_affine(), TRUE);
             if (areaMaybe) {
@@ -1352,9 +1352,9 @@ sp_do_export_png(SPDocument *doc)
         area = Geom::Rect(Geom::Interval(x0,x1), Geom::Interval(y0,y1));
     } else if (sp_export_area_page || !(sp_export_id || sp_export_area_drawing)) {
         /* Export the whole page: note: Inkscape uses 'page' in all menus and dialogs, not 'canvas' */
-        sp_document_ensure_up_to_date (doc);
+        doc->ensure_up_to_date ();
         Geom::Point origin (SP_ROOT(doc->root)->x.computed, SP_ROOT(doc->root)->y.computed);
-        area = Geom::Rect(origin, origin + sp_document_dimensions(doc));
+        area = Geom::Rect(origin, origin + doc->getDimensions());
     }
 
     // set filename and dpi from options, if not yet set from the hints

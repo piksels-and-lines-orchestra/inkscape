@@ -392,8 +392,8 @@ lpetool_context_switch_mode(SPLPEToolContext *lc, Inkscape::LivePathEffect::Effe
 
 void
 lpetool_get_limiting_bbox_corners(SPDocument *document, Geom::Point &A, Geom::Point &B) {
-    Geom::Coord w = sp_document_width(document);
-    Geom::Coord h = sp_document_height(document);
+    Geom::Coord w = document->getWidth();
+    Geom::Coord h = document->getHeight();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     double ulx = prefs->getDouble("/tools/lpetool/bbox_upperleftx", 0);

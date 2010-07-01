@@ -196,7 +196,7 @@ void SPAvoidRef::setConnectionPointsAttrUndoable(const gchar* value, const gchar
 
     sp_object_setAttribute( SP_OBJECT(item), "inkscape:connection-points", value, 0 );
     item->updateRepr();
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
     sp_document_done(doc, SP_VERB_CONTEXT_CONNECTOR, action);
 }
 

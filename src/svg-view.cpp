@@ -84,12 +84,12 @@ void
 SPSVGView::doRescale (bool event)
 {
     if (!doc()) return;
-    if (sp_document_width (doc()) < 1e-9) return;
-    if (sp_document_height (doc()) < 1e-9) return;
+    if (doc()->getWidth () < 1e-9) return;
+    if (doc()->getHeight () < 1e-9) return;
 
     if (_rescale) {
-        _hscale = _width / sp_document_width (doc());
-        _vscale = _height / sp_document_height (doc());
+        _hscale = _width / doc()->getWidth ();
+        _vscale = _height / doc()->getHeight ();
         if (_keepaspect) {
             if (_hscale > _vscale) {
                 _hscale = _vscale;
@@ -104,8 +104,8 @@ SPSVGView::doRescale (bool event)
     }
 
     if (event) {
-        emitResized (sp_document_width (doc()) * _hscale,
-                sp_document_height (doc()) * _vscale);
+        emitResized (doc()->getWidth () * _hscale,
+                doc()->getHeight () * _vscale);
     }
 }
 

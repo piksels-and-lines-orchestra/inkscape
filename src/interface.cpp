@@ -1363,7 +1363,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                         unsigned int b = color.getB();
 
                         SPGradient* matches = 0;
-                        const GSList *gradients = sp_document_get_resource_list(doc, "gradient");
+                        const GSList *gradients = doc->get_resource_list("gradient");
                         for (const GSList *item = gradients; item; item = item->next) {
                             SPGradient* grad = SP_GRADIENT(item->data);
                             if ( color.descr == grad->getId() ) {
@@ -1481,7 +1481,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
 
             // move to mouse pointer
             {
-                sp_document_ensure_up_to_date(sp_desktop_document(desktop));
+                sp_desktop_document(desktop)->ensure_up_to_date();
                 Geom::OptRect sel_bbox = selection->bounds();
                 if (sel_bbox) {
                     Geom::Point m( desktop->point() - sel_bbox->midpoint() );

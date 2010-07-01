@@ -124,7 +124,7 @@ sp_fespotlight_build(SPObject *object, SPDocument *document, Inkscape::XML::Node
     sp_object_read_attr(object, "limitingConeAngle");
 
 //is this necessary?
-    sp_document_add_resource(document, "fespotlight", object);
+    document->add_resource("fespotlight", object);
 }
 
 /**
@@ -137,7 +137,7 @@ sp_fespotlight_release(SPObject *object)
 
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "fespotlight", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("fespotlight", SP_OBJECT(object));
     }
 
 //TODO: release resources here

@@ -172,7 +172,7 @@ GtkWidget *gr_vector_list(SPDesktop *desktop, bool selection_empty, SPGradient *
     GtkWidget *m = gtk_menu_new ();
 
     GSList *gl = NULL;
-    const GSList *gradients = sp_document_get_resource_list (document, "gradient");
+    const GSList *gradients = document->get_resource_list ("gradient");
     for (const GSList *i = gradients; i != NULL; i = i->next) {
         SPGradient *grad = SP_GRADIENT(i->data);
         if ( grad->hasStops() && !grad->isSolid() ) {

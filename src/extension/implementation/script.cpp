@@ -534,7 +534,7 @@ SPDocument *Script::open(Inkscape::Extension::Input *module,
     if (mydoc != NULL) {
         g_free(mydoc->base);
         mydoc->base = NULL;
-        sp_document_change_uri_and_hrefs(mydoc, filenameArg);
+        mydoc->change_uri_and_hrefs(filenameArg);
     }
 
     // make sure we don't leak file descriptors from g_file_open_tmp

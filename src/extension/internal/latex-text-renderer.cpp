@@ -58,7 +58,7 @@ latex_render_document_text_to_file( SPDocument *doc, gchar const *filename,
                                     const gchar * const exportId, bool exportDrawing, bool exportCanvas,
                                     bool pdflatex)
 {
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     SPItem *base = NULL;
 
@@ -496,7 +496,7 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     Geom::OptRect d;
     if (pageBoundingBox) {
         d = Geom::Rect( Geom::Point(0,0),
-                        Geom::Point(sp_document_width(doc), sp_document_height(doc)) );
+                        Geom::Point(doc->getWidth(), doc->getHeight()) );
     } else {
         base->invoke_bbox( d, base->i2d_affine(), TRUE, SPItem::RENDERING_BBOX);
     }
@@ -517,7 +517,7 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     }
 
     // flip y-axis
-    push_transform( Geom::Scale(1,-1) * Geom::Translate(0, sp_document_height(doc)) );
+    push_transform( Geom::Scale(1,-1) * Geom::Translate(0, doc->getHeight()) );
 
     // write the info to LaTeX
     Inkscape::SVGOStringStream os;

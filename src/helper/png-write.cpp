@@ -422,10 +422,10 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
         return true;
     }
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
     /* Calculate translation by transforming to document coordinates (flipping Y)*/
-    Geom::Point translation = Geom::Point(-area[Geom::X][0], area[Geom::Y][1] - sp_document_height(doc));
+    Geom::Point translation = Geom::Point(-area[Geom::X][0], area[Geom::Y][1] - doc->getHeight());
 
     /*  This calculation is only valid when assumed that (x0,y0)= area.corner(0) and (x1,y1) = area.corner(2)
      * 1) a[0] * x0 + a[2] * y1 + a[4] = 0.0

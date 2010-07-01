@@ -53,7 +53,7 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
     CairoRenderer *renderer;
     CairoRenderContext *ctx;
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensure_up_to_date();
 
 /* Start */
     /* Create new arena */

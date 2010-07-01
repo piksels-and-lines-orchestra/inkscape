@@ -593,8 +593,7 @@ void ink_node_tool_select_area(InkNodeTool *nt, Geom::Rect const &sel, GdkEventB
     if (nt->_multipath->empty()) {
         // if multipath is empty, select rubberbanded items rather than nodes
         Inkscape::Selection *selection = nt->desktop->selection;
-        GSList *items = sp_document_items_in_box(
-            sp_desktop_document(nt->desktop), nt->desktop->dkey, sel);
+        GSList *items = sp_desktop_document(nt->desktop)->items_in_box(nt->desktop->dkey, sel);
         selection->setList(items);
         g_slist_free(items);
     } else {

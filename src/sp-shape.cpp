@@ -780,8 +780,8 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
     item->invoke_bbox( &pbox, Geom::identity(), TRUE);
     dbox.x0 = 0.0;
     dbox.y0 = 0.0;
-    dbox.x1 = sp_document_width (SP_OBJECT_DOCUMENT (item));
-    dbox.y1 = sp_document_height (SP_OBJECT_DOCUMENT (item));
+    dbox.x1 = SP_OBJECT_DOCUMENT (item)->getWidth ();
+    dbox.y1 = SP_OBJECT_DOCUMENT (item)->getHeight ();
     item->getBboxDesktop (&bbox);
     Geom::Matrix const i2d(item->i2d_affine());
 

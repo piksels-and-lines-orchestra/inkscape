@@ -146,7 +146,7 @@ sp_filter_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     sp_object_read_attr(object, "xlink:href");
 
 //is this necessary?
-    sp_document_add_resource(document, "filter", object);
+    document->add_resource("filter", object);
 }
 
 /**
@@ -159,7 +159,7 @@ sp_filter_release(SPObject *object)
 
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "filter", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("filter", SP_OBJECT(object));
     }
 
 //TODO: release resources here

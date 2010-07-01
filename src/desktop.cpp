@@ -185,7 +185,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
 
     SPDocument *document = SP_OBJECT_DOCUMENT (namedview);
     /* Kill flicker */
-    sp_document_ensure_up_to_date (document);
+    document->ensure_up_to_date ();
 
     /* Setup Dialog Manager */
     _dlg_mgr = &Inkscape::UI::Dialog::DialogManager::getInstance();
@@ -255,7 +255,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
     // display rect and zoom are now handled in sp_desktop_widget_realize()
 
     Geom::Rect const d(Geom::Point(0.0, 0.0),
-                       Geom::Point(sp_document_width(document), sp_document_height(document)));
+                       Geom::Point(document->getWidth(), document->getHeight()));
 
     SP_CTRLRECT(page)->setRectangle(d);
     SP_CTRLRECT(page_border)->setRectangle(d);
@@ -272,7 +272,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
 
 
     /* Connect event for page resize */
-    _doc2dt[5] = sp_document_height (document);
+    _doc2dt[5] = document->getHeight ();
     sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (drawing), _doc2dt);
 
     _modified_connection = namedview->connectModified(sigc::bind<2>(sigc::ptr_fun(&_namedview_modified), this));
@@ -684,7 +684,7 @@ SPItem *
 SPDesktop::item_from_list_at_point_bottom (const GSList *list, Geom::Point const p) const
 {
     g_return_val_if_fail (doc() != NULL, NULL);
-    return sp_document_item_from_list_at_point_bottom (dkey, SP_GROUP (doc()->root), list, p);
+    return SPDocument::item_from_list_at_point_bottom (dkey, SP_GROUP (doc()->root), list, p);
 }
 
 /**
@@ -694,7 +694,7 @@ SPItem *
 SPDesktop::item_at_point (Geom::Point const p, bool into_groups, SPItem *upto) const
 {
     g_return_val_if_fail (doc() != NULL, NULL);
-    return sp_document_item_at_point (doc(), dkey, p, into_groups, upto);
+    return doc()->item_at_point ( dkey, p, into_groups, upto);
 }
 
 /**
@@ -704,7 +704,7 @@ SPItem *
 SPDesktop::group_at_point (Geom::Point const p) const
 {
     g_return_val_if_fail (doc() != NULL, NULL);
-    return sp_document_group_at_point (doc(), dkey, p);
+    return doc()->group_at_point (dkey, p);
 }
 
 /**
@@ -1014,7 +1014,7 @@ void
 SPDesktop::zoom_page()
 {
     Geom::Rect d(Geom::Point(0, 0),
-                 Geom::Point(sp_document_width(doc()), sp_document_height(doc())));
+                 Geom::Point(doc()->getWidth(), doc()->getHeight()));
 
     if (d.minExtent() < 1.0) {
         return;
@@ -1031,12 +1031,12 @@ SPDesktop::zoom_page_width()
 {
     Geom::Rect const a = get_display_area();
 
-    if (sp_document_width(doc()) < 1.0) {
+    if (doc()->getWidth() < 1.0) {
         return;
     }
 
     Geom::Rect d(Geom::Point(0, a.midpoint()[Geom::Y]),
-                 Geom::Point(sp_document_width(doc()), a.midpoint()[Geom::Y]));
+                 Geom::Point(doc()->getWidth(), a.midpoint()[Geom::Y]));
 
     set_display_area(d, 10);
 }

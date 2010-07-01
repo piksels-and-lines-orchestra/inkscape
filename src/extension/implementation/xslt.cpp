@@ -174,7 +174,7 @@ XSLT::open(Inkscape::Extension::Input */*module*/, gchar const *filename)
     }
     g_free(s);
 
-    SPDocument * doc = sp_document_create(rdoc, filename, base, name, true);
+    SPDocument * doc = SPDocument::createDoc(rdoc, filename, base, name, true);
 
     g_free(base); g_free(name);
 

@@ -566,7 +566,7 @@ sp_root_modified(SPObject *object, guint flags)
 
     /* fixme: (Lauris) */
     if (!object->parent && (flags & SP_OBJECT_VIEWPORT_MODIFIED_FLAG)) {
-        sp_document_resized_signal_emit (SP_OBJECT_DOCUMENT(root), root->width.computed, root->height.computed);
+        SP_OBJECT_DOCUMENT(root)->resized_signal_emit (root->width.computed, root->height.computed);
     }
 }
 

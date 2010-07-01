@@ -292,7 +292,7 @@ void SPDocument::reset_key (void */*dummy*/)
 }
 
 SPDocument *
-sp_document_create(Inkscape::XML::Document *rdoc,
+SPDocument::createDoc(Inkscape::XML::Document *rdoc,
                    gchar const *uri,
                    gchar const *base,
                    gchar const *name,
@@ -439,7 +439,7 @@ sp_document_create(Inkscape::XML::Document *rdoc,
  * appears in document list.
  */
 SPDocument *
-SPDocument::createDoc(gchar const *uri, unsigned int keepalive, bool make_new)
+SPDocument::createNewDoc(gchar const *uri, unsigned int keepalive, bool make_new)
 {
     SPDocument *doc;
     Inkscape::XML::Document *rdoc;
@@ -481,7 +481,7 @@ SPDocument::createDoc(gchar const *uri, unsigned int keepalive, bool make_new)
     //# These should be set by now
     g_assert(name);
 
-    doc = sp_document_create(rdoc, uri, base, name, keepalive);
+    doc = createDoc(rdoc, uri, base, name, keepalive);
 
     g_free(base);
     g_free(name);
@@ -490,7 +490,7 @@ SPDocument::createDoc(gchar const *uri, unsigned int keepalive, bool make_new)
 }
 
 SPDocument *
-SPDocument::createDocFromMem(gchar const *buffer, gint length, unsigned int keepalive)
+SPDocument::createNewDocFromMem(gchar const *buffer, gint length, unsigned int keepalive)
 {
     SPDocument *doc;
     Inkscape::XML::Document *rdoc;
@@ -509,7 +509,7 @@ SPDocument::createDocFromMem(gchar const *buffer, gint length, unsigned int keep
 
     name = g_strdup_printf(_("Memory document %d"), ++doc_count);
 
-    doc = sp_document_create(rdoc, NULL, NULL, name, keepalive);
+    doc = createDoc(rdoc, NULL, NULL, name, keepalive);
 
     return doc;
 }
@@ -517,7 +517,7 @@ SPDocument::createDocFromMem(gchar const *buffer, gint length, unsigned int keep
 SPDocument *
 SPDocument::doRef()
 {
-    //g_return_val_if_fail(doc != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
     Inkscape::GC::anchor(this);
     return this;
 }
@@ -525,18 +525,18 @@ SPDocument::doRef()
 SPDocument *
 SPDocument::doUnref()
 {
-    //g_return_val_if_fail(doc != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
     Inkscape::GC::release(this);
     return NULL;
 }
 
-gdouble sp_document_width(SPDocument *document)
+gdouble SPDocument::getWidth()
 {
-    g_return_val_if_fail(document != NULL, 0.0);
-    g_return_val_if_fail(document->priv != NULL, 0.0);
-    g_return_val_if_fail(document->root != NULL, 0.0);
+    g_return_val_if_fail(this != NULL, 0.0);
+    g_return_val_if_fail(this->priv != NULL, 0.0);
+    g_return_val_if_fail(this->root != NULL, 0.0);
 
-    SPRoot *root = SP_ROOT(document->root);
+    SPRoot *root = SP_ROOT(this->root);
 
     if (root->width.unit == SVGLength::PERCENT && root->viewBox_set)
         return root->viewBox.x1 - root->viewBox.x0;
@@ -544,9 +544,9 @@ gdouble sp_document_width(SPDocument *document)
 }
 
 void
-sp_document_set_width (SPDocument *document, gdouble width, const SPUnit *unit)
+SPDocument::setWidth (gdouble width, const SPUnit *unit)
 {
-    SPRoot *root = SP_ROOT(document->root);
+    SPRoot *root = SP_ROOT(this->root);
 
     if (root->width.unit == SVGLength::PERCENT && root->viewBox_set) { // set to viewBox=
         root->viewBox.x1 = root->viewBox.x0 + sp_units_get_pixels (width, *unit);
@@ -570,9 +570,9 @@ sp_document_set_width (SPDocument *document, gdouble width, const SPUnit *unit)
     SP_OBJECT (root)->updateRepr();
 }
 
-void sp_document_set_height (SPDocument * document, gdouble height, const SPUnit *unit)
+void SPDocument::setHeight (gdouble height, const SPUnit *unit)
 {
-    SPRoot *root = SP_ROOT(document->root);
+    SPRoot *root = SP_ROOT(this->root);
 
     if (root->height.unit == SVGLength::PERCENT && root->viewBox_set) { // set to viewBox=
         root->viewBox.y1 = root->viewBox.y0 + sp_units_get_pixels (height, *unit);
@@ -596,22 +596,22 @@ void sp_document_set_height (SPDocument * document, gdouble height, const SPUnit
     SP_OBJECT (root)->updateRepr();
 }
 
-gdouble sp_document_height(SPDocument *document)
+gdouble SPDocument::getHeight()
 {
-    g_return_val_if_fail(document != NULL, 0.0);
-    g_return_val_if_fail(document->priv != NULL, 0.0);
-    g_return_val_if_fail(document->root != NULL, 0.0);
+    g_return_val_if_fail(this != NULL, 0.0);
+    g_return_val_if_fail(this->priv != NULL, 0.0);
+    g_return_val_if_fail(this->root != NULL, 0.0);
 
-    SPRoot *root = SP_ROOT(document->root);
+    SPRoot *root = SP_ROOT(this->root);
 
     if (root->height.unit == SVGLength::PERCENT && root->viewBox_set)
         return root->viewBox.y1 - root->viewBox.y0;
     return root->height.computed;
 }
 
-Geom::Point sp_document_dimensions(SPDocument *doc)
+Geom::Point SPDocument::getDimensions()
 {
-    return Geom::Point(sp_document_width(doc), sp_document_height(doc));
+    return Geom::Point(getWidth(), getHeight());
 }
 
 /**
@@ -662,7 +662,7 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
     double const w = rect.width();
     double const h = rect.height();
 
-    double const old_height = sp_document_height(this);
+    double const old_height = getHeight();
     SPUnit const &px(sp_unit_get_by_id(SP_UNIT_PX));
     
     /* in px */
@@ -700,8 +700,8 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
             rect.max() + Geom::Point(margin_right, margin_top));
     
     
-    sp_document_set_width(this, rect_with_margins.width(), &px);
-    sp_document_set_height(this, rect_with_margins.height(), &px);
+    setWidth(rect_with_margins.width(), &px);
+    setHeight(rect_with_margins.height(), &px);
 
     Geom::Translate const tr(
             Geom::Point(0, old_height - rect_with_margins.height())
@@ -774,11 +774,11 @@ do_change_uri(SPDocument *const document, gchar const *const filename, bool cons
  *
  * \see sp_document_change_uri_and_hrefs
  */
-void sp_document_set_uri(SPDocument *document, gchar const *filename)
+void SPDocument::setUri(gchar const *filename)
 {
-    g_return_if_fail(document != NULL);
+    g_return_if_fail(this != NULL);
 
-    do_change_uri(document, filename, false);
+    do_change_uri(this, filename, false);
 }
 
 /**
@@ -787,19 +787,19 @@ void sp_document_set_uri(SPDocument *document, gchar const *filename)
  *
  * \see sp_document_set_uri
  */
-void sp_document_change_uri_and_hrefs(SPDocument *document, gchar const *filename)
+void SPDocument::change_uri_and_hrefs(gchar const *filename)
 {
-    g_return_if_fail(document != NULL);
+    g_return_if_fail(this != NULL);
 
-    do_change_uri(document, filename, true);
+    do_change_uri(this, filename, true);
 }
 
 void
-sp_document_resized_signal_emit(SPDocument *doc, gdouble width, gdouble height)
+SPDocument::resized_signal_emit(gdouble width, gdouble height)
 {
-    g_return_if_fail(doc != NULL);
+    g_return_if_fail(this != NULL);
 
-    doc->priv->resized_signal.emit(width, height);
+    this->priv->resized_signal.emit(width, height);
 }
 
 sigc::connection SPDocument::connectModified(SPDocument::ModifiedSignal::slot_type slot)
@@ -959,15 +959,15 @@ Glib::ustring SPDocument::getLanguage() {
 /* Object modification root handler */
 
 void
-sp_document_request_modified(SPDocument *doc)
+SPDocument::request_modified()
 {
-    if (!doc->modified_id) {
-        doc->modified_id = g_idle_add_full(SP_DOCUMENT_UPDATE_PRIORITY, 
-                sp_document_idle_handler, doc, NULL);
+    if (!modified_id) {
+        modified_id = g_idle_add_full(SP_DOCUMENT_UPDATE_PRIORITY, 
+                sp_document_idle_handler, this, NULL);
     }
-    if (!doc->rerouting_handler_id) {
-        doc->rerouting_handler_id = g_idle_add_full(SP_DOCUMENT_REROUTING_PRIORITY, 
-                sp_document_rerouting_handler, doc, NULL);
+    if (!rerouting_handler_id) {
+        rerouting_handler_id = g_idle_add_full(SP_DOCUMENT_REROUTING_PRIORITY, 
+                sp_document_rerouting_handler, this, NULL);
     }
 }
 
@@ -1027,7 +1027,7 @@ SPDocument::_updateDocument()
  * since this typically indicates we're stuck in an update loop.
  */
 gint
-sp_document_ensure_up_to_date(SPDocument *doc)
+SPDocument::ensure_up_to_date()
 {
     // Bring the document up-to-date, specifically via the following:
     //   1a) Process all document updates.
@@ -1036,9 +1036,9 @@ sp_document_ensure_up_to_date(SPDocument *doc)
     int counter = 32;
     for (unsigned int pass = 1; pass <= 2; ++pass) {
         // Process document updates.
-        while (!doc->_updateDocument()) {
+        while (!_updateDocument()) {
             if (counter == 0) {
-                g_warning("More than 32 iteration while updating document '%s'", doc->uri);
+                g_warning("More than 32 iteration while updating document '%s'", uri);
                 break;
             }
             counter--;
@@ -1052,19 +1052,19 @@ sp_document_ensure_up_to_date(SPDocument *doc)
         // changed objects and provide new routings.  This may cause some objects
             // to be modified, hence the second update pass.
         if (pass == 1) {
-            doc->router->processTransaction();
+            router->processTransaction();
         }
     }
     
-    if (doc->modified_id) {
+    if (modified_id) {
         /* Remove handler */
-        g_source_remove(doc->modified_id);
-        doc->modified_id = 0;
+        g_source_remove(modified_id);
+        modified_id = 0;
     }
-    if (doc->rerouting_handler_id) {
+    if (rerouting_handler_id) {
         /* Remove handler */
-        g_source_remove(doc->rerouting_handler_id);
-        doc->rerouting_handler_id = 0;
+        g_source_remove(rerouting_handler_id);
+        rerouting_handler_id = 0;
     }
     return counter>0;
 }
@@ -1156,8 +1156,7 @@ bool item_is_in_group(SPItem *item, SPGroup *group)
 Returns the bottommost item from the list which is at the point, or NULL if none.
 */
 SPItem*
-sp_document_item_from_list_at_point_bottom(unsigned int dkey, SPGroup *group, GSList const *list,
-                                           Geom::Point const p, bool take_insensitive)
+SPDocument::item_from_list_at_point_bottom(unsigned int dkey, SPGroup *group, GSList const *list,Geom::Point const p, bool take_insensitive)
 {
     g_return_val_if_fail(group, NULL);
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -1176,7 +1175,7 @@ sp_document_item_from_list_at_point_bottom(unsigned int dkey, SPGroup *group, GS
         }
 
         if (SP_IS_GROUP(o)) {
-            SPItem *found = sp_document_item_from_list_at_point_bottom(dkey, SP_GROUP(o), list, p, take_insensitive);
+            SPItem *found = item_from_list_at_point_bottom(dkey, SP_GROUP(o), list, p, take_insensitive);
             if (found)
                 return found;
         }
@@ -1270,12 +1269,12 @@ find_group_at_point(unsigned int dkey, SPGroup *group, Geom::Point const p)
  *
  */
 
-GSList *sp_document_items_in_box(SPDocument *document, unsigned int dkey, Geom::Rect const &box)
+GSList *SPDocument::items_in_box(unsigned int dkey, Geom::Rect const &box)
 {
-    g_return_val_if_fail(document != NULL, NULL);
-    g_return_val_if_fail(document->priv != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
+    g_return_val_if_fail(this->priv != NULL, NULL);
 
-    return find_items_in_area(NULL, SP_GROUP(document->root), dkey, box, is_within);
+    return find_items_in_area(NULL, SP_GROUP(this->root), dkey, box, is_within);
 }
 
 /*
@@ -1285,16 +1284,16 @@ GSList *sp_document_items_in_box(SPDocument *document, unsigned int dkey, Geom::
  *
  */
 
-GSList *sp_document_partial_items_in_box(SPDocument *document, unsigned int dkey, Geom::Rect const &box)
+GSList *SPDocument::partial_items_in_box(unsigned int dkey, Geom::Rect const &box)
 {
-    g_return_val_if_fail(document != NULL, NULL);
-    g_return_val_if_fail(document->priv != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
+    g_return_val_if_fail(this->priv != NULL, NULL);
 
-    return find_items_in_area(NULL, SP_GROUP(document->root), dkey, box, overlaps);
+    return find_items_in_area(NULL, SP_GROUP(this->root), dkey, box, overlaps);
 }
 
 GSList *
-sp_document_items_at_points(SPDocument *document, unsigned const key, std::vector<Geom::Point> points)
+SPDocument::items_at_points(unsigned const key, std::vector<Geom::Point> points)
 {
     GSList *items = NULL;
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -1306,7 +1305,7 @@ sp_document_items_at_points(SPDocument *document, unsigned const key, std::vecto
     prefs->setDouble("/options/cursortolerance/value", 0.25);
 
     for(unsigned int i = 0; i < points.size(); i++) {
-        SPItem *item = sp_document_item_at_point(document, key, points[i],
+        SPItem *item = item_at_point(key, points[i],
                                                  false, NULL);
         if (item && !g_slist_find(items, item))
             items = g_slist_prepend (items, item);
@@ -1319,34 +1318,34 @@ sp_document_items_at_points(SPDocument *document, unsigned const key, std::vecto
 }
 
 SPItem *
-sp_document_item_at_point(SPDocument *document, unsigned const key, Geom::Point const p,
+SPDocument::item_at_point( unsigned const key, Geom::Point const p,
                           gboolean const into_groups, SPItem *upto)
 {
-    g_return_val_if_fail(document != NULL, NULL);
-    g_return_val_if_fail(document->priv != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
+    g_return_val_if_fail(this->priv != NULL, NULL);
 
-    return find_item_at_point(key, SP_GROUP(document->root), p, into_groups, false, upto);
+    return find_item_at_point(key, SP_GROUP(this->root), p, into_groups, false, upto);
 }
 
 SPItem*
-sp_document_group_at_point(SPDocument *document, unsigned int key, Geom::Point const p)
+SPDocument::group_at_point(unsigned int key, Geom::Point const p)
 {
-    g_return_val_if_fail(document != NULL, NULL);
-    g_return_val_if_fail(document->priv != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
+    g_return_val_if_fail(this->priv != NULL, NULL);
 
-    return find_group_at_point(key, SP_GROUP(document->root), p);
+    return find_group_at_point(key, SP_GROUP(this->root), p);
 }
 
 
 /* Resource management */
 
 gboolean
-sp_document_add_resource(SPDocument *document, gchar const *key, SPObject *object)
+SPDocument::add_resource(gchar const *key, SPObject *object)
 {
     GSList *rlist;
     GQuark q = g_quark_from_string(key);
 
-    g_return_val_if_fail(document != NULL, FALSE);
+    g_return_val_if_fail(this != NULL, FALSE);
     g_return_val_if_fail(key != NULL, FALSE);
     g_return_val_if_fail(*key != '\0', FALSE);
     g_return_val_if_fail(object != NULL, FALSE);
@@ -1355,23 +1354,23 @@ sp_document_add_resource(SPDocument *document, gchar const *key, SPObject *objec
     if (SP_OBJECT_IS_CLONED(object))
         return FALSE;
 
-    rlist = (GSList*)g_hash_table_lookup(document->priv->resources, key);
+    rlist = (GSList*)g_hash_table_lookup(this->priv->resources, key);
     g_return_val_if_fail(!g_slist_find(rlist, object), FALSE);
     rlist = g_slist_prepend(rlist, object);
-    g_hash_table_insert(document->priv->resources, (gpointer) key, rlist);
+    g_hash_table_insert(this->priv->resources, (gpointer) key, rlist);
 
-    document->priv->resources_changed_signals[q].emit();
+    this->priv->resources_changed_signals[q].emit();
 
     return TRUE;
 }
 
 gboolean
-sp_document_remove_resource(SPDocument *document, gchar const *key, SPObject *object)
+SPDocument::remove_resource(gchar const *key, SPObject *object)
 {
     GSList *rlist;
     GQuark q = g_quark_from_string(key);
 
-    g_return_val_if_fail(document != NULL, FALSE);
+    g_return_val_if_fail(this != NULL, FALSE);
     g_return_val_if_fail(key != NULL, FALSE);
     g_return_val_if_fail(*key != '\0', FALSE);
     g_return_val_if_fail(object != NULL, FALSE);
@@ -1380,33 +1379,32 @@ sp_document_remove_resource(SPDocument *document, gchar const *key, SPObject *ob
     if (SP_OBJECT_IS_CLONED(object))
         return FALSE;
 
-    rlist = (GSList*)g_hash_table_lookup(document->priv->resources, key);
+    rlist = (GSList*)g_hash_table_lookup(this->priv->resources, key);
     g_return_val_if_fail(rlist != NULL, FALSE);
     g_return_val_if_fail(g_slist_find(rlist, object), FALSE);
     rlist = g_slist_remove(rlist, object);
-    g_hash_table_insert(document->priv->resources, (gpointer) key, rlist);
+    g_hash_table_insert(this->priv->resources, (gpointer) key, rlist);
 
-    document->priv->resources_changed_signals[q].emit();
+    this->priv->resources_changed_signals[q].emit();
 
     return TRUE;
 }
 
 GSList const *
-sp_document_get_resource_list(SPDocument *document, gchar const *key)
+SPDocument::get_resource_list(gchar const *key)
 {
-    g_return_val_if_fail(document != NULL, NULL);
+    g_return_val_if_fail(this != NULL, NULL);
     g_return_val_if_fail(key != NULL, NULL);
     g_return_val_if_fail(*key != '\0', NULL);
 
-    return (GSList*)g_hash_table_lookup(document->priv->resources, key);
+    return (GSList*)g_hash_table_lookup(this->priv->resources, key);
 }
 
-sigc::connection sp_document_resources_changed_connect(SPDocument *document,
-                                                       gchar const *key,
+sigc::connection SPDocument::resources_changed_connect(gchar const *key,
                                                        SPDocument::ResourcesChangedSignal::slot_type slot)
 {
     GQuark q = g_quark_from_string(key);
-    return document->priv->resources_changed_signals[q].connect(slot);
+    return this->priv->resources_changed_signals[q].connect(slot);
 }
 
 /* Helpers */
@@ -1452,9 +1450,9 @@ vacuum_document_recursive(SPObject *obj)
 }
 
 unsigned int
-vacuum_document(SPDocument *document)
+SPDocument::vacuum_document()
 {
-    unsigned int start = objects_in_document(document);
+    unsigned int start = objects_in_document(this);
     unsigned int end;
     unsigned int newend = start;
 
@@ -1463,11 +1461,11 @@ vacuum_document(SPDocument *document)
     do {
         end = newend;
 
-        vacuum_document_recursive(SP_DOCUMENT_ROOT(document));
-        document->collectOrphans();
+        vacuum_document_recursive(SP_DOCUMENT_ROOT(this));
+        this->collectOrphans();
         iterations++;
 
-        newend = objects_in_document(document);
+        newend = objects_in_document(this);
 
     } while (iterations < 100 && newend < end);
 

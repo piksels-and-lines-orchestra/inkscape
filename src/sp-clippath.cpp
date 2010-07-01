@@ -107,7 +107,7 @@ sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *r
     sp_object_read_attr(object, "clipPathUnits");
 
     /* Register ourselves */
-    sp_document_add_resource(document, "clipPath", object);
+    document->add_resource("clipPath", object);
 }
 
 static void
@@ -115,7 +115,7 @@ sp_clippath_release(SPObject * object)
 {
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "clipPath", object);
+        SP_OBJECT_DOCUMENT(object)->remove_resource("clipPath", object);
     }
 
     SPClipPath *cp = SP_CLIPPATH(object);

@@ -154,7 +154,7 @@ static void sp_group_build(SPObject *object, SPDocument *document, Inkscape::XML
 
 static void sp_group_release(SPObject *object) {
     if ( SP_GROUP(object)->_layer_mode == SPGroup::LAYER ) {
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "layer", object);
+        SP_OBJECT_DOCUMENT(object)->remove_resource("layer", object);
     }
     if (((SPObjectClass *)parent_class)->release) {
         ((SPObjectClass *)parent_class)->release(object);
@@ -535,9 +535,9 @@ sp_item_group_get_child_by_name (SPGroup *group, SPObject *ref, const gchar *nam
 void SPGroup::setLayerMode(LayerMode mode) {
     if ( _layer_mode != mode ) {
         if ( mode == LAYER ) {
-            sp_document_add_resource(SP_OBJECT_DOCUMENT(this), "layer", this);
+            SP_OBJECT_DOCUMENT(this)->add_resource("layer", this);
         } else if ( _layer_mode == LAYER ) {
-            sp_document_remove_resource(SP_OBJECT_DOCUMENT(this), "layer", this);
+            SP_OBJECT_DOCUMENT(this)->remove_resource("layer", this);
         }
         _layer_mode = mode;
         _updateLayerMode();

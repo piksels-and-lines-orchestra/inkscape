@@ -243,7 +243,7 @@ void SvgFontsDialog::update_fonts()
 {
     SPDesktop* desktop = this->getDesktop();
     SPDocument* document = sp_desktop_document(desktop);
-    const GSList* fonts = sp_document_get_resource_list(document, "font");
+    const GSList* fonts = document->get_resource_list("font");
 
     _model->clear();
     for(const GSList *l = fonts; l; l = l->next) {

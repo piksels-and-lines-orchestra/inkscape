@@ -870,7 +870,7 @@ clonetiler_trace_setup (SPDocument *doc, gdouble zoom, SPItem *original)
     clonetiler_trace_hide_tiled_clones_recursively (SP_OBJECT(SP_DOCUMENT_ROOT (trace_doc)));
 
     sp_document_root (trace_doc)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
-    sp_document_ensure_up_to_date(trace_doc);
+    trace_doc->ensure_up_to_date();
 
     trace_zoom = zoom;
 }
@@ -987,7 +987,7 @@ clonetiler_unclump( GtkWidget */*widget*/, void * )
         }
     }
 
-    sp_document_ensure_up_to_date(sp_desktop_document(desktop));
+    sp_desktop_document(desktop)->ensure_up_to_date();
 
     unclump (to_unclump);
 
@@ -1480,7 +1480,7 @@ clonetiler_apply( GtkWidget */*widget*/, void * )
                 double radius = blur * perimeter;
                 // this is necessary for all newly added clones to have correct bboxes,
                 // otherwise filters won't work:
-                sp_document_ensure_up_to_date(sp_desktop_document(desktop));
+                sp_desktop_document(desktop)->ensure_up_to_date();
                 // it's hard to figure out exact width/height of the tile without having an object
                 // that we can take bbox of; however here we only need a lower bound so that blur
                 // margins are not too small, and the perimeter should work

@@ -76,7 +76,7 @@ Editor::init()
     //
     gchar const *tmpl = g_build_filename ((INKSCAPE_TEMPLATESDIR), "default.svg", NULL);
     bool have_default = Inkscape::IO::file_test (tmpl, G_FILE_TEST_IS_REGULAR);
-    SPDocument *doc = SPDocument::createDoc (have_default? tmpl:0, true, true);
+    SPDocument *doc = SPDocument::createNewDoc (have_default? tmpl:0, true, true);
     g_return_val_if_fail (doc != 0, false);
     Inkscape::UI::View::EditWidget *ew = new Inkscape::UI::View::EditWidget (doc);
     doc->doUnref ();

@@ -439,7 +439,7 @@ void SPGradientImpl::build(SPObject *object, SPDocument *document, Inkscape::XML
     sp_object_read_attr(object, "xlink:href");
 
     /* Register ourselves */
-    sp_document_add_resource(document, "gradient", object);
+    document->add_resource("gradient", object);
 }
 
 /**
@@ -455,7 +455,7 @@ void SPGradientImpl::release(SPObject *object)
 
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
-        sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "gradient", SP_OBJECT(object));
+        SP_OBJECT_DOCUMENT(object)->remove_resource("gradient", SP_OBJECT(object));
     }
 
     if (gradient->ref) {

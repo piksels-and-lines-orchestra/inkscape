@@ -661,7 +661,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
     Catalog *catalog = pdf_doc->getCatalog();
     Page *page = catalog->getPage(page_num);
 
-    SPDocument *doc = SPDocument::createDoc(NULL, TRUE, TRUE);
+    SPDocument *doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
     bool saved = sp_document_get_undo_sensitive(doc);
     sp_document_set_undo_sensitive(doc, false); // No need to undo in this temporary document
 

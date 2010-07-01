@@ -1064,7 +1064,7 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
                     cc_connector_rerouting_finish(cc, &p);
 
-                    sp_document_ensure_up_to_date(doc);
+                    doc->ensure_up_to_date();
                     cc->state = SP_CONNECTOR_CONTEXT_IDLE;
                     return TRUE;
                     break;
@@ -1108,7 +1108,7 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
                     cp.dir = Avoid::ConnDirAll;
                     g_object_unref(cc->selected_handle);
                     cc->active_shape->avoidRef->addConnectionPoint(cp);
-                    sp_document_ensure_up_to_date(doc);
+                    doc->ensure_up_to_date();
                     for (ConnectionPointMap::iterator it = cc->connpthandles.begin(); it != cc->connpthandles.end(); ++it)
                         if (it->second.type == ConnPointUserDefined && it->second.id == cp.id)
                         {
@@ -1239,7 +1239,7 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
                     cp.dir = Avoid::ConnDirAll;
                     g_object_unref(cc->selected_handle);
                     cc->active_shape->avoidRef->addConnectionPoint(cp);
-                    sp_document_ensure_up_to_date(doc);
+                    doc->ensure_up_to_date();
                     for (ConnectionPointMap::iterator it = cc->connpthandles.begin(); it != cc->connpthandles.end(); ++it)
                         if (it->second.type == ConnPointUserDefined && it->second.id == cp.id)
                         {
@@ -1459,7 +1459,7 @@ spcc_flush_white(SPConnectorContext *cc, SPCurve *gc)
         }
         // Process pending updates.
         cc->newconn->updateRepr();
-        sp_document_ensure_up_to_date(doc);
+        doc->ensure_up_to_date();
 
         if (connection) {
             // Adjust endpoints to shape edge.
@@ -1693,7 +1693,7 @@ static void cc_set_active_shape(SPConnectorContext *cc, SPItem *item)
 
         // Ensure the item's connection_points map
         // has been updated
-        sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(item));
+        SP_OBJECT_DOCUMENT(item)->ensure_up_to_date();
 
         std::set<int> seen;
         for  ( ConnectionPointMap::iterator it = cc->connpthandles.begin(); it != cc->connpthandles.end() ;)

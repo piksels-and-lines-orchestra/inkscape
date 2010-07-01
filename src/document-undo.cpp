@@ -176,7 +176,7 @@ sp_document_maybe_done (SPDocument *doc, const gchar *key, const unsigned int ev
 
 	doc->collectOrphans();
 
-	sp_document_ensure_up_to_date (doc);
+	doc->ensure_up_to_date ();
 
 	sp_document_clear_redo (doc);
 

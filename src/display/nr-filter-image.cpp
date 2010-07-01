@@ -49,7 +49,7 @@ int FilterImage::render(FilterSlot &slot, FilterUnits const &units) {
         if (!SVGElem) return 0;
         
         // prep the document
-        sp_document_ensure_up_to_date(document);
+        document->ensure_up_to_date();
         NRArena* arena = NRArena::create();
         unsigned const key = SPItem::display_key_new(1);
         NRArenaItem* ai = SVGElem->invoke_show(arena, key, SP_ITEM_SHOW_DISPLAY);

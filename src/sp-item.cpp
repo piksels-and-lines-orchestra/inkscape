@@ -296,7 +296,7 @@ SPItem::setExplicitlyHidden(bool const val) {
 void
 SPItem::setCenter(Geom::Point object_centre) {
     // for getBounds() to work
-    sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(this));
+    SP_OBJECT_DOCUMENT(this)->ensure_up_to_date();
 
     Geom::OptRect bbox = getBounds(i2d_affine());
     if (bbox) {
@@ -321,7 +321,7 @@ bool SPItem::isCenterSet() {
 
 Geom::Point SPItem::getCenter() const {
     // for getBounds() to work
-    sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(this));
+    SP_OBJECT_DOCUMENT(this)->ensure_up_to_date();
 
     Geom::OptRect bbox = getBounds(i2d_affine());
     if (bbox) {
@@ -1571,7 +1571,7 @@ Geom::Matrix SPItem::i2d_affine() const
 
     Geom::Matrix const ret( i2doc_affine()
                           * Geom::Scale(1, -1)
-                          * Geom::Translate(0, sp_document_height(SP_OBJECT_DOCUMENT(this))) );
+                          * Geom::Translate(0, SP_OBJECT_DOCUMENT(this)->getHeight()) );
     return ret;
 }
 
@@ -1584,7 +1584,7 @@ void SPItem::set_i2d_affine(Geom::Matrix const &i2dt)
     if (SP_OBJECT_PARENT(this)) {
         dt2p = static_cast<SPItem *>(SP_OBJECT_PARENT(this))->i2d_affine().inverse();
     } else {
-        dt2p = ( Geom::Translate(0, -sp_document_height(SP_OBJECT_DOCUMENT(this)))
+        dt2p = ( Geom::Translate(0, -SP_OBJECT_DOCUMENT(this)->getHeight())
                  * Geom::Scale(1, -1) );
     }
 

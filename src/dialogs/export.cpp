@@ -871,7 +871,7 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
                 }
             case SELECTION_PAGE:
                 bbox = Geom::Rect(Geom::Point(0.0, 0.0),
-                                  Geom::Point(sp_document_width(doc), sp_document_height(doc)));
+                                  Geom::Point(doc->getWidth(), doc->getHeight()));
 
                 // std::cout << "Using selection: PAGE" << std::endl;
                 key = SELECTION_PAGE;
@@ -1513,8 +1513,8 @@ sp_export_detect_size(GtkObject * base) {
                 doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
 
                 Geom::Point x(0.0, 0.0);
-                Geom::Point y(sp_document_width(doc),
-                              sp_document_height(doc));
+                Geom::Point y(doc->getWidth(),
+                              doc->getHeight());
                 Geom::Rect bbox(x, y);
 
                 // std::cout << "Page " << bbox;

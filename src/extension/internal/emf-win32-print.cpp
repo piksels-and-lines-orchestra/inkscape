@@ -135,8 +135,8 @@ PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
     WCHAR *unicode_uri = (WCHAR *) unicode_fn;
 
     // width and height in px
-    _width = sp_document_width(doc);
-    _height = sp_document_height(doc);
+    _width = doc->getWidth();
+    _height = doc->getHeight();
 
     NRRect d;
     bool pageBoundingBox;
@@ -232,7 +232,7 @@ PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
     g_free(local_fn);
     g_free(unicode_fn);
 
-    m_tr_stack.push( Geom::Scale(1, -1) * Geom::Translate(0, sp_document_height(doc)));
+    m_tr_stack.push( Geom::Scale(1, -1) * Geom::Translate(0, doc->getHeight()));
 
     return 0;
 }

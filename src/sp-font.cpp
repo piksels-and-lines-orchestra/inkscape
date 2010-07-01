@@ -108,7 +108,7 @@ static void sp_font_build(SPObject *object, SPDocument *document, Inkscape::XML:
     sp_object_read_attr(object, "vert-origin-y");
     sp_object_read_attr(object, "vert-adv-y");
 
-    sp_document_add_resource(document, "font", object);
+    document->add_resource("font", object);
 }
 
 
@@ -150,7 +150,7 @@ sp_font_remove_child(SPObject *object, Inkscape::XML::Node *child)
 static void sp_font_release(SPObject *object)
 {
     //SPFont *font = SP_FONT(object);
-    sp_document_remove_resource(SP_OBJECT_DOCUMENT(object), "font", object);
+    SP_OBJECT_DOCUMENT(object)->remove_resource("font", object);
 
     if (((SPObjectClass *) parent_class)->release) {
         ((SPObjectClass *) parent_class)->release(object);

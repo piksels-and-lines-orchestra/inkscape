@@ -1390,8 +1390,8 @@ EditWidget::updateScrollbars (double scale)
 
     /* The desktop region we always show unconditionally */
     SPDocument *doc = _desktop->doc();
-    Geom::Rect darea ( Geom::Point(-sp_document_width(doc), -sp_document_height(doc)),
-                     Geom::Point(2 * sp_document_width(doc), 2 * sp_document_height(doc))  );
+    Geom::Rect darea ( Geom::Point(-doc->getWidth(), -doc->getHeight()),
+                     Geom::Point(2 * doc->getWidth(), 2 * doc->getHeight())  );
     SPObject* root = doc->root;
     SPItem* item = SP_ITEM(root);
     Geom::OptRect deskarea = Geom::unify(darea, item->getBboxDesktop());
@@ -1654,12 +1654,12 @@ void
 EditWidget::onWindowRealize()
 {
 
-    if ( (sp_document_width(_desktop->doc()) < 1.0) || (sp_document_height(_desktop->doc()) < 1.0) ) {
+    if ( ((_desktop->doc())->getWidth() < 1.0) || ((_desktop->doc())->getHeight() < 1.0) ) {
         return;
     }
 
     Geom::Rect d( Geom::Point(0, 0),
-                  Geom::Point(sp_document_width(_desktop->doc()), sp_document_height(_desktop->doc())) );
+                  Geom::Point((_desktop->doc())->getWidth(), (_desktop->doc())->getHeight()) );
 
     _desktop->set_display_area(d.min()[Geom::X], d.min()[Geom::Y], d.max()[Geom::X], d.max()[Geom::Y], 10);
     _namedview_modified(_desktop->namedview, SP_OBJECT_MODIFIED_FLAG);
