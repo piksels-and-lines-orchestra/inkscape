@@ -55,8 +55,8 @@ GdkpixbufInput::open(Inkscape::Extension::Input *mod, char const *uri)
         }
 
         doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
-        bool saved = sp_document_get_undo_sensitive(doc);
-        sp_document_set_undo_sensitive(doc, false); // no need to undo in this temporary document
+        bool saved = SPDocumentUndo::get_undo_sensitive(doc);
+		SPDocumentUndo::set_undo_sensitive(doc, false); // no need to undo in this temporary document
 
         double width = gdk_pixbuf_get_width(pb);
         double height = gdk_pixbuf_get_height(pb);
@@ -103,7 +103,7 @@ GdkpixbufInput::open(Inkscape::Extension::Input *mod, char const *uri)
         Inkscape::GC::release(image_node);
         fit_canvas_to_drawing(doc);
         // restore undo, as now this document may be shown to the user if a bitmap was opened
-        sp_document_set_undo_sensitive(doc, saved);
+		SPDocumentUndo::set_undo_sensitive(doc, saved);
     } else {
         printf("GdkPixbuf loader failed\n");
     }

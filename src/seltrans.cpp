@@ -520,16 +520,16 @@ void Inkscape::SelTrans::ungrab()
         _items_centers.clear();
 
         if (_current_relative_affine.isTranslation()) {
-            sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+            SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                              _("Move"));
         } else if (_current_relative_affine.without_translation().isScale()) {
-            sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+            SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                              _("Scale"));
         } else if (_current_relative_affine.without_translation().isRotation()) {
-            sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+            SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                              _("Rotate"));
         } else {
-            sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+            SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                              _("Skew"));
         }
 
@@ -541,7 +541,7 @@ void Inkscape::SelTrans::ungrab()
                 SPItem *it = (SPItem*)SP_OBJECT(l->data);
                 SP_OBJECT(it)->updateRepr();
             }
-            sp_document_done (sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+            SPDocumentUndo::done (sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                             _("Set center"));
         }
 
@@ -616,7 +616,7 @@ void Inkscape::SelTrans::stamp()
             Inkscape::GC::release(copy_repr);
             l = l->next;
         }
-        sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                          _("Stamp"));
     }
 
@@ -805,7 +805,7 @@ void Inkscape::SelTrans::handleClick(SPKnot */*knot*/, guint state, SPSelTransHa
                     _center_is_set = false;  // center has changed
                     _updateHandles();
                 }
-                sp_document_done (sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
+                SPDocumentUndo::done (sp_desktop_document(_desktop), SP_VERB_CONTEXT_SELECT,
                                         _("Reset center"));
             }
             break;

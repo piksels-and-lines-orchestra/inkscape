@@ -993,7 +993,7 @@ clonetiler_unclump( GtkWidget */*widget*/, void * )
 
     g_slist_free (to_unclump);
 
-    sp_document_done (sp_desktop_document (desktop), SP_VERB_DIALOG_CLONETILER,
+    SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_DIALOG_CLONETILER,
                       _("Unclump tiled clones"));
 }
 
@@ -1046,7 +1046,7 @@ clonetiler_remove( GtkWidget */*widget*/, void *, bool do_undo = true )
     clonetiler_change_selection (NULL, selection, dlg);
 
     if (do_undo)
-        sp_document_done (sp_desktop_document (desktop), SP_VERB_DIALOG_CLONETILER,
+        SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_DIALOG_CLONETILER,
                           _("Delete tiled clones"));
 }
 
@@ -1510,7 +1510,7 @@ clonetiler_apply( GtkWidget */*widget*/, void * )
 
     desktop->clearWaitingCursor();
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_DIALOG_CLONETILER,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_DIALOG_CLONETILER,
                      _("Create tiled clones"));
 }
 

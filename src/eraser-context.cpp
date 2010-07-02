@@ -826,10 +826,10 @@ set_to_accumulated(SPEraserContext *dc)
 
 
     if ( workDone ) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_ERASER, 
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_ERASER, 
                          _("Draw eraser stroke"));
     } else {
-        sp_document_cancel(sp_desktop_document(desktop));
+        SPDocumentUndo::cancel(sp_desktop_document(desktop));
     }
 }
 

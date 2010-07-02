@@ -1032,7 +1032,7 @@ private:
                     Inkscape::GC::release(repr);
                 }
 
-                sp_document_done(prim->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("New light source"));
+                SPDocumentUndo::done(prim->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("New light source"));
                 update();
             }
 
@@ -1215,7 +1215,7 @@ void FilterEffectsDialog::FilterModifier::on_name_edited(const Glib::ustring& pa
     if(iter) {
         SPFilter* filter = (*iter)[_columns.filter];
         filter->setLabel(text.c_str());
-        sp_document_done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Rename filter"));
+        SPDocumentUndo::done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Rename filter"));
         if(iter)
             (*iter)[_columns.label] = text;
     }
@@ -1251,7 +1251,7 @@ void FilterEffectsDialog::FilterModifier::on_selection_toggled(const Glib::ustri
         }
 
         update_selection(sel);
-        sp_document_done(doc, SP_VERB_DIALOG_FILTER_EFFECTS,  _("Apply filter"));
+        SPDocumentUndo::done(doc, SP_VERB_DIALOG_FILTER_EFFECTS,  _("Apply filter"));
     }
 }
 
@@ -1327,7 +1327,7 @@ void FilterEffectsDialog::FilterModifier::add_filter()
 
     select_filter(filter);
 
-    sp_document_done(doc, SP_VERB_DIALOG_FILTER_EFFECTS, _("Add filter"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_FILTER_EFFECTS, _("Add filter"));
 }
 
 void FilterEffectsDialog::FilterModifier::remove_filter()
@@ -1338,7 +1338,7 @@ void FilterEffectsDialog::FilterModifier::remove_filter()
         SPDocument* doc = filter->document;
         sp_repr_unparent(filter->repr);
 
-        sp_document_done(doc, SP_VERB_DIALOG_FILTER_EFFECTS, _("Remove filter"));
+        SPDocumentUndo::done(doc, SP_VERB_DIALOG_FILTER_EFFECTS, _("Remove filter"));
 
         update_filters();
     }
@@ -1353,7 +1353,7 @@ void FilterEffectsDialog::FilterModifier::duplicate_filter()
         repr = repr->duplicate(repr->document());
         parent->appendChild(repr);
 
-        sp_document_done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Duplicate filter"));
+        SPDocumentUndo::done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Duplicate filter"));
 
         update_filters();
     }
@@ -1543,7 +1543,7 @@ void FilterEffectsDialog::PrimitiveList::remove_selected()
 
         sp_repr_unparent(prim->repr);
 
-        sp_document_done(sp_desktop_document(_dialog.getDesktop()), SP_VERB_DIALOG_FILTER_EFFECTS,
+        SPDocumentUndo::done(sp_desktop_document(_dialog.getDesktop()), SP_VERB_DIALOG_FILTER_EFFECTS,
                          _("Remove filter primitive"));
 
         update();
@@ -1915,7 +1915,7 @@ bool FilterEffectsDialog::PrimitiveList::on_button_release_event(GdkEventButton*
                         // If input is null, delete it
                         if(!in_val) {
                             sp_repr_unparent(o->repr);
-                            sp_document_done(prim->document, SP_VERB_DIALOG_FILTER_EFFECTS,
+                            SPDocumentUndo::done(prim->document, SP_VERB_DIALOG_FILTER_EFFECTS,
                                              _("Remove merge node"));
                             (*get_selection()->get_selected())[_columns.primitive] = prim;
                         }
@@ -2032,7 +2032,7 @@ void FilterEffectsDialog::PrimitiveList::on_drag_end(const Glib::RefPtr<Gdk::Dra
 
     filter->requestModified(SP_OBJECT_MODIFIED_FLAG);
 
-    sp_document_done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Reorder filter primitive"));
+    SPDocumentUndo::done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Reorder filter primitive"));
 }
 
 // If a connection is dragged towards the top or bottom of the list, the list should scroll to follow.
@@ -2263,7 +2263,7 @@ void FilterEffectsDialog::add_primitive()
 
         _primitive_list.select(prim);
 
-        sp_document_done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Add filter primitive"));
+        SPDocumentUndo::done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Add filter primitive"));
     }
 }
 
@@ -2359,7 +2359,7 @@ void FilterEffectsDialog::duplicate_primitive()
         repr = SP_OBJECT_REPR(origprim)->duplicate(SP_OBJECT_REPR(origprim)->document());
         SP_OBJECT_REPR(filter)->appendChild(repr);
 
-        sp_document_done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Duplicate filter primitive"));
+        SPDocumentUndo::done(filter->document, SP_VERB_DIALOG_FILTER_EFFECTS, _("Duplicate filter primitive"));
 
         _primitive_list.update();
     }
@@ -2411,7 +2411,7 @@ void FilterEffectsDialog::set_attr(SPObject* o, const SPAttributeEnum attr, cons
 
             Glib::ustring undokey = "filtereffects:";
             undokey += name;
-            sp_document_maybe_done(filter->document, undokey.c_str(), SP_VERB_DIALOG_FILTER_EFFECTS,
+            SPDocumentUndo::maybe_done(filter->document, undokey.c_str(), SP_VERB_DIALOG_FILTER_EFFECTS,
                                    _("Set filter primitive attribute"));
         }
 

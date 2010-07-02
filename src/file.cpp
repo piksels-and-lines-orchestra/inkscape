@@ -560,7 +560,7 @@ sp_file_vacuum()
 
     unsigned int diff = doc->vacuum_document ();
 
-    sp_document_done(doc, SP_VERB_FILE_VACUUM,
+    SPDocumentUndo::done(doc, SP_VERB_FILE_VACUUM,
                      _("Vacuum &lt;defs&gt;"));
 
     SPDesktop *dt = SP_ACTIVE_DESKTOP;
@@ -1064,7 +1064,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
         }
 
         doc->doUnref();
-        sp_document_done(in_doc, SP_VERB_FILE_IMPORT,
+        SPDocumentUndo::done(in_doc, SP_VERB_FILE_IMPORT,
                          _("Import"));
 
     } else {

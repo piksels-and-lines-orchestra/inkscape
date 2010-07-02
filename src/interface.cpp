@@ -1249,7 +1249,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                     sp_desktop_apply_css_recursive( item, css, true );
                     item->updateRepr();
 
-                    sp_document_done( doc , SP_VERB_NONE,
+                    SPDocumentUndo::done( doc , SP_VERB_NONE,
                                       _("Drop color"));
 
                     if ( srgbProf ) {
@@ -1289,7 +1289,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                 if (desktop->event_context && desktop->event_context->get_drag()) {
                     consumed = desktop->event_context->get_drag()->dropColor(item, colorspec, button_dt);
                     if (consumed) {
-                        sp_document_done( doc , SP_VERB_NONE, _("Drop color on gradient"));
+                        SPDocumentUndo::done( doc , SP_VERB_NONE, _("Drop color on gradient"));
                         desktop->event_context->get_drag()->updateDraggers();
                     }
                 }
@@ -1297,7 +1297,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                 //if (!consumed && tools_active(desktop, TOOLS_TEXT)) {
                 //    consumed = sp_text_context_drop_color(c, button_doc);
                 //    if (consumed) {
-                //        sp_document_done( doc , SP_VERB_NONE, _("Drop color on gradient stop"));
+                //        SPDocumentUndo::done( doc , SP_VERB_NONE, _("Drop color on gradient stop"));
                 //    }
                 //}
 
@@ -1335,7 +1335,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                     sp_desktop_apply_css_recursive( item, css, true );
                     item->updateRepr();
 
-                    sp_document_done( doc , SP_VERB_NONE,
+                    SPDocumentUndo::done( doc , SP_VERB_NONE,
                                       _("Drop color"));
                 }
             }
@@ -1399,7 +1399,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                 if (desktop->event_context && desktop->event_context->get_drag()) {
                     consumed = desktop->event_context->get_drag()->dropColor(item, colorspec.c_str(), button_dt);
                     if (consumed) {
-                        sp_document_done( doc , SP_VERB_NONE, _("Drop color on gradient"));
+                        SPDocumentUndo::done( doc , SP_VERB_NONE, _("Drop color on gradient"));
                         desktop->event_context->get_drag()->updateDraggers();
                     }
                 }
@@ -1438,7 +1438,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                     sp_desktop_apply_css_recursive( item, css, true );
                     item->updateRepr();
 
-                    sp_document_done( doc , SP_VERB_NONE,
+                    SPDocumentUndo::done( doc , SP_VERB_NONE,
                                       _("Drop color"));
                 }
             }
@@ -1490,7 +1490,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
             }
 
             Inkscape::GC::release(newgroup);
-            sp_document_done(doc, SP_VERB_NONE,
+            SPDocumentUndo::done(doc, SP_VERB_NONE,
                              _("Drop SVG"));
             break;
         }
@@ -1524,7 +1524,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
 
             ext->set_param_optiongroup("link", save ? "embed" : "link");
             ext->set_gui(true);
-            sp_document_done( doc , SP_VERB_NONE,
+            SPDocumentUndo::done( doc , SP_VERB_NONE,
                               _("Drop bitmap image"));
             break;
         }

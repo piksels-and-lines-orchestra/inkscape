@@ -341,7 +341,7 @@ persp3d_toggle_VP (Persp3D *persp, Proj::Axis axis, bool set_undo) {
     persp3d_update_box_reprs (persp);
     SP_OBJECT(persp)->updateRepr(SP_OBJECT_WRITE_EXT);
     if (set_undo) {
-        sp_document_done(sp_desktop_document(inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
+        SPDocumentUndo::done(sp_desktop_document(inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
                          _("Toggle vanishing point"));
     }
 }
@@ -352,7 +352,7 @@ persp3d_toggle_VPs (std::list<Persp3D *> p, Proj::Axis axis) {
     for (std::list<Persp3D *>::iterator i = p.begin(); i != p.end(); ++i) {
         persp3d_toggle_VP((*i), axis, false);
     }
-    sp_document_done(sp_desktop_document(inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
+    SPDocumentUndo::done(sp_desktop_document(inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
                      _("Toggle multiple vanishing points"));
 }
 

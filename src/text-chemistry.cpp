@@ -188,7 +188,7 @@ text_put_on_path()
     SP_OBJECT_REPR(text)->setAttribute("x", NULL);
     SP_OBJECT_REPR(text)->setAttribute("y", NULL);
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT, 
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT, 
                      _("Put text on path"));
     g_slist_free(text_reprs);
 }
@@ -225,7 +225,7 @@ text_remove_from_path()
     if (!did) {
         sp_desktop_message_stack(desktop)->flash(Inkscape::ERROR_MESSAGE, _("<b>No texts-on-paths</b> in the selection."));
     } else {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT, 
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT, 
                          _("Remove text from path"));
         selection->setList(g_slist_copy((GSList *) selection->itemList())); // reselect to update statusbar description
     }
@@ -289,7 +289,7 @@ text_remove_all_kerns()
     if (!did) {
         sp_desktop_message_stack(desktop)->flash(Inkscape::ERROR_MESSAGE, _("Select <b>text(s)</b> to remove kerns from."));
     } else {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT, 
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT, 
                          _("Remove manual kerns"));
     }
 }
@@ -377,7 +377,7 @@ text_flow_into_shape()
 
     SP_OBJECT(text)->deleteObject (true);
 
-    sp_document_done(doc, SP_VERB_CONTEXT_TEXT,
+    SPDocumentUndo::done(doc, SP_VERB_CONTEXT_TEXT,
                      _("Flow text into shape"));
 
     sp_desktop_selection(desktop)->set(SP_ITEM(root_object));
@@ -473,7 +473,7 @@ text_unflow ()
     g_slist_free (old_objs);
     g_slist_free (new_objs);
 
-    sp_document_done(doc, SP_VERB_CONTEXT_TEXT, 
+    SPDocumentUndo::done(doc, SP_VERB_CONTEXT_TEXT, 
                      _("Unflow flowed text"));
 }
 
@@ -530,7 +530,7 @@ flowtext_to_text()
     g_slist_free(items);
 
     if (did) {
-        sp_document_done(sp_desktop_document(desktop), 
+        SPDocumentUndo::done(sp_desktop_document(desktop), 
                          SP_VERB_OBJECT_FLOWTEXT_TO_TEXT,
                          _("Convert flowed text to text"));
         selection->setReprList(reprs);        

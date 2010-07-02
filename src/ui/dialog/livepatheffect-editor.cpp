@@ -372,7 +372,7 @@ LivePathEffectEditor::onApply()
 
             LivePathEffect::Effect::createAndApply(data->key.c_str(), doc, item);
 
-            sp_document_done(doc, SP_VERB_DIALOG_LIVE_PATH_EFFECT,
+            SPDocumentUndo::done(doc, SP_VERB_DIALOG_LIVE_PATH_EFFECT,
                      _("Create and apply path effect"));
 
             lpe_list_locked = false;
@@ -390,7 +390,7 @@ LivePathEffectEditor::onRemove()
         if ( item && SP_IS_LPE_ITEM(item) ) {
             sp_lpe_item_remove_current_path_effect(SP_LPE_ITEM(item), false);
 
-            sp_document_done ( sp_desktop_document (current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
+            SPDocumentUndo::done ( sp_desktop_document (current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
                                _("Remove path effect") );
 
             effect_list_reload(SP_LPE_ITEM(item));
@@ -406,7 +406,7 @@ void LivePathEffectEditor::onUp()
         if ( item && SP_IS_LPE_ITEM(item) ) {
             sp_lpe_item_up_current_path_effect(SP_LPE_ITEM(item));
 
-            sp_document_done ( sp_desktop_document (current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
+            SPDocumentUndo::done ( sp_desktop_document (current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
                                _("Move path effect up") );
 
             effect_list_reload(SP_LPE_ITEM(item));
@@ -422,7 +422,7 @@ void LivePathEffectEditor::onDown()
         if ( item && SP_IS_LPE_ITEM(item) ) {
             sp_lpe_item_down_current_path_effect(SP_LPE_ITEM(item));
 
-            sp_document_done ( sp_desktop_document (current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
+            SPDocumentUndo::done ( sp_desktop_document (current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
                                _("Move path effect down") );
 
             effect_list_reload(SP_LPE_ITEM(item));
@@ -461,7 +461,7 @@ void LivePathEffectEditor::on_visibility_toggled( Glib::ustring const& str )
         /* FIXME: this explicit writing to SVG is wrong. The lpe_item should have a method to disable/enable an effect within its stack.
          * So one can call:  lpe_item->setActive(lpeobjref->lpeobject); */
         lpeobjref->lpeobject->get_lpe()->getRepr()->setAttribute("is_visible", newValue ? "true" : "false");
-        sp_document_done( sp_desktop_document(current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
+        SPDocumentUndo::done( sp_desktop_document(current_desktop), SP_VERB_DIALOG_LIVE_PATH_EFFECT,
                           newValue ? _("Activate path effect") : _("Deactivate path effect"));
     }
 }

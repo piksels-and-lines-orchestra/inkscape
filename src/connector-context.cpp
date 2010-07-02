@@ -1152,7 +1152,7 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
 
                     cc_connector_rerouting_finish(cc, NULL);
 
-                    sp_document_undo(doc);
+                    SPDocumentUndo::undo(doc);
 
                     cc->state = SP_CONNECTOR_CONTEXT_IDLE;
                     desktop->messageStack()->flash( Inkscape::NORMAL_MESSAGE,
@@ -1303,7 +1303,7 @@ cc_connector_rerouting_finish(SPConnectorContext *const cc, Geom::Point *const p
     cc->clickeditem->setHidden(false);
     sp_conn_reroute_path_immediate(SP_PATH(cc->clickeditem));
     cc->clickeditem->updateRepr();
-    sp_document_done(doc, SP_VERB_CONTEXT_CONNECTOR,
+    SPDocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
                      _("Reroute connector"));
     cc_set_active_conn(cc, cc->clickeditem);
 }
@@ -1477,7 +1477,7 @@ spcc_flush_white(SPConnectorContext *cc, SPCurve *gc)
 
     c->unref();
 
-    sp_document_done(doc, SP_VERB_CONTEXT_CONNECTOR, _("Create connector"));
+    SPDocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR, _("Create connector"));
 }
 
 
@@ -1935,7 +1935,7 @@ void cc_selection_set_avoid(bool const set_avoid)
     char *event_desc = (set_avoid) ?
             _("Make connectors avoid selected objects") :
             _("Make connectors ignore selected objects");
-    sp_document_done(document, SP_VERB_CONTEXT_CONNECTOR, event_desc);
+    SPDocumentUndo::done(document, SP_VERB_CONTEXT_CONNECTOR, event_desc);
 }
 
 

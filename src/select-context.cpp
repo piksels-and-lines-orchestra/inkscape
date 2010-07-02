@@ -222,7 +222,7 @@ sp_select_context_abort(SPEventContext *event_context)
             if (sc->item) {
                 // only undo if the item is still valid
                 if (SP_OBJECT_DOCUMENT( SP_OBJECT(sc->item))) {
-                    sp_document_undo(sp_desktop_document(desktop));
+                    SPDocumentUndo::undo(sp_desktop_document(desktop));
                 }
 
                 sp_object_unref( SP_OBJECT(sc->item), NULL);
@@ -230,7 +230,7 @@ sp_select_context_abort(SPEventContext *event_context)
                 // NOTE:  This is a workaround to a bug.
                 // When the ctrl key is held, sc->item is not defined
                 // so in this case (only), we skip the object doc check
-                sp_document_undo(sp_desktop_document(desktop));
+                SPDocumentUndo::undo(sp_desktop_document(desktop));
             }
             sc->item = NULL;
 

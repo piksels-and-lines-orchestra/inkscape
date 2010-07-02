@@ -151,7 +151,7 @@ gr_item_activate (GtkMenuItem *menuitem, gpointer data)
 
     gr_apply_gradient (selection, ev? ev->get_drag() : NULL, gr);
 
-    sp_document_done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
+    SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
                       _("Assign gradient to object"));
 }
 

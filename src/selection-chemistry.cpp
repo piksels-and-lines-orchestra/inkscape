@@ -300,7 +300,7 @@ void sp_selection_delete(SPDesktop *desktop)
 
     if (tools_isactive(desktop, TOOLS_TEXT))
         if (sp_text_delete_selection(desktop->event_context)) {
-            sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT,
+            SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_TEXT,
                              _("Delete text"));
             return;
         }
@@ -326,7 +326,7 @@ void sp_selection_delete(SPDesktop *desktop)
      */
     tools_switch( desktop, tools_active( desktop ) );
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_DELETE,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_DELETE,
                      _("Delete"));
 }
 
@@ -421,7 +421,7 @@ void sp_selection_duplicate(SPDesktop *desktop, bool suppressDone)
 
 
     if ( !suppressDone ) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_DUPLICATE,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_DUPLICATE,
                          _("Duplicate"));
     }
 
@@ -446,7 +446,7 @@ void sp_edit_clear_all(SPDesktop *dt)
         items = g_slist_remove(items, items->data);
     }
 
-    sp_document_done(doc, SP_VERB_EDIT_CLEAR_ALL,
+    SPDocumentUndo::done(doc, SP_VERB_EDIT_CLEAR_ALL,
                      _("Delete all"));
 }
 
@@ -647,7 +647,7 @@ void sp_selection_group(SPDesktop *desktop)
 
     sp_selection_group_impl(p, group, xml_doc, doc);
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_GROUP,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_GROUP,
                      _("Group"));
 
     selection->set(group);
@@ -708,7 +708,7 @@ void sp_selection_ungroup(SPDesktop *desktop)
 
     g_slist_free(items);
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_UNGROUP,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_UNGROUP,
                      _("Ungroup"));
 }
 
@@ -843,7 +843,7 @@ sp_selection_raise(SPDesktop *desktop)
         g_slist_free(rev);
     }
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_RAISE,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_RAISE,
                      //TRANSLATORS: only translate "string" in "context|string".
                      // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
                      // "Raise" means "to raise an object" in the undo history
@@ -881,7 +881,7 @@ void sp_selection_raise_to_top(SPDesktop *desktop)
 
     g_slist_free(rl);
 
-    sp_document_done(document, SP_VERB_SELECTION_TO_FRONT,
+    SPDocumentUndo::done(document, SP_VERB_SELECTION_TO_FRONT,
                      _("Raise to top"));
 }
 
@@ -944,7 +944,7 @@ sp_selection_lower(SPDesktop *desktop)
         g_slist_free(rev);
     }
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_LOWER,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_LOWER,
                      _("Lower"));
 }
 
@@ -991,21 +991,21 @@ void sp_selection_lower_to_bottom(SPDesktop *desktop)
 
     g_slist_free(rl);
 
-    sp_document_done(document, SP_VERB_SELECTION_TO_BACK,
+    SPDocumentUndo::done(document, SP_VERB_SELECTION_TO_BACK,
                      _("Lower to bottom"));
 }
 
 void
 sp_undo(SPDesktop *desktop, SPDocument *)
 {
-        if (!sp_document_undo(sp_desktop_document(desktop)))
+        if (!SPDocumentUndo::undo(sp_desktop_document(desktop)))
             desktop->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("Nothing to undo."));
 }
 
 void
 sp_redo(SPDesktop *desktop, SPDocument *)
 {
-        if (!sp_document_redo(sp_desktop_document(desktop)))
+        if (!SPDocumentUndo::redo(sp_desktop_document(desktop)))
             desktop->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("Nothing to redo."));
 }
 
@@ -1066,7 +1066,7 @@ void sp_selection_paste(SPDesktop *desktop, bool in_place)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
     if (cm->paste(desktop, in_place)) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE, _("Paste"));
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE, _("Paste"));
     }
 }
 
@@ -1074,7 +1074,7 @@ void sp_selection_paste_style(SPDesktop *desktop)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
     if (cm->pasteStyle(desktop)) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_STYLE, _("Paste style"));
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_STYLE, _("Paste style"));
     }
 }
 
@@ -1083,7 +1083,7 @@ void sp_selection_paste_livepatheffect(SPDesktop *desktop)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
     if (cm->pastePathEffect(desktop)) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_LIVEPATHEFFECT,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_LIVEPATHEFFECT,
                          _("Paste live path effect"));
     }
 }
@@ -1116,7 +1116,7 @@ void sp_selection_remove_livepatheffect(SPDesktop *desktop)
 
     }
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_REMOVE_LIVEPATHEFFECT,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_REMOVE_LIVEPATHEFFECT,
                      _("Remove live path effect"));
 }
 
@@ -1137,7 +1137,7 @@ void sp_selection_remove_filter(SPDesktop *desktop)
     sp_desktop_set_style(desktop, css);
     sp_repr_css_attr_unref(css);
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_REMOVE_FILTER,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_REMOVE_FILTER,
                      _("Remove filter"));
 }
 
@@ -1146,7 +1146,7 @@ void sp_selection_paste_size(SPDesktop *desktop, bool apply_x, bool apply_y)
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
     if (cm->pasteSize(desktop, false, apply_x, apply_y)) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_SIZE,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_SIZE,
                          _("Paste size"));
     }
 }
@@ -1155,7 +1155,7 @@ void sp_selection_paste_size_separately(SPDesktop *desktop, bool apply_x, bool a
 {
     Inkscape::UI::ClipboardManager *cm = Inkscape::UI::ClipboardManager::get();
     if (cm->pasteSize(desktop, true, apply_x, apply_y)) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_SIZE_SEPARATELY,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_PASTE_SIZE_SEPARATELY,
                          _("Paste size separately"));
     }
 }
@@ -1191,7 +1191,7 @@ void sp_selection_to_next_layer(SPDesktop *dt, bool suppressDone)
         if (temp_clip) g_slist_free(temp_clip);
         if (next) dt->setCurrentLayer(next);
         if ( !suppressDone ) {
-            sp_document_done(sp_desktop_document(dt), SP_VERB_LAYER_MOVE_TO_NEXT,
+            SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_LAYER_MOVE_TO_NEXT,
                              _("Raise to next layer"));
         }
     } else {
@@ -1236,7 +1236,7 @@ void sp_selection_to_prev_layer(SPDesktop *dt, bool suppressDone)
         if (temp_clip) g_slist_free(temp_clip);
         if (next) dt->setCurrentLayer(next);
         if ( !suppressDone ) {
-            sp_document_done(sp_desktop_document(dt), SP_VERB_LAYER_MOVE_TO_PREV,
+            SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_LAYER_MOVE_TO_PREV,
                              _("Lower to previous layer"));
         }
     } else {
@@ -1452,7 +1452,7 @@ void sp_selection_remove_transform(SPDesktop *desktop)
         l = l->next;
     }
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_OBJECT_FLATTEN,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_OBJECT_FLATTEN,
                      _("Remove transform"));
 }
 
@@ -1554,7 +1554,7 @@ void sp_selection_rotate_90(SPDesktop *desktop, bool ccw)
         sp_item_rotate_rel(item, rot_90);
     }
 
-    sp_document_done(sp_desktop_document(desktop),
+    SPDocumentUndo::done(sp_desktop_document(desktop),
                      ccw ? SP_VERB_OBJECT_ROTATE_90_CCW : SP_VERB_OBJECT_ROTATE_90_CW,
                      ccw ? _("Rotate 90&#176; CCW") : _("Rotate 90&#176; CW"));
 }
@@ -1572,7 +1572,7 @@ sp_selection_rotate(Inkscape::Selection *selection, gdouble const angle_degrees)
 
     sp_selection_rotate_relative(selection, *center, angle_degrees);
 
-    sp_document_maybe_done(sp_desktop_document(selection->desktop()),
+    SPDocumentUndo::maybe_done(sp_desktop_document(selection->desktop()),
                            ( ( angle_degrees > 0 )
                              ? "selector:rotate:ccw"
                              : "selector:rotate:cw" ),
@@ -1619,7 +1619,7 @@ sp_selection_rotate_screen(Inkscape::Selection *selection, gdouble angle)
 
     sp_selection_rotate_relative(selection, *center, zangle);
 
-    sp_document_maybe_done(sp_desktop_document(selection->desktop()),
+    SPDocumentUndo::maybe_done(sp_desktop_document(selection->desktop()),
                            ( (angle > 0)
                              ? "selector:rotate:ccw"
                              : "selector:rotate:cw" ),
@@ -1649,7 +1649,7 @@ sp_selection_scale(Inkscape::Selection *selection, gdouble grow)
     double const times = 1.0 + grow / max_len;
     sp_selection_scale_relative(selection, center, Geom::Scale(times, times));
 
-    sp_document_maybe_done(sp_desktop_document(selection->desktop()),
+    SPDocumentUndo::maybe_done(sp_desktop_document(selection->desktop()),
                            ( (grow > 0)
                              ? "selector:scale:larger"
                              : "selector:scale:smaller" ),
@@ -1678,7 +1678,7 @@ sp_selection_scale_times(Inkscape::Selection *selection, gdouble times)
 
     Geom::Point const center(sel_bbox->midpoint());
     sp_selection_scale_relative(selection, center, Geom::Scale(times, times));
-    sp_document_done(sp_desktop_document(selection->desktop()), SP_VERB_CONTEXT_SELECT,
+    SPDocumentUndo::done(sp_desktop_document(selection->desktop()), SP_VERB_CONTEXT_SELECT,
                      _("Scale by whole factor"));
 }
 
@@ -1693,13 +1693,13 @@ sp_selection_move(SPDesktop *desktop, gdouble dx, gdouble dy)
     sp_selection_move_relative(selection, dx, dy);
 
     if (dx == 0) {
-        sp_document_maybe_done(sp_desktop_document(desktop), "selector:move:vertical", SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::maybe_done(sp_desktop_document(desktop), "selector:move:vertical", SP_VERB_CONTEXT_SELECT,
                                _("Move vertically"));
     } else if (dy == 0) {
-        sp_document_maybe_done(sp_desktop_document(desktop), "selector:move:horizontal", SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::maybe_done(sp_desktop_document(desktop), "selector:move:horizontal", SP_VERB_CONTEXT_SELECT,
                                _("Move horizontally"));
     } else {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_SELECT,
                          _("Move"));
     }
 }
@@ -1719,13 +1719,13 @@ sp_selection_move_screen(SPDesktop *desktop, gdouble dx, gdouble dy)
     sp_selection_move_relative(selection, zdx, zdy);
 
     if (dx == 0) {
-        sp_document_maybe_done(sp_desktop_document(desktop), "selector:move:vertical", SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::maybe_done(sp_desktop_document(desktop), "selector:move:vertical", SP_VERB_CONTEXT_SELECT,
                                _("Move vertically by pixels"));
     } else if (dy == 0) {
-        sp_document_maybe_done(sp_desktop_document(desktop), "selector:move:horizontal", SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::maybe_done(sp_desktop_document(desktop), "selector:move:horizontal", SP_VERB_CONTEXT_SELECT,
                                _("Move horizontally by pixels"));
     } else {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_SELECT,
                          _("Move"));
     }
 }
@@ -2055,7 +2055,7 @@ sp_selection_clone(SPDesktop *desktop)
 
     // TRANSLATORS: only translate "string" in "context|string".
     // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_CLONE,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_CLONE,
                      Q_("action|Clone"));
 
     selection->setReprList(newsel);
@@ -2105,7 +2105,7 @@ sp_selection_relink(SPDesktop *desktop)
     if (!relinked) {
         desktop->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("<b>No clones to relink</b> in the selection."));
     } else {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_UNLINK_CLONE,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_UNLINK_CLONE,
                          _("Relink clone"));
     }
 }
@@ -2172,7 +2172,7 @@ sp_selection_unlink(SPDesktop *desktop)
         desktop->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("<b>No clones to unlink</b> in the selection."));
     }
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_UNLINK_CLONE,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_UNLINK_CLONE,
                      _("Unlink clone"));
 }
 
@@ -2328,7 +2328,7 @@ void sp_selection_to_marker(SPDesktop *desktop, bool apply)
 
     g_slist_free(items);
 
-    sp_document_done(doc, SP_VERB_EDIT_SELECTION_2_MARKER,
+    SPDocumentUndo::done(doc, SP_VERB_EDIT_SELECTION_2_MARKER,
                      _("Objects to marker"));
 }
 
@@ -2369,7 +2369,7 @@ void sp_selection_to_guides(SPDesktop *desktop)
         sp_selection_to_guides_recursive(SP_ITEM(i->data), deleteitem, wholegroups);
     }
 
-    sp_document_done(doc, SP_VERB_EDIT_SELECTION_2_GUIDES, _("Objects to guides"));
+    SPDocumentUndo::done(doc, SP_VERB_EDIT_SELECTION_2_GUIDES, _("Objects to guides"));
 }
 
 void
@@ -2472,7 +2472,7 @@ sp_selection_tile(SPDesktop *desktop, bool apply)
 
     g_slist_free(items);
 
-    sp_document_done(doc, SP_VERB_EDIT_TILE,
+    SPDocumentUndo::done(doc, SP_VERB_EDIT_TILE,
                      _("Objects to pattern"));
 }
 
@@ -2544,7 +2544,7 @@ sp_selection_untile(SPDesktop *desktop)
     if (!did) {
         desktop->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("<b>No pattern fills</b> in the selection."));
     } else {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_EDIT_UNTILE,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_EDIT_UNTILE,
                          _("Pattern to objects"));
         selection->setList(new_select);
     }
@@ -2807,7 +2807,7 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
         gdk_pixbuf_unref(pb);
 
         // Complete undoable transaction
-        sp_document_done(document, SP_VERB_SELECTION_CREATE_BITMAP,
+        SPDocumentUndo::done(document, SP_VERB_SELECTION_CREATE_BITMAP,
                          _("Create bitmap"));
     }
 
@@ -3024,9 +3024,9 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
     g_slist_free(items_to_select);
 
     if (apply_clip_path)
-        sp_document_done(doc, SP_VERB_OBJECT_SET_CLIPPATH, _("Set clipping path"));
+        SPDocumentUndo::done(doc, SP_VERB_OBJECT_SET_CLIPPATH, _("Set clipping path"));
     else
-        sp_document_done(doc, SP_VERB_OBJECT_SET_MASK, _("Set mask"));
+        SPDocumentUndo::done(doc, SP_VERB_OBJECT_SET_MASK, _("Set mask"));
 }
 
 void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
@@ -3150,9 +3150,9 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
     g_slist_free(items_to_select);
 
     if (apply_clip_path)
-        sp_document_done(doc, SP_VERB_OBJECT_UNSET_CLIPPATH, _("Release clipping path"));
+        SPDocumentUndo::done(doc, SP_VERB_OBJECT_UNSET_CLIPPATH, _("Release clipping path"));
     else
-        sp_document_done(doc, SP_VERB_OBJECT_UNSET_MASK, _("Release mask"));
+        SPDocumentUndo::done(doc, SP_VERB_OBJECT_UNSET_MASK, _("Release mask"));
 }
 
 /**
@@ -3189,7 +3189,7 @@ void
 verb_fit_canvas_to_selection(SPDesktop *const desktop)
 {
     if (fit_canvas_to_selection(desktop)) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_SELECTION,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_SELECTION,
                          _("Fit Page to Selection"));
     }
 }
@@ -3218,7 +3218,7 @@ void
 verb_fit_canvas_to_drawing(SPDesktop *desktop)
 {
     if (fit_canvas_to_drawing(sp_desktop_document(desktop))) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_DRAWING,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_DRAWING,
                          _("Fit Page to Drawing"));
     }
 }
@@ -3239,7 +3239,7 @@ void fit_canvas_to_selection_or_drawing(SPDesktop *desktop) {
                            ? fit_canvas_to_drawing(doc, true)
                            : fit_canvas_to_selection(desktop, true) );
     if (changed) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_SELECTION_OR_DRAWING,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_FIT_CANVAS_TO_SELECTION_OR_DRAWING,
                          _("Fit Page to Selection or Drawing"));
     }
 };

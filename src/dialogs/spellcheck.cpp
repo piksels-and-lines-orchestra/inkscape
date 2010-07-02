@@ -777,7 +777,7 @@ sp_spellcheck_accept (GObject *, GObject *dlg)
             // find the end of the word anew
             _end_w = _begin_w;
             _end_w.nextEndOfWord();
-            sp_document_done (sp_desktop_document(_desktop), SP_VERB_CONTEXT_TEXT,
+            SPDocumentUndo::done (sp_desktop_document(_desktop), SP_VERB_CONTEXT_TEXT,
                               _("Fix spelling"));
         }
     }

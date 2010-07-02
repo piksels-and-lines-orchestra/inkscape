@@ -499,7 +499,7 @@ sp_star_finish (SPStarContext * sc)
         sp_canvas_end_forced_full_redraws(desktop->canvas);
 
         sp_desktop_selection(desktop)->set(sc->item);
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_STAR,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_STAR,
                          _("Create star"));
 
         sc->item = NULL;
@@ -525,7 +525,7 @@ static void sp_star_cancel(SPStarContext *sc)
 
     sp_canvas_end_forced_full_redraws(desktop->canvas);
 
-    sp_document_cancel(sp_desktop_document(desktop));
+    SPDocumentUndo::cancel(sp_desktop_document(desktop));
 }
 
 /*

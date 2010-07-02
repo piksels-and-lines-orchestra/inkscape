@@ -119,7 +119,7 @@ vp_knot_moved_handler (SPKnot */*knot*/, Geom::Point const *ppointer, guint stat
             }
             // FIXME: Do we need to create a new dragger as well?
             dragger->updateZOrders ();
-            sp_document_done (sp_desktop_document (inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done (sp_desktop_document (inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
                               _("Split vanishing points"));
             return;
         }
@@ -164,7 +164,7 @@ vp_knot_moved_handler (SPKnot */*knot*/, Geom::Point const *ppointer, guint stat
                 //       deleted according to changes in the svg representation, not based on any user input
                 //       as is currently the case.
 
-                sp_document_done (sp_desktop_document (inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
+                SPDocumentUndo::done (sp_desktop_document (inkscape_active_desktop()), SP_VERB_CONTEXT_3DBOX,
                                   _("Merge vanishing points"));
 
                 return;
@@ -220,7 +220,7 @@ vp_knot_ungrabbed_handler (SPKnot *knot, guint /*state*/, gpointer data)
     // TODO: Undo machinery!!
     g_return_if_fail (dragger->parent);
     g_return_if_fail (dragger->parent->document);
-    sp_document_done(dragger->parent->document, SP_VERB_CONTEXT_3DBOX,
+    SPDocumentUndo::done(dragger->parent->document, SP_VERB_CONTEXT_3DBOX,
                      _("3D box: Move vanishing point"));
 }
 

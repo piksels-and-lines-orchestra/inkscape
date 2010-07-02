@@ -146,7 +146,7 @@ KnotHolder::knot_clicked_handler(SPKnot *knot, guint state)
     }
 
     // for drag, this is done by ungrabbed_handler, but for click we must do it here
-    sp_document_done(SP_OBJECT_DOCUMENT(item), object_verb,
+    SPDocumentUndo::done(SP_OBJECT_DOCUMENT(item), object_verb,
                      _("Change handle"));
 }
 
@@ -225,7 +225,7 @@ KnotHolder::knot_ungrabbed_handler(SPKnot */*knot*/)
                 object_verb = SP_VERB_SELECTION_DYNAMIC_OFFSET;
         }
 
-        sp_document_done(SP_OBJECT_DOCUMENT (object), object_verb,
+        SPDocumentUndo::done(SP_OBJECT_DOCUMENT (object), object_verb,
                          _("Move handle"));
     }
 }

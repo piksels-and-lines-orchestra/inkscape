@@ -28,6 +28,7 @@
 #include "gc-anchored.h"
 #include <glibmm/ustring.h>
 #include "verbs.h"
+#include "document-undo.h"
 #include <vector>
 #include <set>
 
@@ -213,6 +214,9 @@ public:
 	void resized_signal_emit(gdouble width, gdouble height);
 	
 	unsigned int vacuum_document();
+
+	private:
+	void do_change_uri(gchar const *const filename, bool const rebase);
 };
 
 //SPDocument *sp_document_new(const gchar *uri, unsigned int keepalive, bool make_new = false);
@@ -254,11 +258,11 @@ struct SPUnit;
  * Undo & redo
  */
 
-void sp_document_set_undo_sensitive(SPDocument *document, bool sensitive);
-bool sp_document_get_undo_sensitive(SPDocument const *document);
+//void sp_document_set_undo_sensitive(SPDocument *document, bool sensitive);
+//bool sp_document_get_undo_sensitive(SPDocument const *document);
 
-void sp_document_clear_undo(SPDocument *document);
-void sp_document_clear_redo(SPDocument *document);
+//void sp_document_clear_undo(SPDocument *document);
+//void sp_document_clear_redo(SPDocument *document);
 
 //void sp_document_child_added(SPDocument *doc, SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref);
 //void sp_document_child_removed(SPDocument *doc, SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref);
@@ -271,16 +275,16 @@ void sp_document_clear_redo(SPDocument *document);
 //gint sp_document_ensure_up_to_date(SPDocument *doc);
 
 /* Save all previous actions to stack, as one undo step */
-void sp_document_done(SPDocument *document, unsigned int event_type, Glib::ustring event_description);
-void sp_document_maybe_done(SPDocument *document, const gchar *keyconst, unsigned int event_type, Glib::ustring event_description);
-void sp_document_reset_key(Inkscape::Application *inkscape, SPDesktop *desktop, GtkObject *base);
+//void sp_document_done(SPDocument *document, unsigned int event_type, Glib::ustring event_description);
+//void sp_document_maybe_done(SPDocument *document, const gchar *keyconst, unsigned int event_type, Glib::ustring event_description);
+//void sp_document_reset_key(Inkscape::Application *inkscape, SPDesktop *desktop, GtkObject *base);
 
 /* Cancel (and revert) current unsaved actions */
-void sp_document_cancel(SPDocument *document);
+//void sp_document_cancel(SPDocument *document);
 
 /* Undo and redo */
-gboolean sp_document_undo(SPDocument *document);
-gboolean sp_document_redo(SPDocument *document);
+//gboolean sp_document_undo(SPDocument *document);
+//gboolean sp_document_redo(SPDocument *document);
 
 /* Resource management */
 //gboolean sp_document_add_resource(SPDocument *document, const gchar *key, SPObject *object);

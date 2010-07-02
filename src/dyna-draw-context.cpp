@@ -1040,7 +1040,7 @@ set_to_accumulated(SPDynaDrawContext *dc, bool unionize, bool subtract)
         dc->repr = NULL;
     }
 
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_CALLIGRAPHIC,
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_CALLIGRAPHIC,
                      _("Draw calligraphic stroke"));
 }
 

@@ -1387,13 +1387,13 @@ void PathManipulator::_removeNodesFromSelection()
 void PathManipulator::_commit(Glib::ustring const &annotation)
 {
     writeXML();
-    sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_NODE, annotation.data());
+    SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_NODE, annotation.data());
 }
 
 void PathManipulator::_commit(Glib::ustring const &annotation, gchar const *key)
 {
     writeXML();
-    sp_document_maybe_done(sp_desktop_document(_desktop), key, SP_VERB_CONTEXT_NODE,
+    SPDocumentUndo::maybe_done(sp_desktop_document(_desktop), key, SP_VERB_CONTEXT_NODE,
             annotation.data());
 }
 

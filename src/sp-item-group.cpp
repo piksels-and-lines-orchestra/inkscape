@@ -497,7 +497,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     }
 
     if (do_done)
-        sp_document_done (doc, SP_VERB_NONE, _("Ungroup"));
+        SPDocumentUndo::done (doc, SP_VERB_NONE, _("Ungroup"));
 }
 
 /*

@@ -154,7 +154,7 @@ sp_attribute_widget_changed (GtkEditable *editable)
         if (spaw->hasobj && spaw->src.object) {
         
             SP_OBJECT_REPR (spaw->src.object)->setAttribute(spaw->attribute, text, false);
-            sp_document_done (SP_OBJECT_DOCUMENT (spaw->src.object), SP_VERB_NONE,
+            SPDocumentUndo::done (SP_OBJECT_DOCUMENT (spaw->src.object), SP_VERB_NONE,
                               _("Set attribute"));
 
         } else if (spaw->src.repr) {
@@ -761,7 +761,7 @@ sp_attribute_table_entry_changed ( GtkEditable *editable,
 
                 if (spat->hasobj && spat->src.object) {
                     SP_OBJECT_REPR (spat->src.object)->setAttribute(spat->attributes[i], text, false);
-                    sp_document_done (SP_OBJECT_DOCUMENT (spat->src.object), SP_VERB_NONE,
+                    SPDocumentUndo::done (SP_OBJECT_DOCUMENT (spat->src.object), SP_VERB_NONE,
                                       _("Set attribute"));
 
                 } else if (spat->src.repr) {

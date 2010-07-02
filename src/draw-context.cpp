@@ -698,7 +698,7 @@ spdc_flush_white(SPDrawContext *dc, SPCurve *gc)
             item->updateRepr();
         }
 
-        sp_document_done(doc, SP_IS_PEN_CONTEXT(dc)? SP_VERB_CONTEXT_PEN : SP_VERB_CONTEXT_PENCIL,
+        SPDocumentUndo::done(doc, SP_IS_PEN_CONTEXT(dc)? SP_VERB_CONTEXT_PEN : SP_VERB_CONTEXT_PENCIL,
                          _("Draw path"));
 
         // When quickly drawing several subpaths with Shift, the next subpath may be finished and
@@ -861,7 +861,7 @@ void spdc_create_single_dot(SPEventContext *ec, Geom::Point const &pt, char cons
     sp_desktop_selection(desktop)->set(item);
 
     desktop->messageStack()->flash(Inkscape::NORMAL_MESSAGE, _("Creating single dot"));
-    sp_document_done(sp_desktop_document(desktop), SP_VERB_NONE, _("Create single dot"));
+    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_NONE, _("Create single dot"));
 }
 
 /*

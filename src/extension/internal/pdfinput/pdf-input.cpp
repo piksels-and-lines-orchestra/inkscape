@@ -662,8 +662,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
     Page *page = catalog->getPage(page_num);
 
     SPDocument *doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
-    bool saved = sp_document_get_undo_sensitive(doc);
-    sp_document_set_undo_sensitive(doc, false); // No need to undo in this temporary document
+    bool saved = SPDocumentUndo::get_undo_sensitive(doc);
+	SPDocumentUndo::set_undo_sensitive(doc, false); // No need to undo in this temporary document
 
     // Create builder
     gchar *docname = g_path_get_basename(uri);
@@ -737,7 +737,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
     delete dlg;
 
     // Restore undo
-    sp_document_set_undo_sensitive(doc, saved);
+	SPDocumentUndo::set_undo_sensitive(doc, saved);
 
     return doc;
 }

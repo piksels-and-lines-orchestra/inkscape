@@ -661,7 +661,7 @@ sp_text_edit_dialog_apply( GtkButton */*button*/, GtkWidget *dlg )
     }
 
     // complete the transaction
-    sp_document_done (sp_desktop_document (SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
+    SPDocumentUndo::done (sp_desktop_document (SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
                       _("Set text style"));
     gtk_widget_set_sensitive (apply, FALSE);
     sp_repr_css_attr_unref (css);

@@ -1098,7 +1098,7 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
             SPObject *next=Inkscape::next_layer(dt->currentRoot(), dt->currentLayer());
             if (next) {
                 dt->setCurrentLayer(next);
-                sp_document_done(sp_desktop_document(dt), SP_VERB_LAYER_NEXT,
+                SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_LAYER_NEXT,
                                  _("Switch to next layer"));
                 dt->messageStack()->flash(Inkscape::NORMAL_MESSAGE, _("Switched to next layer."));
             } else {
@@ -1110,7 +1110,7 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
             SPObject *prev=Inkscape::previous_layer(dt->currentRoot(), dt->currentLayer());
             if (prev) {
                 dt->setCurrentLayer(prev);
-                sp_document_done(sp_desktop_document(dt), SP_VERB_LAYER_PREV,
+                SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_LAYER_PREV,
                                  _("Switch to previous layer"));
                 dt->messageStack()->flash(Inkscape::NORMAL_MESSAGE, _("Switched to previous layer."));
             } else {
@@ -1176,7 +1176,7 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
                         description = _("Lower layer");
                         break;
                 };
-                sp_document_done(sp_desktop_document(dt), verb, description);
+                SPDocumentUndo::done(sp_desktop_document(dt), verb, description);
                 if (message) {
                     dt->messageStack()->flash(Inkscape::NORMAL_MESSAGE, message);
                     g_free((void *) message);
@@ -1221,7 +1221,7 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
                     dt->setCurrentLayer(new_layer);
                 }
 #endif
-                sp_document_done(sp_desktop_document(dt), SP_VERB_LAYER_DUPLICATE,
+                SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_LAYER_DUPLICATE,
                                  _("Duplicate layer"));
 
                 // TRANSLATORS: this means "The layer has been duplicated."
@@ -1253,7 +1253,7 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
                     dt->setCurrentLayer(survivor);
                 }
 
-                sp_document_done(sp_desktop_document(dt), SP_VERB_LAYER_DELETE,
+                SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_LAYER_DELETE,
                                  _("Delete layer"));
 
                 // TRANSLATORS: this means "The layer has been deleted."
@@ -1268,7 +1268,7 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
                 dt->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("No current layer."));
             } else {
                 dt->toggleLayerSolo( dt->currentLayer() );
-                sp_document_maybe_done(sp_desktop_document(dt), "layer:solo", SP_VERB_LAYER_SOLO, _("Toggle layer solo"));
+                SPDocumentUndo::maybe_done(sp_desktop_document(dt), "layer:solo", SP_VERB_LAYER_SOLO, _("Toggle layer solo"));
             }
             break;
         }
@@ -1328,12 +1328,12 @@ ObjectVerb::perform( SPAction *action, void *data, void */*pdata*/ )
             break;
         case SP_VERB_OBJECT_FLIP_HORIZONTAL:
             sp_selection_scale_relative(sel, center, Geom::Scale(-1.0, 1.0));
-            sp_document_done(sp_desktop_document(dt), SP_VERB_OBJECT_FLIP_HORIZONTAL,
+            SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_OBJECT_FLIP_HORIZONTAL,
                              _("Flip horizontally"));
             break;
         case SP_VERB_OBJECT_FLIP_VERTICAL:
             sp_selection_scale_relative(sel, center, Geom::Scale(1.0, -1.0));
-            sp_document_done(sp_desktop_document(dt), SP_VERB_OBJECT_FLIP_VERTICAL,
+            SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_OBJECT_FLIP_VERTICAL,
                              _("Flip vertically"));
             break;
         case SP_VERB_OBJECT_SET_MASK:
@@ -2162,19 +2162,19 @@ LockAndHideVerb::perform(SPAction *action, void *data, void */*pdata*/)
     switch (reinterpret_cast<std::size_t>(data)) {
         case SP_VERB_UNLOCK_ALL:
             unlock_all(dt);
-            sp_document_done(doc, SP_VERB_UNLOCK_ALL, _("Unlock all objects in the current layer"));
+            SPDocumentUndo::done(doc, SP_VERB_UNLOCK_ALL, _("Unlock all objects in the current layer"));
             break;
         case SP_VERB_UNLOCK_ALL_IN_ALL_LAYERS:
             unlock_all_in_all_layers(dt);
-            sp_document_done(doc, SP_VERB_UNLOCK_ALL_IN_ALL_LAYERS, _("Unlock all objects in all layers"));
+            SPDocumentUndo::done(doc, SP_VERB_UNLOCK_ALL_IN_ALL_LAYERS, _("Unlock all objects in all layers"));
             break;
         case SP_VERB_UNHIDE_ALL:
             unhide_all(dt);
-            sp_document_done(doc, SP_VERB_UNHIDE_ALL, _("Unhide all objects in the current layer"));
+            SPDocumentUndo::done(doc, SP_VERB_UNHIDE_ALL, _("Unhide all objects in the current layer"));
             break;
         case SP_VERB_UNHIDE_ALL_IN_ALL_LAYERS:
             unhide_all_in_all_layers(dt);
-            sp_document_done(doc, SP_VERB_UNHIDE_ALL_IN_ALL_LAYERS, _("Unhide all objects in all layers"));
+            SPDocumentUndo::done(doc, SP_VERB_UNHIDE_ALL_IN_ALL_LAYERS, _("Unhide all objects in all layers"));
             break;
         default:
             return;

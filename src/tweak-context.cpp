@@ -1258,55 +1258,55 @@ sp_tweak_context_root_handler(SPEventContext *event_context,
             tc->has_dilated = false;
             switch (tc->mode) {
                 case TWEAK_MODE_MOVE:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Move tweak"));
                     break;
                 case TWEAK_MODE_MOVE_IN_OUT:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Move in/out tweak"));
                     break;
                 case TWEAK_MODE_MOVE_JITTER:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Move jitter tweak"));
                     break;
                 case TWEAK_MODE_SCALE:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Scale tweak"));
                     break;
                 case TWEAK_MODE_ROTATE:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Rotate tweak"));
                     break;
                 case TWEAK_MODE_MORELESS:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Duplicate/delete tweak"));
                     break;
                 case TWEAK_MODE_PUSH:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Push path tweak"));
                     break;
                 case TWEAK_MODE_SHRINK_GROW:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Shrink/grow path tweak"));
                     break;
                 case TWEAK_MODE_ATTRACT_REPEL:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Attract/repel path tweak"));
                     break;
                 case TWEAK_MODE_ROUGHEN:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Roughen path tweak"));
                     break;
                 case TWEAK_MODE_COLORPAINT:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Color paint tweak"));
                     break;
                 case TWEAK_MODE_COLORJITTER:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Color jitter tweak"));
                     break;
                 case TWEAK_MODE_BLUR:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_TWEAK, _("Blur tweak"));
                     break;
             }

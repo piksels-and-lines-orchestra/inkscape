@@ -274,8 +274,8 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
 
     // Update attributes:
     {
-        bool const saved = sp_document_get_undo_sensitive(doc);
-        sp_document_set_undo_sensitive(doc, false);
+        bool const saved = SPDocumentUndo::get_undo_sensitive(doc);
+		SPDocumentUndo::set_undo_sensitive(doc, false);
         {
             // also save the extension for next use
             store_file_extension_in_prefs (omod->get_id(), save_method);
@@ -285,7 +285,7 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
                 repr->setAttribute("inkscape:dataloss", "true");
             }
         }
-        sp_document_set_undo_sensitive(doc, saved);
+		SPDocumentUndo::set_undo_sensitive(doc, saved);
         doc->setModifiedSinceSave(false);
     }
 
@@ -295,13 +295,13 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
     catch(...) {
         // revert attributes in case of official and overwrite
         if(check_overwrite && official) {
-            bool const saved = sp_document_get_undo_sensitive(doc);
-            sp_document_set_undo_sensitive(doc, false);
+            bool const saved = SPDocumentUndo::get_undo_sensitive(doc);
+			SPDocumentUndo::set_undo_sensitive(doc, false);
             {
                 store_file_extension_in_prefs (saved_output_extension, save_method);
                 repr->setAttribute("inkscape:dataloss", saved_dataloss);
             }
-            sp_document_set_undo_sensitive(doc, saved);
+			SPDocumentUndo::set_undo_sensitive(doc, saved);
             doc->change_uri_and_hrefs(saved_uri);
         }
         doc->setModifiedSinceSave(saved_modified);
@@ -317,13 +317,13 @@ save(Extension *key, SPDocument *doc, gchar const *filename, bool setextension, 
 
     // If it is an unofficial save, set the modified attributes back to what they were.
     if ( !official) {
-        bool const saved = sp_document_get_undo_sensitive(doc);
-        sp_document_set_undo_sensitive(doc, false);
+        bool const saved = SPDocumentUndo::get_undo_sensitive(doc);
+		SPDocumentUndo::set_undo_sensitive(doc, false);
         {
             store_file_extension_in_prefs (saved_output_extension, save_method);
             repr->setAttribute("inkscape:dataloss", saved_dataloss);
         }
-        sp_document_set_undo_sensitive(doc, saved);
+		SPDocumentUndo::set_undo_sensitive(doc, saved);
         doc->setModifiedSinceSave(saved_modified);
 
         g_free(saved_output_extension);

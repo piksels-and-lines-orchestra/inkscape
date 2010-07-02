@@ -184,7 +184,7 @@ void SwatchesPanelHook::convertGradient( GtkMenuItem * /*menuitem*/, gpointer us
                 if ( targetName == grad->getId() ) {
                     grad->repr->setAttribute("osb:paint", "solid"); // TODO make conditional
 
-                    sp_document_done(doc, SP_VERB_CONTEXT_GRADIENT,
+                    SPDocumentUndo::done(doc, SP_VERB_CONTEXT_GRADIENT,
                                      _("Add gradient stop"));
 
                     handleGradientsChange(doc); // work-around for signal not being emitted

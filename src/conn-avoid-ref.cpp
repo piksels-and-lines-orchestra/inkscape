@@ -197,7 +197,7 @@ void SPAvoidRef::setConnectionPointsAttrUndoable(const gchar* value, const gchar
     sp_object_setAttribute( SP_OBJECT(item), "inkscape:connection-points", value, 0 );
     item->updateRepr();
     doc->ensure_up_to_date();
-    sp_document_done(doc, SP_VERB_CONTEXT_CONNECTOR, action);
+    SPDocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR, action);
 }
 
 void SPAvoidRef::addConnectionPoint(ConnectionPoint &cp)
@@ -589,8 +589,8 @@ void init_avoided_shape_geometry(SPDesktop *desktop)
     // Don't count this as changes to the document,
     // it is basically just late initialisation.
     SPDocument *document = sp_desktop_document(desktop);
-    bool saved = sp_document_get_undo_sensitive(document);
-    sp_document_set_undo_sensitive(document, false);
+    bool saved = SPDocumentUndo::get_undo_sensitive(document);
+	SPDocumentUndo::set_undo_sensitive(document, false);
 
     bool initialised = false;
     GSList *items = get_avoided_items(NULL, desktop->currentRoot(), desktop,
@@ -604,7 +604,7 @@ void init_avoided_shape_geometry(SPDesktop *desktop)
     if (items) {
         g_slist_free(items);
     }
-    sp_document_set_undo_sensitive(document, saved);
+	SPDocumentUndo::set_undo_sensitive(document, saved);
 }
 
 

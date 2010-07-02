@@ -332,7 +332,7 @@ void FillNStroke::setFillrule( SPPaintSelector::FillRule mode )
         sp_repr_css_attr_unref(css);
         css = 0;
 
-        sp_document_done(desktop->doc(), SP_VERB_DIALOG_FILL_STROKE,
+        SPDocumentUndo::done(desktop->doc(), SP_VERB_DIALOG_FILL_STROKE,
                          _("Change fill rule"));
     }
 }
@@ -417,7 +417,7 @@ void FillNStroke::dragFromPaint()
             // local change, do not update from selection
             dragId = g_timeout_add_full(G_PRIORITY_DEFAULT, 100, dragDelayCB, this, 0);
             psel->setFlatColor( desktop, (kind == FILL) ? "fill" : "stroke", (kind == FILL) ? "fill-opacity" : "stroke-opacity" );
-            sp_document_maybe_done(desktop->doc(), (kind == FILL) ? undo_F_label : undo_S_label, SP_VERB_DIALOG_FILL_STROKE,
+            SPDocumentUndo::maybe_done(desktop->doc(), (kind == FILL) ? undo_F_label : undo_S_label, SP_VERB_DIALOG_FILL_STROKE,
                                    (kind == FILL) ? _("Set fill color") : _("Set stroke color"));
             break;
         }
@@ -480,7 +480,7 @@ void FillNStroke::updateFromPaint()
             sp_repr_css_attr_unref(css);
             css = 0;
 
-            sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
+            SPDocumentUndo::done(document, SP_VERB_DIALOG_FILL_STROKE,
                              (kind == FILL) ? _("Remove fill") : _("Remove stroke"));
             break;
         }
@@ -496,7 +496,7 @@ void FillNStroke::updateFromPaint()
             psel->setFlatColor( desktop,
                                 (kind == FILL) ? "fill" : "stroke",
                                 (kind == FILL) ? "fill-opacity" : "stroke-opacity" );
-            sp_document_maybe_done(sp_desktop_document(desktop), (kind == FILL) ? undo_F_label : undo_S_label, SP_VERB_DIALOG_FILL_STROKE,
+            SPDocumentUndo::maybe_done(sp_desktop_document(desktop), (kind == FILL) ? undo_F_label : undo_S_label, SP_VERB_DIALOG_FILL_STROKE,
                                    (kind == FILL) ? _("Set fill color") : _("Set stroke color"));
 
             if (kind == FILL) {
@@ -583,7 +583,7 @@ void FillNStroke::updateFromPaint()
                     css = 0;
                 }
 
-                sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
+                SPDocumentUndo::done(document, SP_VERB_DIALOG_FILL_STROKE,
                                  (kind == FILL) ? _("Set gradient on fill") : _("Set gradient on stroke"));
             }
             break;
@@ -643,7 +643,7 @@ void FillNStroke::updateFromPaint()
 
                 } // end if
 
-                sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
+                SPDocumentUndo::done(document, SP_VERB_DIALOG_FILL_STROKE,
                                  (kind == FILL) ? _("Set pattern on fill") :
                                  _("Set pattern on stroke"));
             } // end if
@@ -670,7 +670,7 @@ void FillNStroke::updateFromPaint()
                 sp_repr_css_attr_unref(css);
                 css = 0;
 
-                sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
+                SPDocumentUndo::done(document, SP_VERB_DIALOG_FILL_STROKE,
                                  (kind == FILL) ? _("Unset fill") : _("Unset stroke"));
             }
             break;

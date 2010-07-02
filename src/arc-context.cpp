@@ -500,7 +500,7 @@ static void sp_arc_finish(SPArcContext *ac)
         sp_canvas_end_forced_full_redraws(desktop->canvas);
 
         sp_desktop_selection(desktop)->set(ac->item);
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_ARC,
+		SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_ARC,
                          _("Create ellipse"));
 
         ac->item = NULL;
@@ -526,7 +526,7 @@ static void sp_arc_cancel(SPArcContext *ac)
 
     sp_canvas_end_forced_full_redraws(desktop->canvas);
 
-    sp_document_cancel(sp_desktop_document(desktop));
+    SPDocumentUndo::cancel(sp_desktop_document(desktop));
 }
 
 

@@ -117,7 +117,7 @@ void SvgFontsDialog::AttrEntry::on_attr_changed(){
 
         Glib::ustring undokey = "svgfonts:";
         undokey += name;
-        sp_document_maybe_done(o->document, undokey.c_str(), SP_VERB_DIALOG_SVG_FONTS,
+        SPDocumentUndo::maybe_done(o->document, undokey.c_str(), SP_VERB_DIALOG_SVG_FONTS,
                                _("Set SVG Font attribute"));
     }
 
@@ -163,7 +163,7 @@ void SvgFontsDialog::on_kerning_value_changed(){
     if (!this->kerning_pair) return;
     SPDocument* document = sp_desktop_document(this->getDesktop());
 
-    //TODO: I am unsure whether this is the correct way of calling sp_document_maybe_done
+    //TODO: I am unsure whether this is the correct way of calling SPDocumentUndo::maybe_done
     Glib::ustring undokey = "svgfonts:hkern:k:";
     undokey += this->kerning_pair->u1->attribute_string();
     undokey += ":";
@@ -171,7 +171,7 @@ void SvgFontsDialog::on_kerning_value_changed(){
 
     //slider values increase from right to left so that they match the kerning pair preview
     this->kerning_pair->repr->setAttribute("k", Glib::Ascii::dtostr(get_selected_spfont()->horiz_adv_x - kerning_slider.get_value()).c_str());
-    sp_document_maybe_done(document, undokey.c_str(), SP_VERB_DIALOG_SVG_FONTS, _("Adjust kerning value"));
+    SPDocumentUndo::maybe_done(document, undokey.c_str(), SP_VERB_DIALOG_SVG_FONTS, _("Adjust kerning value"));
 
     //populate_kerning_pairs_box();
     kerning_preview.redraw();
@@ -462,7 +462,7 @@ void SvgFontsDialog::add_glyph(){
     SPDocument* doc = sp_desktop_document(this->getDesktop());
     /* SPGlyph* glyph =*/ new_glyph(doc, get_selected_spfont(), count+1);
 
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Add glyph"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Add glyph"));
 
     update_glyphs();
 }
@@ -506,7 +506,7 @@ void SvgFontsDialog::set_glyph_description_from_selected_path(){
         return;
     }
     glyph->repr->setAttribute("d", (char*) sp_svg_write_path (pathv));
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
 
     update_glyphs();
 }
@@ -548,7 +548,7 @@ void SvgFontsDialog::missing_glyph_description_from_selected_path(){
     for (obj = get_selected_spfont()->children; obj; obj=obj->next){
         if (SP_IS_MISSING_GLYPH(obj)){
             obj->repr->setAttribute("d", (char*) sp_svg_write_path (pathv));
-            sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
+            SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
         }
     }
 
@@ -567,7 +567,7 @@ void SvgFontsDialog::reset_missing_glyph_description(){
     for (obj = get_selected_spfont()->children; obj; obj=obj->next){
         if (SP_IS_MISSING_GLYPH(obj)){
             obj->repr->setAttribute("d", (char*) "M0,0h1000v1024h-1000z");
-            sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Reset missing-glyph"));
+            SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Reset missing-glyph"));
         }
     }
 
@@ -582,7 +582,7 @@ void SvgFontsDialog::glyph_name_edit(const Glib::ustring&, const Glib::ustring& 
     glyph->repr->setAttribute("glyph-name", str.c_str());
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Edit glyph name"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Edit glyph name"));
 
     update_glyphs();
 }
@@ -595,7 +595,7 @@ void SvgFontsDialog::glyph_unicode_edit(const Glib::ustring&, const Glib::ustrin
     glyph->repr->setAttribute("unicode", str.c_str());
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph unicode"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph unicode"));
 
     update_glyphs();
 }
@@ -605,7 +605,7 @@ void SvgFontsDialog::remove_selected_font(){
 
     sp_repr_unparent(font->repr);
     SPDocument* doc = sp_desktop_document(this->getDesktop());
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove font"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove font"));
 
     update_fonts();
 }
@@ -620,7 +620,7 @@ void SvgFontsDialog::remove_selected_glyph(){
     sp_repr_unparent(glyph->repr);
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove glyph"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove glyph"));
 
     update_glyphs();
 }
@@ -635,7 +635,7 @@ void SvgFontsDialog::remove_selected_kerning_pair(){
     sp_repr_unparent(pair->repr);
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove kerning pair"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove kerning pair"));
 
     update_glyphs();
 }
@@ -723,7 +723,7 @@ void SvgFontsDialog::add_kerning_pair(){
     // get corresponding object
     this->kerning_pair = SP_HKERN( document->getObjectByRepr(repr) );
 
-    sp_document_done(document, SP_VERB_DIALOG_SVG_FONTS, _("Add kerning pair"));
+    SPDocumentUndo::done(document, SP_VERB_DIALOG_SVG_FONTS, _("Add kerning pair"));
 }
 
 Gtk::VBox* SvgFontsDialog::kerning_tab(){
@@ -816,7 +816,7 @@ void set_font_family(SPFont* font, char* str){
         }
     }
 
-    sp_document_done(font->document, SP_VERB_DIALOG_SVG_FONTS, _("Set font family"));
+    SPDocumentUndo::done(font->document, SP_VERB_DIALOG_SVG_FONTS, _("Set font family"));
 }
 
 void SvgFontsDialog::add_font(){
@@ -839,7 +839,7 @@ void SvgFontsDialog::add_font(){
     update_fonts();
 //    select_font(font);
 
-    sp_document_done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Add font"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Add font"));
 }
 
 SvgFontsDialog::SvgFontsDialog()

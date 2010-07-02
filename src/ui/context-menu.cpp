@@ -284,7 +284,7 @@ sp_item_create_link(GtkMenuItem *menuitem, SPItem *item)
     Inkscape::GC::release(repr);
     Inkscape::GC::release(child);
 
-    sp_document_done(SP_OBJECT_DOCUMENT(object), SP_VERB_NONE,
+    SPDocumentUndo::done(SP_OBJECT_DOCUMENT(object), SP_VERB_NONE,
                      _("Create link"));
 
     sp_object_attributes_dialog(object, "SPAnchor");

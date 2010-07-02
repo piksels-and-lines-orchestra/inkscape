@@ -104,16 +104,16 @@ protected:
             local_doc = sp_desktop_document(dt);
         }
 
-        bool saved = sp_document_get_undo_sensitive (local_doc);
-        sp_document_set_undo_sensitive (local_doc, false);
+        bool saved = SPDocumentUndo::get_undo_sensitive (local_doc);
+		SPDocumentUndo::set_undo_sensitive (local_doc, false);
         if (!write_undo) local_repr->setAttribute(_key.c_str(), svgstr);
-        sp_document_set_undo_sensitive (local_doc, saved);
+		SPDocumentUndo::set_undo_sensitive (local_doc, saved);
 
         local_doc->setModifiedSinceSave();
 
         if (write_undo) {
             local_repr->setAttribute(_key.c_str(), svgstr);
-            sp_document_done (local_doc, event_type, event_description);
+			SPDocumentUndo::done (local_doc, event_type, event_description);
         }
     }
 

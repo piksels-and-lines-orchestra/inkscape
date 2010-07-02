@@ -450,7 +450,7 @@ DocumentProperties::linkSelectedProfile()
         //Inkscape::GC::release(defsRepr);
 
         // inform the document, so we can undo
-        sp_document_done(desktop->doc(), SP_VERB_EDIT_LINK_COLOR_PROFILE, _("Link Color Profile"));
+        SPDocumentUndo::done(desktop->doc(), SP_VERB_EDIT_LINK_COLOR_PROFILE, _("Link Color Profile"));
 
         populate_linked_profiles_box();
     }
@@ -523,7 +523,7 @@ void DocumentProperties::removeSelectedProfile(){
         Inkscape::ColorProfile* prof = reinterpret_cast<Inkscape::ColorProfile*>(obj);
         if (!name.compare(prof->name)){
             sp_repr_unparent(obj->repr);
-            sp_document_done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_COLOR_PROFILE, _("Remove linked color profile"));
+            SPDocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_COLOR_PROFILE, _("Remove linked color profile"));
         }
         current = g_slist_next(current);
     }
@@ -668,7 +668,7 @@ void DocumentProperties::addExternalScript(){
         xml_doc->root()->addChild(scriptRepr, NULL);
 
         // inform the document, so we can undo
-        sp_document_done(desktop->doc(), SP_VERB_EDIT_ADD_EXTERNAL_SCRIPT, _("Add external script..."));
+        SPDocumentUndo::done(desktop->doc(), SP_VERB_EDIT_ADD_EXTERNAL_SCRIPT, _("Add external script..."));
 
         populate_external_scripts_box();
     }
@@ -692,7 +692,7 @@ void DocumentProperties::removeExternalScript(){
         SPScript* script = (SPScript*) obj;
         if (name == script->xlinkhref){
             sp_repr_unparent(obj->repr);
-            sp_document_done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT, _("Remove external script"));
+            SPDocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT, _("Remove external script"));
         }
         current = g_slist_next(current);
     }
@@ -985,7 +985,7 @@ DocumentProperties::onRemoveGrid()
         // delete the grid that corresponds with the selected tab
         // when the grid is deleted from SVG, the SPNamedview handler automatically deletes the object, so found_grid becomes an invalid pointer!
         found_grid->repr->parent()->removeChild(found_grid->repr);
-        sp_document_done(sp_desktop_document(dt), SP_VERB_DIALOG_NAMEDVIEW, _("Remove grid"));
+        SPDocumentUndo::done(sp_desktop_document(dt), SP_VERB_DIALOG_NAMEDVIEW, _("Remove grid"));
     }
 }
 

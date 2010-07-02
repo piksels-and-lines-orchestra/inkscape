@@ -214,7 +214,7 @@ UndoHistory::_onListSelectionChange()
 
             _event_log->blockNotifications();
             for ( --last ; curr_event != last ; ++curr_event ) {
-                sp_document_redo(_document);
+                SPDocumentUndo::redo(_document);
             }
             _event_log->blockNotifications(false);
 
@@ -248,7 +248,7 @@ UndoHistory::_onListSelectionChange()
 
             while ( selected != last_selected ) {
 
-                sp_document_undo(_document);
+                SPDocumentUndo::undo(_document);
 
                 if ( last_selected->parent() &&
                      last_selected == last_selected->parent()->children().begin() )
@@ -273,7 +273,7 @@ UndoHistory::_onListSelectionChange()
 
             while ( selected != last_selected ) {
 
-                sp_document_redo(_document);
+                SPDocumentUndo::redo(_document);
 
                 if ( !last_selected->children().empty() ) {
                     _event_log->setCurrEventParent(last_selected);
@@ -317,10 +317,10 @@ UndoHistory::_onCollapseEvent(const Gtk::TreeModel::iterator &iter, const Gtk::T
         EventLog::const_iterator last = curr_event_parent->children().end();
 
         _event_log->blockNotifications();
-        sp_document_redo(_document);
+        SPDocumentUndo::redo(_document);
 
         for ( --last ; curr_event != last ; ++curr_event ) {
-            sp_document_redo(_document);
+            SPDocumentUndo::redo(_document);
         }
         _event_log->blockNotifications(false);
 

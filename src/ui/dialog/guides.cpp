@@ -108,7 +108,7 @@ void GuidelinePropertiesDialog::_onApply()
 
     sp_guide_moveto(*_guide, newpos, true);
 
-    sp_document_done(SP_OBJECT_DOCUMENT(_guide), SP_VERB_NONE, 
+    SPDocumentUndo::done(SP_OBJECT_DOCUMENT(_guide), SP_VERB_NONE, 
                      _("Set guide properties"));
 }
 
@@ -121,7 +121,7 @@ void GuidelinePropertiesDialog::_onDelete()
 {
     SPDocument *doc = SP_OBJECT_DOCUMENT(_guide);
     sp_guide_remove(_guide);
-    sp_document_done(doc, SP_VERB_NONE, 
+    SPDocumentUndo::done(doc, SP_VERB_NONE, 
                      _("Delete guide"));
 }
 

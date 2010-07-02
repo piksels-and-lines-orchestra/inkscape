@@ -662,9 +662,9 @@ void MultiPathManipulator::_commit(CommitEvent cps)
     _selection.signal_update.emit();
     invokeForAll(&PathManipulator::writeXML);
     if (key) {
-        sp_document_maybe_done(sp_desktop_document(_desktop), key, SP_VERB_CONTEXT_NODE, reason);
+        SPDocumentUndo::maybe_done(sp_desktop_document(_desktop), key, SP_VERB_CONTEXT_NODE, reason);
     } else {
-        sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_NODE, reason);
+        SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_NODE, reason);
     }
     signal_coords_changed.emit();
 }
@@ -673,7 +673,7 @@ void MultiPathManipulator::_commit(CommitEvent cps)
 void MultiPathManipulator::_done(gchar const *reason) {
     invokeForAll(&PathManipulator::update);
     invokeForAll(&PathManipulator::writeXML);
-    sp_document_done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_NODE, reason);
+    SPDocumentUndo::done(sp_desktop_document(_desktop), SP_VERB_CONTEXT_NODE, reason);
     signal_coords_changed.emit();
 }
 

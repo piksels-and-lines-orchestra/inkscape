@@ -877,15 +877,15 @@ case GDK_SCROLL_LEFT:
             tc->has_dilated = false;
             switch (tc->mode) {
                 case SPRAY_MODE_COPY:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_SPRAY, _("Spray with copies"));
                     break;
                 case SPRAY_MODE_CLONE:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_SPRAY, _("Spray with clones"));
                     break;
                 case SPRAY_MODE_SINGLE_PATH:
-                    sp_document_done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
+                    SPDocumentUndo::done(sp_desktop_document(SP_EVENT_CONTEXT(tc)->desktop),
                                      SP_VERB_CONTEXT_SPRAY, _("Spray in single path"));
                     break;
             }

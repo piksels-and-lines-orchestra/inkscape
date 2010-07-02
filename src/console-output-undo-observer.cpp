@@ -1,6 +1,6 @@
 /**
  * Inkscape::ConsoleOutputUndoObserver - observer for tracing calls to
- * sp_document_undo, sp_document_redo, sp_document_maybe_done
+ * SPDocumentUndo::undo, SPDocumentUndo::redo, SPDocumentUndo::maybe_done
  *
  * Authors:
  * David Yip <yipdw@alumni.rose-hulman.edu>
@@ -19,19 +19,19 @@ namespace Inkscape {
 void
 ConsoleOutputUndoObserver::notifyUndoEvent(Event* /*log*/)
 {
-    // g_message("notifyUndoEvent (sp_document_undo) called; log=%p\n", log->event);
+    // g_message("notifyUndoEvent (SPDocumentUndo::undo) called; log=%p\n", log->event);
 }
 
 void
 ConsoleOutputUndoObserver::notifyRedoEvent(Event* /*log*/)
 {
-    // g_message("notifyRedoEvent (sp_document_redo) called; log=%p\n", log->event);
+    // g_message("notifyRedoEvent (SPDocumentUndo::redo) called; log=%p\n", log->event);
 }
 
 void
 ConsoleOutputUndoObserver::notifyUndoCommitEvent(Event* /*log*/)
 {
-    //g_message("notifyUndoCommitEvent (sp_document_maybe_done) called; log=%p\n", log->event);
+    //g_message("notifyUndoCommitEvent (SPDocumentUndo::maybe_done) called; log=%p\n", log->event);
 }
 
 void

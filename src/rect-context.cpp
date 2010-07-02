@@ -545,7 +545,7 @@ static void sp_rect_finish(SPRectContext *rc)
         sp_canvas_end_forced_full_redraws(desktop->canvas);
 
         sp_desktop_selection(desktop)->set(rc->item);
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_RECT,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_RECT,
                          _("Create rectangle"));
 
         rc->item = NULL;
@@ -571,7 +571,7 @@ static void sp_rect_cancel(SPRectContext *rc)
 
     sp_canvas_end_forced_full_redraws(desktop->canvas);
 
-    sp_document_cancel(sp_desktop_document(desktop));
+    SPDocumentUndo::cancel(sp_desktop_document(desktop));
 }
 
 

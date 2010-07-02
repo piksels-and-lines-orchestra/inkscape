@@ -677,7 +677,7 @@ Transformation::applyPageMove(Inkscape::Selection *selection)
         }
     }
 
-    sp_document_done ( sp_desktop_document (selection->desktop()) , SP_VERB_DIALOG_TRANSFORM,
+    SPDocumentUndo::done ( sp_desktop_document (selection->desktop()) , SP_VERB_DIALOG_TRANSFORM,
                        _("Move"));
 }
 
@@ -734,7 +734,7 @@ Transformation::applyPageScale(Inkscape::Selection *selection)
         }
     }
 
-    sp_document_done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
+    SPDocumentUndo::done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
                      _("Scale"));
 }
 
@@ -756,7 +756,7 @@ Transformation::applyPageRotate(Inkscape::Selection *selection)
         }
     }
 
-    sp_document_done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
+    SPDocumentUndo::done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
                      _("Rotate"));
 }
 
@@ -815,7 +815,7 @@ Transformation::applyPageSkew(Inkscape::Selection *selection)
         }
     }
 
-    sp_document_done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
+    SPDocumentUndo::done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
                      _("Skew"));
 }
 
@@ -842,7 +842,7 @@ Transformation::applyPageTransform(Inkscape::Selection *selection)
         sp_selection_apply_affine(selection, displayed); // post-multiply each object's transform
     }
 
-    sp_document_done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
+    SPDocumentUndo::done(sp_desktop_document(selection->desktop()), SP_VERB_DIALOG_TRANSFORM,
                      _("Edit transformation matrix"));
 }
 

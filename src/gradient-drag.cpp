@@ -588,7 +588,7 @@ gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gp
                 d_new->updateKnotShape ();
                 d_new->updateTip ();
                 d_new->updateDependencies(true);
-                sp_document_done (sp_desktop_document (d_new->parent->desktop), SP_VERB_CONTEXT_GRADIENT,
+                SPDocumentUndo::done (sp_desktop_document (d_new->parent->desktop), SP_VERB_CONTEXT_GRADIENT,
                                   _("Merge gradient handles"));
                 return;
             }
@@ -887,7 +887,7 @@ gr_knot_ungrabbed_handler (SPKnot *knot, unsigned int state, gpointer data)
     dragger->updateDependencies(true);
 
     // we did an undoable action
-    sp_document_done (sp_desktop_document (dragger->parent->desktop), SP_VERB_CONTEXT_GRADIENT,
+    SPDocumentUndo::done (sp_desktop_document (dragger->parent->desktop), SP_VERB_CONTEXT_GRADIENT,
                       _("Move gradient handle"));
 }
 
@@ -940,7 +940,7 @@ gr_knot_clicked_handler(SPKnot */*knot*/, guint state, gpointer data)
             }
 
             SP_OBJECT_REPR(gradient)->removeChild(SP_OBJECT_REPR(stop));
-            sp_document_done (SP_OBJECT_DOCUMENT (gradient), SP_VERB_CONTEXT_GRADIENT,
+            SPDocumentUndo::done (SP_OBJECT_DOCUMENT (gradient), SP_VERB_CONTEXT_GRADIENT,
                       _("Delete gradient stop"));
         }
     } else {
@@ -1817,7 +1817,7 @@ GrDrag::selected_move (double x, double y, bool write_repr, bool scale_radial)
 
     if (write_repr && did) {
         // we did an undoable action
-        sp_document_maybe_done (sp_desktop_document (desktop), "grmoveh", SP_VERB_CONTEXT_GRADIENT,
+        SPDocumentUndo::maybe_done (sp_desktop_document (desktop), "grmoveh", SP_VERB_CONTEXT_GRADIENT,
                                 _("Move gradient handle(s)"));
         return;
     }
@@ -1853,7 +1853,7 @@ GrDrag::selected_move (double x, double y, bool write_repr, bool scale_radial)
 
         if (write_repr && did) {
             // we did an undoable action
-            sp_document_maybe_done (sp_desktop_document (desktop), "grmovem", SP_VERB_CONTEXT_GRADIENT,
+            SPDocumentUndo::maybe_done (sp_desktop_document (desktop), "grmovem", SP_VERB_CONTEXT_GRADIENT,
                                     _("Move gradient mid stop(s)"));
         }
     }
@@ -2142,7 +2142,7 @@ GrDrag::deleteSelected (bool just_one)
     }
 
     if (document) {
-        sp_document_done ( document, SP_VERB_CONTEXT_GRADIENT, _("Delete gradient stop(s)") );
+        SPDocumentUndo::done ( document, SP_VERB_CONTEXT_GRADIENT, _("Delete gradient stop(s)") );
     }
 }
 

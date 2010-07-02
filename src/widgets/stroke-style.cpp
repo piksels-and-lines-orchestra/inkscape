@@ -498,7 +498,7 @@ sp_marker_select(Gtk::OptionMenu *mnu, Gtk::Container *spw, SPMarkerLoc const wh
     sp_repr_css_attr_unref(css);
     css = 0;
 
-    sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
+    SPDocumentUndo::done(document, SP_VERB_DIALOG_FILL_STROKE,
                      _("Set markers"));
 
 };
@@ -1203,7 +1203,7 @@ sp_stroke_style_scale_line(Gtk::Container *spw)
     sp_repr_css_attr_unref(css);
     css = 0;
 
-    sp_document_done(document, SP_VERB_DIALOG_FILL_STROKE,
+    SPDocumentUndo::done(document, SP_VERB_DIALOG_FILL_STROKE,
                      _("Set stroke style"));
 
     spw->set_data("update", GINT_TO_POINTER(FALSE));
@@ -1300,7 +1300,7 @@ sp_stroke_style_any_toggled(Gtk::ToggleButton *tb, Gtk::Container *spw)
         sp_repr_css_attr_unref(css);
         css = 0;
 
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_DIALOG_FILL_STROKE,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_DIALOG_FILL_STROKE,
                          _("Set stroke style"));
     }
 }

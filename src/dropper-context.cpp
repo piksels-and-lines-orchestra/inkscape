@@ -350,7 +350,7 @@ static gint sp_dropper_context_root_handler(SPEventContext *event_context, GdkEv
 
 
                 if (!(sp_desktop_selection(desktop)->isEmpty())) {
-                    sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_DROPPER,
+                    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_DROPPER,
                                      _("Set picked color"));
                 }
 

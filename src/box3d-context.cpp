@@ -436,42 +436,42 @@ static gint sp_box3d_context_root_handler(SPEventContext *event_context, GdkEven
 
         case GDK_bracketright:
             persp3d_rotate_VP (document->getCurrentPersp3D(), Proj::X, -180/snaps, MOD__ALT);
-            sp_document_done(document, SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done(document, SP_VERB_CONTEXT_3DBOX,
                              _("Change perspective (angle of PLs)"));
             ret = true;
             break;
 
         case GDK_bracketleft:
             persp3d_rotate_VP (document->getCurrentPersp3D(), Proj::X, 180/snaps, MOD__ALT);
-            sp_document_done(document, SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done(document, SP_VERB_CONTEXT_3DBOX,
                              _("Change perspective (angle of PLs)"));
             ret = true;
             break;
 
         case GDK_parenright:
             persp3d_rotate_VP (document->getCurrentPersp3D(), Proj::Y, -180/snaps, MOD__ALT);
-            sp_document_done(document, SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done(document, SP_VERB_CONTEXT_3DBOX,
                              _("Change perspective (angle of PLs)"));
             ret = true;
             break;
 
         case GDK_parenleft:
             persp3d_rotate_VP (document->getCurrentPersp3D(), Proj::Y, 180/snaps, MOD__ALT);
-            sp_document_done(document, SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done(document, SP_VERB_CONTEXT_3DBOX,
                              _("Change perspective (angle of PLs)"));
             ret = true;
             break;
 
         case GDK_braceright:
             persp3d_rotate_VP (document->getCurrentPersp3D(), Proj::Z, -180/snaps, MOD__ALT);
-            sp_document_done(document, SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done(document, SP_VERB_CONTEXT_3DBOX,
                              _("Change perspective (angle of PLs)"));
             ret = true;
             break;
 
         case GDK_braceleft:
             persp3d_rotate_VP (document->getCurrentPersp3D(), Proj::Z, 180/snaps, MOD__ALT);
-            sp_document_done(document, SP_VERB_CONTEXT_3DBOX,
+            SPDocumentUndo::done(document, SP_VERB_CONTEXT_3DBOX,
                              _("Change perspective (angle of PLs)"));
             ret = true;
             break;
@@ -667,7 +667,7 @@ static void sp_box3d_finish(Box3DContext *bc)
         sp_canvas_end_forced_full_redraws(desktop->canvas);
 
         sp_desktop_selection(desktop)->set(bc->item);
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_3DBOX,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_3DBOX,
                          _("Create 3D box"));
 
         bc->item = NULL;

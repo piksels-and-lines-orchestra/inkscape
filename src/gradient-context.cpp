@@ -386,7 +386,7 @@ sp_gradient_context_add_stops_between_selected_stops (SPGradientContext *rc)
     }
 
     if (g_slist_length(these_stops) > 0 && doc) {
-        sp_document_done (doc, SP_VERB_CONTEXT_GRADIENT, _("Add gradient stop"));
+        SPDocumentUndo::done (doc, SP_VERB_CONTEXT_GRADIENT, _("Add gradient stop"));
         drag->updateDraggers();
         // so that it does not automatically update draggers in idle loop, as this would deselect
         drag->local_change = true;
@@ -454,7 +454,7 @@ sp_gradient_simplify(SPGradientContext *rc, double tolerance)
     }
 
     if (g_slist_length(todel) > 0) {
-        sp_document_done (doc, SP_VERB_CONTEXT_GRADIENT, _("Simplify gradient"));
+        SPDocumentUndo::done (doc, SP_VERB_CONTEXT_GRADIENT, _("Simplify gradient"));
         drag->local_change = true;
         drag->updateDraggers();
         drag->selectByCoords(coords);
@@ -478,7 +478,7 @@ sp_gradient_context_add_stop_near_point (SPGradientContext *rc, SPItem *item,  G
 
     ec->get_drag()->addStopNearPoint (item, mouse_p, tolerance/desktop->current_zoom());
 
-    sp_document_done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
+    SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
                       _("Add gradient stop"));
 
     ec->get_drag()->updateDraggers();
@@ -530,7 +530,7 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     sp_gradient_reset_to_userspace(priv, item);
                 }
 
-                sp_document_done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
+                SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
                                   _("Create default gradient"));
             }
             ret = TRUE;
@@ -812,7 +812,7 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     }
                 }
                 // we did an undoable action
-                sp_document_done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
+                SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_CONTEXT_GRADIENT,
                                   _("Invert gradient"));
                 ret = TRUE;
             }
@@ -924,7 +924,7 @@ static void sp_gradient_drag(SPGradientContext &rc, Geom::Point const pt, guint 
                                    -1, // ignore number (though it is always 1)
                                    fill_or_stroke, 99999, 99999, etime);
         }
-        // We did an undoable action, but sp_document_done will be called by the knot when released
+        // We did an undoable action, but SPDocumentUndo::done will be called by the knot when released
 
         // status text; we do not track coords because this branch is run once, not all the time
         // during drag

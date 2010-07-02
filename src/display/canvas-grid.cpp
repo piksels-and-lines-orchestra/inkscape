@@ -255,7 +255,7 @@ CanvasGrid::writeNewGridToRepr(Inkscape::XML::Node * repr, SPDocument * doc, Gri
     repr->appendChild(newnode);
     Inkscape::GC::release(newnode);
 
-    sp_document_done(doc, SP_VERB_DIALOG_NAMEDVIEW, _("Create new grid"));
+    SPDocumentUndo::done(doc, SP_VERB_DIALOG_NAMEDVIEW, _("Create new grid"));
 }
 
 /*

@@ -344,7 +344,7 @@ g_print("\n row = %f     col = %f selection x= %f selection y = %f", total_row_h
              g_slist_free (current_row);
     }
 
-    sp_document_done (sp_desktop_document (desktop), SP_VERB_SELECTION_GRIDTILE,
+    SPDocumentUndo::done (sp_desktop_document (desktop), SP_VERB_SELECTION_GRIDTILE,
                       _("Arrange in a grid"));
 
 }

@@ -204,7 +204,7 @@ static void sp_namedview_generate_old_grid(SPNamedView * /*nv*/, SPDocument *doc
         repr->setAttribute("gridempopacity", NULL);
         repr->setAttribute("gridempspacing", NULL);
 
-//        sp_document_done(doc, SP_VERB_DIALOG_NAMEDVIEW, _("Create new grid from pre0.46 grid settings"));
+//        SPDocumentUndo::done(doc, SP_VERB_DIALOG_NAMEDVIEW, _("Create new grid from pre0.46 grid settings"));
     }
 }
 
@@ -812,8 +812,8 @@ void sp_namedview_document_from_window(SPDesktop *desktop)
     Geom::Rect const r = desktop->get_display_area();
 
     // saving window geometry is not undoable
-    bool saved = sp_document_get_undo_sensitive(sp_desktop_document(desktop));
-    sp_document_set_undo_sensitive(sp_desktop_document(desktop), false);
+    bool saved = SPDocumentUndo::get_undo_sensitive(sp_desktop_document(desktop));
+	SPDocumentUndo::set_undo_sensitive(sp_desktop_document(desktop), false);
 
     sp_repr_set_svg_double(view, "inkscape:zoom", desktop->current_zoom());
     sp_repr_set_svg_double(view, "inkscape:cx", r.midpoint()[Geom::X]);
@@ -832,7 +832,7 @@ void sp_namedview_document_from_window(SPDesktop *desktop)
     view->setAttribute("inkscape:current-layer", desktop->currentLayer()->getId());
 
     // restore undoability
-    sp_document_set_undo_sensitive(sp_desktop_document(desktop), saved);
+	SPDocumentUndo::set_undo_sensitive(sp_desktop_document(desktop), saved);
 }
 
 void SPNamedView::hide(SPDesktop const *desktop)
@@ -889,10 +889,10 @@ void sp_namedview_toggle_guides(SPDocument *doc, Inkscape::XML::Node *repr)
         v = !v;
     }
 
-    bool saved = sp_document_get_undo_sensitive(doc);
-    sp_document_set_undo_sensitive(doc, false);
+    bool saved = SPDocumentUndo::get_undo_sensitive(doc);
+	SPDocumentUndo::set_undo_sensitive(doc, false);
     sp_repr_set_boolean(repr, "showguides", v);
-    sp_document_set_undo_sensitive(doc, saved);
+	SPDocumentUndo::set_undo_sensitive(doc, saved);
 
     doc->setModifiedSinceSave();
 }
@@ -904,10 +904,10 @@ void sp_namedview_show_grids(SPNamedView * namedview, bool show, bool dirty_docu
     SPDocument *doc = SP_OBJECT_DOCUMENT (namedview);
     Inkscape::XML::Node *repr = SP_OBJECT_REPR(namedview);
 
-    bool saved = sp_document_get_undo_sensitive(doc);
-    sp_document_set_undo_sensitive(doc, false);
+    bool saved = SPDocumentUndo::get_undo_sensitive(doc);
+	SPDocumentUndo::set_undo_sensitive(doc, false);
     sp_repr_set_boolean(repr, "showgrid", namedview->grids_visible);
-    sp_document_set_undo_sensitive(doc, saved);
+	SPDocumentUndo::set_undo_sensitive(doc, saved);
 
     /* we don't want the document to get dirty on startup; that's when
        we call this function with dirty_document = false */

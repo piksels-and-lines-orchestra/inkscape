@@ -1243,8 +1243,8 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
             bool modified = false;
             const gchar * temp_string;
 
-            bool saved = sp_document_get_undo_sensitive(doc);
-            sp_document_set_undo_sensitive(doc, false);
+            bool saved = SPDocumentUndo::get_undo_sensitive(doc);
+			SPDocumentUndo::set_undo_sensitive(doc, false);
 
             temp_string = repr->attribute("inkscape:export-filename");
             if (temp_string == NULL || strcmp(temp_string, filename_ext)) {
@@ -1261,7 +1261,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
                 sp_repr_set_svg_double(repr, "inkscape:export-ydpi", ydpi);
                 modified = true;
             }
-            sp_document_set_undo_sensitive(doc, saved);
+			SPDocumentUndo::set_undo_sensitive(doc, saved);
 
             if (modified) {
                 doc->setModifiedSinceSave();
@@ -1273,8 +1273,8 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
             SPDocument * doc = SP_ACTIVE_DOCUMENT;
             bool modified = false;
 
-            bool saved = sp_document_get_undo_sensitive(doc);
-            sp_document_set_undo_sensitive(doc, false);
+            bool saved = SPDocumentUndo::get_undo_sensitive(doc);
+			SPDocumentUndo::set_undo_sensitive(doc, false);
             reprlst = sp_desktop_selection(SP_ACTIVE_DESKTOP)->reprList();
 
             for(; reprlst != NULL; reprlst = reprlst->next) {
@@ -1302,7 +1302,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
                     modified = true;
                 }
             }
-            sp_document_set_undo_sensitive(doc, saved);
+			SPDocumentUndo::set_undo_sensitive(doc, saved);
 
             if (modified) {
                 doc->setModifiedSinceSave();

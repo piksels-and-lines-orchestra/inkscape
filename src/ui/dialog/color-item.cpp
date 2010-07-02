@@ -486,7 +486,7 @@ void ColorItem::_updatePreviews()
                     str = 0;
 
                     if ( bruteForce( document, rroot, paletteName, def.getR(), def.getG(), def.getB() ) ) {
-                        sp_document_done( document , SP_VERB_DIALOG_SWATCHES,
+                        SPDocumentUndo::done( document , SP_VERB_DIALOG_SWATCHES,
                                           _("Change color definition"));
                     }
                 }
@@ -720,7 +720,7 @@ void ColorItem::buttonClicked(bool secondary)
         sp_desktop_set_style(desktop, css);
         sp_repr_css_attr_unref(css);
 
-        sp_document_done( sp_desktop_document(desktop), SP_VERB_DIALOG_SWATCHES, descr.c_str() );
+        SPDocumentUndo::done( sp_desktop_document(desktop), SP_VERB_DIALOG_SWATCHES, descr.c_str() );
     }
 }
 

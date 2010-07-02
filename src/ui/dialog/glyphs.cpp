@@ -28,7 +28,7 @@
 #include "glyphs.h"
 
 #include "desktop.h"
-#include "document.h" // for sp_document_done()
+#include "document.h" // for SPDocumentUndo::done()
 #include "libnrtype/font-instance.h"
 #include "sp-flowtext.h"
 #include "sp-text.h"
@@ -571,7 +571,7 @@ void GlyphsPanel::insertText()
             }
             combined += glyphs;
             sp_te_set_repr_text_multiline(textItem, combined.c_str());
-            sp_document_done(targetDesktop->doc(), SP_VERB_CONTEXT_TEXT, _("Append text"));
+            SPDocumentUndo::done(targetDesktop->doc(), SP_VERB_CONTEXT_TEXT, _("Append text"));
         }
     }
 }

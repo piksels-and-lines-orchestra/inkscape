@@ -1119,7 +1119,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
 
     g_free(trace_px);
     
-    sp_document_done(document, SP_VERB_CONTEXT_PAINTBUCKET, _("Fill bounded area"));
+    SPDocumentUndo::done(document, SP_VERB_CONTEXT_PAINTBUCKET, _("Fill bounded area"));
 }
 
 static gint sp_flood_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEvent *event)
@@ -1139,7 +1139,7 @@ static gint sp_flood_context_item_handler(SPEventContext *event_context, SPItem 
             Inkscape::XML::Node *pathRepr = SP_OBJECT_REPR(item);
             /* Set style */
             sp_desktop_apply_style_tool (desktop, pathRepr, "/tools/paintbucket", false);
-            sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_PAINTBUCKET, _("Set style on object"));
+            SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_PAINTBUCKET, _("Set style on object"));
             ret = TRUE;
         }
         break;
@@ -1278,7 +1278,7 @@ static void sp_flood_finish(SPFloodContext *rc)
         sp_canvas_end_forced_full_redraws(desktop->canvas);
 
         sp_desktop_selection(desktop)->set(rc->item);
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_CONTEXT_PAINTBUCKET,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_PAINTBUCKET,
                         _("Fill bounded area"));
 
         rc->item = NULL;

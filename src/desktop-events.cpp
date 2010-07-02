@@ -185,7 +185,7 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
                     sp_repr_set_point(repr, "position", from_2geom(event_dt));
                     SP_OBJECT_REPR(desktop->namedview)->appendChild(repr);
                     Inkscape::GC::release(repr);
-                    sp_document_done(sp_desktop_document(desktop), SP_VERB_NONE,
+                    SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_NONE,
                                      _("Create guide"));
                 }
                 desktop->set_coordinate_status(from_2geom(event_dt));
@@ -398,14 +398,14 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                                 g_assert_not_reached();
                                 break;
                         }
-                        sp_document_done(sp_desktop_document(desktop), SP_VERB_NONE,
+                        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_NONE,
                                          _("Move guide"));
                     } else {
                         /* Undo movement of any attached shapes. */
                         sp_guide_moveto(*guide, guide->point_on_line, false);
                         sp_guide_set_normal(*guide, guide->normal_to_line, false);
                         sp_guide_remove(guide);
-                        sp_document_done(sp_desktop_document(desktop), SP_VERB_NONE,
+                        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_NONE,
                                      _("Delete guide"));
                     }
                     moved = false;
@@ -452,7 +452,7 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                 {
                     SPDocument *doc = SP_OBJECT_DOCUMENT(guide);
                     sp_guide_remove(guide);
-                    sp_document_done(doc, SP_VERB_NONE, _("Delete guide"));
+                    SPDocumentUndo::done(doc, SP_VERB_NONE, _("Delete guide"));
                     ret = TRUE;
                     sp_event_context_discard_delayed_snap_event(desktop->event_context);
                     break;

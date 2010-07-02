@@ -243,7 +243,7 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
         Geom::Matrix scaler = get_scale_transform_with_stroke (*bbox, strokewidth, transform_stroke, x0, y0, x1, y1);
 
         sp_selection_apply_affine(selection, scaler);
-        sp_document_maybe_done (document, actionkey, SP_VERB_CONTEXT_SELECT,
+        SPDocumentUndo::maybe_done (document, actionkey, SP_VERB_CONTEXT_SELECT,
                                 _("Transform by toolbar"));
 
         // resume interruptibility

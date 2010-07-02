@@ -413,7 +413,7 @@ PageSizer::setDim (double w, double h, bool changeList)
         // changing the page size. The SVG's origin however is in the upper left corner, so we must compensate for this
         Geom::Translate const vert_offset(Geom::Point(0, (old_height - h)));
 		SP_GROUP(SP_ROOT(doc->root))->translateChildItems(vert_offset);
-        sp_document_done (doc, SP_VERB_NONE, _("Set page size"));
+        SPDocumentUndo::done (doc, SP_VERB_NONE, _("Set page size"));
     }
 
     if ( w != h ) {

@@ -162,7 +162,7 @@ sp_selected_path_combine(SPDesktop *desktop)
         // move to the position of the topmost, reduced by the number of deleted items
         repr->setPosition(position > 0 ? position : 0);
 
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_COMBINE, 
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_COMBINE, 
                          _("Combine"));
 
         selection->set(repr);
@@ -272,7 +272,7 @@ sp_selected_path_break_apart(SPDesktop *desktop)
     desktop->clearWaitingCursor();
 
     if (did) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_BREAK_APART, 
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_BREAK_APART, 
                          _("Break apart"));
     } else {
         sp_desktop_message_stack(desktop)->flash(Inkscape::ERROR_MESSAGE, _("<b>No path(s)</b> to break apart in the selection."));
@@ -314,7 +314,7 @@ sp_selected_path_to_curves(SPDesktop *desktop, bool interactive)
     if (interactive) {
         desktop->clearWaitingCursor();
         if (did) {
-            sp_document_done(sp_desktop_document(desktop), SP_VERB_OBJECT_TO_CURVE, 
+            SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_OBJECT_TO_CURVE, 
                              _("Object to path"));
         } else {
             sp_desktop_message_stack(desktop)->flash(Inkscape::ERROR_MESSAGE, _("<b>No objects</b> to convert to path in the selection."));
@@ -627,7 +627,7 @@ sp_selected_path_reverse(SPDesktop *desktop)
     desktop->clearWaitingCursor();
 
     if (did) {
-        sp_document_done(sp_desktop_document(desktop), SP_VERB_SELECTION_REVERSE,
+        SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_SELECTION_REVERSE,
                          _("Reverse path"));
     } else {
         sp_desktop_message_stack(desktop)->flash(Inkscape::ERROR_MESSAGE, _("<b>No paths</b> to reverse in the selection."));

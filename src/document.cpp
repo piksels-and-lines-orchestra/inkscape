@@ -150,8 +150,8 @@ SPDocument::~SPDocument() {
             priv->partial = NULL;
         }
 
-        sp_document_clear_redo(this);
-        sp_document_clear_undo(this);
+		SPDocumentUndo::clear_redo(this);
+		SPDocumentUndo::clear_undo(this);
 
         if (root) {
             root->releaseReferences();
@@ -200,7 +200,7 @@ SPDocument::~SPDocument() {
 
     if (oldSignalsConnected) {
         g_signal_handlers_disconnect_by_func(G_OBJECT(INKSCAPE),
-                                             reinterpret_cast<gpointer>(sp_document_reset_key),
+                                             reinterpret_cast<gpointer>(SPDocumentUndo::reset_key),
                                              static_cast<gpointer>(this));
     } else {
         _selection_changed_connection.disconnect();
@@ -416,14 +416,14 @@ SPDocument::createDoc(Inkscape::XML::Document *rdoc,
         document->setCurrentPersp3DImpl(persp_impl);
     }
 
-    sp_document_set_undo_sensitive(document, true);
+	SPDocumentUndo::set_undo_sensitive(document, true);
 
     // reset undo key when selection changes, so that same-key actions on different objects are not coalesced
     if (!Inkscape::NSApplication::Application::getNewGui()) {
         g_signal_connect(G_OBJECT(INKSCAPE), "change_selection",
-                         G_CALLBACK(sp_document_reset_key), document);
+                         G_CALLBACK(SPDocumentUndo::reset_key), document);
         g_signal_connect(G_OBJECT(INKSCAPE), "activate_desktop",
-                         G_CALLBACK(sp_document_reset_key), document);
+                         G_CALLBACK(SPDocumentUndo::reset_key), document);
         document->oldSignalsConnected = true;
     } else {
         document->_selection_changed_connection = Inkscape::NSApplication::Editor::connectSelectionChanged (sigc::mem_fun (*document, &SPDocument::reset_key));
@@ -717,10 +717,10 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
     }
 }
 
-static void
-do_change_uri(SPDocument *const document, gchar const *const filename, bool const rebase)
+void
+SPDocument::do_change_uri(gchar const *const filename, bool const rebase)
 {
-    g_return_if_fail(document != NULL);
+    //g_return_if_fail(this != NULL);
 
     gchar *new_base;
     gchar *new_name;
@@ -739,32 +739,32 @@ do_change_uri(SPDocument *const document, gchar const *const filename, bool cons
     } else {
         new_uri = g_strdup_printf(_("Unnamed document %d"), ++doc_count);
         new_base = NULL;
-        new_name = g_strdup(document->uri);
+        new_name = g_strdup(this->uri);
     }
 
     // Update saveable repr attributes.
-    Inkscape::XML::Node *repr = sp_document_repr_root(document);
+    Inkscape::XML::Node *repr = sp_document_repr_root(this);
 
     // Changing uri in the document repr must not be not undoable.
-    bool const saved = sp_document_get_undo_sensitive(document);
-    sp_document_set_undo_sensitive(document, false);
+    bool const saved = SPDocumentUndo::get_undo_sensitive(this);
+	SPDocumentUndo::set_undo_sensitive(this, false);
 
     if (rebase) {
-        Inkscape::XML::rebase_hrefs(document, new_base, true);
+        Inkscape::XML::rebase_hrefs(this, new_base, true);
     }
 
-    repr->setAttribute("sodipodi:docname", document->name);
-    sp_document_set_undo_sensitive(document, saved);
+    repr->setAttribute("sodipodi:docname", this->name);
+	SPDocumentUndo::set_undo_sensitive(this, saved);
 
 
-    g_free(document->name);
-    g_free(document->base);
-    g_free(document->uri);
-    document->name = new_name;
-    document->base = new_base;
-    document->uri = new_uri;
+    g_free(this->name);
+    g_free(this->base);
+    g_free(this->uri);
+    this->name = new_name;
+    this->base = new_base;
+    this->uri = new_uri;
 
-    document->priv->uri_set_signal.emit(document->uri);
+    this->priv->uri_set_signal.emit(this->uri);
 }
 
 /**
@@ -776,9 +776,9 @@ do_change_uri(SPDocument *const document, gchar const *const filename, bool cons
  */
 void SPDocument::setUri(gchar const *filename)
 {
-    g_return_if_fail(this != NULL);
+    //g_return_if_fail(this != NULL);
 
-    do_change_uri(this, filename, false);
+    do_change_uri(filename, false);
 }
 
 /**
@@ -789,15 +789,15 @@ void SPDocument::setUri(gchar const *filename)
  */
 void SPDocument::change_uri_and_hrefs(gchar const *filename)
 {
-    g_return_if_fail(this != NULL);
+    //g_return_if_fail(this != NULL);
 
-    do_change_uri(this, filename, true);
+    do_change_uri(filename, true);
 }
 
 void
 SPDocument::resized_signal_emit(gdouble width, gdouble height)
 {
-    g_return_if_fail(this != NULL);
+    //g_return_if_fail(this != NULL);
 
     this->priv->resized_signal.emit(width, height);
 }
@@ -1005,12 +1005,12 @@ SPDocument::_updateDocument()
             SPItemCtx ctx;
             sp_document_setup_viewport (this, &ctx);
 
-            bool saved = sp_document_get_undo_sensitive(this);
-            sp_document_set_undo_sensitive(this, false);
+            bool saved = SPDocumentUndo::get_undo_sensitive(this);
+			SPDocumentUndo::set_undo_sensitive(this, false);
 
             this->root->updateDisplay((SPCtx *)&ctx, 0);
 
-            sp_document_set_undo_sensitive(this, saved);
+			SPDocumentUndo::set_undo_sensitive(this, saved);
         }
         this->_emitModified();
     }
@@ -1271,7 +1271,7 @@ find_group_at_point(unsigned int dkey, SPGroup *group, Geom::Point const p)
 
 GSList *SPDocument::items_in_box(unsigned int dkey, Geom::Rect const &box)
 {
-    g_return_val_if_fail(this != NULL, NULL);
+    //g_return_val_if_fail(this != NULL, NULL);
     g_return_val_if_fail(this->priv != NULL, NULL);
 
     return find_items_in_area(NULL, SP_GROUP(this->root), dkey, box, is_within);
@@ -1286,7 +1286,7 @@ GSList *SPDocument::items_in_box(unsigned int dkey, Geom::Rect const &box)
 
 GSList *SPDocument::partial_items_in_box(unsigned int dkey, Geom::Rect const &box)
 {
-    g_return_val_if_fail(this != NULL, NULL);
+    //g_return_val_if_fail(this != NULL, NULL);
     g_return_val_if_fail(this->priv != NULL, NULL);
 
     return find_items_in_area(NULL, SP_GROUP(this->root), dkey, box, overlaps);
@@ -1321,7 +1321,7 @@ SPItem *
 SPDocument::item_at_point( unsigned const key, Geom::Point const p,
                           gboolean const into_groups, SPItem *upto)
 {
-    g_return_val_if_fail(this != NULL, NULL);
+    //g_return_val_if_fail(this != NULL, NULL);
     g_return_val_if_fail(this->priv != NULL, NULL);
 
     return find_item_at_point(key, SP_GROUP(this->root), p, into_groups, false, upto);
@@ -1330,7 +1330,7 @@ SPDocument::item_at_point( unsigned const key, Geom::Point const p,
 SPItem*
 SPDocument::group_at_point(unsigned int key, Geom::Point const p)
 {
-    g_return_val_if_fail(this != NULL, NULL);
+    //g_return_val_if_fail(this != NULL, NULL);
     g_return_val_if_fail(this->priv != NULL, NULL);
 
     return find_group_at_point(key, SP_GROUP(this->root), p);
@@ -1345,7 +1345,7 @@ SPDocument::add_resource(gchar const *key, SPObject *object)
     GSList *rlist;
     GQuark q = g_quark_from_string(key);
 
-    g_return_val_if_fail(this != NULL, FALSE);
+    //g_return_val_if_fail(this != NULL, FALSE);
     g_return_val_if_fail(key != NULL, FALSE);
     g_return_val_if_fail(*key != '\0', FALSE);
     g_return_val_if_fail(object != NULL, FALSE);
@@ -1370,7 +1370,7 @@ SPDocument::remove_resource(gchar const *key, SPObject *object)
     GSList *rlist;
     GQuark q = g_quark_from_string(key);
 
-    g_return_val_if_fail(this != NULL, FALSE);
+    //g_return_val_if_fail(this != NULL, FALSE);
     g_return_val_if_fail(key != NULL, FALSE);
     g_return_val_if_fail(*key != '\0', FALSE);
     g_return_val_if_fail(object != NULL, FALSE);
@@ -1393,7 +1393,7 @@ SPDocument::remove_resource(gchar const *key, SPObject *object)
 GSList const *
 SPDocument::get_resource_list(gchar const *key)
 {
-    g_return_val_if_fail(this != NULL, NULL);
+    //g_return_val_if_fail(this != NULL, NULL);
     g_return_val_if_fail(key != NULL, NULL);
     g_return_val_if_fail(*key != '\0', NULL);
 
