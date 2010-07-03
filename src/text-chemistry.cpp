@@ -215,7 +215,7 @@ text_remove_from_path()
             continue;
         }
 
-        SPObject *tp = sp_object_first_child(SP_OBJECT(items->data));
+        SPObject *tp = SP_OBJECT(items->data)->first_child();
 
         did = true;
 
@@ -252,7 +252,7 @@ text_remove_all_kerns_recursively(SPObject *o)
         g_strfreev(xa_comma);
     }
 
-    for (SPObject *i = sp_object_first_child(o); i != NULL; i = SP_OBJECT_NEXT(i)) {
+    for (SPObject *i = o->first_child(); i != NULL; i = SP_OBJECT_NEXT(i)) {
         text_remove_all_kerns_recursively(i);
     }
 }

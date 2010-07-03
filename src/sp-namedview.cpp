@@ -266,7 +266,7 @@ static void sp_namedview_build(SPObject *object, SPDocument *document, Inkscape:
     sp_object_read_attr(object, "inkscape:connector-spacing");
 
     /* Construct guideline list */
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(og)) ; o != NULL; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(og)->first_child() ; o != NULL; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_GUIDE(o)) {
             SPGuide * g = SP_GUIDE(o);
             nv->guides = g_slist_prepend(nv->guides, g);
@@ -789,7 +789,7 @@ void sp_namedview_update_layers_from_document (SPDesktop *desktop)
     }
     // if that didn't work out, look for the topmost layer
     if (!layer) {
-        SPObject *iter = sp_object_first_child(SP_DOCUMENT_ROOT(document));
+        SPObject *iter = SP_DOCUMENT_ROOT(document)->first_child();
         for ( ; iter ; iter = SP_OBJECT_NEXT(iter) ) {
             if (desktop->isLayer(iter)) {
                 layer = iter;

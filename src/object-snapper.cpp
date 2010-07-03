@@ -98,7 +98,7 @@ void Inkscape::ObjectSnapper::_findCandidates(SPObject* parent,
     Geom::Rect bbox_to_snap_incl = bbox_to_snap; // _incl means: will include the snapper tolerance
     bbox_to_snap_incl.expandBy(getSnapperTolerance()); // see?
 
-    for (SPObject* o = sp_object_first_child(parent); o != NULL; o = SP_OBJECT_NEXT(o)) {
+    for (SPObject* o = parent->first_child(); o != NULL; o = SP_OBJECT_NEXT(o)) {
         g_assert(_snapmanager->getDesktop() != NULL);
         if (SP_IS_ITEM(o) && !(_snapmanager->getDesktop()->itemIsHidden(SP_ITEM(o)) && !clip_or_mask)) {
             // Snapping to items in a locked layer is allowed

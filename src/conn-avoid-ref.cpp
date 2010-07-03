@@ -550,7 +550,7 @@ static Avoid::Polygon avoid_item_poly(SPItem const *item)
 GSList *get_avoided_items(GSList *list, SPObject *from, SPDesktop *desktop,
         bool initialised)
 {
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(from)) ;
+    for (SPObject *child = SP_OBJECT(from)->first_child() ;
             child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_ITEM(child) &&
             !desktop->isLayer(SP_ITEM(child)) &&

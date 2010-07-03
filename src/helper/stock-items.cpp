@@ -199,7 +199,7 @@ SPObject *get_stock_item(gchar const *urn)
 
         SPObject *object = NULL;
         if (!strcmp(base, "marker")) {
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(defs));
+            for (SPObject *child = SP_OBJECT(defs)->first_child();
                  child != NULL;
                  child = SP_OBJECT_NEXT(child))
             {
@@ -213,7 +213,7 @@ SPObject *get_stock_item(gchar const *urn)
             
         }
         else if (!strcmp(base,"pattern"))  {
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(defs)) ;
+            for (SPObject *child = SP_OBJECT(defs)->first_child() ;
                  child != NULL;
                  child = SP_OBJECT_NEXT(child) )
             {
@@ -227,7 +227,7 @@ SPObject *get_stock_item(gchar const *urn)
             
         }
         else if (!strcmp(base,"gradient"))  {
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(defs));
+            for (SPObject *child = SP_OBJECT(defs)->first_child();
                  child != NULL;
                  child = SP_OBJECT_NEXT(child))
             {

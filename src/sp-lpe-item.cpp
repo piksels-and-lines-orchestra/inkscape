@@ -681,7 +681,7 @@ sp_lpe_item_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape:
         (* ((SPObjectClass *) (parent_class))->child_added) (object, child, ref);
 
     if (SP_IS_LPE_ITEM(object) && sp_lpe_item_has_path_effect_recursive(SP_LPE_ITEM(object))) {
-        SPObject *ochild = sp_object_get_child_by_repr(object, child);
+        SPObject *ochild = object->get_child_by_repr(child);
         if ( ochild && SP_IS_LPE_ITEM(ochild) ) {
             sp_lpe_item_create_original_path_recursive(SP_LPE_ITEM(ochild));
         }
@@ -692,7 +692,7 @@ static void
 sp_lpe_item_remove_child (SPObject * object, Inkscape::XML::Node * child)
 {
     if (SP_IS_LPE_ITEM(object) && sp_lpe_item_has_path_effect_recursive(SP_LPE_ITEM(object))) {
-        SPObject *ochild = sp_object_get_child_by_repr(object, child);
+        SPObject *ochild = object->get_child_by_repr(child);
         if ( ochild && SP_IS_LPE_ITEM(ochild) ) {
             sp_lpe_item_cleanup_original_path_recursive(SP_LPE_ITEM(ochild));
         }

@@ -376,7 +376,7 @@ hide_other_items_recursively(SPObject *o, GSList *list, unsigned dkey)
 
     // recurse
     if (!g_slist_find(list, o)) {
-        for (SPObject *child = sp_object_first_child(o) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = o->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             hide_other_items_recursively(child, list, dkey);
         }
     }

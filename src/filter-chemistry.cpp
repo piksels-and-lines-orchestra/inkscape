@@ -50,7 +50,7 @@ count_filter_hrefs(SPObject *o, SPFilter *filter)
         i ++;
     }
 
-    for (SPObject *child = sp_object_first_child(o);
+    for (SPObject *child = o->first_child();
          child != NULL; child = SP_OBJECT_NEXT(child)) {
         i += count_filter_hrefs(child, filter);
     }

@@ -702,7 +702,7 @@ void ClipboardManagerImpl::_copyUsedDefs(SPItem *item)
     }
     // Copy text paths
     if (SP_IS_TEXT_TEXTPATH(item)) {
-        _copyTextPath(SP_TEXTPATH(sp_object_first_child(SP_OBJECT(item))));
+        _copyTextPath(SP_TEXTPATH(SP_OBJECT(item)->first_child()));
     }
     // Copy clipping objects
     if (item->clip_ref->getObject()) {
@@ -759,7 +759,7 @@ void ClipboardManagerImpl::_copyPattern(SPPattern *pattern)
         _copyNode(SP_OBJECT_REPR(pattern), _doc, _defs);
 
         // items in the pattern may also use gradients and other patterns, so recurse
-        for (SPObject *child = sp_object_first_child(SP_OBJECT(pattern)) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = SP_OBJECT(pattern)->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             if (!SP_IS_ITEM (child)) {
                 continue;
             }

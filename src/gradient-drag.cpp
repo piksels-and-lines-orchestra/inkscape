@@ -2001,7 +2001,7 @@ GrDrag::deleteSelected (bool just_one)
         // cannot use vector->vector.stops.size() because the vector might be invalidated by deletion of a midstop
         // manually count the children, don't know if there already exists a function for this...
         int len = 0;
-        for ( SPObject *child = sp_object_first_child(stopinfo->vector) ;
+        for ( SPObject *child = (stopinfo->vector)->first_child() ;
               child != NULL ;
               child = SP_OBJECT_NEXT(child) )
         {

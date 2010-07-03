@@ -162,7 +162,7 @@ sp_flowregion_update (SPObject *object, SPCtx *ctx, unsigned int flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -194,7 +194,7 @@ void             SPFlowregion::UpdateComputed(void)
         delete *it;
     computed.clear();
 
-	for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         Shape *shape = NULL;
 		GetDest(child,&shape);
         computed.push_back(shape);
@@ -214,7 +214,7 @@ sp_flowregion_modified (SPObject *object, guint flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -238,7 +238,7 @@ sp_flowregion_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscap
 	}
 
         GSList *l = NULL;
-        for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_TITLE(child) || SP_IS_DESC(child)) continue;
             Inkscape::XML::Node *crepr = child->updateRepr(xml_doc, NULL, flags);
             if (crepr) l = g_slist_prepend(l, crepr);
@@ -251,7 +251,7 @@ sp_flowregion_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscap
         }
 
     } else {
-        for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_TITLE(child) || SP_IS_DESC(child)) continue;
             child->updateRepr(flags);
         }
@@ -380,7 +380,7 @@ sp_flowregionexclude_update (SPObject *object, SPCtx *ctx, unsigned int flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -412,7 +412,7 @@ void             SPFlowregionExclude::UpdateComputed(void)
         computed = NULL;
     }
 
-	for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		GetDest(child,&computed);
 	}
 }
@@ -430,7 +430,7 @@ sp_flowregionexclude_modified (SPObject *object, guint flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -454,7 +454,7 @@ sp_flowregionexclude_write (SPObject *object, Inkscape::XML::Document *xml_doc, 
 	}
 
         GSList *l = NULL;
-        for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             Inkscape::XML::Node *crepr = child->updateRepr(xml_doc, NULL, flags);
             if (crepr) l = g_slist_prepend(l, crepr);
         }
@@ -466,7 +466,7 @@ sp_flowregionexclude_write (SPObject *object, Inkscape::XML::Document *xml_doc, 
         }
 
     } else {
-        for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             child->updateRepr(flags);
         }
     }

@@ -338,7 +338,7 @@ void add_ids_recursive(std::vector<const gchar *> &ids, SPObject *obj)
     ids.push_back(obj->getId());
 
     if (SP_IS_GROUP(obj)) {
-        for (SPObject *child = sp_object_first_child(obj) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = obj->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             add_ids_recursive(ids, child);
         }
     }
@@ -453,7 +453,7 @@ void sp_edit_clear_all(SPDesktop *dt)
 GSList *
 get_all_items(GSList *list, SPObject *from, SPDesktop *desktop, bool onlyvisible, bool onlysensitive, GSList const *exclude)
 {
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(from)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = SP_OBJECT(from)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_ITEM(child) &&
             !desktop->isLayer(SP_ITEM(child)) &&
             (!onlysensitive || !SP_ITEM(child)->isLocked()) &&
@@ -782,7 +782,7 @@ prev_sibling(SPObject *child)
     if (!SP_IS_GROUP(parent)) {
         return NULL;
     }
-    for ( SPObject *i = sp_object_first_child(parent) ; i; i = SP_OBJECT_NEXT(i) ) {
+    for ( SPObject *i = parent->first_child() ; i; i = SP_OBJECT_NEXT(i) ) {
         if (i->next == child)
             return i;
     }
@@ -981,7 +981,7 @@ void sp_selection_lower_to_bottom(SPDesktop *desktop)
         pp = document->getObjectByRepr(sp_repr_parent(repr));
         minpos = 0;
         g_assert(SP_IS_GROUP(pp));
-        pc = sp_object_first_child(pp);
+        pc = pp->first_child();
         while (!SP_IS_ITEM(pc)) {
             minpos += 1;
             pc = pc->next;
@@ -1339,7 +1339,7 @@ void sp_selection_apply_affine(Inkscape::Selection *selection, Geom::Matrix cons
         // we're moving both a clone and its original or any ancestor in clone chain?
         bool transform_clone_with_original = selection_contains_original(item, selection);
         // ...both a text-on-path and its path?
-        bool transform_textpath_with_path = (SP_IS_TEXT_TEXTPATH(item) && selection->includes( sp_textpath_get_path_item(SP_TEXTPATH(sp_object_first_child(SP_OBJECT(item)))) ));
+        bool transform_textpath_with_path = (SP_IS_TEXT_TEXTPATH(item) && selection->includes( sp_textpath_get_path_item(SP_TEXTPATH(SP_OBJECT(item)->first_child())) ));
         // ...both a flowtext and its frame?
         bool transform_flowtext_with_frame = (SP_IS_FLOWTEXT(item) && selection->includes( SP_FLOWTEXT(item)->get_frame(NULL))); // (only the first frame is checked so far)
         // ...both an offset and its source?
@@ -1743,7 +1743,7 @@ SPItem *next_item_from_list(SPDesktop *desktop, GSList const *items, SPObject *r
 struct Forward {
     typedef SPObject *Iterator;
 
-    static Iterator children(SPObject *o) { return sp_object_first_child(o); }
+    static Iterator children(SPObject *o) { return o->first_child(); }
     static Iterator siblings_after(SPObject *o) { return SP_OBJECT_NEXT(o); }
     static void dispose(Iterator /*i*/) {}
 
@@ -2200,7 +2200,7 @@ sp_select_clone_original(SPDesktop *desktop)
     } else if (SP_IS_OFFSET(item) && SP_OFFSET(item)->sourceHref) {
         original = sp_offset_get_source(SP_OFFSET(item));
     } else if (SP_IS_TEXT_TEXTPATH(item)) {
-        original = sp_textpath_get_path_item(SP_TEXTPATH(sp_object_first_child(SP_OBJECT(item))));
+        original = sp_textpath_get_path_item(SP_TEXTPATH(SP_OBJECT(item)->first_child()));
     } else if (SP_IS_FLOWTEXT(item)) {
         original = SP_FLOWTEXT(item)->get_frame(NULL); // first frame only
     } else { // it's an object that we don't know what to do with
@@ -2520,7 +2520,7 @@ sp_selection_untile(SPDesktop *desktop)
         Geom::Matrix pat_transform = to_2geom(pattern_patternTransform(SP_PATTERN(server)));
         pat_transform *= item->transform;
 
-        for (SPObject *child = sp_object_first_child(SP_OBJECT(pattern)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = SP_OBJECT(pattern)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             Inkscape::XML::Node *copy = SP_OBJECT_REPR(child)->duplicate(xml_doc);
             SPItem *i = SP_ITEM(desktop->currentLayer()->appendChildRepr(copy));
 
@@ -3099,7 +3099,7 @@ void sp_selection_unset_mask(SPDesktop *desktop, bool apply_clip_path) {
     for ( std::map<SPObject*,SPItem*>::iterator it = referenced_objects.begin() ; it != referenced_objects.end() ; ++it) {
         SPObject *obj = (*it).first; // Group containing the clipped paths or masks
         GSList *items_to_move = NULL;
-        for (SPObject *child = sp_object_first_child(obj) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = obj->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             // Collect all clipped paths and masks within a single group
             Inkscape::XML::Node *copy = SP_OBJECT_REPR(child)->duplicate(xml_doc);
             items_to_move = g_slist_prepend(items_to_move, copy);

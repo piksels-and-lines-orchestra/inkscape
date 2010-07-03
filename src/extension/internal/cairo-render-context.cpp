@@ -962,7 +962,7 @@ CairoRenderContext::popState(void)
 
 static bool pattern_hasItemChildren (SPPattern *pat)
 {
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(pat)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = SP_OBJECT(pat)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_ITEM (child)) {
             return true;
         }
@@ -1068,7 +1068,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
     // show items and render them
     for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+            for (SPObject *child = SP_OBJECT(pat_i)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
                 if (SP_IS_ITEM (child)) {
                     SP_ITEM (child)->invoke_show (arena, dkey, SP_ITEM_REFERENCE_FLAGS);
                     _renderer->renderItem(pattern_ctx, SP_ITEM (child));
@@ -1097,7 +1097,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
     // hide all items
     for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+            for (SPObject *child = SP_OBJECT(pat_i)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
                 if (SP_IS_ITEM (child)) {
                     SP_ITEM (child)->invoke_hide (dkey);
                 }

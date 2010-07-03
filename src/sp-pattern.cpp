@@ -323,7 +323,7 @@ sp_pattern_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape::
 	if (((SPObjectClass *) (pattern_parent_class))->child_added)
 		(* ((SPObjectClass *) (pattern_parent_class))->child_added) (object, child, ref);
 
-	SPObject *ochild = sp_object_get_child_by_repr(object, child);
+	SPObject *ochild = object->get_child_by_repr(child);
 	if (SP_IS_ITEM (ochild)) {
 
 		SPPaintServer *ps = SP_PAINT_SERVER (pat);
@@ -353,8 +353,8 @@ pattern_getchildren (SPPattern *pat)
 	GSList *l = NULL;
 
 	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-		if (sp_object_first_child(SP_OBJECT(pat_i))) { // find the first one with children
-			for (SPObject *child = sp_object_first_child(SP_OBJECT (pat)) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		if (SP_OBJECT(pat_i)->first_child()) { // find the first one with children
+			for (SPObject *child = SP_OBJECT (pat)->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 				l = g_slist_prepend (l, child);
 			}
 			break; // do not go further up the chain if children are found
@@ -535,7 +535,7 @@ SPPattern *
 pattern_getroot (SPPattern *pat)
 {
 	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-		if (sp_object_first_child(SP_OBJECT(pat_i))) { // find the first one with children
+		if (SP_OBJECT (pat_i)->first_child()) { // find the first one with children
 			return pat_i;
 		}
 	}
@@ -621,7 +621,7 @@ NRRect *pattern_viewBox (SPPattern *pat)
 
 bool pattern_hasItemChildren (SPPattern *pat)
 {
-	for (SPObject *child = sp_object_first_child(SP_OBJECT(pat)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+	for (SPObject *child = SP_OBJECT (pat)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
 		if (SP_IS_ITEM (child)) {
 			return true;
 		}
@@ -736,7 +736,7 @@ sp_pattern_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, G
 	pp->_release_connections = new std::map<SPObject *, sigc::connection>;
 	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
 		if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
-			for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+			for (SPObject *child = SP_OBJECT (pat_i)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
 				if (SP_IS_ITEM (child)) {
 					// for each item in pattern,
 					NRArenaItem *cai;

@@ -153,7 +153,7 @@ sp_flowtext_update(SPObject *object, SPCtx *ctx, unsigned flags)
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 
     GSList *l = NULL;
-    for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         g_object_ref(G_OBJECT(child));
         l = g_slist_prepend(l, child);
     }
@@ -207,7 +207,7 @@ sp_flowtext_modified(SPObject *object, guint flags)
         }
     }
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(ft)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(ft)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_FLOWREGION(o)) {
             region = o;
             break;
@@ -297,7 +297,7 @@ sp_flowtext_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
     if ( flags & SP_OBJECT_WRITE_BUILD ) {
         if ( repr == NULL ) repr = xml_doc->createElement("svg:flowRoot");
         GSList *l = NULL;
-        for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             Inkscape::XML::Node *c_repr = NULL;
             if ( SP_IS_FLOWDIV(child) || SP_IS_FLOWPARA(child) || SP_IS_FLOWREGION(child) || SP_IS_FLOWREGIONEXCLUDE(child)) {
                 c_repr = child->updateRepr(xml_doc, NULL, flags);
@@ -310,7 +310,7 @@ sp_flowtext_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
             l = g_slist_remove(l, l->data);
         }
     } else {
-        for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             if ( SP_IS_FLOWDIV(child) || SP_IS_FLOWPARA(child) || SP_IS_FLOWREGION(child) || SP_IS_FLOWREGIONEXCLUDE(child) ) {
                 child->updateRepr(flags);
             }
@@ -456,7 +456,7 @@ void SPFlowtext::_buildLayoutInput(SPObject *root, Shape const *exclusion_shape,
         *pending_line_break_object = NULL;
     }
 
-    for (SPObject *child = sp_object_first_child(root) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = root->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_STRING(child)) {
             if (*pending_line_break_object) {
                 if (SP_IS_FLOWREGIONBREAK(*pending_line_break_object))
@@ -653,7 +653,7 @@ SPItem *SPFlowtext::get_frame(SPItem *after)
     SPObject *ft = SP_OBJECT (this);
     SPObject *region = NULL;
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(ft)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(ft)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_FLOWREGION(o)) {
             region = o;
             break;
@@ -665,7 +665,7 @@ SPItem *SPFlowtext::get_frame(SPItem *after)
     bool past = false;
     SPItem *frame = NULL;
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(region)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(region)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_ITEM(o)) {
             if (after == NULL || past) {
                 frame = SP_ITEM(o);

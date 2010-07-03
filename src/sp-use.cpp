@@ -140,7 +140,7 @@ sp_use_finalize(GObject *obj)
     SPUse *use = (SPUse *) obj;
 
     if (use->child) {
-        sp_object_detach(SP_OBJECT(obj), use->child);
+        SP_OBJECT(obj)->detach(use->child);
         use->child = NULL;
     }
 
@@ -177,7 +177,7 @@ sp_use_release(SPObject *object)
     SPUse *use = SP_USE(object);
 
     if (use->child) {
-        sp_object_detach(object, use->child);
+        object->detach(use->child);
         use->child = NULL;
     }
 
@@ -525,7 +525,7 @@ sp_use_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPUse *use)
     use->_transformed_connection.disconnect();
 
     if (use->child) {
-        sp_object_detach(SP_OBJECT(use), use->child);
+        SP_OBJECT(use)->detach(use->child);
         use->child = NULL;
     }
 
@@ -537,9 +537,9 @@ sp_use_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPUse *use)
             g_return_if_fail(type > G_TYPE_NONE);
             if (g_type_is_a(type, SP_TYPE_ITEM)) {
                 use->child = (SPObject*) g_object_new(type, 0);
-                sp_object_attach(SP_OBJECT(use), use->child, use->lastChild());
+                SP_OBJECT(use)->attach(use->child, use->lastChild());
                 sp_object_unref(use->child, SP_OBJECT(use));
-                sp_object_invoke_build(use->child, SP_OBJECT(use)->document, childrepr, TRUE);
+                (use->child)->invoke_build(SP_OBJECT(use)->document, childrepr, TRUE);
 
                 for (SPItemView *v = item->display; v != NULL; v = v->next) {
                     NRArenaItem *ai;

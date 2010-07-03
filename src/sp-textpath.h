@@ -31,7 +31,7 @@ struct SPTextPathClass {
 
 GType sp_textpath_get_type();
 
-#define SP_IS_TEXT_TEXTPATH(obj) (SP_IS_TEXT(obj) && sp_object_first_child(obj) && SP_IS_TEXTPATH(sp_object_first_child(obj)))
+#define SP_IS_TEXT_TEXTPATH(obj) (SP_IS_TEXT(obj) && obj->first_child() && SP_IS_TEXTPATH(obj->first_child()))
 
 SPItem *sp_textpath_get_path_item(SPTextPath *tp);
 void sp_textpath_to_text(SPObject *tp);

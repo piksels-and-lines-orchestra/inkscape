@@ -104,7 +104,7 @@ static void sp_defs_modified(SPObject *object, guint flags)
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 
     GSList *l = NULL;
-    for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
         g_object_ref(G_OBJECT(child));
         l = g_slist_prepend(l, child);
     }
@@ -130,7 +130,7 @@ static Inkscape::XML::Node *sp_defs_write(SPObject *object, Inkscape::XML::Docum
         }
 
         GSList *l = NULL;
-        for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             Inkscape::XML::Node *crepr = child->updateRepr(xml_doc, NULL, flags);
             if (crepr) l = g_slist_prepend(l, crepr);
         }
@@ -142,7 +142,7 @@ static Inkscape::XML::Node *sp_defs_write(SPObject *object, Inkscape::XML::Docum
         }
 
     } else {
-        for ( SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for ( SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             child->updateRepr(flags);
         }
     }

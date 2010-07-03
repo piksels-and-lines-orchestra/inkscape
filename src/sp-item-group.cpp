@@ -237,7 +237,7 @@ sp_group_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XM
                 repr = xml_doc->createElement("svg:g");
         }
         l = NULL;
-        for (child = sp_object_first_child(object); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (child = object->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_TITLE(child) || SP_IS_DESC(child)) continue;
             crepr = child->updateRepr(xml_doc, NULL, flags);
             if (crepr) l = g_slist_prepend (l, crepr);
@@ -248,7 +248,7 @@ sp_group_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XM
             l = g_slist_remove (l, l->data);
         }
     } else {
-        for (child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_TITLE(child) || SP_IS_DESC(child)) continue;
             child->updateRepr(flags);
         }
@@ -326,7 +326,7 @@ sp_group_hide (SPItem *item, unsigned int key)
 
 static void sp_group_snappoints (SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs)
 {
-    for (SPObject const *o = sp_object_first_child(SP_OBJECT(item));
+    for (SPObject const *o = SP_OBJECT(item)->first_child();
          o != NULL;
          o = SP_OBJECT_NEXT(o))
     {
@@ -368,7 +368,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     /* Step 1 - generate lists of children objects */
     GSList *items = NULL;
     GSList *objects = NULL;
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(group)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = SP_OBJECT(group)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
 
         if (SP_IS_ITEM (child)) {
 
@@ -512,7 +512,7 @@ sp_item_group_item_list (SPGroup * group)
 
     GSList *s = NULL;
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_ITEM (o)) {
             s = g_slist_prepend (s, o);
         }
@@ -525,7 +525,7 @@ SPObject *
 sp_item_group_get_child_by_name (SPGroup *group, SPObject *ref, const gchar *name)
 {
     SPObject *child;
-    child = (ref) ? SP_OBJECT_NEXT(ref) : sp_object_first_child(SP_OBJECT(group));
+    child = (ref) ? SP_OBJECT_NEXT(ref) : SP_OBJECT(group)->first_child();
     while ( child && strcmp (SP_OBJECT_REPR(child)->name(), name) ) {
         child = SP_OBJECT_NEXT(child);
     }
@@ -578,7 +578,7 @@ void SPGroup::translateChildItems(Geom::Translate const &tr)
     if (this->hasChildren())
     {
         SPObject *o = NULL;
-        for (o = sp_object_first_child(SP_OBJECT(this)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+        for (o = SP_OBJECT(this)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
             if (SP_IS_ITEM (o)) {
                 sp_item_move_rel(static_cast<SPItem *>(o), tr);
             }
@@ -612,7 +612,7 @@ void CGroup::onChildAdded(Inkscape::XML::Node *child) {
             }
         }
     } else {    // general case
-        SPObject *ochild = sp_object_get_child_by_repr(_group, child);
+        SPObject *ochild = _group->get_child_by_repr(child);
         if ( ochild && SP_IS_ITEM(ochild) ) {
             /* TODO: this should be moved into SPItem somehow */
             SPItemView *v;
@@ -730,7 +730,7 @@ void CGroup::onPrint(SPPrintContext *ctx) {
 
 gint CGroup::getItemCount() {
     gint len = 0;
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(_group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(_group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_ITEM(o)) {
             len++;
         }
@@ -800,7 +800,7 @@ void CGroup::hide (unsigned int key) {
 
 void CGroup::onOrderChanged (Inkscape::XML::Node *child, Inkscape::XML::Node *, Inkscape::XML::Node *)
 {
-    SPObject *ochild = sp_object_get_child_by_repr(_group, child);
+    SPObject *ochild = _group->get_child_by_repr(child);
     if ( ochild && SP_IS_ITEM(ochild) ) {
         /* TODO: this should be moved into SPItem somehow */
         SPItemView *v;

@@ -155,7 +155,7 @@ count_gradient_hrefs(SPObject *o, SPGradient *gr)
         i ++;
     }
 
-    for (SPObject *child = sp_object_first_child(o);
+    for (SPObject *child = o->first_child();
          child != NULL; child = SP_OBJECT_NEXT(child)) {
         i += count_gradient_hrefs(child, gr);
     }
@@ -718,7 +718,7 @@ sp_item_gradient_reverse_vector (SPItem *item, bool fill_or_stroke)
     GSList *child_reprs = NULL;
     GSList *child_objects = NULL;
     std::vector<double> offsets;
-    for (SPObject *child = sp_object_first_child(vector);
+    for (SPObject *child = vector->first_child();
          child != NULL; child = SP_OBJECT_NEXT(child)) {
         child_reprs = g_slist_prepend (child_reprs, SP_OBJECT_REPR(child));
         child_objects = g_slist_prepend (child_objects, child);

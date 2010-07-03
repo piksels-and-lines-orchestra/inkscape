@@ -388,7 +388,7 @@ sp_tref_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPTRef *tref)
         tref->_delete_connection.disconnect();
 
         if (tref->stringChild) {
-            sp_object_detach(SP_OBJECT(tref), tref->stringChild);
+            SP_OBJECT(tref)->detach(tref->stringChild);
             tref->stringChild = NULL;
         }
 
@@ -516,7 +516,7 @@ sp_tref_update_text(SPTRef *tref)
         build_string_from_root(SP_OBJECT_REPR(tref->getObjectReferredTo()), &charData);
 
         if (tref->stringChild) {
-            sp_object_detach(SP_OBJECT(tref), tref->stringChild);
+            SP_OBJECT(tref)->detach(tref->stringChild);
             tref->stringChild = NULL;
         }
 
@@ -527,9 +527,9 @@ sp_tref_update_text(SPTRef *tref)
         tref->stringChild = SP_OBJECT(g_object_new(sp_repr_type_lookup(newStringRepr), NULL));
 
         // Add this SPString as a child of the tref
-        sp_object_attach(SP_OBJECT(tref), tref->stringChild, tref->lastChild());
+        SP_OBJECT(tref)->attach(tref->stringChild, tref->lastChild());
         sp_object_unref(tref->stringChild, NULL);
-        sp_object_invoke_build(tref->stringChild, SP_OBJECT(tref)->document, newStringRepr, TRUE);
+        (tref->stringChild)->invoke_build(SP_OBJECT(tref)->document, newStringRepr, TRUE);
 
         Inkscape::GC::release(newStringRepr);
     }
@@ -633,7 +633,7 @@ sp_tref_convert_to_tspan(SPObject *obj)
     ////////////////////
     else {
         GSList *l = NULL;
-        for (SPObject *child = sp_object_first_child(obj) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = obj->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             sp_object_ref (SP_OBJECT (child), obj);
             l = g_slist_prepend (l, child);
         }

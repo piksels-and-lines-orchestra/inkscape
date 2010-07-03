@@ -425,7 +425,7 @@ sp_tweak_dilate_recursive (Inkscape::Selection *selection, SPItem *item, Geom::P
 
     if (SP_IS_GROUP(item) && !SP_IS_BOX3D(item)) {
         GSList *children = NULL;
-        for (SPObject *child = sp_object_first_child(SP_OBJECT(item)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = SP_OBJECT(item)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_ITEM(child)) {
                 children = g_slist_prepend(children, child);
             }
@@ -863,7 +863,7 @@ tweak_colors_in_gradient (SPItem *item, bool fill_or_stroke,
     double offset_l = 0;
     double offset_h = 0;
     SPObject *child_prev = NULL;
-    for (SPObject *child = sp_object_first_child(vector);
+    for (SPObject *child = vector->first_child();
          child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (!SP_IS_STOP(child))
             continue;
@@ -923,7 +923,7 @@ sp_tweak_color_recursive (guint mode, SPItem *item, SPItem *item_at_point,
     bool did = false;
 
     if (SP_IS_GROUP(item)) {
-        for (SPObject *child = sp_object_first_child(SP_OBJECT(item)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = SP_OBJECT(item)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_ITEM(child)) {
                 if (sp_tweak_color_recursive (mode, SP_ITEM(child), item_at_point,
                                           fill_goal, do_fill,

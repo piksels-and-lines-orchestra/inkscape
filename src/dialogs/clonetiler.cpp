@@ -849,7 +849,7 @@ clonetiler_trace_hide_tiled_clones_recursively (SPObject *from)
     if (!trace_arena)
         return;
 
-    for (SPObject *o = sp_object_first_child(from); o != NULL; o = SP_OBJECT_NEXT(o)) {
+    for (SPObject *o = from->first_child(); o != NULL; o = SP_OBJECT_NEXT(o)) {
         if (SP_IS_ITEM(o) && clonetiler_is_a_clone_of (o, NULL))
             SP_ITEM(o)->invoke_hide(trace_visionkey); // FIXME: hide each tiled clone's original too!
         clonetiler_trace_hide_tiled_clones_recursively (o);
@@ -981,7 +981,7 @@ clonetiler_unclump( GtkWidget */*widget*/, void * )
 
     GSList *to_unclump = NULL; // not including the original
 
-    for (SPObject *child = sp_object_first_child(parent); child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = parent->first_child(); child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (clonetiler_is_a_clone_of (child, obj)) {
             to_unclump = g_slist_prepend (to_unclump, child);
         }
@@ -1004,7 +1004,7 @@ clonetiler_number_of_clones (SPObject *obj)
 
     guint n = 0;
 
-    for (SPObject *child = sp_object_first_child(parent); child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = parent->first_child(); child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (clonetiler_is_a_clone_of (child, obj)) {
             n ++;
         }
@@ -1033,7 +1033,7 @@ clonetiler_remove( GtkWidget */*widget*/, void *, bool do_undo = true )
 
 // remove old tiling
     GSList *to_delete = NULL;
-    for (SPObject *child = sp_object_first_child(parent); child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = parent->first_child(); child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (clonetiler_is_a_clone_of (child, obj)) {
             to_delete = g_slist_prepend (to_delete, child);
         }

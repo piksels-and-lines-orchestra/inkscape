@@ -976,7 +976,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
 
         // Count the number of top-level items in the imported document.
         guint items_count = 0;
-        for (SPObject *child = sp_object_first_child(SP_DOCUMENT_ROOT(doc));
+        for (SPObject *child = SP_DOCUMENT_ROOT(doc)->first_child();
              child != NULL; child = SP_OBJECT_NEXT(child))
         {
             if (SP_IS_ITEM(child)) items_count++;
@@ -1004,7 +1004,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
         // Construct a new object representing the imported image,
         // and insert it into the current document.
         SPObject *new_obj = NULL;
-        for (SPObject *child = sp_object_first_child(SP_DOCUMENT_ROOT(doc));
+        for (SPObject *child = SP_DOCUMENT_ROOT(doc)->first_child();
              child != NULL; child = SP_OBJECT_NEXT(child) )
         {
             if (SP_IS_ITEM(child)) {
@@ -1024,7 +1024,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
             else if (SP_OBJECT_REPR(child)->type() == Inkscape::XML::ELEMENT_NODE) {
                 const gchar *tag = SP_OBJECT_REPR(child)->name();
                 if (!strcmp(tag, "svg:defs")) {
-                    for (SPObject *x = sp_object_first_child(child);
+                    for (SPObject *x = child->first_child();
                          x != NULL; x = SP_OBJECT_NEXT(x))
                     {
                         SP_OBJECT_REPR(in_defs)->addChild(SP_OBJECT_REPR(x)->duplicate(xml_in_doc), last_def);

@@ -671,7 +671,7 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
 
     TRACE(("BEGIN clip\n"));
     SPObject *co = SP_OBJECT(cp);
-    for (SPObject *child = sp_object_first_child(co) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = co->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_ITEM(child)) {
             SPItem *item = SP_ITEM(child);
 
@@ -729,7 +729,7 @@ CairoRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
 
     TRACE(("BEGIN mask\n"));
     SPObject *co = SP_OBJECT(mask);
-    for (SPObject *child = sp_object_first_child(co) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = co->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_ITEM(child)) {
             SPItem *item = SP_ITEM(child);
             renderItem(ctx, item);

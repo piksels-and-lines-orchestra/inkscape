@@ -165,7 +165,7 @@ sp_root_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
         (* ((SPObjectClass *) parent_class)->build) (object, document, repr);
 
     /* Search for first <defs> node */
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL; o = SP_OBJECT_NEXT(o) ) {
         if (SP_IS_DEFS(o)) {
             root->defs = SP_DEFS(o);
             break;
@@ -360,7 +360,7 @@ sp_root_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML:
     if (co && SP_IS_DEFS(co)) {
         SPObject *c;
         /* We search for first <defs> node - it is not beautiful, but works */
-        for (c = sp_object_first_child(SP_OBJECT(group)) ; c != NULL; c = SP_OBJECT_NEXT(c) ) {
+        for (c = SP_OBJECT(group)->first_child() ; c != NULL; c = SP_OBJECT_NEXT(c) ) {
             if (SP_IS_DEFS(c)) {
                 root->defs = SP_DEFS(c);
                 break;
@@ -379,7 +379,7 @@ static void sp_root_remove_child(SPObject *object, Inkscape::XML::Node *child)
     if ( root->defs && SP_OBJECT_REPR(root->defs) == child ) {
         SPObject *iter;
         /* We search for first remaining <defs> node - it is not beautiful, but works */
-        for ( iter = sp_object_first_child(object) ; iter ; iter = SP_OBJECT_NEXT(iter) ) {
+        for ( iter = object->first_child() ; iter ; iter = SP_OBJECT_NEXT(iter) ) {
             if ( SP_IS_DEFS(iter) && (SPDefs *)iter != root->defs ) {
                 root->defs = (SPDefs *)iter;
                 break;

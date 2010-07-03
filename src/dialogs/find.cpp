@@ -292,7 +292,7 @@ all_items (SPObject *r, GSList *l, bool hidden, bool locked)
     if (!strcmp (SP_OBJECT_REPR (r)->name(), "svg:metadata"))
         return l; // we're not interested in metadata
 
-    for (SPObject *child = sp_object_first_child(r); child; child = SP_OBJECT_NEXT (child)) {
+    for (SPObject *child = r->first_child(); child; child = SP_OBJECT_NEXT (child)) {
         if (SP_IS_ITEM (child) && !SP_OBJECT_IS_CLONED (child) && !desktop->isLayer(SP_ITEM(child))) {
                 if ((hidden || !desktop->itemIsHidden(SP_ITEM(child))) && (locked || !SP_ITEM(child)->isLocked())) {
                     l = g_slist_prepend (l, child);

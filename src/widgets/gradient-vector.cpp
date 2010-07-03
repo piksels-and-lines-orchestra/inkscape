@@ -463,7 +463,7 @@ static void verify_grad(SPGradient *gradient)
     int i = 0;
     SPStop *stop = NULL;
     /* count stops */
-    for ( SPObject *ochild = sp_object_first_child(SP_OBJECT(gradient)) ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( SPObject *ochild = SP_OBJECT(gradient)->first_child() ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if (SP_IS_STOP(ochild)) {
             i++;
             stop = SP_STOP(ochild);
@@ -506,7 +506,7 @@ static void verify_grad(SPGradient *gradient)
 static void select_stop_in_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_stop)
 {
     int i = 0;
-    for ( SPObject *ochild = sp_object_first_child(SP_OBJECT(gradient)) ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( SPObject *ochild = SP_OBJECT(gradient)->first_child() ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if (SP_IS_STOP(ochild)) {
             if (SP_OBJECT(ochild) == SP_OBJECT(new_stop)) {
                 gtk_option_menu_set_history(GTK_OPTION_MENU(mnu), i);
@@ -536,7 +536,7 @@ static void update_stop_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_
     gtk_widget_show(m);
     GSList *sl = NULL;
     if ( gradient->hasStops() ) {
-        for ( SPObject *ochild = sp_object_first_child(SP_OBJECT(gradient)) ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
+        for ( SPObject *ochild = SP_OBJECT(gradient)->first_child() ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
             if (SP_IS_STOP(ochild)) {
                 sl = g_slist_append(sl, ochild);
             }

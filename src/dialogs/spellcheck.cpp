@@ -203,7 +203,7 @@ all_text_items (SPObject *r, GSList *l, bool hidden, bool locked)
     if (!strcmp (SP_OBJECT_REPR (r)->name(), "svg:metadata"))
         return l; // we're not interested in metadata
 
-    for (SPObject *child = sp_object_first_child(r); child; child = SP_OBJECT_NEXT (child)) {
+    for (SPObject *child = r->first_child(); child; child = SP_OBJECT_NEXT (child)) {
         if (SP_IS_ITEM (child) && !SP_OBJECT_IS_CLONED (child) && !_desktop->isLayer(SP_ITEM(child))) {
                 if ((hidden || !_desktop->itemIsHidden(SP_ITEM(child))) && (locked || !SP_ITEM(child)->isLocked())) {
                     if (SP_IS_TEXT(child) || SP_IS_FLOWTEXT(child))

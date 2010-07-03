@@ -107,7 +107,7 @@ sp_object_repr_build_tree(SPDocument *document, Inkscape::XML::Node *repr)
     g_assert(newobj != NULL);
     SPObject *const object = SP_OBJECT(newobj);
     g_assert(object != NULL);
-    sp_object_invoke_build(object, document, repr, FALSE);
+    object->invoke_build(document, repr, FALSE);
 
     return object;
 }

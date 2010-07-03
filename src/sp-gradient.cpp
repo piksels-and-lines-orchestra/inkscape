@@ -426,7 +426,7 @@ void SPGradientImpl::build(SPObject *object, SPDocument *document, Inkscape::XML
         (* ((SPObjectClass *) gradient_parent_class)->build)(object, document, repr);
 
     SPObject *ochild;
-    for ( ochild = sp_object_first_child(object) ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( ochild = object->first_child() ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if (SP_IS_STOP(ochild)) {
             gradient->has_stops = TRUE;
             break;
@@ -585,7 +585,7 @@ void SPGradientImpl::childAdded(SPObject *object, Inkscape::XML::Node *child, In
     if (((SPObjectClass *) gradient_parent_class)->child_added)
         (* ((SPObjectClass *) gradient_parent_class)->child_added)(object, child, ref);
 
-    SPObject *ochild = sp_object_get_child_by_repr(object, child);
+    SPObject *ochild = object->get_child_by_repr(child);
     if ( ochild && SP_IS_STOP(ochild) ) {
         gr->has_stops = TRUE;
     }
@@ -609,7 +609,7 @@ void SPGradientImpl::removeChild(SPObject *object, Inkscape::XML::Node *child)
 
     gr->has_stops = FALSE;
     SPObject *ochild;
-    for ( ochild = sp_object_first_child(object) ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( ochild = object->first_child() ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if (SP_IS_STOP(ochild)) {
             gr->has_stops = TRUE;
             break;
@@ -640,7 +640,7 @@ void SPGradientImpl::modified(SPObject *object, guint flags)
 
     // FIXME: climb up the ladder of hrefs
     GSList *l = NULL;
-    for (SPObject *child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
         g_object_ref(G_OBJECT(child));
         l = g_slist_prepend(l, child);
     }
@@ -658,7 +658,7 @@ void SPGradientImpl::modified(SPObject *object, guint flags)
 SPStop* SPGradient::getFirstStop()
 {
     SPStop* first = 0;
-    for (SPObject *ochild = sp_object_first_child(this); ochild && !first; ochild = SP_OBJECT_NEXT(ochild)) {
+    for (SPObject *ochild = this->first_child(); ochild && !first; ochild = SP_OBJECT_NEXT(ochild)) {
         if (SP_IS_STOP(ochild)) {
             first = SP_STOP(ochild);
         }
@@ -689,7 +689,7 @@ Inkscape::XML::Node *SPGradientImpl::write(SPObject *object, Inkscape::XML::Docu
 
     if (flags & SP_OBJECT_WRITE_BUILD) {
         GSList *l = NULL;
-        for (SPObject *child = sp_object_first_child(object); child; child = SP_OBJECT_NEXT(child)) {
+        for (SPObject *child = object->first_child(); child; child = SP_OBJECT_NEXT(child)) {
             Inkscape::XML::Node *crepr;
             crepr = child->updateRepr(xml_doc, NULL, flags);
             if (crepr) l = g_slist_prepend(l, crepr);
@@ -985,7 +985,7 @@ bool SPGradient::invalidateVector()
 void SPGradient::rebuildVector()
 {
     gint len = 0;
-    for ( SPObject *child = sp_object_first_child(SP_OBJECT(this)) ;
+    for ( SPObject *child = SP_OBJECT(this)->first_child() ;
           child != NULL ;
           child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_STOP(child)) {
@@ -1009,7 +1009,7 @@ void SPGradient::rebuildVector()
         }
     }
 
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(this)) ;
+    for (SPObject *child = SP_OBJECT(this)->first_child() ;
          child != NULL;
          child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_STOP(child)) {

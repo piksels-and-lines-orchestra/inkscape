@@ -498,6 +498,14 @@ public:
     CollectionPolicy _collection_policy;
     gchar *_label;
     mutable gchar *_default_label;
+	void attach(SPObject *object, SPObject *prev);
+	void reorder(SPObject *prev);
+	void detach(SPObject *object);
+	SPObject *get_child_by_repr(Inkscape::XML::Node *repr);
+	SPObject *first_child() {
+		    return firstChild();
+	}
+	void invoke_build(SPDocument *document, Inkscape::XML::Node *repr, unsigned int cloned);
 
 private:
     // Private member functions used in the definitions of setTitle(),
@@ -540,16 +548,16 @@ struct SPObjectClass {
  * Attaching/detaching
  */
 
-void sp_object_attach(SPObject *parent, SPObject *object, SPObject *prev);
-void sp_object_reorder(SPObject *object, SPObject *prev);
-void sp_object_detach(SPObject *parent, SPObject *object);
+//void sp_object_attach(SPObject *parent, SPObject *object, SPObject *prev);
+//void sp_object_reorder(SPObject *object, SPObject *prev);
+//void sp_object_detach(SPObject *parent, SPObject *object);
 
-inline SPObject *sp_object_first_child(SPObject *parent) {
+/*inline SPObject *sp_object_first_child(SPObject *parent) {
     return parent->firstChild();
-}
-SPObject *sp_object_get_child_by_repr(SPObject *object, Inkscape::XML::Node *repr);
+}*/
+//SPObject *sp_object_get_child_by_repr(SPObject *object, Inkscape::XML::Node *repr);
 
-void sp_object_invoke_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr, unsigned int cloned);
+//void sp_object_invoke_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr, unsigned int cloned);
 
 void sp_object_set(SPObject *object, unsigned int key, gchar const *value);
 

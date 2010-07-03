@@ -187,7 +187,7 @@ sp_clippath_update(SPObject *object, SPCtx *ctx, guint flags)
 
     SPObjectGroup *og = SP_OBJECTGROUP(object);
     GSList *l = NULL;
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(og)); child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = SP_OBJECT(og)->first_child(); child != NULL; child = SP_OBJECT_NEXT(child)) {
         g_object_ref(G_OBJECT(child));
         l = g_slist_prepend(l, child);
     }
@@ -225,7 +225,7 @@ sp_clippath_modified(SPObject *object, guint flags)
 
     SPObjectGroup *og = SP_OBJECTGROUP(object);
     GSList *l = NULL;
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(og)); child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = SP_OBJECT(og)->first_child(); child != NULL; child = SP_OBJECT_NEXT(child)) {
         g_object_ref(G_OBJECT(child));
         l = g_slist_prepend(l, child);
     }
@@ -264,7 +264,7 @@ sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key)
     NRArenaItem *ai = NRArenaGroup::create(arena);
     cp->display = sp_clippath_view_new_prepend(cp->display, key, ai);
 
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(cp)) ; child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = SP_OBJECT(cp)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
             NRArenaItem *ac = SP_ITEM(child)->invoke_show(arena, key, SP_ITEM_REFERENCE_FLAGS);
             if (ac) {
@@ -290,7 +290,7 @@ sp_clippath_hide(SPClipPath *cp, unsigned int key)
     g_return_if_fail(cp != NULL);
     g_return_if_fail(SP_IS_CLIPPATH(cp));
 
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(cp)) ; child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = SP_OBJECT(cp)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
             SP_ITEM(child)->invoke_hide(key);
         }
@@ -327,7 +327,7 @@ void
 sp_clippath_get_bbox(SPClipPath *cp, NRRect *bbox, Geom::Matrix const &transform, unsigned const /*flags*/)
 {
     SPObject *i;
-    for (i = sp_object_first_child(SP_OBJECT(cp)); i && !SP_IS_ITEM(i); i = SP_OBJECT_NEXT(i)){};
+    for (i = SP_OBJECT(cp)->first_child(); i && !SP_IS_ITEM(i); i = SP_OBJECT_NEXT(i)){};
     if (!i) return;
 
     SP_ITEM(i)->invoke_bbox_full( bbox, Geom::Matrix(SP_ITEM(i)->transform) * transform, SPItem::GEOMETRIC_BBOX, FALSE);

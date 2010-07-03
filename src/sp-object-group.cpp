@@ -112,7 +112,7 @@ sp_objectgroup_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inksca
 		       	repr = xml_doc->createElement("svg:g");
 		}
 		l = NULL;
-		for ( child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for ( child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			crepr = child->updateRepr(xml_doc, NULL, flags);
 			if (crepr) l = g_slist_prepend (l, crepr);
 		}
@@ -122,7 +122,7 @@ sp_objectgroup_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inksca
 			l = g_slist_remove (l, l->data);
 		}
 	} else {
-		for ( child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for ( child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			child->updateRepr(flags);
 		}
 	}

@@ -872,8 +872,8 @@ sp_te_set_repr_text_multiline(SPItem *text, gchar const *str)
     SPObject *object;
     bool is_textpath = false;
     if (SP_IS_TEXT_TEXTPATH (text)) {
-        repr = SP_OBJECT_REPR (sp_object_first_child(SP_OBJECT (text)));
-        object = sp_object_first_child(SP_OBJECT (text));
+        repr = SP_OBJECT_REPR (SP_OBJECT (text)->first_child());
+        object = SP_OBJECT (text)->first_child();
         is_textpath = true;
     } else {
         repr = SP_OBJECT_REPR (text);
@@ -1331,7 +1331,7 @@ static void apply_css_recursive(SPObject *o, SPCSSAttr const *css)
 {
     sp_repr_css_change(SP_OBJECT_REPR(o), const_cast<SPCSSAttr*>(css), "style");
 
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(o)) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = SP_OBJECT(o)->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         if (sp_repr_css_property(const_cast<SPCSSAttr*>(css), "opacity", NULL) != NULL) {
             // Unset properties which are accumulating and thus should not be set recursively.
             // For example, setting opacity 0.5 on a group recursively would result in the visible opacity of 0.25 for an item in the group.
@@ -1418,7 +1418,7 @@ static void recursively_apply_style(SPObject *common_ancestor, SPCSSAttr const *
                         child_span->appendChild(text_in_span);
                         Inkscape::GC::release(text_in_span);
                         child->deleteObject();
-                        child = sp_object_get_child_by_repr(common_ancestor, child_span);
+                        child = common_ancestor->get_child_by_repr(child_span);
 
                     } else
                         surround_entire_string = true;
@@ -1430,7 +1430,7 @@ static void recursively_apply_style(SPObject *common_ancestor, SPCSSAttr const *
                     SP_OBJECT_REPR(common_ancestor)->removeChild(child_repr);
                     child_span->appendChild(child_repr);
                     Inkscape::GC::release(child_repr);
-                    child = sp_object_get_child_by_repr(common_ancestor, child_span);
+                    child = common_ancestor->get_child_by_repr(child_span);
                 }
                 Inkscape::GC::release(child_span);
 

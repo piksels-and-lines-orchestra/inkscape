@@ -683,7 +683,7 @@ SPItem::sp_item_write(SPObject *const object, Inkscape::XML::Document *xml_doc, 
         Inkscape::XML::Node *crepr;
         GSList *l;
         l = NULL;
-        for (child = sp_object_first_child(object); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (child = object->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (!SP_IS_TITLE(child) && !SP_IS_DESC(child)) continue;
             crepr = child->updateRepr(xml_doc, NULL, flags);
             if (crepr) l = g_slist_prepend (l, crepr);
@@ -694,7 +694,7 @@ SPItem::sp_item_write(SPObject *const object, Inkscape::XML::Document *xml_doc, 
             l = g_slist_remove (l, l->data);
         }
     } else {
-        for (child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             if (!SP_IS_TITLE(child) && !SP_IS_DESC(child)) continue;
             child->updateRepr(flags);
         }
@@ -921,7 +921,7 @@ unsigned SPItem::pos_in_parent()
     SPObject *object = SP_OBJECT(this);
 
     unsigned pos=0;
-    for ( SPObject *iter = sp_object_first_child(parent) ; iter ; iter = SP_OBJECT_NEXT(iter)) {
+    for ( SPObject *iter = parent->first_child() ; iter ; iter = SP_OBJECT_NEXT(iter)) {
         if ( iter == object ) {
             return pos;
         }
@@ -1669,7 +1669,7 @@ sp_item_repr_compare_position(SPItem *first, SPItem *second)
 SPItem *
 sp_item_first_item_child (SPObject *obj)
 {
-    for ( SPObject *iter = sp_object_first_child(obj) ; iter ; iter = SP_OBJECT_NEXT(iter)) {
+    for ( SPObject *iter = obj->first_child() ; iter ; iter = SP_OBJECT_NEXT(iter)) {
         if (SP_IS_ITEM (iter))
             return SP_ITEM (iter);
     }

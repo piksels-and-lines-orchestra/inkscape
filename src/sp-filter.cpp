@@ -294,7 +294,7 @@ sp_filter_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::N
             repr = doc->createElement("svg:filter");
         }
         l = NULL;
-        for (child = sp_object_first_child(object); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (child = object->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
             crepr = child->updateRepr(doc, NULL, flags);
             if (crepr) l = g_slist_prepend (l, crepr);
         }
@@ -304,7 +304,7 @@ sp_filter_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::N
             l = g_slist_remove (l, l->data);
         }
     } else {
-        for (child = sp_object_first_child(object) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (child = object->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
             child->updateRepr(flags);
         }
     }

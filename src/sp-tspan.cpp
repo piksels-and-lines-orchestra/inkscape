@@ -178,7 +178,7 @@ sp_tspan_update(SPObject *object, SPCtx *ctx, guint flags)
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 	
     SPObject *ochild;
-    for ( ochild = sp_object_first_child(object) ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( ochild = object->first_child() ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if ( flags || ( ochild->uflags & SP_OBJECT_MODIFIED_FLAG )) {
 	    ochild->updateDisplay(ctx, flags);
         }
@@ -196,7 +196,7 @@ sp_tspan_modified(SPObject *object, unsigned flags)
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 	
     SPObject *ochild;
-    for ( ochild = sp_object_first_child(object) ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( ochild = object->first_child() ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if (flags || (ochild->mflags & SP_OBJECT_MODIFIED_FLAG)) {
             ochild->emitModified(flags);
         }
@@ -242,7 +242,7 @@ sp_tspan_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML
 	
     if ( flags&SP_OBJECT_WRITE_BUILD ) {
         GSList *l = NULL;
-        for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             Inkscape::XML::Node* c_repr=NULL;
             if ( SP_IS_TSPAN(child) || SP_IS_TREF(child) ) {
                 c_repr = child->updateRepr(xml_doc, NULL, flags);
@@ -259,7 +259,7 @@ sp_tspan_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML
             l = g_slist_remove(l, l->data);
         }
     } else {
-        for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             if ( SP_IS_TSPAN(child) || SP_IS_TREF(child) ) {
                 child->updateRepr(flags);
             } else if ( SP_IS_TEXTPATH(child) ) {
@@ -455,7 +455,7 @@ sp_textpath_update(SPObject *object, SPCtx *ctx, guint flags)
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 			
     SPObject *ochild;
-    for ( ochild = sp_object_first_child(object) ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( ochild = object->first_child() ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if ( flags || ( ochild->uflags & SP_OBJECT_MODIFIED_FLAG )) {
             ochild->updateDisplay(ctx, flags);
         }
@@ -494,7 +494,7 @@ sp_textpath_modified(SPObject *object, unsigned flags)
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 	
     SPObject *ochild;
-    for ( ochild = sp_object_first_child(object) ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
+    for ( ochild = object->first_child() ; ochild ; ochild = SP_OBJECT_NEXT(ochild) ) {
         if (flags || (ochild->mflags & SP_OBJECT_MODIFIED_FLAG)) {
             ochild->emitModified(flags);
         }
@@ -526,7 +526,7 @@ sp_textpath_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
 	
     if ( flags&SP_OBJECT_WRITE_BUILD ) {
         GSList *l = NULL;
-        for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             Inkscape::XML::Node* c_repr=NULL;
             if ( SP_IS_TSPAN(child) || SP_IS_TREF(child) ) {
                 c_repr = child->updateRepr(xml_doc, NULL, flags);
@@ -543,7 +543,7 @@ sp_textpath_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
             l = g_slist_remove(l, l->data);
         }
     } else {
-        for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             if ( SP_IS_TSPAN(child) || SP_IS_TREF(child) ) {
                 child->updateRepr(flags);
             } else if ( SP_IS_TEXTPATH(child) ) {

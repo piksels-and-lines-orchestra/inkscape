@@ -225,7 +225,7 @@ sp_text_update (SPObject *object, SPCtx *ctx, guint flags)
 
     /* Create temporary list of children */
     GSList *l = NULL;
-    for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         sp_object_ref (SP_OBJECT (child), object);
         l = g_slist_prepend (l, child);
     }
@@ -286,7 +286,7 @@ sp_text_modified (SPObject *object, guint flags)
     /* Create temporary list of children */
     GSList *l = NULL;
     SPObject *child;
-    for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+    for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         sp_object_ref (SP_OBJECT (child), object);
         l = g_slist_prepend (l, child);
     }
@@ -310,7 +310,7 @@ sp_text_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML
         if (!repr)
             repr = xml_doc->createElement("svg:text");
         GSList *l = NULL;
-        for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_TITLE(child) || SP_IS_DESC(child)) continue;
             Inkscape::XML::Node *crepr = NULL;
             if (SP_IS_STRING(child)) {
@@ -326,7 +326,7 @@ sp_text_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML
             l = g_slist_remove (l, l->data);
         }
     } else {
-        for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
             if (SP_IS_TITLE(child) || SP_IS_DESC(child)) continue;
             if (SP_IS_STRING(child)) {
                 SP_OBJECT_REPR(child)->setContent(SP_STRING(child)->string.c_str());
@@ -565,7 +565,7 @@ unsigned SPText::_buildLayoutInput(SPObject *root, Inkscape::Text::Layout::Optio
             child_attrs_offset--;
         }
 
-    for (SPObject *child = sp_object_first_child(root) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = root->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_STRING(child)) {
             Glib::ustring const &string = SP_STRING(child)->string;
             layout.appendText(string, root->style, child, &optional_attrs, child_attrs_offset + length);

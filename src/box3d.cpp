@@ -332,7 +332,7 @@ box3d_position_set (SPBox3D *box)
 {
     /* This draws the curve and calls requestDisplayUpdate() for each side (the latter is done in
        box3d_side_position_set() to avoid update conflicts with the parent box) */
-    for (SPObject *child = sp_object_first_child(SP_OBJECT (box)); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = SP_OBJECT (box)->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_BOX3D_SIDE(child))
             box3d_side_position_set(SP_BOX3D_SIDE(child));
     }
@@ -350,7 +350,7 @@ box3d_set_transform(SPItem *item, Geom::Matrix const &xform)
     gdouble const sw = hypot(ret[0], ret[1]);
     gdouble const sh = hypot(ret[2], ret[3]);
 
-    for (SPObject *child = sp_object_first_child(box); child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = box->first_child(); child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
             SPItem *childitem = SP_ITEM(child);
 
@@ -1151,7 +1151,7 @@ box3d_recompute_z_orders (SPBox3D *box) {
 static std::map<int, Box3DSide *>
 box3d_get_sides (SPBox3D *box) {
     std::map<int, Box3DSide *> sides;
-    for (SPObject *side = sp_object_first_child(box); side != NULL; side = SP_OBJECT_NEXT(side)) {
+    for (SPObject *side = box->first_child(); side != NULL; side = SP_OBJECT_NEXT(side)) {
         if (SP_IS_BOX3D_SIDE(side))
             sides[Box3D::face_to_int(sp_repr_get_int_attribute(SP_OBJECT_REPR(side),
                                                                "inkscape:box3dsidetype", -1))] = SP_BOX3D_SIDE(side);
@@ -1293,7 +1293,7 @@ box3d_extract_boxes_rec(SPObject *obj, std::list<SPBox3D *> &boxes) {
     if (SP_IS_BOX3D(obj)) {
         boxes.push_back(SP_BOX3D(obj));
     } else if (SP_IS_GROUP(obj)) {
-        for (SPObject *child = sp_object_first_child(obj); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        for (SPObject *child = obj->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
             box3d_extract_boxes_rec(child, boxes);
         }
     }
@@ -1354,7 +1354,7 @@ box3d_convert_to_group(SPBox3D *box) {
     Inkscape::XML::Node *grepr = xml_doc->createElement("svg:g");
 
     Inkscape::XML::Node *repr;
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(box)); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = SP_OBJECT(box)->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
         if (SP_IS_BOX3D_SIDE(child)) {
             repr = box3d_side_convert_to_path(SP_BOX3D_SIDE(child));
             grepr->appendChild(repr);

@@ -108,7 +108,7 @@ public:
         SPStyleElem &style_elem = *SP_STYLE_ELEM(g_object_new(SP_TYPE_STYLE_ELEM, NULL));
         Inkscape::XML::Node *const repr = sp_document_repr_doc(_doc)->createElement("svg:style");
         repr->setAttribute("type", "text/css");
-        sp_object_invoke_build(&style_elem, _doc, repr, false);
+        (&style_elem)->invoke_build( _doc, repr, false);
         TS_ASSERT( style_elem.is_css );
         TS_ASSERT( style_elem.media.print );
         TS_ASSERT( style_elem.media.screen );
@@ -138,7 +138,7 @@ public:
         repr->setAttribute("type", "text/css");
         Inkscape::XML::Node *const content_repr = sp_document_repr_doc(_doc)->createTextNode(".myclass { }");
         repr->addChild(content_repr, NULL);
-        sp_object_invoke_build(&style_elem, _doc, repr, false);
+        (&style_elem)->invoke_build(_doc, repr, false);
         TS_ASSERT( style_elem.is_css );
         TS_ASSERT( _doc->style_cascade );
         CRStyleSheet const *const stylesheet = cr_cascade_get_sheet(_doc->style_cascade, ORIGIN_AUTHOR);

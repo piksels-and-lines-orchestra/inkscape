@@ -246,14 +246,14 @@ persp3d_create_xml_element (SPDocument *document, Persp3DImpl *dup) {// if dup i
     SP_OBJECT_REPR(defs)->addChild(repr, NULL);
     Inkscape::GC::release(repr);
 
-    return (Persp3D *) sp_object_get_child_by_repr (SP_OBJECT(defs), repr);
+    return (Persp3D *) SP_OBJECT(defs)->get_child_by_repr (repr);
 }
 
 Persp3D *
 persp3d_document_first_persp (SPDocument *document) {
     SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
     Inkscape::XML::Node *repr;
-    for (SPObject *child = sp_object_first_child(defs); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = defs->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
         repr = SP_OBJECT_REPR(child);
         if (SP_IS_PERSP3D(child)) {
             return SP_PERSP3D(child);
@@ -568,7 +568,7 @@ void
 persp3d_print_debugging_info_all(SPDocument *document) {
     SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
     Inkscape::XML::Node *repr;
-    for (SPObject *child = sp_object_first_child(defs); child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = defs->first_child(); child != NULL; child = SP_OBJECT_NEXT(child) ) {
         repr = SP_OBJECT_REPR(child);
         if (SP_IS_PERSP3D(child)) {
             persp3d_print_debugging_info(SP_PERSP3D(child));

@@ -165,7 +165,7 @@ find_references(SPObject *elem, refmap_type *refmap)
     }
     
     /* recurse */
-    for (SPObject *child = sp_object_first_child(elem);
+    for (SPObject *child = elem->first_child();
          child; child = SP_OBJECT_NEXT(child) )
     {
         find_references(child, refmap);
@@ -204,7 +204,7 @@ change_clashing_ids(SPDocument *imported_doc, SPDocument *current_doc,
     }
 
     /* recurse */
-    for (SPObject *child = sp_object_first_child(elem);
+    for (SPObject *child = elem->first_child();
          child; child = SP_OBJECT_NEXT(child) )
     {
         change_clashing_ids(imported_doc, current_doc, child, refmap, id_changes);

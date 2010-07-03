@@ -245,7 +245,7 @@ SPDocument::setCurrentPersp3D(Persp3D * const persp) {
 void
 SPDocument::getPerspectivesInDefs(std::vector<Persp3D*> &list) {
     SPDefs *defs = SP_ROOT(this->root)->defs;
-    for (SPObject *i = sp_object_first_child(SP_OBJECT(defs)); i != NULL; i = SP_OBJECT_NEXT(i) ) {
+    for (SPObject *i = SP_OBJECT(defs)->first_child(); i != NULL; i = SP_OBJECT_NEXT(i) ) {
         if (SP_IS_PERSP3D(i))
             list.push_back(SP_PERSP3D(i));
     }
@@ -1118,7 +1118,7 @@ static GSList *find_items_in_area(GSList *s, SPGroup *group, unsigned int dkey, 
 {
     g_return_val_if_fail(SP_IS_GROUP(group), s);
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (!SP_IS_ITEM(o)) {
             continue;
         }
@@ -1141,7 +1141,7 @@ Returns true if an item is among the descendants of group (recursively).
  */
 bool item_is_in_group(SPItem *item, SPGroup *group)
 {
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (!SP_IS_ITEM(o)) continue;
         if (SP_ITEM(o) == item)
             return true;
@@ -1162,7 +1162,7 @@ SPDocument::item_from_list_at_point_bottom(unsigned int dkey, SPGroup *group, GS
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     gdouble delta = prefs->getDouble("/options/cursortolerance/value", 1.0);
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
 
         if (!SP_IS_ITEM(o)) continue;
 
@@ -1199,7 +1199,7 @@ find_item_at_point(unsigned int dkey, SPGroup *group, Geom::Point const p, gbool
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     gdouble delta = prefs->getDouble("/options/cursortolerance/value", 1.0);
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (!SP_IS_ITEM(o)) continue;
 
         if (upto && SP_ITEM(o) == upto)
@@ -1241,7 +1241,7 @@ find_group_at_point(unsigned int dkey, SPGroup *group, Geom::Point const p)
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     gdouble delta = prefs->getDouble("/options/cursortolerance/value", 1.0);
 
-    for (SPObject *o = sp_object_first_child(SP_OBJECT(group)) ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
+    for (SPObject *o = SP_OBJECT(group)->first_child() ; o != NULL ; o = SP_OBJECT_NEXT(o) ) {
         if (!SP_IS_ITEM(o)) continue;
         if (SP_IS_GROUP(o) && SP_GROUP(o)->effectiveLayerMode(dkey) == SPGroup::LAYER) {
             SPItem *newseen = find_group_at_point(dkey, SP_GROUP(o), p);
@@ -1421,7 +1421,7 @@ count_objects_recursive(SPObject *obj, unsigned int count)
 {
     count++; // obj itself
 
-    for (SPObject *i = sp_object_first_child(obj); i != NULL; i = SP_OBJECT_NEXT(i)) {
+    for (SPObject *i = obj->first_child(); i != NULL; i = SP_OBJECT_NEXT(i)) {
         count = count_objects_recursive(i, count);
     }
 
@@ -1443,7 +1443,7 @@ vacuum_document_recursive(SPObject *obj)
             def->requestOrphanCollection();
         }
     } else {
-        for (SPObject *i = sp_object_first_child(obj); i != NULL; i = SP_OBJECT_NEXT(i)) {
+        for (SPObject *i = obj->first_child(); i != NULL; i = SP_OBJECT_NEXT(i)) {
             vacuum_document_recursive(i);
         }
     }

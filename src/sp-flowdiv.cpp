@@ -127,7 +127,7 @@ sp_flowdiv_update (SPObject *object, SPCtx *ctx, unsigned int flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	GSList* l = NULL;
-	for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -161,7 +161,7 @@ sp_flowdiv_modified (SPObject *object, guint flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -200,7 +200,7 @@ sp_flowdiv_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
 	if ( flags&SP_OBJECT_WRITE_BUILD ) {
 		if ( repr == NULL ) repr = xml_doc->createElement("svg:flowDiv");
 		GSList *l = NULL;
-		for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			Inkscape::XML::Node* c_repr=NULL;
 			if ( SP_IS_FLOWTSPAN (child) ) {
 				c_repr = child->updateRepr(xml_doc, NULL, flags);
@@ -217,7 +217,7 @@ sp_flowdiv_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
 			l = g_slist_remove (l, l->data);
 		}
 	} else {
-		for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			if ( SP_IS_FLOWTSPAN (child) ) {
 				child->updateRepr(flags);
 			} else if ( SP_IS_FLOWPARA(child) ) {
@@ -305,7 +305,7 @@ sp_flowtspan_update (SPObject *object, SPCtx *ctx, unsigned int flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	GSList* l = NULL;
-	for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -339,7 +339,7 @@ sp_flowtspan_modified (SPObject *object, guint flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -371,7 +371,7 @@ sp_flowtspan_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape
 	if ( flags&SP_OBJECT_WRITE_BUILD ) {
 		if ( repr == NULL ) repr = xml_doc->createElement("svg:flowSpan");
 		GSList *l = NULL;
-		for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			Inkscape::XML::Node* c_repr=NULL;
 			if ( SP_IS_FLOWTSPAN (child) ) {
 				c_repr = child->updateRepr(xml_doc, NULL, flags);
@@ -388,7 +388,7 @@ sp_flowtspan_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape
 			l = g_slist_remove (l, l->data);
 		}
 	} else {
-		for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			if ( SP_IS_FLOWTSPAN (child) ) {
 				child->updateRepr(flags);
 			} else if ( SP_IS_FLOWPARA (child) ) {
@@ -476,7 +476,7 @@ sp_flowpara_update (SPObject *object, SPCtx *ctx, unsigned int flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	GSList* l = NULL;
-	for (SPObject *child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (SPObject *child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -510,7 +510,7 @@ sp_flowpara_modified (SPObject *object, guint flags)
 	flags &= SP_OBJECT_MODIFIED_CASCADE;
 
 	l = NULL;
-	for (child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+	for (child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 		g_object_ref (G_OBJECT (child));
 		l = g_slist_prepend (l, child);
 	}
@@ -544,7 +544,7 @@ sp_flowpara_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape:
 	if ( flags&SP_OBJECT_WRITE_BUILD ) {
 		if ( repr == NULL ) repr = xml_doc->createElement("svg:flowPara");
 		GSList *l = NULL;
-		for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			Inkscape::XML::Node* c_repr=NULL;
 			if ( SP_IS_FLOWTSPAN (child) ) {
 				c_repr = child->updateRepr(xml_doc, NULL, flags);
@@ -561,7 +561,7 @@ sp_flowpara_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape:
 			l = g_slist_remove (l, l->data);
 		}
 	} else {
-		for (SPObject* child = sp_object_first_child(object) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
+		for (SPObject* child = object->first_child() ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
 			if ( SP_IS_FLOWTSPAN (child) ) {
 				child->updateRepr(flags);
 			} else if ( SP_IS_FLOWPARA (child) ) {
