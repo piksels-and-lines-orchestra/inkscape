@@ -304,6 +304,9 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
         cairo_set_source_rgba(ct, SP_RGBA32_B_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_R_F(rgba), SP_RGBA32_A_F(rgba));
         cairo_set_tolerance(ct, 1.25); // low quality, but good enough for outline mode
 
+        NRRect temp(area->x0, area->y0, area->x1, area->y1);
+        Geom::OptRect area_2geom = temp.upgrade_2geom();
+
         for (child = group->children; child != NULL; child = child->next) {
             NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
 
@@ -311,9 +314,8 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
 
             cairo_new_path(ct);
             Geom::Matrix transform = g->g_transform * group->ctm;
-            feed_pathvector_to_cairo (ct, *pathv, transform, to_2geom((pb->area).upgrade()), false, 0);
+            feed_pathvector_to_cairo (ct, *pathv, transform, area_2geom, false, 0);
             cairo_fill(ct);
-            pb->empty = FALSE;
         }
 
         return item->state;

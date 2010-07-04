@@ -1630,17 +1630,12 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
 {
     GtkWidget *widget = GTK_WIDGET (canvas);
 
-    SPCanvasBuf buf;
-    if (canvas->rendermode != Inkscape::RENDERMODE_OUTLINE) {
-        buf.buf = nr_pixelstore_256K_new (FALSE, 0);
-    } else {
-        buf.buf = nr_pixelstore_1M_new (FALSE, 0);
-    }
-
     // Mark the region clean
     sp_canvas_mark_rect(canvas, x0, y0, x1, y1, 0);
 
-    buf.buf_rowstride = sw * 4;
+    SPCanvasBuf buf;
+    buf.buf = NULL;
+    buf.buf_rowstride = 0;
     buf.rect.x0 = x0;
     buf.rect.y0 = y0;
     buf.rect.x1 = x1;

@@ -104,7 +104,6 @@ nr_arena_shape_init(NRArenaShape *shape)
     shape->style = NULL;
     shape->paintbox.x0 = shape->paintbox.y0 = 0.0F;
     shape->paintbox.x1 = shape->paintbox.y1 = 256.0F;
-    shape->ctm.setIdentity();
     shape->delayed_shp = false;
     shape->path = NULL;
 
@@ -223,7 +222,6 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
 
     if (!(state & NR_ARENA_ITEM_STATE_RENDER)) {
         /* We do not have to create rendering structures */
-        shape->ctm = gc->transform;
         if (state & NR_ARENA_ITEM_STATE_BBOX) {
             if (shape->curve) {
                 boundingbox = bounds_exact_transformed(shape->curve->get_pathvector(), gc->transform);
@@ -246,7 +244,6 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
     }
 
     shape->delayed_shp=true;
-    shape->ctm = gc->transform;
     boundingbox = Geom::OptRect();
 
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
@@ -358,8 +355,8 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
 
     if (outline) { // cairo outline rendering
 
-        pb->empty = FALSE;
-        unsigned int ret = cairo_arena_shape_render_outline (ct, item, to_2geom((&pb->area)->upgrade()));
+        NRRect temp(area->x0, area->y0, area->x1, area->y1);
+        unsigned int ret = cairo_arena_shape_render_outline (ct, item, temp.upgrade_2geom());
         if (ret & NR_ARENA_ITEM_STATE_INVALID) return ret;
 
     } else {

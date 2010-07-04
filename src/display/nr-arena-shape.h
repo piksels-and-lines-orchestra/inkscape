@@ -31,8 +31,6 @@ struct NRArenaShape : public NRArenaItem {
     SPStyle *style;
     NRStyle nrstyle;
     NRRect paintbox;
-    /* State data */
-    Geom::Matrix ctm;
 
     cairo_path_t *path;
 

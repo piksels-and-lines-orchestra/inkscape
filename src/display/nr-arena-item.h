@@ -84,35 +84,22 @@ struct NRArenaItem : public NRObject {
     /* Opacity itself */
     unsigned int opacity : 8;
 
-    /* Key for secondary rendering */
-    unsigned int key;
+    unsigned int key; ///< Some SPItems can have more than one NRArenaItem,
+                      ///this value is a hack used to distinguish between them
 
-    /* BBox in grid coordinates */
-    NRRectL bbox;
-    /* Redraw area in grid coordinates = bbox filter-enlarged and clipped/masked */
-    NRRectL drawbox;
-    /* BBox in item coordinates - this should be a bounding box as
-     * specified in SVG standard. Required by filters. */
-    Geom::OptRect item_bbox;
-    /* Our affine */
-    Geom::Matrix *transform;
-    /* Clip item */
-    NRArenaItem *clip;
-    /* Mask item */
-    NRArenaItem *mask;
-    /* Filter to be applied after rendering this object, NULL if none */
-    Inkscape::Filters::Filter *filter;
-    /* Rendered buffer */
-    unsigned char *px;
+    NRRectL bbox; ///< Bounding box in pixel grid coordinates; (0,0) is at page origin
+    NRRectL drawbox; ///< Bounding box enlarged by filters, shrinked by clips and masks
+    Geom::OptRect item_bbox; ///< Bounding box in item coordinates, required by filters
+    Geom::Matrix *transform; ///< Incremental transform of this item, as given by the transform= attribute
+    Geom::Matrix ctm; ///< Total transform from pixel grid to item coords
+    NRArenaItem *clip; ///< Clipping path
+    NRArenaItem *mask; ///< Mask
+    Inkscape::Filters::Filter *filter; ///< Filter
+    unsigned char *px; ///< Render cache; unused
 
-    /* Single data member */
-    void *data;
+    void *data; ///< Anonymous data member - this is used to associate SPItems with arena items
 
-    /* Current Transformation Matrix */
-    Geom::Matrix ctm;
-
-    /* These hold background buffer state for filter rendering */
-    NRPixBlock *background_pb;
+    NRPixBlock *background_pb; ///< Background for filters; unused
     bool background_new;
 
     void init(NRArena *arena) {

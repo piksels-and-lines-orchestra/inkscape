@@ -210,7 +210,7 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_set_line_width(ct, 0.5);
         cairo_new_path(ct);
 
-        Geom::Point shift(pb->area.x0, pb->area.y0);
+        Geom::Point shift(area->x0, area->y0);
         Geom::Point c00 = image->c00 - shift;
         Geom::Point c01 = image->c01 - shift;
         Geom::Point c11 = image->c11 - shift;
@@ -229,8 +229,6 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_line_to (ct, c01[Geom::X], c01[Geom::Y]);
 
         cairo_stroke(ct);
-
-        pb->empty = FALSE;
     }
     return item->state;
 }

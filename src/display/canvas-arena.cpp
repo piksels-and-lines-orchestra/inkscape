@@ -203,7 +203,6 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
     if ((bw < 1) || (bh < 1)) return;
 
     NRRectL area;
-    NRPixBlock cb;
 
     area.x0 = buf->rect.x0;
     area.y0 = buf->rect.y0;
@@ -212,16 +211,7 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
 
     sp_canvas_prepare_buffer(buf);
 
-    nr_pixblock_setup_extern (&cb, NR_PIXBLOCK_MODE_R8G8B8A8P, area.x0, area.y0, area.x1, area.y1,
-                              buf->buf,
-                              buf->buf_rowstride,
-                              FALSE, FALSE);
-
-    cb.visible_area = buf->visible_rect;
-
-    nr_arena_item_invoke_render (buf->ct, arena->root, &area, &cb, 0);
-
-    nr_pixblock_release (&cb);
+    nr_arena_item_invoke_render (buf->ct, arena->root, &area, NULL, 0);
 }
 
 static double

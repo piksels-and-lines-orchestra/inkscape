@@ -85,6 +85,7 @@ nr_arena_item_init (NRArenaItem *item)
     memset (&item->bbox, 0, sizeof (item->bbox));
     memset (&item->drawbox, 0, sizeof (item->drawbox));
     item->transform = NULL;
+    item->ctm.setIdentity();
     item->opacity = 255;
     item->render_opacity = FALSE;
 
