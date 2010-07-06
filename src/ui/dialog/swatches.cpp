@@ -182,7 +182,8 @@ void SwatchesPanelHook::convertGradient( GtkMenuItem * /*menuitem*/, gpointer us
             for (const GSList *item = gradients; item; item = item->next) {
                 SPGradient* grad = SP_GRADIENT(item->data);
                 if ( targetName == grad->getId() ) {
-                    grad->repr->setAttribute("osb:paint", "solid"); // TODO make conditional
+					//XML Tree being used directly here while it shouldn't be
+                    grad->getRepr()->setAttribute("osb:paint", "solid"); // TODO make conditional
 
                     SPDocumentUndo::done(doc, SP_VERB_CONTEXT_GRADIENT,
                                      _("Add gradient stop"));
@@ -948,7 +949,8 @@ void SwatchesPanel::_updateFromSelection()
                             }
                         }
                         if ( target ) {
-                            gchar const* id = target->repr->attribute("id");
+							//XML Tree being used directly here while it shouldn't be
+                            gchar const* id = target->getRepr()->attribute("id");
                             if ( id ) {
                                 fillId = id;
                             }
@@ -979,7 +981,9 @@ void SwatchesPanel::_updateFromSelection()
                             }
                         }
                         if ( target ) {
-                            gchar const* id = target->repr->attribute("id");
+
+							//XML Tree being used directly here while it shouldn't be
+                            gchar const* id = target->getRepr()->attribute("id");
                             if ( id ) {
                                 strokeId = id;
                             }

@@ -112,7 +112,9 @@ Grid::effect (Inkscape::Extension::Effect *module, Inkscape::UI::View::View *doc
     path_data = build_lines(bounding_area,
                                  offsets, spacings);
     Inkscape::XML::Document * xml_doc = sp_document_repr_doc(document->doc());
-    Inkscape::XML::Node * current_layer = static_cast<SPDesktop *>(document)->currentLayer()->repr;
+
+	//XML Tree being used directly here while it shouldn't be.
+    Inkscape::XML::Node * current_layer = static_cast<SPDesktop *>(document)->currentLayer()->getRepr();
     Inkscape::XML::Node * path = xml_doc->createElement("svg:path");
 
     path->setAttribute("d", path_data.c_str());

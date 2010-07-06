@@ -317,7 +317,8 @@ sp_style_elem_read_content(SPObject *const object)
      * Dodji replies "right, that's *bug*"; just an unexpected oversight.
      */
 
-    GString *const text = concat_children(*style_elem.repr);
+	//XML Tree being used directly here while it shouldn't be.
+    GString *const text = concat_children(*style_elem.getRepr());
     CRParser *parser = cr_parser_new_from_buf(reinterpret_cast<guchar *>(text->str), text->len,
                                               CR_UTF_8, FALSE);
 

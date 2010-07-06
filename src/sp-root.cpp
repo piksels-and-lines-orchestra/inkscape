@@ -146,7 +146,8 @@ sp_root_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
     SPGroup *group = (SPGroup *) object;
     SPRoot *root = (SPRoot *) object;
 
-    if ( !object->repr->attribute("version") ) {
+	//XML Tree being used directly here while it shouldn't be.
+    if ( !object->getRepr()->attribute("version") ) {
         repr->setAttribute("version", SVG_VERSION);
     }
 

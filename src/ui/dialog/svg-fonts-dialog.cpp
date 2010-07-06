@@ -170,7 +170,9 @@ void SvgFontsDialog::on_kerning_value_changed(){
     undokey += this->kerning_pair->u2->attribute_string();
 
     //slider values increase from right to left so that they match the kerning pair preview
-    this->kerning_pair->repr->setAttribute("k", Glib::Ascii::dtostr(get_selected_spfont()->horiz_adv_x - kerning_slider.get_value()).c_str());
+
+	//XML Tree being directly used here while it shouldn't be.
+    this->kerning_pair->getRepr()->setAttribute("k", Glib::Ascii::dtostr(get_selected_spfont()->horiz_adv_x - kerning_slider.get_value()).c_str());
     SPDocumentUndo::maybe_done(document, undokey.c_str(), SP_VERB_DIALOG_SVG_FONTS, _("Adjust kerning value"));
 
     //populate_kerning_pairs_box();
@@ -505,7 +507,8 @@ void SvgFontsDialog::set_glyph_description_from_selected_path(){
         msgStack->flash(Inkscape::ERROR_MESSAGE, msg);
         return;
     }
-    glyph->repr->setAttribute("d", (char*) sp_svg_write_path (pathv));
+	//XML Tree being directly used here while it shouldn't be.
+    glyph->getRepr()->setAttribute("d", (char*) sp_svg_write_path (pathv));
     SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
 
     update_glyphs();
@@ -547,7 +550,9 @@ void SvgFontsDialog::missing_glyph_description_from_selected_path(){
     SPObject* obj;
     for (obj = get_selected_spfont()->children; obj; obj=obj->next){
         if (SP_IS_MISSING_GLYPH(obj)){
-            obj->repr->setAttribute("d", (char*) sp_svg_write_path (pathv));
+
+			//XML Tree being directly used here while it shouldn't be.
+            obj->getRepr()->setAttribute("d", (char*) sp_svg_write_path (pathv));
             SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
         }
     }
@@ -566,7 +571,8 @@ void SvgFontsDialog::reset_missing_glyph_description(){
     SPObject* obj;
     for (obj = get_selected_spfont()->children; obj; obj=obj->next){
         if (SP_IS_MISSING_GLYPH(obj)){
-            obj->repr->setAttribute("d", (char*) "M0,0h1000v1024h-1000z");
+			//XML Tree being directly used here while it shouldn't be.
+            obj->getRepr()->setAttribute("d", (char*) "M0,0h1000v1024h-1000z");
             SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Reset missing-glyph"));
         }
     }
@@ -579,7 +585,8 @@ void SvgFontsDialog::glyph_name_edit(const Glib::ustring&, const Glib::ustring& 
     if (!i) return;
 
     SPGlyph* glyph = (*i)[_GlyphsListColumns.glyph_node];
-    glyph->repr->setAttribute("glyph-name", str.c_str());
+	//XML Tree being directly used here while it shouldn't be.
+    glyph->getRepr()->setAttribute("glyph-name", str.c_str());
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
     SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Edit glyph name"));
@@ -592,7 +599,8 @@ void SvgFontsDialog::glyph_unicode_edit(const Glib::ustring&, const Glib::ustrin
     if (!i) return;
 
     SPGlyph* glyph = (*i)[_GlyphsListColumns.glyph_node];
-    glyph->repr->setAttribute("unicode", str.c_str());
+	//XML Tree being directly used here while it shouldn't be.
+    glyph->getRepr()->setAttribute("unicode", str.c_str());
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
     SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph unicode"));
@@ -603,7 +611,8 @@ void SvgFontsDialog::glyph_unicode_edit(const Glib::ustring&, const Glib::ustrin
 void SvgFontsDialog::remove_selected_font(){
     SPFont* font = get_selected_spfont();
 
-    sp_repr_unparent(font->repr);
+	//XML Tree being directly used here while it shouldn't be.
+    sp_repr_unparent(font->getRepr());
     SPDocument* doc = sp_desktop_document(this->getDesktop());
     SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove font"));
 
@@ -617,7 +626,9 @@ void SvgFontsDialog::remove_selected_glyph(){
     if(!i) return;
 
     SPGlyph* glyph = (*i)[_GlyphsListColumns.glyph_node];
-    sp_repr_unparent(glyph->repr);
+
+	//XML Tree being directly used here while it shouldn't be.
+    sp_repr_unparent(glyph->getRepr());
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
     SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove glyph"));
@@ -632,7 +643,9 @@ void SvgFontsDialog::remove_selected_kerning_pair(){
     if(!i) return;
 
     SPGlyphKerning* pair = (*i)[_KerningPairsListColumns.spnode];
-    sp_repr_unparent(pair->repr);
+
+	//XML Tree being directly used here while it shouldn't be.
+    sp_repr_unparent(pair->getRepr());
 
     SPDocument* doc = sp_desktop_document(this->getDesktop());
     SPDocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Remove kerning pair"));
@@ -812,7 +825,8 @@ void set_font_family(SPFont* font, char* str){
     SPObject* obj;
     for (obj=font->children; obj; obj=obj->next){
         if (SP_IS_FONTFACE(obj)){
-            obj->repr->setAttribute("font-family", str);
+			//XML Tree being directly used here while it shouldn't be.
+            obj->getRepr()->setAttribute("font-family", str);
         }
     }
 
@@ -832,7 +846,8 @@ void SvgFontsDialog::add_font(){
     SPObject* obj;
     for (obj=font->children; obj; obj=obj->next){
         if (SP_IS_FONTFACE(obj)){
-            obj->repr->setAttribute("font-family", os2.str().c_str());
+			//XML Tree being directly used here while it shouldn't be.
+            obj->getRepr()->setAttribute("font-family", os2.str().c_str());
         }
     }
 

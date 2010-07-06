@@ -217,37 +217,42 @@ sp_offset_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build (object, document, repr);
 
-    if (object->repr->attribute("inkscape:radius")) {
+	//XML Tree being used directly here while it shouldn't be.
+    if (object->getRepr()->attribute("inkscape:radius")) {
         sp_object_read_attr (object, "inkscape:radius");
     } else {
-        gchar const *oldA = object->repr->attribute("sodipodi:radius");
-        object->repr->setAttribute("inkscape:radius",oldA);
-        object->repr->setAttribute("sodipodi:radius",NULL);
+
+		
+		//XML Tree being used directly here (as object->getRepr) 
+		//in all the below lines in the block while it shouldn't be.
+        gchar const *oldA = object->getRepr()->attribute("sodipodi:radius");
+        object->getRepr()->setAttribute("inkscape:radius",oldA);
+        object->getRepr()->setAttribute("sodipodi:radius",NULL);
 
         sp_object_read_attr (object, "inkscape:radius");
     }
-    if (object->repr->attribute("inkscape:original")) {
+    if (object->getRepr()->attribute("inkscape:original")) {
         sp_object_read_attr (object, "inkscape:original");
     } else {
-        gchar const *oldA = object->repr->attribute("sodipodi:original");
-        object->repr->setAttribute("inkscape:original",oldA);
-        object->repr->setAttribute("sodipodi:original",NULL);
+        gchar const *oldA = object->getRepr()->attribute("sodipodi:original");
+        object->getRepr()->setAttribute("inkscape:original",oldA);
+        object->getRepr()->setAttribute("sodipodi:original",NULL);
 
         sp_object_read_attr (object, "inkscape:original");
     }
-    if (object->repr->attribute("xlink:href")) {
+    if (object->getRepr()->attribute("xlink:href")) {
         sp_object_read_attr(object, "xlink:href");
     } else {
-        gchar const *oldA = object->repr->attribute("inkscape:href");
+        gchar const *oldA = object->getRepr()->attribute("inkscape:href");
         if (oldA) {
             size_t lA = strlen(oldA);
             char *nA=(char*)malloc((1+lA+1)*sizeof(char));
             memcpy(nA+1,oldA,lA*sizeof(char));
             nA[0]='#';
             nA[lA+1]=0;
-            object->repr->setAttribute("xlink:href",nA);
+            object->getRepr()->setAttribute("xlink:href",nA);
             free(nA);
-            object->repr->setAttribute("inkscape:href",NULL);
+            object->getRepr()->setAttribute("inkscape:href",NULL);
         }
         sp_object_read_attr (object, "xlink:href");
     }
@@ -454,7 +459,8 @@ sp_offset_set_shape(SPShape *shape)
         // just put the source shape as the offseted one, no one will notice
         // it's also useless to compute the offset with a 0 radius
 
-        const char *res_d = SP_OBJECT(shape)->repr->attribute("inkscape:original");
+		//XML Tree being used directly here while it shouldn't be.
+        const char *res_d = SP_OBJECT(shape)->getRepr()->attribute("inkscape:original");
         if ( res_d ) {
             Geom::PathVector pv = sp_svg_read_pathv(res_d);
             SPCurve *c = new SPCurve(pv);
@@ -1145,7 +1151,8 @@ refresh_offset_source(SPOffset* offset)
         delete res;
         delete orig;
 
-        SP_OBJECT (offset)->repr->setAttribute("inkscape:original", res_d);
+		//XML Tree being used diectly here while it shouldn't be.
+        SP_OBJECT (offset)->getRepr()->setAttribute("inkscape:original", res_d);
 
         free (res_d);
     }

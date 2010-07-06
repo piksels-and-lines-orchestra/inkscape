@@ -46,7 +46,7 @@
 
 /* Convenience stuff */
 #define SP_OBJECT_ID(o) (((SPObject *) (o))->getId())
-#define SP_OBJECT_REPR(o) (((SPObject *) (o))->repr)
+#define SP_OBJECT_REPR(o) (((SPObject *) (o))->getRepr())
 #define SP_OBJECT_DOCUMENT(o) (((SPObject *) (o))->document)
 #define SP_OBJECT_PARENT(o) (((SPObject *) (o))->parent)
 #define SP_OBJECT_NEXT(o) (((SPObject *) (o))->next)
@@ -137,7 +137,8 @@ SPObject *sp_object_href(SPObject *object, gpointer owner);
 SPObject *sp_object_hunref(SPObject *object, gpointer owner);
 
 /// A refcounting tree node object.
-struct SPObject : public GObject {
+class SPObject : public GObject {
+	public:
     enum CollectionPolicy {
         COLLECT_WITH_PARENT,
         ALWAYS_COLLECT
@@ -154,10 +155,11 @@ struct SPObject : public GObject {
     SPObject *children; /* Our children */
     SPObject *_last_child; /* Remembered last child */
     SPObject *next; /* Next object in linked list */
-    Inkscape::XML::Node *repr; /* Our xml representation */
+    //Inkscape::XML::Node *repr; /* Our xml representation */
 
 private:
     gchar *id; /* Our very own unique id */
+    Inkscape::XML::Node *repr; /* Our xml representation */
 public:
 
     /**
@@ -165,6 +167,17 @@ public:
      */
     gchar const* getId() const;
 
+	/**
+	 * Returns the XML representation of tree
+	 */
+	//Inkscape::XML::Node const* getRepr() const;
+	Inkscape::XML::Node * getRepr();
+
+	/**
+	 * Returns the XML representation of tree
+	 */
+	Inkscape::XML::Node const* getRepr() const;
+	
     /** @brief cleans up an SPObject, releasing its references and
      *         requesting that references to it be released
      */

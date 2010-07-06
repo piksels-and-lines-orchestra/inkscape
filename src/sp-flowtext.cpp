@@ -241,7 +241,8 @@ sp_flowtext_set(SPObject *object, unsigned key, gchar const *value)
     switch (key) {
         case SP_ATTR_LAYOUT_OPTIONS: {
             // deprecated attribute, read for backward compatibility only
-            SPCSSAttr *opts = sp_repr_css_attr((SP_OBJECT(group))->repr, "inkscape:layoutOptions");
+			//XML Tree being directly used while it shouldn't be.							 
+            SPCSSAttr *opts = sp_repr_css_attr((SP_OBJECT(group))->getRepr(), "inkscape:layoutOptions");
             {
                 gchar const *val = sp_repr_css_property(opts, "justification", NULL);
                 if (val != NULL && !object->style->text_align.set) {
@@ -481,7 +482,8 @@ void SPFlowtext::_buildLayoutInput(SPObject *root, Shape const *exclusion_shape,
                 layout.appendWrapShape(&shapes->back());
             }
         }
-        else if (!SP_IS_FLOWREGIONEXCLUDE(child) && !sp_repr_is_meta_element(child->repr))
+		//XML Tree is being directly used while it shouldn't be.
+        else if (!SP_IS_FLOWREGIONEXCLUDE(child) && !sp_repr_is_meta_element(child->getRepr()))
             _buildLayoutInput(child, exclusion_shape, shapes, pending_line_break_object);
     }
 

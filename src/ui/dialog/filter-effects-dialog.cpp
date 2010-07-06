@@ -1023,12 +1023,14 @@ private:
                !(ls == 1 && SP_IS_FEPOINTLIGHT(child)) &&
                !(ls == 2 && SP_IS_FESPOTLIGHT(child))) {
                 if(child)
-                    sp_repr_unparent(child->repr);
+					//XML Tree being used directly here while it shouldn't be.
+                    sp_repr_unparent(child->getRepr());
 
                 if(ls != -1) {
                     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(prim->document);
-                    Inkscape::XML::Node *repr = xml_doc->createElement(_light_source.get_active_data()->key.c_str());
-                    prim->repr->appendChild(repr);
+					Inkscape::XML::Node *repr = xml_doc->createElement(_light_source.get_active_data()->key.c_str());
+                    //XML Tree being used directly here while it shouldn't be.
+                    prim->getRepr()->appendChild(repr);
                     Inkscape::GC::release(repr);
                 }
 
@@ -1336,7 +1338,9 @@ void FilterEffectsDialog::FilterModifier::remove_filter()
 
     if(filter) {
         SPDocument* doc = filter->document;
-        sp_repr_unparent(filter->repr);
+
+		//XML Tree being used directly here while it shouldn't be.
+        sp_repr_unparent(filter->getRepr());
 
         SPDocumentUndo::done(doc, SP_VERB_DIALOG_FILTER_EFFECTS, _("Remove filter"));
 
@@ -1488,7 +1492,9 @@ void FilterEffectsDialog::PrimitiveList::update()
             if(prim) {
                 Gtk::TreeModel::Row row = *_model->append();
                 row[_columns.primitive] = prim;
-                row[_columns.type_id] = FPConverter.get_id_from_key(prim->repr->name());
+
+				//XML Tree being used directly here while it shouldn't be.
+                row[_columns.type_id] = FPConverter.get_id_from_key(prim->getRepr()->name());
                 row[_columns.type] = _(FPConverter.get_label(row[_columns.type_id]).c_str());
                 row[_columns.id] = prim->getId();
 
@@ -1541,7 +1547,8 @@ void FilterEffectsDialog::PrimitiveList::remove_selected()
     if(prim) {
         _observer->set(0);
 
-        sp_repr_unparent(prim->repr);
+        //XML Tree being used directly here while it shouldn't be.
+		sp_repr_unparent(prim->getRepr());
 
         SPDocumentUndo::done(sp_desktop_document(_dialog.getDesktop()), SP_VERB_DIALOG_FILTER_EFFECTS,
                          _("Remove filter primitive"));
@@ -1914,7 +1921,9 @@ bool FilterEffectsDialog::PrimitiveList::on_button_release_event(GdkEventButton*
                     if(c == _in_drag && SP_IS_FEMERGENODE(o)) {
                         // If input is null, delete it
                         if(!in_val) {
-                            sp_repr_unparent(o->repr);
+
+							//XML Tree being used directly here while it shouldn't be.
+                            sp_repr_unparent(o->getRepr());
                             SPDocumentUndo::done(prim->document, SP_VERB_DIALOG_FILTER_EFFECTS,
                                              _("Remove merge node"));
                             (*get_selection()->get_selected())[_columns.primitive] = prim;
@@ -1929,7 +1938,9 @@ bool FilterEffectsDialog::PrimitiveList::on_button_release_event(GdkEventButton*
                     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(prim->document);
                     Inkscape::XML::Node *repr = xml_doc->createElement("svg:feMergeNode");
                     repr->setAttribute("inkscape:collect", "always");
-                    prim->repr->appendChild(repr);
+
+					//XML Tree being used directly here while it shouldn't be.
+                    prim->getRepr()->appendChild(repr);
                     SPFeMergeNode *node = SP_FEMERGENODE(prim->document->getObjectByRepr(repr));
                     Inkscape::GC::release(repr);
                     _dialog.set_attr(node, SP_ATTR_IN, in_val);
@@ -2467,7 +2478,9 @@ void FilterEffectsDialog::update_settings_view()
     SPFilterPrimitive* prim = _primitive_list.get_selected();
 
     if(prim) {
-        _settings->show_and_update(FPConverter.get_id_from_key(prim->repr->name()), prim);
+
+		//XML Tree being used directly here while it shouldn't be.
+        _settings->show_and_update(FPConverter.get_id_from_key(prim->getRepr()->name()), prim);
         _empty_settings.hide();
     }
 

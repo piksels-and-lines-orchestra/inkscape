@@ -1323,7 +1323,8 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
 
     item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
 
-    style = g_strdup(SP_OBJECT(item)->repr->attribute("style"));
+	//XML Tree being used directly here while it shouldn't be...
+    style = g_strdup(SP_OBJECT(item)->getRepr()->attribute("style"));
 
     // remember the position of the item
     gint pos = SP_OBJECT_REPR(item)->position();
@@ -1451,7 +1452,9 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
         g_free(str);
 
         if ( updating ) {
-            char const *id = SP_OBJECT(item)->repr->attribute("id");
+
+			//XML Tree being used directly here while it shouldn't be
+            char const *id = SP_OBJECT(item)->getRepr()->attribute("id");
             char const *uri = g_strdup_printf("#%s", id);
             repr->setAttribute("xlink:href", uri);
             g_free((void *) uri);

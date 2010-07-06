@@ -160,7 +160,9 @@ bool SPPaintServer::isSwatch() const
     bool swatch = false;
     if (SP_IS_GRADIENT(this)) {
         SPGradient *grad = SP_GRADIENT(this);
-        swatch = grad->hasStops() && repr->attribute("osb:paint");
+
+		//XML Tree being used directly here while it shouldn't be.
+        swatch = grad->hasStops() && getRepr()->attribute("osb:paint");
     }
     return swatch;
 }
@@ -171,7 +173,9 @@ bool SPPaintServer::isSolid() const
     if (SP_IS_GRADIENT(this)) {
         SPGradient *grad = SP_GRADIENT(this);
         if ( grad->hasStops() && (grad->getStopCount() == 0) ) {
-            gchar const * attr = repr->attribute("osb:paint");
+
+			//XML Tree being used directly here while it shouldn't be.
+            gchar const * attr = getRepr()->attribute("osb:paint");
             if (attr && !strcmp(attr, "solid")) {
                 solid = true;
             }

@@ -162,8 +162,10 @@ sigc::connection connectCommit(CommitSignal::slot_type slot);
     void setModifiedSinceSave(bool modified = true) {
         modified_since_save = modified;
     }
+	//Inkscape::XML::Document * getRdoc(){ return rdoc; }
 
 private:
+    //Inkscape::XML::Document *rdoc; ///< Our Inkscape::XML::Document
     SPDocument(SPDocument const &); // no copy
     void operator=(SPDocument const &); // no assign
 

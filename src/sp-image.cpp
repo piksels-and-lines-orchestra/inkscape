@@ -838,8 +838,12 @@ sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
             pixbuf = sp_image_repr_read_image (
                 image->lastMod,
                 image->pixPath,
-                object->repr->attribute("xlink:href"),
-                object->repr->attribute("sodipodi:absref"),
+
+				//XML Tree being used directly while it shouldn't be.
+                object->getRepr()->attribute("xlink:href"),
+				
+				//XML Tree being used directly while it shouldn't be.
+                object->getRepr()->attribute("sodipodi:absref"),
                 doc->base);
             if (pixbuf) {
                 pixbuf = sp_image_pixbuf_force_rgba (pixbuf);
@@ -1056,7 +1060,9 @@ sp_image_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XM
     if (image->height._set) {
         sp_repr_set_svg_double(repr, "height", image->height.computed);
     }
-    repr->setAttribute("preserveAspectRatio", object->repr->attribute("preserveAspectRatio"));
+
+	//XML Tree being used directly here while it shouldn't be...
+    repr->setAttribute("preserveAspectRatio", object->getRepr()->attribute("preserveAspectRatio"));
 #if ENABLE_LCMS
     if (image->color_profile) {
         repr->setAttribute("color-profile", image->color_profile);

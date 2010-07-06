@@ -522,7 +522,9 @@ void DocumentProperties::removeSelectedProfile(){
         SPObject* obj = SP_OBJECT(current->data);
         Inkscape::ColorProfile* prof = reinterpret_cast<Inkscape::ColorProfile*>(obj);
         if (!name.compare(prof->name)){
-            sp_repr_unparent(obj->repr);
+
+			//XML Tree being used directly here while it shouldn't be.
+            sp_repr_unparent(obj->getRepr());
             SPDocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_COLOR_PROFILE, _("Remove linked color profile"));
         }
         current = g_slist_next(current);
@@ -691,7 +693,9 @@ void DocumentProperties::removeExternalScript(){
         SPObject* obj = SP_OBJECT(current->data);
         SPScript* script = (SPScript*) obj;
         if (name == script->xlinkhref){
-            sp_repr_unparent(obj->repr);
+
+			//XML Tree being used directly here while it shouldn't be.
+            sp_repr_unparent(obj->getRepr());
             SPDocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT, _("Remove external script"));
         }
         current = g_slist_next(current);

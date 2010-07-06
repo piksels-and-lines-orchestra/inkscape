@@ -290,16 +290,18 @@ static Inkscape::XML::Node *sp_glyph_write(SPObject *object, Inkscape::XML::Docu
     sp_repr_set_svg_double(repr, "vert-adv-y", glyph->vert_adv_y);
 */
     if (repr != SP_OBJECT_REPR(object)) {
-        COPY_ATTR(repr, object->repr, "unicode");
-        COPY_ATTR(repr, object->repr, "glyph-name");
-        COPY_ATTR(repr, object->repr, "d");
-        COPY_ATTR(repr, object->repr, "orientation");
-        COPY_ATTR(repr, object->repr, "arabic-form");
-        COPY_ATTR(repr, object->repr, "lang");
-        COPY_ATTR(repr, object->repr, "horiz-adv-x");
-        COPY_ATTR(repr, object->repr, "vert-origin-x");
-        COPY_ATTR(repr, object->repr, "vert-origin-y");
-        COPY_ATTR(repr, object->repr, "vert-adv-y");
+		/* All the COPY_ATTR functions below use
+		   XML Tree directly while they shouldn't. */
+        COPY_ATTR(repr, object->getRepr(), "unicode");
+        COPY_ATTR(repr, object->getRepr(), "glyph-name");
+        COPY_ATTR(repr, object->getRepr(), "d");
+        COPY_ATTR(repr, object->getRepr(), "orientation");
+        COPY_ATTR(repr, object->getRepr(), "arabic-form");
+        COPY_ATTR(repr, object->getRepr(), "lang");
+        COPY_ATTR(repr, object->getRepr(), "horiz-adv-x");
+        COPY_ATTR(repr, object->getRepr(), "vert-origin-x");
+        COPY_ATTR(repr, object->getRepr(), "vert-origin-y");
+        COPY_ATTR(repr, object->getRepr(), "vert-adv-y");
     }
 
     if (((SPObjectClass *) (parent_class))->write) {

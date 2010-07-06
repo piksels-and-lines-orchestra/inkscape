@@ -168,7 +168,8 @@ filter_add_primitive(SPFilter *filter, const Inkscape::Filters::FilterPrimitiveT
     }
 
     //set primitive as child of filter node
-    filter->repr->appendChild(repr);
+	// XML tree being used directly while/where it shouldn't be...
+    filter->getRepr()->appendChild(repr);
     Inkscape::GC::release(repr);
     
     // get corresponding object

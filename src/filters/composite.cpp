@@ -240,7 +240,9 @@ sp_feComposite_update(SPObject *object, SPCtx *ctx, guint flags)
     {
         SPFilter *parent = SP_FILTER(object->parent);
         comp->in2 = sp_filter_primitive_name_previous_out(comp);
-        object->repr->setAttribute("in2", sp_filter_name_for_image(parent, comp->in2));
+
+		//XML Tree being used directly here while it shouldn't be.
+        object->getRepr()->setAttribute("in2", sp_filter_name_for_image(parent, comp->in2));
     }
 
     if (((SPObjectClass *) feComposite_parent_class)->update) {

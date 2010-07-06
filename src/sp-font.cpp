@@ -263,12 +263,14 @@ static Inkscape::XML::Node *sp_font_write(SPObject *object, Inkscape::XML::Docum
     sp_repr_set_svg_double(repr, "vert-adv-y", font->vert_adv_y);
 
     if (repr != SP_OBJECT_REPR(object)) {
-        COPY_ATTR(repr, object->repr, "horiz-origin-x");
-        COPY_ATTR(repr, object->repr, "horiz-origin-y");
-        COPY_ATTR(repr, object->repr, "horiz-adv-x");
-        COPY_ATTR(repr, object->repr, "vert-origin-x");
-        COPY_ATTR(repr, object->repr, "vert-origin-y");
-        COPY_ATTR(repr, object->repr, "vert-adv-y");
+		/*All the below COPY_ATTR funtions are directly using 
+		  the XML Tree while they shouldn't*/
+        COPY_ATTR(repr, object->getRepr(), "horiz-origin-x");
+        COPY_ATTR(repr, object->getRepr(), "horiz-origin-y");
+        COPY_ATTR(repr, object->getRepr(), "horiz-adv-x");
+        COPY_ATTR(repr, object->getRepr(), "vert-origin-x");
+        COPY_ATTR(repr, object->getRepr(), "vert-origin-y");
+        COPY_ATTR(repr, object->getRepr(), "vert-adv-y");
     }
 
     if (((SPObjectClass *) (parent_class))->write) {

@@ -259,7 +259,8 @@ int sp_filter_primitive_name_previous_out(SPFilterPrimitive *prim) {
             Glib::ustring name = sp_filter_get_new_result_name(parent);
             int slot = sp_filter_set_image_name(parent, name.c_str());
             i_prim->image_out = slot;
-            i_prim->repr->setAttribute("result", name.c_str());
+			//XML Tree is being directly used while it shouldn't be.
+            i_prim->getRepr()->setAttribute("result", name.c_str());
             return slot;
         } else {
             return i_prim->image_out;

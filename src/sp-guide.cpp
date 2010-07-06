@@ -358,7 +358,8 @@ void sp_guide_moveto(SPGuide const &guide, Geom::Point const point_on_line, bool
     /* Calling sp_repr_set_point must precede calling sp_item_notify_moveto in the commit
        case, so that the guide's new position is available for sp_item_rm_unsatisfied_cns. */
     if (commit) {
-        sp_repr_set_point(SP_OBJECT(&guide)->repr, "position", point_on_line);
+		//XML Tree being used here directly while it shouldn't be.
+        sp_repr_set_point(SP_OBJECT(&guide)->getRepr(), "position", point_on_line);
     }
 
 /*  DISABLED CODE BECAUSE  SPGuideAttachment  IS NOT USE AT THE MOMENT (johan)
@@ -388,7 +389,8 @@ void sp_guide_set_normal(SPGuide const &guide, Geom::Point const normal_to_line,
     /* Calling sp_repr_set_svg_point must precede calling sp_item_notify_moveto in the commit
        case, so that the guide's new position is available for sp_item_rm_unsatisfied_cns. */
     if (commit) {
-        sp_repr_set_point(SP_OBJECT(&guide)->repr, "orientation", normal_to_line);
+		//XML Tree being used directly while it shouldn't be
+        sp_repr_set_point(SP_OBJECT(&guide)->getRepr(), "orientation", normal_to_line);
     }
 
 /*  DISABLED CODE BECAUSE  SPGuideAttachment  IS NOT USE AT THE MOMENT (johan)
@@ -457,8 +459,9 @@ void sp_guide_remove(SPGuide *guide)
         remove_last(att.item->constraints, SPGuideConstraint(guide, att.snappoint_ix));
     }
     guide->attached_items.clear();
-
-    sp_repr_unparent(SP_OBJECT(guide)->repr);
+	
+	//XML Tree being used directly while it shouldn't be.
+    sp_repr_unparent(SP_OBJECT(guide)->getRepr());
 }
 
 /*

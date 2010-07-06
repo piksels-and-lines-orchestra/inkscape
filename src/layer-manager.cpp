@@ -269,13 +269,15 @@ void LayerManager::_rebuild() {
                         if ( group->layerMode() == SPGroup::LAYER ) {
                             // If we have a layer-group as the one or a parent, ensure it is listed as a valid layer.
                             needsAdd &= ( g_slist_find(const_cast<GSList *>(layers), curr) != NULL );
-                            if ( (!(group->repr)) || (!(group->repr->parent())) ) {
+							// XML Tree being used here directly while it shouldn't be...
+                            if ( (!(group->getRepr())) || (!(group->getRepr()->parent())) ) {
                                 needsAdd = false;
                             }
                         } else {
                             // If a non-layer group is a parent of layer groups, then show it also as a layer.
                             // TODO add the magic Inkscape group mode?
-                            if ( group->repr && group->repr->parent() ) {
+							// XML Tree being used directly while it shouldn't be...
+                            if ( group->getRepr() && group->getRepr()->parent() ) {
                                 additional.insert(group);
                             } else {
                                 needsAdd = false;

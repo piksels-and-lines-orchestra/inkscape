@@ -1207,7 +1207,8 @@ LayerVerb::perform(SPAction *action, void *data, void */*pdata*/)
                 sp_edit_select_all(dt);
 #else
                 // Copies everything, regardless of locks, visibility, sublayers.
-                Inkscape::XML::Node *selected = dt->currentLayer()->repr;
+                //XML Tree being directly used here while it shouldn't be.
+				Inkscape::XML::Node *selected = dt->currentLayer()->getRepr();
                 Inkscape::XML::Node *parent = sp_repr_parent(selected);
                 Inkscape::XML::Node *dup = selected->duplicate(parent->document());
                 parent->addChild(dup, selected);

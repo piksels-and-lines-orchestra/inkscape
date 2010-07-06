@@ -116,7 +116,9 @@ sp_string_read_content(SPObject *object)
     SPString *string = SP_STRING(object);
 
     string->string.clear();
-    gchar const *xml_string = string->repr->content();
+
+	//XML Tree being used directly here while it shouldn't be.
+    gchar const *xml_string = string->getRepr()->content();
     // see algorithms described in svg 1.1 section 10.15
     if (object->xml_space.value == SP_XML_SPACE_PRESERVE) {
         for ( ; *xml_string ; xml_string = g_utf8_next_char(xml_string) ) {

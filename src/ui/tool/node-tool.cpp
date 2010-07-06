@@ -359,7 +359,8 @@ void gather_items(InkNodeTool *nt, SPItem *base, SPObject *obj, Inkscape::UI::Sh
     using namespace Inkscape::UI;
     if (!obj) return;
 
-    if (SP_IS_PATH(obj) && obj->repr->attribute("inkscape:original-d") != NULL) {
+	//XML Tree being used directly here while it shouldn't be.
+    if (SP_IS_PATH(obj) && obj->getRepr()->attribute("inkscape:original-d") != NULL) {
         ShapeRecord r;
         r.item = static_cast<SPItem*>(obj);
         r.edit_transform = Geom::identity(); // TODO wrong?
@@ -408,8 +409,10 @@ void ink_node_tool_selection_changed(InkNodeTool *nt, Inkscape::Selection *sel)
     bool something_set = false;
     for (std::set<ShapeRecord>::iterator i = shapes.begin(); i != shapes.end(); ++i) {
         ShapeRecord const &r = *i;
+
+		//XML Tree being used directly here while it shouldn't be.
         if (SP_IS_SHAPE(r.item) ||
-            (SP_IS_PATH(r.item) && r.item->repr->attribute("inkscape:original-d") != NULL))
+            (SP_IS_PATH(r.item) && r.item->getRepr()->attribute("inkscape:original-d") != NULL))
         {
             nt->shape_editor->set_item(r.item, SH_KNOTHOLDER);
             something_set = true;

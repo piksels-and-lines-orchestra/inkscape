@@ -42,7 +42,8 @@ class SPDesktop;
 
 KnotHolder::KnotHolder(SPDesktop *desktop, SPItem *item, SPKnotHolderReleasedFunc relhandler)
 {
-    Inkscape::XML::Node *repr = SP_OBJECT(item)->repr;
+	//XML Tree being used directly here while it shouldn't be...
+    Inkscape::XML::Node *repr = SP_OBJECT(item)->getRepr();
 
     if (!desktop || !item || !SP_IS_ITEM(item)) {
         g_print ("Error! Throw an exception, please!\n");

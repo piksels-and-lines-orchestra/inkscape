@@ -1019,7 +1019,9 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
              * Fixes Bug #324849
              */
             g_warning("attribute 'clip-path' given as CSS");
-            style->object->repr->setAttribute("clip-path", val);
+
+			//XML Tree being directly used here.
+            style->object->getRepr()->setAttribute("clip-path", val);
             break;
         case SP_PROP_CLIP_RULE:
             g_warning("Unimplemented style property SP_PROP_CLIP_RULE: value: %s", val);
@@ -1029,7 +1031,9 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
              * See comment for SP_PROP_CLIP_PATH
              */
             g_warning("attribute 'mask' given as CSS");
-            style->object->repr->setAttribute("mask", val);
+			
+			//XML Tree being directly used here.
+            style->object->getRepr()->setAttribute("mask", val);
             break;
         case SP_PROP_OPACITY:
             if (!style->opacity.set) {
@@ -1288,9 +1292,11 @@ sp_style_merge_from_object_stylesheet(SPStyle *const style, SPObject const *cons
     }
 
     CRPropList *props = NULL;
+
+	//XML Tree being directly used here while it shouldn't be.
     CRStatus status = cr_sel_eng_get_matched_properties_from_cascade(sel_eng,
                                                                      object->document->style_cascade,
-                                                                     object->repr,
+                                                                     object->getRepr(),
                                                                      &props);
     g_return_if_fail(status == CR_OK);
     /// \todo Check what errors can occur, and handle them properly.

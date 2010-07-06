@@ -61,8 +61,10 @@ protected:
 	    }
 	    SPObject * const owner = this->getOwner();
         if (obj->isAncestorOf(owner)) {
-            Inkscape::XML::Node * const owner_repr = owner->repr;
-            Inkscape::XML::Node * const obj_repr = obj->repr;
+			//XML Tree being used directly here while it shouldn't be...
+            Inkscape::XML::Node * const owner_repr = owner->getRepr();
+			//XML Tree being used directly here while it shouldn't be...
+            Inkscape::XML::Node * const obj_repr = obj->getRepr();
             gchar const * owner_name = NULL;
             gchar const * owner_clippath = NULL;
             gchar const * obj_name = NULL;

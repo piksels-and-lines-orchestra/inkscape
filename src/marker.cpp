@@ -524,8 +524,10 @@ sp_marker_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::X
 		repr->setAttribute("orient", NULL);
 	}
 	/* fixme: */
-	repr->setAttribute("viewBox", object->repr->attribute("viewBox"));
-	repr->setAttribute("preserveAspectRatio", object->repr->attribute("preserveAspectRatio"));
+	//XML Tree being used directly here while it shouldn't be....
+	repr->setAttribute("viewBox", object->getRepr()->attribute("viewBox"));
+	//XML Tree being used directly here while it shouldn't be....
+	repr->setAttribute("preserveAspectRatio", object->getRepr()->attribute("preserveAspectRatio"));
 
 	if (((SPObjectClass *) (parent_class))->write)
 		((SPObjectClass *) (parent_class))->write (object, xml_doc, repr, flags);

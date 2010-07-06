@@ -218,7 +218,9 @@ sp_feDisplacementMap_update(SPObject *object, SPCtx *ctx, guint flags)
     {
         SPFilter *parent = SP_FILTER(object->parent);
         disp->in2 = sp_filter_primitive_name_previous_out(disp);
-        object->repr->setAttribute("in2", sp_filter_name_for_image(parent, disp->in2));
+
+		//XML Tree being used directly here while it shouldn't be.
+        object->getRepr()->setAttribute("in2", sp_filter_name_for_image(parent, disp->in2));
     }
 
     if (((SPObjectClass *) feDisplacementMap_parent_class)->update) {

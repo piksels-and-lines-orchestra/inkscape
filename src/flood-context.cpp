@@ -417,7 +417,8 @@ static void do_trace(bitmap_coords_info bci, guchar *trace_px, SPDesktop *deskto
     std::vector<Inkscape::Trace::TracingEngineResult> results = pte.traceGrayMap(gray_map);
     gray_map->destroy(gray_map);
 
-    Inkscape::XML::Node *layer_repr = SP_GROUP(desktop->currentLayer())->repr;
+	//XML Tree being used here directly while it shouldn't be...."
+    Inkscape::XML::Node *layer_repr = SP_GROUP(desktop->currentLayer())->getRepr();
     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(desktop->doc());
 
     long totalNodeCount = 0L;

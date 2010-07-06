@@ -482,7 +482,8 @@ void Tracer::traceThread()
         }
 
     //### Get pointers to the <image> and its parent
-    Inkscape::XML::Node *imgRepr   = SP_OBJECT(img)->repr;
+	//XML Tree being used directly here while it shouldn't be.
+    Inkscape::XML::Node *imgRepr   = SP_OBJECT(img)->getRepr();
     Inkscape::XML::Node *par       = sp_repr_parent(imgRepr);
 
     //### Get some information for the new transform()

@@ -213,8 +213,10 @@ sp_selected_path_break_apart(SPDesktop *desktop)
         gint pos = SP_OBJECT_REPR(item)->position();
         char const *id = SP_OBJECT_REPR(item)->attribute("id");
 
-        gchar *style = g_strdup(SP_OBJECT(item)->repr->attribute("style"));
-        gchar *path_effect = g_strdup(SP_OBJECT(item)->repr->attribute("inkscape:path-effect"));
+		// XML Tree being used directly here while it shouldn't be...
+        gchar *style = g_strdup(SP_OBJECT(item)->getRepr()->attribute("style"));
+		// XML Tree being used directly here while it shouldn't be...
+        gchar *path_effect = g_strdup(SP_OBJECT(item)->getRepr()->attribute("inkscape:path-effect"));
 
         Geom::PathVector apv = curve->get_pathvector() * SP_ITEM(path)->transform;
 

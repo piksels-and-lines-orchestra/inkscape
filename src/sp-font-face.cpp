@@ -866,39 +866,41 @@ static Inkscape::XML::Node *sp_fontface_write(SPObject *object, Inkscape::XML::D
     sp_repr_set_svg_double(repr, "overline-thickness", face->overline_thickness);
 
     if (repr != SP_OBJECT_REPR(object)) {
-        COPY_ATTR(repr, object->repr, "font-family");
-        COPY_ATTR(repr, object->repr, "font-style");
-        COPY_ATTR(repr, object->repr, "font-variant");
-        COPY_ATTR(repr, object->repr, "font-weight");
-        COPY_ATTR(repr, object->repr, "font-stretch");
-        COPY_ATTR(repr, object->repr, "font-size");
-        COPY_ATTR(repr, object->repr, "unicode-range");
-        COPY_ATTR(repr, object->repr, "units-per-em");
-        COPY_ATTR(repr, object->repr, "panose-1");
-        COPY_ATTR(repr, object->repr, "stemv");
-        COPY_ATTR(repr, object->repr, "stemh");
-        COPY_ATTR(repr, object->repr, "slope");
-        COPY_ATTR(repr, object->repr, "cap-height");
-        COPY_ATTR(repr, object->repr, "x-height");
-        COPY_ATTR(repr, object->repr, "accent-height");
-        COPY_ATTR(repr, object->repr, "ascent");
-        COPY_ATTR(repr, object->repr, "descent");
-        COPY_ATTR(repr, object->repr, "widths");
-        COPY_ATTR(repr, object->repr, "bbox");
-        COPY_ATTR(repr, object->repr, "ideographic");
-        COPY_ATTR(repr, object->repr, "alphabetic");
-        COPY_ATTR(repr, object->repr, "mathematical");
-        COPY_ATTR(repr, object->repr, "hanging");
-        COPY_ATTR(repr, object->repr, "v-ideographic");
-        COPY_ATTR(repr, object->repr, "v-alphabetic");
-        COPY_ATTR(repr, object->repr, "v-mathematical");
-        COPY_ATTR(repr, object->repr, "v-hanging");
-        COPY_ATTR(repr, object->repr, "underline-position");
-        COPY_ATTR(repr, object->repr, "underline-thickness");
-        COPY_ATTR(repr, object->repr, "strikethrough-position");
-        COPY_ATTR(repr, object->repr, "strikethrough-thickness");
-        COPY_ATTR(repr, object->repr, "overline-position");
-        COPY_ATTR(repr, object->repr, "overline-thickness");
+		/*/ In all COPY_ATTR given below the XML tree is 
+		 being used directly while it shouldn't be.*/
+        COPY_ATTR(repr, object->getRepr(), "font-family");
+        COPY_ATTR(repr, object->getRepr(), "font-style");
+        COPY_ATTR(repr, object->getRepr(), "font-variant");
+        COPY_ATTR(repr, object->getRepr(), "font-weight");
+        COPY_ATTR(repr, object->getRepr(), "font-stretch");
+        COPY_ATTR(repr, object->getRepr(), "font-size");
+        COPY_ATTR(repr, object->getRepr(), "unicode-range");
+        COPY_ATTR(repr, object->getRepr(), "units-per-em");
+        COPY_ATTR(repr, object->getRepr(), "panose-1");
+        COPY_ATTR(repr, object->getRepr(), "stemv");
+        COPY_ATTR(repr, object->getRepr(), "stemh");
+        COPY_ATTR(repr, object->getRepr(), "slope");
+        COPY_ATTR(repr, object->getRepr(), "cap-height");
+        COPY_ATTR(repr, object->getRepr(), "x-height");
+        COPY_ATTR(repr, object->getRepr(), "accent-height");
+        COPY_ATTR(repr, object->getRepr(), "ascent");
+        COPY_ATTR(repr, object->getRepr(), "descent");
+        COPY_ATTR(repr, object->getRepr(), "widths");
+        COPY_ATTR(repr, object->getRepr(), "bbox");
+        COPY_ATTR(repr, object->getRepr(), "ideographic");
+        COPY_ATTR(repr, object->getRepr(), "alphabetic");
+        COPY_ATTR(repr, object->getRepr(), "mathematical");
+        COPY_ATTR(repr, object->getRepr(), "hanging");
+        COPY_ATTR(repr, object->getRepr(), "v-ideographic");
+        COPY_ATTR(repr, object->getRepr(), "v-alphabetic");
+        COPY_ATTR(repr, object->getRepr(), "v-mathematical");
+        COPY_ATTR(repr, object->getRepr(), "v-hanging");
+        COPY_ATTR(repr, object->getRepr(), "underline-position");
+        COPY_ATTR(repr, object->getRepr(), "underline-thickness");
+        COPY_ATTR(repr, object->getRepr(), "strikethrough-position");
+        COPY_ATTR(repr, object->getRepr(), "strikethrough-thickness");
+        COPY_ATTR(repr, object->getRepr(), "overline-position");
+        COPY_ATTR(repr, object->getRepr(), "overline-thickness");
     }
 
     if (((SPObjectClass *) (parent_class))->write) {

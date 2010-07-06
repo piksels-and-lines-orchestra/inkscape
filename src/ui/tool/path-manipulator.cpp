@@ -108,7 +108,7 @@ PathManipulator::PathManipulator(MultiPathManipulator &mpm, SPPath *path,
     , _path(path)
     , _spcurve(new SPCurve())
     , _dragpoint(new CurveDragPoint(*this))
-    , _observer(new PathManipulatorObserver(this, SP_OBJECT(path)->repr))
+    , /* XML Tree being used here directly while it shouldn't be*/_observer(new PathManipulatorObserver(this, SP_OBJECT(path)->getRepr()))
     , _edit_transform(et)
     , _num_selected(0)
     , _show_handles(true)
@@ -1069,7 +1069,9 @@ void PathManipulator::_createControlPointsFromGeometry()
     // so that pickBestType works correctly
     // TODO maybe migrate to inkscape:node-types?
     // TODO move this into SPPath - do not manipulate directly
-    gchar const *nts_raw = _path ? _path->repr->attribute(_nodetypesKey().data()) : 0;
+
+	//XML Tree being used here directly while it shouldn't be.
+    gchar const *nts_raw = _path ? _path->getRepr()->attribute(_nodetypesKey().data()) : 0;
     std::string nodetype_string = nts_raw ? nts_raw : "";
     /* Calculate the needed length of the nodetype string.
      * For closed paths, the entry is duplicated for the starting node,
@@ -1244,7 +1246,8 @@ void PathManipulator::_setGeometry()
             LIVEPATHEFFECT(_path)->requestModified(SP_OBJECT_MODIFIED_FLAG);
         }
     } else {
-        if (_path->repr->attribute("inkscape:original-d"))
+		//XML Tree being used here directly while it shouldn't be.
+        if (_path->getRepr()->attribute("inkscape:original-d"))
             sp_path_set_original_curve(_path, _spcurve, false, false);
         else
             sp_shape_set_curve(SP_SHAPE(_path), _spcurve, false);
@@ -1262,8 +1265,10 @@ Glib::ustring PathManipulator::_nodetypesKey()
  * This method is wrong but necessary at the moment. */
 Inkscape::XML::Node *PathManipulator::_getXMLNode()
 {
-    if (_lpe_key.empty()) return _path->repr;
-    return LIVEPATHEFFECT(_path)->repr;
+	//XML Tree being used here directly while it shouldn't be.
+    if (_lpe_key.empty()) return _path->getRepr();
+	//XML Tree being used here directly while it shouldn't be.
+    return LIVEPATHEFFECT(_path)->getRepr();
 }
 
 bool PathManipulator::_nodeClicked(Node *n, GdkEventButton *event)

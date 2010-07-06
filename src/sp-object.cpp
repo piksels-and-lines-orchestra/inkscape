@@ -207,7 +207,10 @@ sp_object_init(SPObject *object)
     object->document = NULL;
     object->children = object->_last_child = NULL;
     object->parent = object->next = NULL;
-    object->repr = NULL;
+
+	//used XML Tree here.
+	Inkscape::XML::Node *repr = object->getRepr();
+	repr = NULL;
     SPObjectImpl::setIdNull(object);
 
     object->_collection_policy = SPObject::COLLECT_WITH_PARENT;
@@ -293,6 +296,15 @@ public:
 gchar const* SPObject::getId() const {
     return id;
 }
+
+Inkscape::XML::Node * SPObject::getRepr() {
+	return repr;
+}
+
+Inkscape::XML::Node const* SPObject::getRepr() const{
+	    return repr;
+}
+
 
 /**
  * Increase reference count of object, with possible debugging.
@@ -1007,7 +1019,9 @@ sp_object_private_set(SPObject *object, unsigned int key, gchar const *value)
 
     switch (key) {
         case SP_ATTR_ID:
-            if ( !SP_OBJECT_IS_CLONED(object) && object->repr->type() == Inkscape::XML::ELEMENT_NODE ) {
+
+			//XML Tree being used here.
+            if ( !SP_OBJECT_IS_CLONED(object) && object->getRepr()->type() == Inkscape::XML::ELEMENT_NODE ) {
                 SPDocument *document=object->document;
                 SPObject *conflict=NULL;
 
@@ -1108,12 +1122,13 @@ sp_object_read_attr(SPObject *object, gchar const *key)
     g_assert(SP_IS_OBJECT(object));
     g_assert(key != NULL);
 
-    g_assert(object->repr != NULL);
+	//XML Tree being used here.
+    g_assert(object->getRepr() != NULL);
 
     unsigned int keyid = sp_attribute_lookup(key);
     if (keyid != SP_ATTR_INVALID) {
         /* Retrieve the 'key' attribute from the object's XML representation */
-        gchar const *value = object->repr->attribute(key);
+        gchar const *value = object->getRepr()->attribute(key);
 
         sp_object_set(object, keyid, value);
     }
@@ -1441,7 +1456,8 @@ sp_object_tagName_get(SPObject const *object, SPException *ex)
     }
 
     /// \todo fixme: Exception if object is NULL? */
-    return object->repr->name();
+	//XML Tree being used here.
+    return object->getRepr()->name();
 }
 
 gchar const *
@@ -1453,7 +1469,8 @@ sp_object_getAttribute(SPObject const *object, gchar const *key, SPException *ex
     }
 
     /// \todo fixme: Exception if object is NULL? */
-    return (gchar const *) object->repr->attribute(key);
+	//XML Tree being used here.
+    return (gchar const *) object->getRepr()->attribute(key);
 }
 
 void
@@ -1463,7 +1480,8 @@ sp_object_setAttribute(SPObject *object, gchar const *key, gchar const *value, S
     g_return_if_fail(SP_EXCEPTION_IS_OK(ex));
 
     /// \todo fixme: Exception if object is NULL? */
-    object->repr->setAttribute(key, value, false);
+	//XML Tree being used here.
+    object->getRepr()->setAttribute(key, value, false);
 }
 
 void
@@ -1473,7 +1491,8 @@ sp_object_removeAttribute(SPObject *object, gchar const *key, SPException *ex)
     g_return_if_fail(SP_EXCEPTION_IS_OK(ex));
 
     /// \todo fixme: Exception if object is NULL? */
-    object->repr->setAttribute(key, NULL, false);
+	//XML Tree being used here.
+    object->getRepr()->setAttribute(key, NULL, false);
 }
 
 /* Helper */
@@ -1487,7 +1506,8 @@ sp_object_get_unique_id(SPObject *object, gchar const *id)
 
     count++;
 
-    gchar const *name = object->repr->name();
+	//XML Tree being used here.
+    gchar const *name = object->getRepr()->name();
     g_assert(name != NULL);
 
     gchar const *local = strchr(name, ':');
@@ -1551,7 +1571,8 @@ sp_object_get_style_property(SPObject const *object, gchar const *key, gchar con
     g_return_val_if_fail(SP_IS_OBJECT(object), NULL);
     g_return_val_if_fail(key != NULL, NULL);
 
-    gchar const *style = object->repr->attribute("style");
+	//XML Tree being used here.
+    gchar const *style = object->getRepr()->attribute("style");
     if (style) {
         size_t const len = strlen(key);
         char const *p;
@@ -1572,7 +1593,9 @@ sp_object_get_style_property(SPObject const *object, gchar const *key, gchar con
             }
         }
     }
-    gchar const *val = object->repr->attribute(key);
+
+	//XML Tree being used here.
+    gchar const *val = object->getRepr()->attribute(key);
     if (val && !streq(val, "inherit")) {
         return val;
     }
