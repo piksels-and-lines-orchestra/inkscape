@@ -197,6 +197,11 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_pattern_t *p = cairo_get_source(ct);
         ink_cairo_pattern_set_matrix(p, image->grid2px);
 
+        Geom::Matrix total = item->ctm * image->grid2px.inverse();
+        if (total.expansionX() > 1.0 || total.expansionY() > 1.0) {
+            cairo_pattern_set_filter(p, CAIRO_FILTER_NEAREST);
+        }
+
         cairo_paint_with_alpha(ct, ((double) item->opacity) / 255.0);
         cairo_restore(ct);
 

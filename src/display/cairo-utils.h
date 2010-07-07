@@ -82,6 +82,7 @@ void ink_cairo_set_source_color(cairo_t *ct, SPColor const &color, double opacit
 void ink_cairo_set_source_rgba32(cairo_t *ct, guint32 rgba);
 void ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m);
 void ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m);
+void ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double y);
 
 void convert_pixels_pixbuf_to_argb32(guchar *data, int w, int h, int rs);
 void convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int rs);

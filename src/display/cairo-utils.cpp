@@ -315,6 +315,20 @@ ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m)
     cairo_pattern_set_matrix(cp, &cm);
 }
 
+void
+ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double y)
+{
+    guchar *data = gdk_pixbuf_get_pixels(pb);
+    int w = gdk_pixbuf_get_width(pb);
+    int h = gdk_pixbuf_get_height(pb);
+    int stride = gdk_pixbuf_get_rowstride(pb);
+
+    cairo_surface_t *pbs = cairo_image_surface_create_for_data(
+        data, CAIRO_FORMAT_ARGB32, w, h, stride);
+    cairo_set_source_surface(ct, pbs, x, y);
+    cairo_surface_destroy(pbs);
+}
+
 // taken from Cairo sources
 static inline guint32 premul_alpha(guint32 color, guint32 alpha)
 {
