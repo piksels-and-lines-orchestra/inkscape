@@ -137,8 +137,6 @@ void NRStyle::set(SPStyle *style)
         dash = NULL;
     }
 
-    opacity = SP_SCALE24_TO_FLOAT(style->opacity.value);
-
     update();
 }
 

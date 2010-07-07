@@ -322,7 +322,6 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
     }
 
     // NOTE: this is very similar to nr-arena-shape.cpp; the only difference is path feeding
-    bool needs_opacity = ((1.0 - ggroup->nrstyle.opacity) >= 0.01);
     bool has_stroke, has_fill;
 
     cairo_save(ct);
@@ -333,10 +332,6 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
     has_stroke = ggroup->nrstyle.prepareStroke(ct, &ggroup->paintbox);
 
     if (has_fill || has_stroke) {
-        if (needs_opacity) {
-            cairo_push_group(ct);
-        }
-
         for (NRArenaItem *child = ggroup->children; child != NULL; child = child->next) {
             NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
             Geom::PathVector const &pathv = *g->font->PathVector(g->glyph);
@@ -356,11 +351,6 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
             cairo_stroke_preserve(ct);
         }
         cairo_new_path(ct); // clear path
-
-        if (needs_opacity) {
-            cairo_pop_group_to_source(ct);
-            cairo_paint_with_alpha(ct, ggroup->nrstyle.opacity);
-        }
     } // has fill or stroke pattern
     cairo_restore(ct);
 

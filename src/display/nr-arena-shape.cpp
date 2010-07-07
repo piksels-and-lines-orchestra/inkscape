@@ -360,7 +360,6 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         if (ret & NR_ARENA_ITEM_STATE_INVALID) return ret;
 
     } else {
-        bool needs_opacity = ((1.0 - shape->nrstyle.opacity) >= 0.01);
         bool has_stroke, has_fill;
         // we assume the context has no path
         cairo_save(ct);
@@ -374,10 +373,6 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         has_stroke = shape->nrstyle.prepareStroke(ct, &shape->paintbox);
 
         if (has_fill || has_stroke) {
-            if (needs_opacity) {
-                cairo_push_group(ct);
-            }
-
             // TODO: remove segments outside of bbox when no dashes present
             feed_pathvector_to_cairo(ct, shape->curve->get_pathvector());
             if (has_fill) {
@@ -389,11 +384,6 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
                 cairo_stroke_preserve(ct);
             }
             cairo_new_path(ct); // clear path
-
-            if (needs_opacity) {
-                cairo_pop_group_to_source(ct);
-                cairo_paint_with_alpha(ct, shape->nrstyle.opacity);
-            }
         } // has fill or stroke pattern
         cairo_restore(ct);
     }

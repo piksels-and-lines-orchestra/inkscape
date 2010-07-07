@@ -55,7 +55,6 @@ struct NRStyle {
     Paint stroke;
     float stroke_width;
     float miter_limit;
-    float opacity;
     unsigned int n_dash;
     double *dash;
     float dash_offset;

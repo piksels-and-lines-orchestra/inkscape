@@ -571,10 +571,14 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     bool needs_intermediate_rendering = false;
     bool &nir = needs_intermediate_rendering;
+    bool needs_opacity = (item->opacity != 255);
 
     // this item needs an intermediate rendering if:
     nir |= (item->mask != NULL); // 1. it has a mask
     nir |= (item->filter != NULL && filter); // 2. it has a filter
+    nir |= needs_opacity; // 3. it is non-opaque
+
+    double opacity = static_cast<double>(item->opacity) / 255.0;
 
     if (needs_intermediate_rendering) {
         cairo_surface_t *intermediate = cairo_surface_create_similar(
@@ -590,6 +594,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
     CairoSave clipsave(this_ct); // RAII for save / restore
     CairoGroup maskgroup(this_ct); // RAII for push_group / pop_group
     CairoGroup drawgroup(this_ct);
+    CairoGroup maskopacitygroup(this_ct);
 
     if (item->clip && !(item->filter && filter)) {
         clipsave.save();
@@ -603,11 +608,19 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     if (item->mask) {
         maskgroup.push_with_content(CAIRO_CONTENT_ALPHA);
-
+        // handle opacity of a masked object by composing it with the mask
+        // this uses 1/4 the memory of composing it with full rendering
+        if (needs_opacity) {
+            maskopacitygroup.push();
+        }
         state = NR_ARENA_ITEM_VIRTUAL (item->mask, render) (this_ct, item->mask, this_area, pb, flags);
         if (state & NR_ARENA_ITEM_STATE_INVALID) {
             item->state |= NR_ARENA_ITEM_STATE_INVALID;
             return item->state;
+        }
+        if (needs_opacity) {
+            maskopacitygroup.pop_to_source();
+            cct.paint_with_alpha(opacity);
         }
         mask = maskgroup.popmm();
     }
@@ -632,8 +645,14 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
             cairo_matrix_translate(&m, area->x0 - carea.x0, area->y0 - carea.y0);
             cairo_pattern_set_matrix(cmask, &m);
             cairo_mask(ct, cmask);
+            // opacity of masked objects is handled by premultiplying the mask
         } else {
-            cairo_paint(ct);
+            // opacity of non-masked objects must be rendered explicitly
+            if (needs_opacity) {
+                cairo_paint_with_alpha(ct, opacity);
+            } else {
+                cairo_paint(ct);
+            }
         }
         cairo_set_source_rgba(ct,0,0,0,0);
         cairo_destroy(this_ct);
