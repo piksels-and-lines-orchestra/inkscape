@@ -203,9 +203,7 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
     } else { // outline; draw a rect instead
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         guint32 rgba = prefs->getInt("/options/wireframecolors/images", 0xff0000ff);
-        // FIXME: we use RGBA buffers but cairo writes BGRA (on i386), so we must cheat
-        // by setting color channels in the "wrong" order
-        cairo_set_source_rgba(ct, SP_RGBA32_B_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_R_F(rgba), SP_RGBA32_A_F(rgba));
+        ink_cairo_set_source_rgba32(ct, rgba);
 
         cairo_set_line_width(ct, 0.5);
         cairo_new_path(ct);

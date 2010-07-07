@@ -413,7 +413,7 @@ convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int stride)
  * using it with GTK will result in corrupted drawings.
  */
 void
-convert_pixbuf_normal_to_argb32_mutant(GdkPixbuf *pb)
+convert_pixbuf_normal_to_argb32(GdkPixbuf *pb)
 {
     convert_pixels_pixbuf_to_argb32(
         gdk_pixbuf_get_pixels(pb),

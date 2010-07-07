@@ -129,7 +129,7 @@ Filter::~Filter()
 }
 
 
-int Filter::render(NRArenaItem const *item, NRPixBlock *pb)
+int Filter::render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct)
 {
     if (!_primitive[0]) {
         // TODO: Should clear the input buffer instead of just returning

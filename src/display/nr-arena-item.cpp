@@ -335,6 +335,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
     if (!item->visible)
         return item->state | NR_ARENA_ITEM_STATE_RENDER;
 
+    // carea is the bounding box for intermediate rendering.
     NRRectL carea;
     nr_rect_l_intersect (&carea, area, &item->drawbox);
     if (nr_rect_l_test_empty(carea))
@@ -564,27 +565,46 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     // clipping and masks
     unsigned int state;
-    Cairo::Context cct(ct);
-    Cairo::RefPtr<Cairo::Pattern> mask;
-    CairoSave clipsave(ct); // RAII for save / restore
-    CairoGroup maskgroup(ct); // RAII for push_group / pop_group
-    CairoGroup drawgroup(ct);
 
-    if (item->clip) {
+    cairo_t *this_ct = ct;
+    NRRectL *this_area = const_cast<NRRectL*>(area);
+
+    bool needs_intermediate_rendering = false;
+    bool &nir = needs_intermediate_rendering;
+
+    // this item needs an intermediate rendering if:
+    nir |= (item->mask != NULL); // 1. it has a mask
+    nir |= (item->filter != NULL && filter); // 2. it has a filter
+
+    if (needs_intermediate_rendering) {
+        cairo_surface_t *intermediate = cairo_surface_create_similar(
+            cairo_get_target(ct), CAIRO_CONTENT_COLOR_ALPHA,
+            carea.x1 - carea.x0, carea.y1 - carea.y0);
+        this_ct = cairo_create(intermediate);
+        this_area = &carea;
+        cairo_surface_destroy(intermediate); // the surface will be held in memory by this_ct
+    }
+
+    Cairo::Context cct(this_ct);
+    Cairo::RefPtr<Cairo::Pattern> mask;
+    CairoSave clipsave(this_ct); // RAII for save / restore
+    CairoGroup maskgroup(this_ct); // RAII for push_group / pop_group
+    CairoGroup drawgroup(this_ct);
+
+    if (item->clip && !(item->filter && filter)) {
         clipsave.save();
-        state = nr_arena_item_invoke_clip(ct, item->clip, const_cast<NRRectL*>(area));
+        state = nr_arena_item_invoke_clip(this_ct, item->clip, this_area);
         if (state & NR_ARENA_ITEM_STATE_INVALID) {
             item->state |= NR_ARENA_ITEM_STATE_INVALID;
             return item->state;
         }
-
         cct.clip();
     }
 
     if (item->mask) {
         maskgroup.push_with_content(CAIRO_CONTENT_ALPHA);
 
-        state = NR_ARENA_ITEM_VIRTUAL (item->mask, render) (ct, item->mask, const_cast<NRRectL*>(area), pb, flags);
+        state = NR_ARENA_ITEM_VIRTUAL (item->mask, render) (this_ct, item->mask, this_area, pb, flags);
         if (state & NR_ARENA_ITEM_STATE_INVALID) {
             item->state |= NR_ARENA_ITEM_STATE_INVALID;
             return item->state;
@@ -592,18 +612,31 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
         mask = maskgroup.popmm();
     }
 
-    if (mask) {
+    /*if (mask) {
         drawgroup.push();
-    }
-    state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, const_cast<NRRectL*>(area), pb, flags);
+    }*/
+    state = NR_ARENA_ITEM_VIRTUAL (item, render) (this_ct, item, this_area, pb, flags);
     if (state & NR_ARENA_ITEM_STATE_INVALID) {
         /* Clean up and return error */
         item->state |= NR_ARENA_ITEM_STATE_INVALID;
         return item->state;
     }
-    if (mask) {
-        drawgroup.pop_to_source();
-        cct.mask(mask);
+    if (needs_intermediate_rendering) {
+        cairo_surface_t *intermediate = cairo_get_target(this_ct);
+        cairo_set_source_surface(ct, intermediate, carea.x0 - area->x0, carea.y0 - area->y0);
+        if (mask) {
+            // bring mask into the coordinate system of ct
+            cairo_pattern_t *cmask = mask->cobj();
+            cairo_matrix_t m;
+            cairo_pattern_get_matrix(cmask, &m);
+            cairo_matrix_translate(&m, area->x0 - carea.x0, area->y0 - carea.y0);
+            cairo_pattern_set_matrix(cmask, &m);
+            cairo_mask(ct, cmask);
+        } else {
+            cairo_paint(ct);
+        }
+        cairo_set_source_rgba(ct,0,0,0,0);
+        cairo_destroy(this_ct);
     }
 
     return item->state | NR_ARENA_ITEM_STATE_RENDER;

@@ -13,6 +13,7 @@
  */
 
 //#include "display/nr-arena-item.h"
+#include <cairo.h>
 #include "display/nr-filter-primitive.h"
 #include "display/nr-filter-types.h"
 #include "libnr/nr-pixblock.h"
@@ -29,7 +30,7 @@ namespace Filters {
 
 class Filter : public Inkscape::GC::Managed<> {
 public:
-    int render(NRArenaItem const *item, NRPixBlock *pb);
+    int render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct);
 
     /**
      * Creates a new filter primitive under this filter object.
