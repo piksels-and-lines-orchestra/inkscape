@@ -43,6 +43,7 @@ public:
     FilterPrimitive();
     virtual ~FilterPrimitive();
 
+    virtual void render_cairo(FilterSlot &slot);
     virtual int render(FilterSlot &slot, FilterUnits const &units) = 0;
     virtual void area_enlarge(NRRectL &area, Geom::Matrix const &m);
 

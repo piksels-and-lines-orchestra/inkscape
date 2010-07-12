@@ -38,6 +38,7 @@ public:
     static FilterPrimitive *create();
     virtual ~FilterGaussian();
 
+    virtual void render_cairo(FilterSlot &slot);
     virtual int render(FilterSlot &slot, FilterUnits const &units);
     virtual void area_enlarge(NRRectL &area, Geom::Matrix const &m);
     virtual FilterTraits get_input_traits();

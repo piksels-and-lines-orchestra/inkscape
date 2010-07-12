@@ -37,6 +37,13 @@ FilterPrimitive::~FilterPrimitive()
     // Nothing to do here
 }
 
+void FilterPrimitive::render_cairo(FilterSlot &slot)
+{
+    // passthrough
+    cairo_surface_t *in = slot.getcairo(_input);
+    slot.set(_output, in);
+}
+
 void FilterPrimitive::area_enlarge(NRRectL &/*area*/, Geom::Matrix const &/*m*/)
 {
     // This doesn't need to do anything by default

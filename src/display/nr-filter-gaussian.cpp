@@ -27,6 +27,7 @@
 
 #include "2geom/isnan.h"
 
+#include "display/cairo-utils.h"
 #include "display/nr-filter-primitive.h"
 #include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-types.h"
@@ -284,6 +285,12 @@ filter2D_IIR(PT *const dest, int const dstr1, int const dstr2,
              int const n1, int const n2, IIRValue const b[N+1], double const M[N*N],
              IIRValue *const tmpdata[], int const num_threads)
 {
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+    static unsigned int const alpha_PC = PC-1;
+#else
+    static unsigned int const alpha_PC = 0;
+#endif
+
 #if HAVE_OPENMP
 #pragma omp parallel for num_threads(num_threads)
 #else
@@ -319,8 +326,8 @@ filter2D_IIR(PT *const dest, int const dstr1, int const dstr2,
         calcTriggsSdikaInitialization<PC>(M, u, iplus, iplus, b[0], v);
         dstimg -= dstr1;
         if ( PREMULTIPLIED_ALPHA ) {
-            dstimg[PC-1] = clip_round_cast<PT>(v[0][PC-1]);
-            for(unsigned int c=0; c<PC-1; c++) dstimg[c] = clip_round_cast<PT>(v[0][c], std::numeric_limits<PT>::min(), dstimg[PC-1]);
+            dstimg[alpha_PC] = clip_round_cast<PT>(v[0][alpha_PC]);
+            for(unsigned int c=0; c<alpha_PC; c++) dstimg[c] = clip_round_cast<PT>(v[0][c], std::numeric_limits<PT>::min(), dstimg[alpha_PC]);
         } else {
             for(unsigned int c=0; c<PC; c++) dstimg[c] = clip_round_cast<PT>(v[0][c]);
         }
@@ -334,8 +341,8 @@ filter2D_IIR(PT *const dest, int const dstr1, int const dstr2,
             }
             dstimg -= dstr1;
             if ( PREMULTIPLIED_ALPHA ) {
-                dstimg[PC-1] = clip_round_cast<PT>(v[0][PC-1]);
-                for(unsigned int c=0; c<PC-1; c++) dstimg[c] = clip_round_cast<PT>(v[0][c], std::numeric_limits<PT>::min(), dstimg[PC-1]);
+                dstimg[alpha_PC] = clip_round_cast<PT>(v[0][alpha_PC]);
+                for(unsigned int c=0; c<alpha_PC; c++) dstimg[c] = clip_round_cast<PT>(v[0][c], std::numeric_limits<PT>::min(), dstimg[alpha_PC]);
             } else {
                 for(unsigned int c=0; c<PC; c++) dstimg[c] = clip_round_cast<PT>(v[0][c]);
             }
@@ -534,6 +541,197 @@ upsample(PT *const dst, int const dstr1, int const dstr2, unsigned int const dn1
                 }
             }
         }
+    }
+}
+
+static void
+gaussian_pass_IIR(Geom::Dim2 d, double deviation, cairo_surface_t *src, cairo_surface_t *dest,
+    IIRValue **tmpdata, int num_threads)
+{
+    // Filter variables
+    IIRValue b[N+1];  // scaling coefficient + filter coefficients (can be 10.21 fixed point)
+    double bf[N];  // computed filter coefficients
+    double M[N*N]; // matrix used for initialization procedure (has to be double)
+
+    // Compute filter
+    calcFilter(deviation, bf);
+    for(size_t i=0; i<N; i++) bf[i] = -bf[i];
+    b[0] = 1; // b[0] == alpha (scaling coefficient)
+    for(size_t i=0; i<N; i++) {
+        b[i+1] = bf[i];
+        b[0] -= b[i+1];
+    }
+
+    // Compute initialization matrix
+    calcTriggsSdikaM(bf, M);
+
+    int stride = cairo_image_surface_get_stride(src);
+    int w = cairo_image_surface_get_width(src);
+    int h = cairo_image_surface_get_height(src);
+    if (d != Geom::X) std::swap(w, h);
+
+    // Filter
+    switch (cairo_image_surface_get_format(src)) {
+    case CAIRO_FORMAT_A8:        ///< Grayscale
+        filter2D_IIR<unsigned char,1,false>(
+            cairo_image_surface_get_data(dest), d == Geom::X ? 1 : stride, d == Geom::X ? stride : 1,
+            cairo_image_surface_get_data(src),  d == Geom::X ? 1 : stride, d == Geom::X ? stride : 1,
+            w, h, b, M, tmpdata, num_threads);
+        break;
+    case CAIRO_FORMAT_ARGB32: ///< Premultiplied 8 bit RGBA
+        filter2D_IIR<unsigned char,4,true>(
+            cairo_image_surface_get_data(dest), d == Geom::X ? 4 : stride, d == Geom::X ? stride : 4,
+            cairo_image_surface_get_data(src),  d == Geom::X ? 4 : stride, d == Geom::X ? stride : 4,
+            w, h, b, M, tmpdata, num_threads);
+        break;
+    default:
+        assert(false);
+    };
+}
+
+static void
+gaussian_pass_FIR(Geom::Dim2 d, double deviation, cairo_surface_t *src, cairo_surface_t *dest,
+    int num_threads)
+{
+    int scr_len = _effect_area_scr(deviation);
+    // Filter kernel for x direction
+    FIRValue kernel[scr_len+1];
+    _make_kernel(kernel, deviation);
+
+    int stride = cairo_image_surface_get_stride(src);
+    int w = cairo_image_surface_get_width(src);
+    int h = cairo_image_surface_get_height(src);
+    if (d != Geom::X) std::swap(w, h);
+
+    // Filter (x)
+    switch (cairo_image_surface_get_format(src)) {
+    case CAIRO_FORMAT_A8:        ///< Grayscale
+        filter2D_FIR<unsigned char,1>(
+            cairo_image_surface_get_data(dest), d == Geom::X ? 1 : stride, d == Geom::X ? stride : 1,
+            cairo_image_surface_get_data(src),  d == Geom::X ? 1 : stride, d == Geom::X ? stride : 1,
+            w, h, kernel, scr_len, num_threads);
+        break;
+    case CAIRO_FORMAT_ARGB32: ///< Premultiplied 8 bit RGBA
+        filter2D_FIR<unsigned char,4>(
+            cairo_image_surface_get_data(dest), d == Geom::X ? 4 : stride, d == Geom::X ? stride : 4,
+            cairo_image_surface_get_data(src),  d == Geom::X ? 4 : stride, d == Geom::X ? stride : 4,
+            w, h, kernel, scr_len, num_threads);
+        break;
+    default:
+        assert(false);
+    };
+}
+
+void FilterGaussian::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *in = slot.getcairo(_input);
+    if (!in) return;
+
+    // zero deviation = transparent black as output
+    if (_deviation_x <= 0 || _deviation_y <= 0) {
+        cairo_surface_t *blank = ink_cairo_surface_create_identical(in);
+        slot.set(_output, blank);
+        cairo_surface_destroy(blank);
+        return;
+    }
+
+    Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
+
+    int w_orig = ink_cairo_surface_get_width(in);
+    int h_orig = ink_cairo_surface_get_height(in);
+    double deviation_x_orig = _deviation_x * trans.expansionX();
+    double deviation_y_orig = _deviation_y * trans.expansionY();
+    cairo_format_t fmt = cairo_image_surface_get_format(in);
+    int bytes_per_pixel = 0;
+    switch (fmt) {
+        case CAIRO_FORMAT_A8:
+            bytes_per_pixel = 1; break;
+        case CAIRO_FORMAT_ARGB32:
+        default:
+            bytes_per_pixel = 4; break;
+    }
+
+#if HAVE_OPENMP
+    int threads = Inkscape::Preferences::get()->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+#else
+    int threads = 1;
+#endif
+
+    int quality = slot.get_blurquality();
+    int x_step = 1 << _effect_subsample_step_log2(deviation_x_orig, quality);
+    int y_step = 1 << _effect_subsample_step_log2(deviation_y_orig, quality);
+    bool resampling = x_step > 1 || y_step > 1;
+    int w_downsampled = resampling ? static_cast<int>(ceil(static_cast<double>(w_orig)/x_step))+1 : w_orig;
+    int h_downsampled = resampling ? static_cast<int>(ceil(static_cast<double>(h_orig)/y_step))+1 : h_orig;
+    double deviation_x = deviation_x_orig / x_step;
+    double deviation_y = deviation_y_orig / y_step;
+    int scr_len_x = _effect_area_scr(deviation_x);
+    int scr_len_y = _effect_area_scr(deviation_y);
+
+    // Decide which filter to use for X and Y
+    // This threshold was determined by trial-and-error for one specific machine,
+    // so there's a good chance that it's not optimal.
+    // Whatever you do, don't go below 1 (and preferrably not even below 2), as
+    // the IIR filter gets unstable there.
+    bool use_IIR_x = deviation_x > 3;
+    bool use_IIR_y = deviation_y > 3;
+
+    // Temporary storage for IIR filter
+    // NOTE: This can be eliminated, but it reduces the precision a bit
+    IIRValue * tmpdata[threads];
+    std::fill_n(tmpdata, threads, (IIRValue*)0);
+    if ( use_IIR_x || use_IIR_y ) {
+        for(int i = 0; i < threads; ++i) {
+            tmpdata[i] = new IIRValue[std::max(w_downsampled,h_downsampled)*bytes_per_pixel];
+        }
+    }
+
+    cairo_surface_t *downsampled = NULL;
+    if (resampling) {
+        downsampled = cairo_surface_create_similar(in, cairo_surface_get_content(in),
+            w_downsampled, h_downsampled);
+        cairo_t *ct = cairo_create(downsampled);
+        cairo_scale(ct, static_cast<double>(w_downsampled)/w_orig, static_cast<double>(h_downsampled)/h_orig);
+        cairo_set_source_surface(ct, in, 0, 0);
+        cairo_paint(ct);
+        cairo_destroy(ct);
+    } else {
+        downsampled = ink_cairo_surface_copy(in);
+    }
+    cairo_surface_flush(downsampled);
+
+    if (scr_len_x > 0) {
+        if (use_IIR_x) {
+            gaussian_pass_IIR(Geom::X, deviation_x, downsampled, downsampled, tmpdata, threads);
+        } else {
+            gaussian_pass_FIR(Geom::X, deviation_x, downsampled, downsampled, threads);
+        }
+    }
+
+    if (scr_len_y > 0) {
+        if (use_IIR_y) {
+            gaussian_pass_IIR(Geom::Y, deviation_y, downsampled, downsampled, tmpdata, threads);
+        } else {
+            gaussian_pass_FIR(Geom::Y, deviation_y, downsampled, downsampled, threads);
+        }
+    }
+
+    cairo_surface_mark_dirty(downsampled);
+    if (resampling) {
+        cairo_surface_t *upsampled = cairo_surface_create_similar(downsampled, cairo_surface_get_content(downsampled),
+            w_orig, h_orig);
+        cairo_t *ct = cairo_create(upsampled);
+        cairo_scale(ct, static_cast<double>(w_orig)/w_downsampled, static_cast<double>(h_orig)/h_downsampled);
+        cairo_set_source_surface(ct, downsampled, 0, 0);
+        cairo_paint(ct);
+        cairo_destroy(ct);
+
+        slot.set(_output, upsampled);
+        cairo_surface_destroy(upsampled);
+        cairo_surface_destroy(downsampled);
+    } else {
+        slot.set(_output, downsampled);
+        cairo_surface_destroy(downsampled);
     }
 }
 

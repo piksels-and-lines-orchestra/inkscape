@@ -329,6 +329,78 @@ ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double 
     cairo_surface_destroy(pbs);
 }
 
+/** @brief Create an exact copy of a surface.
+ * Creates a surface that has the same type, content type, dimensions and contents
+ * as the specified surface. */
+cairo_surface_t *
+ink_cairo_surface_copy(cairo_surface_t *s)
+{
+    cairo_surface_t *ns = ink_cairo_surface_create_identical(s);
+
+    cairo_t *ct = cairo_create(ns);
+    cairo_set_source_surface(ct, s, 0, 0);
+    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(ct);
+    cairo_destroy(ct);
+
+    return ns;
+}
+
+/** @brief Create a surface that differs only in pixel content.
+ * Creates a surface that has the same type, content type and dimensions
+ * as the specified surface. Pixel contents are not copied. */
+cairo_surface_t *
+ink_cairo_surface_create_identical(cairo_surface_t *s)
+{
+    cairo_surface_t *ns = cairo_surface_create_similar(s, cairo_surface_get_content(s),
+        ink_cairo_surface_get_width(s), ink_cairo_surface_get_height(s));
+    return ns;
+}
+
+/** @brief Extract the alpha channel into a new surface.
+ * Creates a surface with a content type of CAIRO_CONTENT_ALPHA that contains
+ * the alpha values of pixels from @a s. */
+cairo_surface_t *
+ink_cairo_extract_alpha(cairo_surface_t *s)
+{
+    cairo_surface_t *alpha = cairo_surface_create_similar(s, CAIRO_CONTENT_ALPHA,
+        ink_cairo_surface_get_width(s), ink_cairo_surface_get_height(s));
+
+    cairo_t *ct = cairo_create(alpha);
+    cairo_set_source_surface(ct, s, 0, 0);
+    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(ct);
+    cairo_destroy(ct);
+
+    return alpha;
+}
+
+cairo_surface_t *
+ink_cairo_surface_unshare(cairo_surface_t *s)
+{
+    if (cairo_surface_get_reference_count(s) > 1) {
+        return ink_cairo_surface_copy(s);
+    } else {
+        cairo_surface_reference(s);
+        return s;
+    }
+}
+
+int
+ink_cairo_surface_get_width(cairo_surface_t *surface)
+{
+    // For now only image surface is handled.
+    // Later add others, e.g. cairo-gl
+    assert(cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE);
+    return cairo_image_surface_get_width(surface);
+}
+int
+ink_cairo_surface_get_height(cairo_surface_t *surface)
+{
+    assert(cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE);
+    return cairo_image_surface_get_height(surface);
+}
+
 // taken from Cairo sources
 static inline guint32 premul_alpha(guint32 color, guint32 alpha)
 {

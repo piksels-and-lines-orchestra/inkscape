@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <cairo.h>
 
 #include "display/nr-filter.h"
 #include "display/nr-filter-primitive.h"
@@ -129,20 +130,21 @@ Filter::~Filter()
 }
 
 
-int Filter::render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct)
+int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea, cairo_t *graphic, NRRectL const *area)
 {
     if (!_primitive[0]) {
-        // TODO: Should clear the input buffer instead of just returning
-       return 1;
+        // when no primitives are defined, clear source graphic
+        cairo_set_source_rgba(graphic, 0,0,0,0);
+        cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(graphic);
+        cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
+        return 1;
     }
 
     FilterQuality const filterquality = (FilterQuality)item->arena->filterquality;
     int const blurquality = item->arena->blurquality;
 
     Geom::Matrix trans = item->ctm;
-    FilterSlot slot(_slot_count, item);
-    slot.set_quality(filterquality);
-    slot.set_blurquality(blurquality);
 
     Geom::Rect item_bbox;
     {
@@ -165,11 +167,17 @@ int Filter::render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct)
     units.set_item_bbox(item_bbox);
     units.set_filter_area(filter_area);
 
-    // TODO: with filterRes of 0x0 should return an empty image
     std::pair<double,double> resolution
         = _filter_resolution(filter_area, trans, filterquality);
-    if(!(resolution.first > 0 && resolution.second > 0))
-	return 1;
+    if (!(resolution.first > 0 && resolution.second > 0)) {
+        // zero resolution - clear source graphic and return
+        cairo_set_source_rgba(graphic, 0,0,0,0);
+        cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(graphic);
+        cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
+        return 1;
+    }
+
     units.set_resolution(resolution.first, resolution.second);
     if (_x_pixels > 0) {
         units.set_automatic_resolution(false);
@@ -178,17 +186,44 @@ int Filter::render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct)
         units.set_automatic_resolution(true);
     }
 
-    units.set_paraller(false);
+    /*units.set_paraller(false);
     for (int i = 0 ; i < _primitive_count ; i++) {
         if (_primitive[i]->get_input_traits() & TRAIT_PARALLER) {
             units.set_paraller(true);
             break;
         }
+    }*/
+    units.set_paraller(true);
+
+    FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, bgarea, cairo_get_target(graphic), area, units);
+    slot.set_quality(filterquality);
+    slot.set_blurquality(blurquality);
+
+    for (int i = 0 ; i < _primitive_count ; i++) {
+        _primitive[i]->render_cairo(slot);
     }
 
-    slot.set_units(units);
+    cairo_surface_t *result = slot.get_result(_output_slot);
+    cairo_set_source_surface(graphic, result, 0, 0);
+    cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(graphic);
+    cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
+    cairo_surface_destroy(result);
 
-    NRPixBlock *in = new NRPixBlock;
+    //slot.set_units(units);
+
+    /*cairo_surface_t *in = cairo_surface_create_similar(
+        cairo_get_target(ct), CAIRO_CONTENT_COLOR_ALPHA,
+        area->x1 - area->x0, area->y1 - area->y0);
+    cairo_t *inct = cairo_create(in);
+    cairo_translate(inct, -area->x0, -area->y0);
+    cairo_set_source_surface(inct, cairo_get_target(ct), 0, 0);
+    cairo_paint(inct);
+    slot.set(NR_FILTER_SOURCEGRAPHIC, in);
+    cairo_destroy(inct);
+    cairo_surface_destroy(in);*/
+
+    /*NRPixBlock *in = new NRPixBlock;
     nr_pixblock_setup_fast(in, pb->mode, pb->area.x0, pb->area.y0,
                            pb->area.x1, pb->area.y1, true);
     if (in->size != NR_PIXBLOCK_SIZE_TINY && in->data.px == NULL) {
@@ -197,10 +232,10 @@ int Filter::render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct)
     }
     nr_blit_pixblock_pixblock(in, pb);
     in->empty = FALSE;
-    slot.set(NR_FILTER_SOURCEGRAPHIC, in);
+    slot.set(NR_FILTER_SOURCEGRAPHIC, in);*/
 
     // Check that we are rendering a non-empty area
-    in = slot.get(NR_FILTER_SOURCEGRAPHIC);
+    /*in = slot.get(NR_FILTER_SOURCEGRAPHIC);
     if (in->area.x1 - in->area.x0 <= 0 || in->area.y1 - in->area.y0 <= 0) {
         if (in->area.x1 - in->area.x0 < 0 || in->area.y1 - in->area.y0 < 0) {
             g_warning("Inkscape::Filters::Filter::render: negative area! (%d, %d) (%d, %d)",
@@ -209,17 +244,18 @@ int Filter::render(NRArenaItem const *item, NRPixBlock *pb, cairo_t *ct)
         return 0;
     }
     in = NULL; // in is now handled by FilterSlot, we should not touch it
+    */
 
-    for (int i = 0 ; i < _primitive_count ; i++) {
+    /*for (int i = 0 ; i < _primitive_count ; i++) {
         _primitive[i]->render(slot, units);
-    }
+    }*/
 
-    slot.get_final(_output_slot, pb);
+    //slot.get_final(_output_slot, ct, area);
 
     // Take note of the amount of used image slots
     // -> next time this filter is rendered, we can reserve enough slots
     // immediately
-    _slot_count = slot.get_slot_count();
+    //_slot_count = slot.get_slot_count();
     return 0;
 }
 

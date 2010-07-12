@@ -84,6 +84,13 @@ void ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m);
 void ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m);
 void ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double y);
 
+cairo_surface_t *ink_cairo_surface_copy(cairo_surface_t *s);
+cairo_surface_t *ink_cairo_surface_create_identical(cairo_surface_t *s);
+cairo_surface_t *ink_cairo_extract_alpha(cairo_surface_t *s);
+cairo_surface_t *ink_cairo_surface_unshare(cairo_surface_t *s);
+int ink_cairo_surface_get_width(cairo_surface_t *surface);
+int ink_cairo_surface_get_height(cairo_surface_t *surface);
+
 void convert_pixels_pixbuf_to_argb32(guchar *data, int w, int h, int rs);
 void convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int rs);
 void convert_pixbuf_normal_to_argb32(GdkPixbuf *);
