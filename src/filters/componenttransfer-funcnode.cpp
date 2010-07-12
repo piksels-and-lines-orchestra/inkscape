@@ -168,13 +168,13 @@ sp_fefuncnode_build(SPObject *object, SPDocument *document, Inkscape::XML::Node 
     }
 
     //Read values of key attributes from XML nodes into object.
-    sp_object_read_attr(object, "type");
-    sp_object_read_attr(object, "tableValues");
-    sp_object_read_attr(object, "slope");
-    sp_object_read_attr(object, "intercept");
-    sp_object_read_attr(object, "amplitude");
-    sp_object_read_attr(object, "exponent");
-    sp_object_read_attr(object, "offset");
+    object->readAttr( "type");
+    object->readAttr( "tableValues");
+    object->readAttr( "slope");
+    object->readAttr( "intercept");
+    object->readAttr( "amplitude");
+    object->readAttr( "exponent");
+    object->readAttr( "offset");
 
 
 //is this necessary?
@@ -296,8 +296,8 @@ sp_fefuncnode_update(SPObject *object, SPCtx *ctx, guint flags)
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         /* do something to trigger redisplay, updates? */
         //TODO
-        //sp_object_read_attr(object, "azimuth");
-        //sp_object_read_attr(object, "elevation");
+        //object->readAttr( "azimuth");
+        //object->readAttr( "elevation");
     }
 
     if (((SPObjectClass *) feFuncNode_parent_class)->update) {

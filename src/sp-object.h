@@ -15,6 +15,14 @@
 
 /* SPObject flags */
 
+class SPObject;
+class SPObjectClass;
+
+#define SP_TYPE_OBJECT (SPObject::sp_object_get_type ())
+#define SP_OBJECT(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_OBJECT, SPObject))
+#define SP_OBJECT_CLASS(clazz) (G_TYPE_CHECK_CLASS_CAST((clazz), SP_TYPE_OBJECT, SPObjectClass))
+#define SP_IS_OBJECT(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_OBJECT))
+
 /* Async modification flags */
 #define SP_OBJECT_MODIFIED_FLAG (1 << 0)
 #define SP_OBJECT_CHILD_MODIFIED_FLAG (1 << 1)
@@ -50,10 +58,9 @@
 #define SP_OBJECT_DOCUMENT(o) (((SPObject *) (o))->document)
 #define SP_OBJECT_PARENT(o) (((SPObject *) (o))->parent)
 #define SP_OBJECT_NEXT(o) (((SPObject *) (o))->next)
-#define SP_OBJECT_PREV(o) (sp_object_prev((SPObject *) (o)))
+#define SP_OBJECT_PREV(o) (((SPObject *) (o))->prev())
 #define SP_OBJECT_HREFCOUNT(o) (((SPObject *) (o))->hrefcount)
 #define SP_OBJECT_STYLE(o) (((SPObject *) (o))->style)
-
 
 #include <glib-object.h>
 #include <sigc++/connection.h>
@@ -171,12 +178,14 @@ public:
 	 * Returns the XML representation of tree
 	 */
 	//Inkscape::XML::Node const* getRepr() const;
+//protected:	
 	Inkscape::XML::Node * getRepr();
 
 	/**
 	 * Returns the XML representation of tree
 	 */
 	Inkscape::XML::Node const* getRepr() const;
+public:	
 	
     /** @brief cleans up an SPObject, releasing its references and
      *         requesting that references to it be released
@@ -519,6 +528,17 @@ public:
 		    return firstChild();
 	}
 	void invoke_build(SPDocument *document, Inkscape::XML::Node *repr, unsigned int cloned);
+	long long int getIntAttribute(char const *key, long long int def);
+	unsigned getPosition();
+	gchar const * getAttribute(gchar const *name,SPException *ex=0) const;
+	void appendChild(Inkscape::XML::Node *child);
+	void setKeyValue(unsigned int key, gchar const *value);
+	void setAttribute(gchar const *key, gchar const *value, SPException *ex=0);
+	void readAttr(gchar const *key);
+	gchar const *getTagName(SPException *ex) const;
+	void removeAttribute(gchar const *key, SPException *ex=0);
+	gchar const *getStyleProperty(gchar const *key, gchar const *def) const;
+	SPObject *prev();
 
 private:
     // Private member functions used in the definitions of setTitle(),
@@ -528,11 +548,41 @@ private:
     SPObject * findFirstChild(gchar const *tagname) const;
     GString * textualContent() const;
 
+	static void sp_object_init(SPObject *object);
+	static void sp_object_finalize(GObject *object);
+
+	static void sp_object_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref);
+	static void sp_object_remove_child(SPObject *object, Inkscape::XML::Node *child);
+	static void sp_object_order_changed(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *old_ref, Inkscape::XML::Node *new_ref);
+
+	static void sp_object_release(SPObject *object);
+	static void sp_object_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr);
+
+	static void sp_object_private_set(SPObject *object, unsigned int key, gchar const *value);
+	static Inkscape::XML::Node *sp_object_private_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
+	static gchar *sp_object_get_unique_id(SPObject *object, gchar const *defid);
+
+	/* Real handlers of repr signals */
+	
+	public:
+	static GType sp_object_get_type();
+	static void sp_object_repr_attr_changed(Inkscape::XML::Node *repr, gchar const *key, gchar const *oldval, gchar const *newval, bool is_interactive, gpointer data);
+
+	static void sp_object_repr_content_changed(Inkscape::XML::Node *repr, gchar const *oldcontent, gchar const *newcontent, gpointer data);
+
+	static void sp_object_repr_child_added(Inkscape::XML::Node *repr, Inkscape::XML::Node *child, Inkscape::XML::Node *ref, gpointer data);
+	static void sp_object_repr_child_removed(Inkscape::XML::Node *repr, Inkscape::XML::Node *child, Inkscape::XML::Node *ref, void *data);
+
+	static void sp_object_repr_order_changed(Inkscape::XML::Node *repr, Inkscape::XML::Node *child, Inkscape::XML::Node *old, Inkscape::XML::Node *newer, gpointer data);
+
+
+	friend class SPObjectClass;	
     friend class SPObjectImpl;
 };
 
 /// The SPObject vtable.
-struct SPObjectClass {
+class SPObjectClass {
+	public:
     GObjectClass parent_class;
 
     void (* build) (SPObject *object, SPDocument *doc, Inkscape::XML::Node *repr);
@@ -554,6 +604,12 @@ struct SPObjectClass {
     void (* modified) (SPObject *object, unsigned int flags);
 
     Inkscape::XML::Node * (* write) (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, unsigned int flags);
+
+	private:
+	static GObjectClass *static_parent_class;
+	static void sp_object_class_init(SPObjectClass *klass);
+
+	friend class SPObject;
 };
 
 
@@ -572,25 +628,25 @@ struct SPObjectClass {
 
 //void sp_object_invoke_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr, unsigned int cloned);
 
-void sp_object_set(SPObject *object, unsigned int key, gchar const *value);
+//void sp_object_set(SPObject *object, unsigned int key, gchar const *value);
 
-void sp_object_read_attr(SPObject *object, gchar const *key);
+//void sp_object_read_attr(SPObject *object, gchar const *key);
 
 /* Public */
 
-gchar const *sp_object_tagName_get(SPObject const *object, SPException *ex);
-gchar const *sp_object_getAttribute(SPObject const *object, gchar const *key, SPException *ex);
-void sp_object_setAttribute(SPObject *object, gchar const *key, gchar const *value, SPException *ex);
-void sp_object_removeAttribute(SPObject *object, gchar const *key, SPException *ex);
+//gchar const *sp_object_tagName_get(SPObject const *object, SPException *ex);
+//gchar const *sp_object_getAttribute(SPObject const *object, gchar const *key, SPException *ex);
+//void sp_object_setAttribute(SPObject *object, gchar const *key, gchar const *value, SPException *ex);
+//void sp_object_removeAttribute(SPObject *object, gchar const *key, SPException *ex);
 
 /* Style */
 
-gchar const *sp_object_get_style_property(SPObject const *object,
-                                          gchar const *key, gchar const *def);
+//gchar const *sp_object_get_style_property(SPObject const *object,
+//                                          gchar const *key, gchar const *def);
 
 int sp_object_compare_position(SPObject const *first, SPObject const *second);
 
-SPObject *sp_object_prev(SPObject *child);
+//SPObject *sp_object_prev(SPObject *child);
 
 
 #endif // SP_OBJECT_H_SEEN

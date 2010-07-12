@@ -151,16 +151,16 @@ sp_root_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
         repr->setAttribute("version", SVG_VERSION);
     }
 
-    sp_object_read_attr(object, "version");
-    sp_object_read_attr(object, "inkscape:version");
+    object->readAttr( "version");
+    object->readAttr( "inkscape:version");
     /* It is important to parse these here, so objects will have viewport build-time */
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "width");
-    sp_object_read_attr(object, "height");
-    sp_object_read_attr(object, "viewBox");
-    sp_object_read_attr(object, "preserveAspectRatio");
-    sp_object_read_attr(object, "onload");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "width");
+    object->readAttr( "height");
+    object->readAttr( "viewBox");
+    object->readAttr( "preserveAspectRatio");
+    object->readAttr( "onload");
 
     if (((SPObjectClass *) parent_class)->build)
         (* ((SPObjectClass *) parent_class)->build) (object, document, repr);

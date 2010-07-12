@@ -405,16 +405,16 @@ void SPItem::lowerToBottom() {
 void
 SPItem::sp_item_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
 {
-    sp_object_read_attr(object, "style");
-    sp_object_read_attr(object, "transform");
-    sp_object_read_attr(object, "clip-path");
-    sp_object_read_attr(object, "mask");
-    sp_object_read_attr(object, "sodipodi:insensitive");
-    sp_object_read_attr(object, "sodipodi:nonprintable");
-    sp_object_read_attr(object, "inkscape:transform-center-x");
-    sp_object_read_attr(object, "inkscape:transform-center-y");
-    sp_object_read_attr(object, "inkscape:connector-avoid");
-    sp_object_read_attr(object, "inkscape:connection-points");
+    object->readAttr( "style");
+    object->readAttr( "transform");
+    object->readAttr( "clip-path");
+    object->readAttr( "mask");
+    object->readAttr( "sodipodi:insensitive");
+    object->readAttr( "sodipodi:nonprintable");
+    object->readAttr( "inkscape:transform-center-x");
+    object->readAttr( "inkscape:transform-center-y");
+    object->readAttr( "inkscape:connector-avoid");
+    object->readAttr( "inkscape:connection-points");
 
     if (((SPObjectClass *) (SPItemClass::static_parent_class))->build) {
         (* ((SPObjectClass *) (SPItemClass::static_parent_class))->build)(object, document, repr);
@@ -1405,8 +1405,8 @@ SPItem::adjust_livepatheffect (Geom::Matrix const &postmul, bool set)
 void
 SPItem::doWriteTransform(Inkscape::XML::Node *repr, Geom::Matrix const &transform, Geom::Matrix const *adv, bool compensate)
 {
-    g_return_if_fail(this != NULL);
-    g_return_if_fail(SP_IS_ITEM(this));
+    //g_return_if_fail(this != NULL);
+    //g_return_if_fail(SP_IS_ITEM(this));
     g_return_if_fail(repr != NULL);
 
     // calculate the relative transform, if not given by the adv attribute

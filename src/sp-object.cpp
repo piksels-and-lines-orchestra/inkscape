@@ -75,7 +75,7 @@ using std::strstr;
 # define debug(f, a...) /**/
 #endif
 
-static void sp_object_class_init(SPObjectClass *klass);
+/*static void sp_object_class_init(SPObjectClass *klass);
 static void sp_object_init(SPObject *object);
 static void sp_object_finalize(GObject *object);
 
@@ -89,9 +89,9 @@ static void sp_object_build(SPObject *object, SPDocument *document, Inkscape::XM
 static void sp_object_private_set(SPObject *object, unsigned int key, gchar const *value);
 static Inkscape::XML::Node *sp_object_private_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-/* Real handlers of repr signals */
+* Real handlers of repr signals */
 
-static void sp_object_repr_attr_changed(Inkscape::XML::Node *repr, gchar const *key, gchar const *oldval, gchar const *newval, bool is_interactive, gpointer data);
+/*static void sp_object_repr_attr_changed(Inkscape::XML::Node *repr, gchar const *key, gchar const *oldval, gchar const *newval, bool is_interactive, gpointer data);
 
 static void sp_object_repr_content_changed(Inkscape::XML::Node *repr, gchar const *oldcontent, gchar const *newcontent, gpointer data);
 
@@ -100,16 +100,16 @@ static void sp_object_repr_child_removed(Inkscape::XML::Node *repr, Inkscape::XM
 
 static void sp_object_repr_order_changed(Inkscape::XML::Node *repr, Inkscape::XML::Node *child, Inkscape::XML::Node *old, Inkscape::XML::Node *newer, gpointer data);
 
-static gchar *sp_object_get_unique_id(SPObject *object, gchar const *defid);
+static gchar *sp_object_get_unique_id(SPObject *object, gchar const *defid);*/
 
 guint update_in_progress = 0; // guard against update-during-update
 
 Inkscape::XML::NodeEventVector object_event_vector = {
-    sp_object_repr_child_added,
-    sp_object_repr_child_removed,
-    sp_object_repr_attr_changed,
-    sp_object_repr_content_changed,
-    sp_object_repr_order_changed
+	SPObject::sp_object_repr_child_added,
+    SPObject::sp_object_repr_child_removed,
+    SPObject::sp_object_repr_attr_changed,
+    SPObject::sp_object_repr_content_changed,
+    SPObject::sp_object_repr_order_changed
 };
 
 // A friend class used to set internal members on SPObject so as to not expose settors in SPObject's public API
@@ -143,20 +143,22 @@ public:
 };
 
 
-static GObjectClass *parent_class;
+//static GObjectClass *parent_class;
+
+GObjectClass * SPObjectClass::static_parent_class = 0;
 
 /**
  * Registers the SPObject class with Gdk and returns its type number.
  */
 GType
-sp_object_get_type(void)
+SPObject::sp_object_get_type()
 {
     static GType type = 0;
     if (!type) {
         GTypeInfo info = {
             sizeof(SPObjectClass),
             NULL, NULL,
-            (GClassInitFunc) sp_object_class_init,
+            (GClassInitFunc) SPObjectClass::sp_object_class_init,
             NULL, NULL,
             sizeof(SPObject),
             16,
@@ -171,34 +173,34 @@ sp_object_get_type(void)
 /**
  * Initializes the SPObject vtable.
  */
-static void
-sp_object_class_init(SPObjectClass *klass)
+void
+SPObjectClass::sp_object_class_init(SPObjectClass *klass)
 {
     GObjectClass *object_class;
 
     object_class = (GObjectClass *) klass;
 
-    parent_class = (GObjectClass *) g_type_class_ref(G_TYPE_OBJECT);
+	static_parent_class = (GObjectClass *) g_type_class_ref(G_TYPE_OBJECT);
 
-    object_class->finalize = sp_object_finalize;
+    object_class->finalize = SPObject::sp_object_finalize;
 
-    klass->child_added = sp_object_child_added;
-    klass->remove_child = sp_object_remove_child;
-    klass->order_changed = sp_object_order_changed;
+    klass->child_added = SPObject::sp_object_child_added;
+    klass->remove_child = SPObject::sp_object_remove_child;
+    klass->order_changed = SPObject::sp_object_order_changed;
 
-    klass->release = sp_object_release;
+    klass->release = SPObject::sp_object_release;
 
-    klass->build = sp_object_build;
+    klass->build = SPObject::sp_object_build;
 
-    klass->set = sp_object_private_set;
-    klass->write = sp_object_private_write;
+    klass->set = SPObject::sp_object_private_set;
+    klass->write = SPObject::sp_object_private_write;
 }
 
 /**
  * Callback to initialize the SPObject object.
  */
-static void
-sp_object_init(SPObject *object)
+void
+SPObject::sp_object_init(SPObject *object)
 {
     debug("id=%x, typename=%s",object, g_type_name_from_instance((GTypeInstance*)object));
 
@@ -234,8 +236,8 @@ sp_object_init(SPObject *object)
 /**
  * Callback to destroy all members and connections of object and itself.
  */
-static void
-sp_object_finalize(GObject *object)
+void
+SPObject::sp_object_finalize(GObject *object)
 {
     SPObject *spobject = (SPObject *)object;
 
@@ -249,8 +251,8 @@ sp_object_finalize(GObject *object)
         spobject->_successor = NULL;
     }
 
-    if (((GObjectClass *) (parent_class))->finalize) {
-        (* ((GObjectClass *) (parent_class))->finalize)(object);
+    if (((GObjectClass *) (SPObjectClass::static_parent_class))->finalize) {
+        (* ((GObjectClass *) (SPObjectClass::static_parent_class))->finalize)(object);
     }
 
     spobject->_release_signal.~signal();
@@ -754,8 +756,8 @@ SPObject::get_child_by_repr(Inkscape::XML::Node *repr)
  * Callback for child_added event.
  * Invoked whenever the given mutation event happens in the XML tree.
  */
-static void
-sp_object_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
+void
+SPObject::sp_object_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
 {
     GType type = sp_repr_type_lookup(child);
     if (!type) {
@@ -780,7 +782,7 @@ sp_object_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XM
  * SPRoot destroys the whole document tree.
  * \see sp_object_build()
  */
-static void sp_object_release(SPObject *object)
+void SPObject::sp_object_release(SPObject *object)
 {
     debug("id=%x, typename=%s", object, g_type_name_from_instance((GTypeInstance*)object));
     while (object->children) {
@@ -796,8 +798,8 @@ static void sp_object_release(SPObject *object)
  * tree, BEFORE removal from the XML tree happens, so grouping
  * objects can safely release the child data.
  */
-static void
-sp_object_remove_child(SPObject *object, Inkscape::XML::Node *child)
+void
+SPObject::sp_object_remove_child(SPObject *object, Inkscape::XML::Node *child)
 {
     debug("id=%x, typename=%s", object, g_type_name_from_instance((GTypeInstance*)object));
     SPObject *ochild = object->get_child_by_repr(child);
@@ -812,7 +814,7 @@ sp_object_remove_child(SPObject *object, Inkscape::XML::Node *child)
  * Invoked whenever the given mutation event happens in the XML tree.
  * \param old_ref Ignored
  */
-static void sp_object_order_changed(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node */*old_ref*/,
+void SPObject::sp_object_order_changed(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node */*old_ref*/,
                                     Inkscape::XML::Node *new_ref)
 {
     SPObject *ochild = object->get_child_by_repr(child);
@@ -833,15 +835,15 @@ static void sp_object_order_changed(SPObject *object, Inkscape::XML::Node *child
  * SPDocument does after the creation of the XML tree).
  * \see sp_object_release()
  */
-static void
-sp_object_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
+void
+SPObject::sp_object_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
 {
     /* Nothing specific here */
     debug("id=%x, typename=%s", object, g_type_name_from_instance((GTypeInstance*)object));
 
-    sp_object_read_attr(object, "xml:space");
-    sp_object_read_attr(object, "inkscape:label");
-    sp_object_read_attr(object, "inkscape:collect");
+    object->readAttr("xml:space");
+    object->readAttr("inkscape:label");
+    object->readAttr("inkscape:collect");
 
     for (Inkscape::XML::Node *rchild = repr->firstChild() ; rchild != NULL; rchild = rchild->next()) {
         GType type = sp_repr_type_lookup(rchild);
@@ -918,6 +920,23 @@ void SPObject::invoke_build(SPDocument *document, Inkscape::XML::Node *repr, uns
     sp_repr_add_listener(repr, &object_event_vector, this);
 }
 
+long long int SPObject::getIntAttribute(char const *key, long long int def)
+{
+	return sp_repr_get_int_attribute(getRepr(),key,def);
+}
+
+unsigned SPObject::getPosition(){
+	g_assert(this->repr);
+
+	return repr->position();
+}
+
+void SPObject::appendChild(Inkscape::XML::Node *child) {
+	g_assert(this->repr);
+
+	repr->appendChild(child);
+}
+
 void SPObject::releaseReferences() {
     g_assert(this->document);
     g_assert(this->repr);
@@ -966,14 +985,14 @@ SPObject *SPObject::getNext()
 
 SPObject *SPObject::getPrev()
 {
-    return sp_object_prev(this);
+    return this->prev();
 }
 
 /**
  * Callback for child_added node event.
  */
-static void
-sp_object_repr_child_added(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *child, Inkscape::XML::Node *ref, gpointer data)
+void
+SPObject::sp_object_repr_child_added(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *child, Inkscape::XML::Node *ref, gpointer data)
 {
     SPObject *object = SP_OBJECT(data);
 
@@ -984,8 +1003,8 @@ sp_object_repr_child_added(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *c
 /**
  * Callback for remove_child node event.
  */
-static void
-sp_object_repr_child_removed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *child, Inkscape::XML::Node */*ref*/, gpointer data)
+void
+SPObject::sp_object_repr_child_removed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *child, Inkscape::XML::Node */*ref*/, gpointer data)
 {
     SPObject *object = SP_OBJECT(data);
 
@@ -999,8 +1018,8 @@ sp_object_repr_child_removed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node 
  *
  * \todo fixme:
  */
-static void
-sp_object_repr_order_changed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *child, Inkscape::XML::Node *old, Inkscape::XML::Node *newer, gpointer data)
+void
+SPObject::sp_object_repr_order_changed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node *child, Inkscape::XML::Node *old, Inkscape::XML::Node *newer, gpointer data)
 {
     SPObject *object = SP_OBJECT(data);
 
@@ -1012,8 +1031,8 @@ sp_object_repr_order_changed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node 
 /**
  * Callback for set event.
  */
-static void
-sp_object_private_set(SPObject *object, unsigned int key, gchar const *value)
+void
+SPObject::sp_object_private_set(SPObject *object, unsigned int key, gchar const *value)
 {
     g_assert(key != SP_ATTR_INVALID);
 
@@ -1102,13 +1121,13 @@ sp_object_private_set(SPObject *object, unsigned int key, gchar const *value)
  * Call virtual set() function of object.
  */
 void
-sp_object_set(SPObject *object, unsigned int key, gchar const *value)
+SPObject::setKeyValue(unsigned int key, gchar const *value)
 {
-    g_assert(object != NULL);
-    g_assert(SP_IS_OBJECT(object));
+    //g_assert(object != NULL);
+    //g_assert(SP_IS_OBJECT(object));
 
-    if (((SPObjectClass *) G_OBJECT_GET_CLASS(object))->set) {
-        ((SPObjectClass *) G_OBJECT_GET_CLASS(object))->set(object, key, value);
+    if (((SPObjectClass *) G_OBJECT_GET_CLASS(this))->set) {
+        ((SPObjectClass *) G_OBJECT_GET_CLASS(this))->set(this, key, value);
     }
 }
 
@@ -1116,33 +1135,33 @@ sp_object_set(SPObject *object, unsigned int key, gchar const *value)
  * Read value of key attribute from XML node into object.
  */
 void
-sp_object_read_attr(SPObject *object, gchar const *key)
+SPObject::readAttr(gchar const *key)
 {
-    g_assert(object != NULL);
-    g_assert(SP_IS_OBJECT(object));
+    //g_assert(object != NULL);
+    //g_assert(SP_IS_OBJECT(object));
     g_assert(key != NULL);
 
 	//XML Tree being used here.
-    g_assert(object->getRepr() != NULL);
+    g_assert(this->getRepr() != NULL);
 
     unsigned int keyid = sp_attribute_lookup(key);
     if (keyid != SP_ATTR_INVALID) {
         /* Retrieve the 'key' attribute from the object's XML representation */
-        gchar const *value = object->getRepr()->attribute(key);
+        gchar const *value = getRepr()->attribute(key);
 
-        sp_object_set(object, keyid, value);
+        setKeyValue(keyid, value);
     }
 }
 
 /**
  * Callback for attr_changed node event.
  */
-static void
-sp_object_repr_attr_changed(Inkscape::XML::Node */*repr*/, gchar const *key, gchar const */*oldval*/, gchar const */*newval*/, bool is_interactive, gpointer data)
+void
+SPObject::sp_object_repr_attr_changed(Inkscape::XML::Node */*repr*/, gchar const *key, gchar const */*oldval*/, gchar const */*newval*/, bool is_interactive, gpointer data)
 {
     SPObject *object = SP_OBJECT(data);
 
-    sp_object_read_attr(object, key);
+    object->readAttr(key);
 
     // manual changes to extension attributes require the normal
     // attributes, which depend on them, to be updated immediately
@@ -1154,8 +1173,8 @@ sp_object_repr_attr_changed(Inkscape::XML::Node */*repr*/, gchar const *key, gch
 /**
  * Callback for content_changed node event.
  */
-static void
-sp_object_repr_content_changed(Inkscape::XML::Node */*repr*/, gchar const */*oldcontent*/, gchar const */*newcontent*/, gpointer data)
+void
+SPObject::sp_object_repr_content_changed(Inkscape::XML::Node */*repr*/, gchar const */*oldcontent*/, gchar const */*newcontent*/, gpointer data)
 {
     SPObject *object = SP_OBJECT(data);
 
@@ -1182,8 +1201,8 @@ sp_xml_get_space_string(unsigned int space)
 /**
  * Callback for write event.
  */
-static Inkscape::XML::Node *
-sp_object_private_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags)
+Inkscape::XML::Node *
+SPObject::sp_object_private_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags)
 {
     if (!repr && (flags & SP_OBJECT_WRITE_BUILD)) {
         repr = SP_OBJECT_REPR(object)->duplicate(doc);
@@ -1448,8 +1467,9 @@ SPObject::emitModified(unsigned int flags)
 }
 
 gchar const *
-sp_object_tagName_get(SPObject const *object, SPException *ex)
+SPObject::getTagName(SPException *ex) const
 {
+	g_assert(repr != NULL);
     /* If exception is not clear, return */
     if (!SP_EXCEPTION_IS_OK(ex)) {
         return NULL;
@@ -1457,12 +1477,13 @@ sp_object_tagName_get(SPObject const *object, SPException *ex)
 
     /// \todo fixme: Exception if object is NULL? */
 	//XML Tree being used here.
-    return object->getRepr()->name();
+    return getRepr()->name();
 }
 
 gchar const *
-sp_object_getAttribute(SPObject const *object, gchar const *key, SPException *ex)
+SPObject::getAttribute(gchar const *key, SPException *ex) const
 {
+	g_assert(this->repr != NULL);
     /* If exception is not clear, return */
     if (!SP_EXCEPTION_IS_OK(ex)) {
         return NULL;
@@ -1470,35 +1491,36 @@ sp_object_getAttribute(SPObject const *object, gchar const *key, SPException *ex
 
     /// \todo fixme: Exception if object is NULL? */
 	//XML Tree being used here.
-    return (gchar const *) object->getRepr()->attribute(key);
+    return (gchar const *) getRepr()->attribute(key);
 }
 
 void
-sp_object_setAttribute(SPObject *object, gchar const *key, gchar const *value, SPException *ex)
+SPObject::setAttribute(gchar const *key, gchar const *value, SPException *ex)
+{
+	g_assert(this->repr != NULL);
+    /* If exception is not clear, return */
+    g_return_if_fail(SP_EXCEPTION_IS_OK(ex));
+
+    /// \todo fixme: Exception if object is NULL? */
+	//XML Tree being used here.
+    getRepr()->setAttribute(key, value, false);
+}
+
+void
+SPObject::removeAttribute(gchar const *key, SPException *ex)
 {
     /* If exception is not clear, return */
     g_return_if_fail(SP_EXCEPTION_IS_OK(ex));
 
     /// \todo fixme: Exception if object is NULL? */
 	//XML Tree being used here.
-    object->getRepr()->setAttribute(key, value, false);
-}
-
-void
-sp_object_removeAttribute(SPObject *object, gchar const *key, SPException *ex)
-{
-    /* If exception is not clear, return */
-    g_return_if_fail(SP_EXCEPTION_IS_OK(ex));
-
-    /// \todo fixme: Exception if object is NULL? */
-	//XML Tree being used here.
-    object->getRepr()->setAttribute(key, NULL, false);
+    getRepr()->setAttribute(key, NULL, false);
 }
 
 /* Helper */
 
-static gchar *
-sp_object_get_unique_id(SPObject *object, gchar const *id)
+gchar *
+SPObject::sp_object_get_unique_id(SPObject *object, gchar const *id)
 {
     static unsigned long count = 0;
 
@@ -1565,14 +1587,14 @@ sp_object_get_unique_id(SPObject *object, gchar const *id)
  * responsible for ascending the repr tree as necessary.
  */
 gchar const *
-sp_object_get_style_property(SPObject const *object, gchar const *key, gchar const *def)
+SPObject::getStyleProperty(gchar const *key, gchar const *def) const
 {
-    g_return_val_if_fail(object != NULL, NULL);
-    g_return_val_if_fail(SP_IS_OBJECT(object), NULL);
+    //g_return_val_if_fail(object != NULL, NULL);
+    //g_return_val_if_fail(SP_IS_OBJECT(object), NULL);
     g_return_val_if_fail(key != NULL, NULL);
 
 	//XML Tree being used here.
-    gchar const *style = object->getRepr()->attribute("style");
+    gchar const *style = getRepr()->attribute("style");
     if (style) {
         size_t const len = strlen(key);
         char const *p;
@@ -1595,12 +1617,12 @@ sp_object_get_style_property(SPObject const *object, gchar const *key, gchar con
     }
 
 	//XML Tree being used here.
-    gchar const *val = object->getRepr()->attribute(key);
+    gchar const *val = getRepr()->attribute(key);
     if (val && !streq(val, "inherit")) {
         return val;
     }
-    if (object->parent) {
-        return sp_object_get_style_property(object->parent, key, def);
+    if (this->parent) {
+        return (this->parent)->getStyleProperty(key, def);
     }
 
     return def;
@@ -1626,11 +1648,11 @@ SPObject::_requireSVGVersion(Inkscape::Version version) {
  * Returns previous object in sibling list or NULL.
  */
 SPObject *
-sp_object_prev(SPObject *child)
+SPObject::prev()
 {
-    SPObject *parent = SP_OBJECT_PARENT(child);
+    SPObject *parent = SP_OBJECT_PARENT(this);
     for ( SPObject *i = parent->first_child(); i; i = SP_OBJECT_NEXT(i) ) {
-        if (SP_OBJECT_NEXT(i) == child)
+        if (SP_OBJECT_NEXT(i) == this)
             return i;
     }
     return NULL;

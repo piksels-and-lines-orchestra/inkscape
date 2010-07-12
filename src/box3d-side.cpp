@@ -99,7 +99,7 @@ box3d_side_build (SPObject * object, SPDocument * document, Inkscape::XML::Node 
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build (object, document, repr);
 
-    sp_object_read_attr(object, "inkscape:box3dsidetype");
+    object->readAttr( "inkscape:box3dsidetype");
 }
 
 static Inkscape::XML::Node *
@@ -184,6 +184,14 @@ box3d_side_update (SPObject *object, SPCtx *ctx, guint flags)
 
     if (((SPObjectClass *) parent_class)->update)
         ((SPObjectClass *) parent_class)->update (object, ctx, flags);
+}
+/*
+ * Function which return the type attribute for Box3D. 
+ * Acts as a replacement for directly accessing the XML Tree directly.
+ */
+long long int Box3DSide::getFaceId()
+{
+	    return this->getIntAttribute("inkscape:box3dsidetype", -1);
 }
 
 void

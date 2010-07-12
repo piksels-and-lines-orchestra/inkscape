@@ -230,7 +230,7 @@ sp_flowtext_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *r
         (* ((SPObjectClass *) (parent_class))->build)(object, document, repr);
     }
 
-    sp_object_read_attr(object, "inkscape:layoutOptions");     // must happen after css has been read
+    object->readAttr( "inkscape:layoutOptions");     // must happen after css has been read
 }
 
 static void

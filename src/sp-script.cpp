@@ -83,7 +83,7 @@ sp_script_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     }
 
     //Read values of key attributes from XML nodes into object.
-    sp_object_read_attr(object, "xlink:href");
+    object->readAttr( "xlink:href");
 
     document->add_resource("script", object);
 }

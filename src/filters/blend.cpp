@@ -103,8 +103,8 @@ sp_feBlend_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *re
     }
 
     /*LOAD ATTRIBUTES FROM REPR HERE*/
-    sp_object_read_attr(object, "mode");
-    sp_object_read_attr(object, "in2");
+    object->readAttr( "mode");
+    object->readAttr( "in2");
 
     /* Unlike normal in, in2 is required attribute. Make sure, we can call
      * it by some name. */
@@ -202,8 +202,8 @@ sp_feBlend_update(SPObject *object, SPCtx *ctx, guint flags)
     SPFeBlend *blend = SP_FEBLEND(object);
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
-        sp_object_read_attr(object, "mode");
-        sp_object_read_attr(object, "in2");
+        object->readAttr( "mode");
+        object->readAttr( "in2");
     }
 
     /* Unlike normal in, in2 is required attribute. Make sure, we can call

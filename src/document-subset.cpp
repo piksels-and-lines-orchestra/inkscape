@@ -60,7 +60,7 @@ struct DocumentSubset::Relations : public GC::Managed<GC::ATOMIC>,
 
                 while ( first != last ) {
                     Siblings::const_iterator mid = first + ( last - first + 1 ) / 2;
-                    int pos = sp_object_compare_position(*mid, obj);
+                    int pos = sp_object_compare_position(*mid,obj);
                     if ( pos < 0 ) {
                         first = mid;
                     } else if ( pos > 0 ) {
@@ -76,7 +76,7 @@ struct DocumentSubset::Relations : public GC::Managed<GC::ATOMIC>,
 
                 if ( first == last ) {
                     // compare to the single possiblity left
-                    int pos = sp_object_compare_position(*last, obj);
+                    int pos = sp_object_compare_position(*last,obj);
                     if ( pos < 0 ) {
                         last++;
                     }

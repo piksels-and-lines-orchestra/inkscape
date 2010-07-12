@@ -89,7 +89,7 @@ SPPolyLine::sp_polyline_build (SPObject * object, SPDocument * document, Inkscap
 	if (((SPObjectClass *) SPPolyLineClass::static_parent_class)->build)
 		((SPObjectClass *) SPPolyLineClass::static_parent_class)->build (object, document, repr);
 
-	sp_object_read_attr (object, "points");
+	object->readAttr( "points");
 }
 
 void

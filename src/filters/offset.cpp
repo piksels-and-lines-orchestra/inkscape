@@ -96,8 +96,8 @@ sp_feOffset_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *r
         ((SPObjectClass *) feOffset_parent_class)->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "dx");
-    sp_object_read_attr(object, "dy");
+    object->readAttr( "dx");
+    object->readAttr( "dy");
 }
 
 /**
@@ -151,8 +151,8 @@ static void
 sp_feOffset_update(SPObject *object, SPCtx *ctx, guint flags)
 {
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
-        sp_object_read_attr(object, "dx");
-        sp_object_read_attr(object, "dy");
+        object->readAttr( "dx");
+        object->readAttr( "dy");
     }
 
     if (((SPObjectClass *) feOffset_parent_class)->update) {

@@ -99,8 +99,8 @@ sp_filter_primitive_build(SPObject *object, SPDocument *document, Inkscape::XML:
         ((SPObjectClass *) filter_primitive_parent_class)->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "in");
-    sp_object_read_attr(object, "result");
+    object->readAttr( "in");
+    object->readAttr( "result");
 }
 
 /**
@@ -164,8 +164,8 @@ sp_filter_primitive_update(SPObject *object, SPCtx *ctx, guint flags)
     //SPFilterPrimitive *filter_primitive = SP_FILTER_PRIMITIVE(object);
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
-        sp_object_read_attr(object, "in");
-        sp_object_read_attr(object, "result");
+        object->readAttr( "in");
+        object->readAttr( "result");
     }
 
     if (((SPObjectClass *) filter_primitive_parent_class)->update) {

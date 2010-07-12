@@ -97,8 +97,8 @@ sp_feMorphology_build(SPObject *object, SPDocument *document, Inkscape::XML::Nod
     }
 
     /*LOAD ATTRIBUTES FROM REPR HERE*/
-    sp_object_read_attr(object, "operator");
-    sp_object_read_attr(object, "radius");
+    object->readAttr( "operator");
+    object->readAttr( "radius");
 }
 
 /**

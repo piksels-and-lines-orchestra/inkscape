@@ -449,7 +449,7 @@ sp_item_widget_label_changed( GtkWidget */*widget*/, SPWidget *spw )
         SPException ex;
         gtk_label_set_markup_with_mnemonic (GTK_LABEL (id_label), _("_Id"));
         SP_EXCEPTION_INIT (&ex);
-        sp_object_setAttribute (SP_OBJECT (item), "id", id, &ex);
+        SP_OBJECT (item)->setAttribute ("id", id, &ex);
         SPDocumentUndo::done (SP_ACTIVE_DOCUMENT, SP_VERB_DIALOG_ITEM,
                                 _("Set object ID"));
     }

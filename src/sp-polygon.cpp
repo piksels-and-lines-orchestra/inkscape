@@ -84,7 +84,7 @@ static void sp_polygon_build(SPObject *object, SPDocument *document, Inkscape::X
         ((SPObjectClass *) parent_class)->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "points");
+    object->readAttr( "points");
 }
 
 

@@ -82,11 +82,11 @@ static void sp_missing_glyph_build(SPObject *object, SPDocument *document, Inksc
         ((SPObjectClass *) (parent_class))->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "d");
-    sp_object_read_attr(object, "horiz-adv-x");
-    sp_object_read_attr(object, "vert-origin-x");
-    sp_object_read_attr(object, "vert-origin-y");
-    sp_object_read_attr(object, "vert-adv-y");
+    object->readAttr( "d");
+    object->readAttr( "horiz-adv-x");
+    object->readAttr( "vert-origin-x");
+    object->readAttr( "vert-origin-y");
+    object->readAttr( "vert-adv-y");
 }
 
 static void sp_missing_glyph_release(SPObject *object)

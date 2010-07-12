@@ -154,12 +154,12 @@ sp_tref_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
         ((SPObjectClass *) tref_parent_class)->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "xlink:href");
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "dx");
-    sp_object_read_attr(object, "dy");
-    sp_object_read_attr(object, "rotate");
+    object->readAttr( "xlink:href");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "dx");
+    object->readAttr( "dy");
+    object->readAttr( "rotate");
 }
 
 /**

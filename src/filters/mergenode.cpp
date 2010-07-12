@@ -84,7 +84,7 @@ sp_feMergeNode_init(SPFeMergeNode *feMergeNode)
 static void
 sp_feMergeNode_build(SPObject *object, SPDocument */*document*/, Inkscape::XML::Node */*repr*/)
 {
-    sp_object_read_attr(object, "in");
+    object->readAttr( "in");
 }
 
 /**

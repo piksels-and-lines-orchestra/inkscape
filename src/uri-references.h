@@ -18,6 +18,7 @@
 
 #include "bad-uri-exception.h"
 #include "forward.h"
+#include "sp-object.h"
 
 namespace Inkscape {
 

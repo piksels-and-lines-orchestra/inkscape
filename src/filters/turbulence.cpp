@@ -100,11 +100,11 @@ sp_feTurbulence_build(SPObject *object, SPDocument *document, Inkscape::XML::Nod
     }
 
     /*LOAD ATTRIBUTES FROM REPR HERE*/
-    sp_object_read_attr(object, "baseFrequency");
-    sp_object_read_attr(object, "numOctaves");
-    sp_object_read_attr(object, "seed");
-    sp_object_read_attr(object, "stitchTiles");
-    sp_object_read_attr(object, "type");
+    object->readAttr( "baseFrequency");
+    object->readAttr( "numOctaves");
+    object->readAttr( "seed");
+    object->readAttr( "stitchTiles");
+    object->readAttr( "type");
 }
 
 /**

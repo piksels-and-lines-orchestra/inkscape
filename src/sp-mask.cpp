@@ -104,8 +104,8 @@ sp_mask_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *repr
 		((SPObjectClass *) parent_class)->build (object, document, repr);
 	}
 
-	sp_object_read_attr (object, "maskUnits");
-	sp_object_read_attr (object, "maskContentUnits");
+	object->readAttr( "maskUnits");
+	object->readAttr( "maskContentUnits");
 
 	/* Register ourselves */
 	document->add_resource ("mask", object);

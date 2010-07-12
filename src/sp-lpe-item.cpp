@@ -137,7 +137,7 @@ sp_lpe_item_finalize(GObject *object)
 static void
 sp_lpe_item_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
 {
-    sp_object_read_attr(object, "inkscape:path-effect");
+    object->readAttr( "inkscape:path-effect");
 
     if (((SPObjectClass *) parent_class)->build) {
         ((SPObjectClass *) parent_class)->build(object, document, repr);

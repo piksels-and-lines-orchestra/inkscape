@@ -104,7 +104,7 @@ LivePathEffectObject::livepatheffect_build(SPObject *object, SPDocument *documen
     if (((SPObjectClass *) livepatheffect_parent_class)->build)
         (* ((SPObjectClass *) livepatheffect_parent_class)->build)(object, document, repr);
 
-    sp_object_read_attr(object, "effect");
+    object->readAttr( "effect");
 
     if (repr) {
         repr->addListener (&livepatheffect_repr_events, object);

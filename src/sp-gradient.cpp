@@ -141,10 +141,10 @@ static void sp_stop_build(SPObject *object, SPDocument *document, Inkscape::XML:
     if (((SPObjectClass *) stop_parent_class)->build)
         (* ((SPObjectClass *) stop_parent_class)->build)(object, document, repr);
 
-    sp_object_read_attr(object, "offset");
-    sp_object_read_attr(object, "stop-color");
-    sp_object_read_attr(object, "stop-opacity");
-    sp_object_read_attr(object, "style");
+    object->readAttr( "offset");
+    object->readAttr( "stop-color");
+    object->readAttr( "stop-opacity");
+    object->readAttr( "style");
 }
 
 /**
@@ -168,7 +168,7 @@ sp_stop_set(SPObject *object, unsigned key, gchar const *value)
          * stop-color and stop-opacity properties.
          */
             {
-                gchar const *p = sp_object_get_style_property(object, "stop-color", "black");
+                gchar const *p = object->getStyleProperty( "stop-color", "black");
                 if (streq(p, "currentColor")) {
                     stop->currentColor = true;
                 } else {
@@ -177,7 +177,7 @@ sp_stop_set(SPObject *object, unsigned key, gchar const *value)
                 }
             }
             {
-                gchar const *p = sp_object_get_style_property(object, "stop-opacity", "1");
+                gchar const *p = object->getStyleProperty( "stop-opacity", "1");
                 gdouble opacity = sp_svg_read_percentage(p, stop->opacity);
                 stop->opacity = opacity;
             }
@@ -186,7 +186,7 @@ sp_stop_set(SPObject *object, unsigned key, gchar const *value)
         }
         case SP_PROP_STOP_COLOR: {
             {
-                gchar const *p = sp_object_get_style_property(object, "stop-color", "black");
+                gchar const *p = object->getStyleProperty( "stop-color", "black");
                 if (streq(p, "currentColor")) {
                     stop->currentColor = true;
                 } else {
@@ -200,7 +200,7 @@ sp_stop_set(SPObject *object, unsigned key, gchar const *value)
         }
         case SP_PROP_STOP_OPACITY: {
             {
-                gchar const *p = sp_object_get_style_property(object, "stop-opacity", "1");
+                gchar const *p = object->getStyleProperty( "stop-opacity", "1");
                 gdouble opacity = sp_svg_read_percentage(p, stop->opacity);
                 stop->opacity = opacity;
             }
@@ -299,7 +299,7 @@ sp_stop_get_rgba32(SPStop const *const stop)
      * value depends on user agent, and don't give any further restrictions that I can
      * see.) */
     if (stop->currentColor) {
-        char const *str = sp_object_get_style_property(stop, "color", NULL);
+        char const *str = stop->getStyleProperty( "color", NULL);
         if (str) {
             rgb0 = sp_svg_read_color(str, rgb0);
         }
@@ -319,7 +319,7 @@ static SPColor
 sp_stop_get_color(SPStop const *const stop)
 {
     if (stop->currentColor) {
-        char const *str = sp_object_get_style_property(stop, "color", NULL);
+        char const *str = stop->getStyleProperty( "color", NULL);
         guint32 const dfl = 0;
         /* Default value: arbitrarily black.  (SVG1.1 and CSS2 both say that the initial
          * value depends on user agent, and don't give any further restrictions that I can
@@ -433,10 +433,10 @@ void SPGradientImpl::build(SPObject *object, SPDocument *document, Inkscape::XML
         }
     }
 
-    sp_object_read_attr(object, "gradientUnits");
-    sp_object_read_attr(object, "gradientTransform");
-    sp_object_read_attr(object, "spreadMethod");
-    sp_object_read_attr(object, "xlink:href");
+    object->readAttr( "gradientUnits");
+    object->readAttr( "gradientTransform");
+    object->readAttr( "spreadMethod");
+    object->readAttr( "xlink:href");
 
     /* Register ourselves */
     document->add_resource("gradient", object);
@@ -1492,10 +1492,10 @@ static void sp_lineargradient_build(SPObject *object,
     if (((SPObjectClass *) lg_parent_class)->build)
         (* ((SPObjectClass *) lg_parent_class)->build)(object, document, repr);
 
-    sp_object_read_attr(object, "x1");
-    sp_object_read_attr(object, "y1");
-    sp_object_read_attr(object, "x2");
-    sp_object_read_attr(object, "y2");
+    object->readAttr( "x1");
+    object->readAttr( "y1");
+    object->readAttr( "x2");
+    object->readAttr( "y2");
 }
 
 /**
@@ -1769,11 +1769,11 @@ sp_radialgradient_build(SPObject *object, SPDocument *document, Inkscape::XML::N
     if (((SPObjectClass *) rg_parent_class)->build)
         (* ((SPObjectClass *) rg_parent_class)->build)(object, document, repr);
 
-    sp_object_read_attr(object, "cx");
-    sp_object_read_attr(object, "cy");
-    sp_object_read_attr(object, "r");
-    sp_object_read_attr(object, "fx");
-    sp_object_read_attr(object, "fy");
+    object->readAttr( "cx");
+    object->readAttr( "cy");
+    object->readAttr( "r");
+    object->readAttr( "fx");
+    object->readAttr( "fy");
 }
 
 /**

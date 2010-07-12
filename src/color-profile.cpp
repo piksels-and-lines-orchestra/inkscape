@@ -247,10 +247,10 @@ void ColorProfile::build( SPObject *object, SPDocument *document, Inkscape::XML:
     if (cprof_parent_class->build) {
         (* cprof_parent_class->build)(object, document, repr);
     }
-    sp_object_read_attr( object, "xlink:href" );
-    sp_object_read_attr( object, "local" );
-    sp_object_read_attr( object, "name" );
-    sp_object_read_attr( object, "rendering-intent" );
+    object->readAttr( "xlink:href" );
+    object->readAttr( "local" );
+    object->readAttr( "name" );
+    object->readAttr( "rendering-intent" );
 
     // Register
     if ( document ) {

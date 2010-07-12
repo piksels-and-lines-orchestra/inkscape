@@ -97,10 +97,10 @@ sp_feDisplacementMap_build(SPObject *object, SPDocument *document, Inkscape::XML
     }
 
     /*LOAD ATTRIBUTES FROM REPR HERE*/
-    sp_object_read_attr(object, "scale");
-    sp_object_read_attr(object, "in2");
-    sp_object_read_attr(object, "xChannelSelector");
-    sp_object_read_attr(object, "yChannelSelector");
+    object->readAttr( "scale");
+    object->readAttr( "in2");
+    object->readAttr( "xChannelSelector");
+    object->readAttr( "yChannelSelector");
 
     /* Unlike normal in, in2 is required attribute. Make sure, we can call
      * it by some name. */

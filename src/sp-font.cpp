@@ -101,12 +101,12 @@ static void sp_font_build(SPObject *object, SPDocument *document, Inkscape::XML:
         ((SPObjectClass *) (parent_class))->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "horiz-origin-x");
-    sp_object_read_attr(object, "horiz-origin-y");
-    sp_object_read_attr(object, "horiz-adv-x");
-    sp_object_read_attr(object, "vert-origin-x");
-    sp_object_read_attr(object, "vert-origin-y");
-    sp_object_read_attr(object, "vert-adv-y");
+    object->readAttr( "horiz-origin-x");
+    object->readAttr( "horiz-origin-y");
+    object->readAttr( "horiz-adv-x");
+    object->readAttr( "vert-origin-x");
+    object->readAttr( "vert-origin-y");
+    object->readAttr( "vert-adv-y");
 
     document->add_resource("font", object);
 }
@@ -232,12 +232,12 @@ static void
 sp_font_update(SPObject *object, SPCtx *ctx, guint flags)
 {
     if (flags & (SP_OBJECT_MODIFIED_FLAG)) {
-        sp_object_read_attr(object, "horiz-origin-x");
-        sp_object_read_attr(object, "horiz-origin-y");
-        sp_object_read_attr(object, "horiz-adv-x");
-        sp_object_read_attr(object, "vert-origin-x");
-        sp_object_read_attr(object, "vert-origin-y");
-        sp_object_read_attr(object, "vert-adv-y");
+        object->readAttr( "horiz-origin-x");
+        object->readAttr( "horiz-origin-y");
+        object->readAttr( "horiz-adv-x");
+        object->readAttr( "vert-origin-x");
+        object->readAttr( "vert-origin-y");
+        object->readAttr( "vert-adv-y");
     }
 
     if (((SPObjectClass *) parent_class)->update) {

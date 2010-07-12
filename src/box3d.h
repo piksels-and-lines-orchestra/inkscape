@@ -29,7 +29,8 @@ class Box3DSide;
 class Persp3D;
 class Persp3DReference;
 
-struct SPBox3D : public SPGroup {
+class SPBox3D : public SPGroup {
+	public:
     gint z_orders[6]; // z_orders[i] holds the ID of the face at position #i in the group (from top to bottom)
 
     gchar *persp_href;
@@ -46,7 +47,8 @@ struct SPBox3D : public SPGroup {
     gint my_counter; // for debugging only
 };
 
-struct SPBox3DClass {
+class SPBox3DClass {
+	public:
     SPGroupClass parent_class;
 };
 

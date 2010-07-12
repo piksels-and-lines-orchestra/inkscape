@@ -160,11 +160,11 @@ sp_use_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
         (* ((SPObjectClass *) parent_class)->build)(object, document, repr);
     }
 
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "width");
-    sp_object_read_attr(object, "height");
-    sp_object_read_attr(object, "xlink:href");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "width");
+    object->readAttr( "height");
+    object->readAttr( "xlink:href");
 
     // We don't need to create child here:
     // reading xlink:href will attach ref, and that will cause the changed signal to be emitted,
@@ -492,7 +492,7 @@ sp_use_move_compensate(Geom::Matrix const *mp, SPItem */*original*/, SPUse *self
         return;
 
     // restore item->transform field from the repr, in case it was changed by seltrans
-    sp_object_read_attr (SP_OBJECT (self), "transform");
+    SP_OBJECT (self)->readAttr ("transform");
 
     Geom::Matrix t = sp_use_get_parent_transform(self);
     Geom::Matrix clone_move = t.inverse() * m * t;

@@ -31,6 +31,7 @@ struct Box3DSide : public SPPolygon {
     Box3D::Axis dir1;
     Box3D::Axis dir2;
     Box3D::FrontOrRear front_or_rear;
+	long long int getFaceId();
 };
 
 struct Box3DSideClass {

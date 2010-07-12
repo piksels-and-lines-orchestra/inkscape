@@ -110,11 +110,11 @@ static void sp_glyph_kerning_build(SPObject *object, SPDocument *document, Inksc
         ((SPObjectClass *) (parent_class))->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "u1");
-    sp_object_read_attr(object, "g1");
-    sp_object_read_attr(object, "u2");
-    sp_object_read_attr(object, "g2");
-    sp_object_read_attr(object, "k");
+    object->readAttr( "u1");
+    object->readAttr( "g1");
+    object->readAttr( "u2");
+    object->readAttr( "g2");
+    object->readAttr( "k");
 }
 
 static void sp_glyph_kerning_release(SPObject *object)
@@ -216,10 +216,10 @@ sp_glyph_kerning_update(SPObject *object, SPCtx *ctx, guint flags)
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         /* do something to trigger redisplay, updates? */
-            sp_object_read_attr(object, "u1");
-            sp_object_read_attr(object, "u2");
-            sp_object_read_attr(object, "g2");
-            sp_object_read_attr(object, "k");
+            object->readAttr( "u1");
+            object->readAttr( "u2");
+            object->readAttr( "g2");
+            object->readAttr( "k");
     }
 
     if (((SPObjectClass *) parent_class)->update) {

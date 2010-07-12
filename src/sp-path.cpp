@@ -214,10 +214,10 @@ static void
 sp_path_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
 {
     /* Are these calls actually necessary? */
-    sp_object_read_attr(object, "marker");
-    sp_object_read_attr(object, "marker-start");
-    sp_object_read_attr(object, "marker-mid");
-    sp_object_read_attr(object, "marker-end");
+    object->readAttr( "marker");
+    object->readAttr( "marker-start");
+    object->readAttr( "marker-mid");
+    object->readAttr( "marker-end");
 
     sp_conn_end_pair_build(object);
 
@@ -225,13 +225,13 @@ sp_path_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
         ((SPObjectClass *) parent_class)->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "inkscape:original-d");
-    sp_object_read_attr(object, "d");
+    object->readAttr( "inkscape:original-d");
+    object->readAttr( "d");
 
     /* d is a required attribute */
-    gchar const *d = sp_object_getAttribute(object, "d", NULL);
+    gchar const *d = object->getAttribute("d", NULL);
     if (d == NULL) {
-        sp_object_set(object, sp_attribute_lookup("d"), "");
+        object->setKeyValue( sp_attribute_lookup("d"), "");
     }
 }
 

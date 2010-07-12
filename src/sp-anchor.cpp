@@ -89,14 +89,14 @@ static void sp_anchor_build(SPObject *object, SPDocument *document, Inkscape::XM
         ((SPObjectClass *) (parent_class))->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "xlink:type");
-    sp_object_read_attr(object, "xlink:role");
-    sp_object_read_attr(object, "xlink:arcrole");
-    sp_object_read_attr(object, "xlink:title");
-    sp_object_read_attr(object, "xlink:show");
-    sp_object_read_attr(object, "xlink:actuate");
-    sp_object_read_attr(object, "xlink:href");
-    sp_object_read_attr(object, "target");
+    object->readAttr( "xlink:type");
+    object->readAttr( "xlink:role");
+    object->readAttr( "xlink:arcrole");
+    object->readAttr( "xlink:title");
+    object->readAttr( "xlink:show");
+    object->readAttr( "xlink:actuate");
+    object->readAttr( "xlink:href");
+    object->readAttr( "target");
 }
 
 static void sp_anchor_release(SPObject *object)

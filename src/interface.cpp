@@ -1231,7 +1231,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                             g_free(str);
                             str = 0;
 
-                            sp_object_setAttribute( SP_OBJECT(item),
+                            SP_OBJECT(item)->setAttribute( 
                                                     fillnotstroke ? "inkscape:x-fill-tag":"inkscape:x-stroke-tag",
                                                     palName.c_str(),
                                                     false );

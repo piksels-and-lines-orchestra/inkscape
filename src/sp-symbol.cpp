@@ -110,8 +110,8 @@ sp_symbol_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *re
     group = (SPGroup *) object;
     symbol = (SPSymbol *) object;
 
-    sp_object_read_attr (object, "viewBox");
-    sp_object_read_attr (object, "preserveAspectRatio");
+    object->readAttr( "viewBox");
+    object->readAttr( "preserveAspectRatio");
 
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build (object, document, repr);

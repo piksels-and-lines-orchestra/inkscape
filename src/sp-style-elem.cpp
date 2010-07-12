@@ -390,8 +390,8 @@ sp_style_elem_build(SPObject *object, SPDocument *document, Inkscape::XML::Node 
 {
     sp_style_elem_read_content(object);
 
-    sp_object_read_attr(object, "type");
-    sp_object_read_attr(object, "media");
+    object->readAttr( "type");
+    object->readAttr( "media");
 
     static Inkscape::XML::NodeEventVector const nodeEventVector = {
         child_add_rm_cb,   // child_added

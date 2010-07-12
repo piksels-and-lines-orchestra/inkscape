@@ -17,6 +17,7 @@
 #include "display/display-forward.h"
 #include "libnr/nr-point.h"
 #include "forward.h"
+#include "sp-object.h"
 #include "message.h"
 #include "ui/view/view-widget.h"
 #include "ui/view/edit-widget-interface.h"

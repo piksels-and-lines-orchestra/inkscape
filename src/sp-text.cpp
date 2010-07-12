@@ -149,16 +149,16 @@ sp_text_release (SPObject *object)
 static void
 sp_text_build (SPObject *object, SPDocument *doc, Inkscape::XML::Node *repr)
 {
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "dx");
-    sp_object_read_attr(object, "dy");
-    sp_object_read_attr(object, "rotate");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "dx");
+    object->readAttr( "dy");
+    object->readAttr( "rotate");
 
     if (((SPObjectClass *) text_parent_class)->build)
         ((SPObjectClass *) text_parent_class)->build(object, doc, repr);
 
-    sp_object_read_attr(object, "sodipodi:linespacing");    // has to happen after the styles are read
+    object->readAttr( "sodipodi:linespacing");    // has to happen after the styles are read
 }
 
 static void

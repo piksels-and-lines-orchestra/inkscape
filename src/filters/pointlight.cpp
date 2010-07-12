@@ -104,9 +104,9 @@ sp_fepointlight_build(SPObject *object, SPDocument *document, Inkscape::XML::Nod
     }
 
     //Read values of key attributes from XML nodes into object.
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "z");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "z");
 
 //is this necessary?
     document->add_resource("fepointlight", object);
@@ -211,9 +211,9 @@ sp_fepointlight_update(SPObject *object, SPCtx *ctx, guint flags)
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         /* do something to trigger redisplay, updates? */
-        sp_object_read_attr(object, "x");
-        sp_object_read_attr(object, "y");
-        sp_object_read_attr(object, "z");
+        object->readAttr( "x");
+        object->readAttr( "y");
+        object->readAttr( "z");
     }
 
     if (((SPObjectClass *) fePointLight_parent_class)->update) {

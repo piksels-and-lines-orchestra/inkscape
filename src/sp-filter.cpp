@@ -136,14 +136,14 @@ sp_filter_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     }
 
     //Read values of key attributes from XML nodes into object.
-    sp_object_read_attr(object, "filterUnits");
-    sp_object_read_attr(object, "primitiveUnits");
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "width");
-    sp_object_read_attr(object, "height");
-    sp_object_read_attr(object, "filterRes");
-    sp_object_read_attr(object, "xlink:href");
+    object->readAttr( "filterUnits");
+    object->readAttr( "primitiveUnits");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "width");
+    object->readAttr( "height");
+    object->readAttr( "filterRes");
+    object->readAttr( "xlink:href");
 
 //is this necessary?
     document->add_resource("filter", object);

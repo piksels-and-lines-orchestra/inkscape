@@ -101,14 +101,14 @@ sp_feComposite_build(SPObject *object, SPDocument *document, Inkscape::XML::Node
 
     SPFeComposite *comp = SP_FECOMPOSITE(object);
 
-    sp_object_read_attr(object, "operator");
+    object->readAttr( "operator");
     if (comp->composite_operator == COMPOSITE_ARITHMETIC) {
-        sp_object_read_attr(object, "k1");
-        sp_object_read_attr(object, "k2");
-        sp_object_read_attr(object, "k3");
-        sp_object_read_attr(object, "k4");
+        object->readAttr( "k1");
+        object->readAttr( "k2");
+        object->readAttr( "k3");
+        object->readAttr( "k4");
     }
-    sp_object_read_attr(object, "in2");
+    object->readAttr( "in2");
 
     /* Unlike normal in, in2 is required attribute. Make sure, we can call
      * it by some name. */

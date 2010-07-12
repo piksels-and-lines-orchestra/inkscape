@@ -129,13 +129,13 @@ sp_spiral_build (SPObject * object, SPDocument * document, Inkscape::XML::Node *
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build (object, document, repr);
 
-    sp_object_read_attr (object, "sodipodi:cx");
-    sp_object_read_attr (object, "sodipodi:cy");
-    sp_object_read_attr (object, "sodipodi:expansion");
-    sp_object_read_attr (object, "sodipodi:revolution");
-    sp_object_read_attr (object, "sodipodi:radius");
-    sp_object_read_attr (object, "sodipodi:argument");
-    sp_object_read_attr (object, "sodipodi:t0");
+    object->readAttr( "sodipodi:cx");
+    object->readAttr( "sodipodi:cy");
+    object->readAttr( "sodipodi:expansion");
+    object->readAttr( "sodipodi:revolution");
+    object->readAttr( "sodipodi:radius");
+    object->readAttr( "sodipodi:argument");
+    object->readAttr( "sodipodi:t0");
 }
 
 /**

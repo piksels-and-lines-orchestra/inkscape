@@ -90,16 +90,16 @@ static void sp_glyph_build(SPObject *object, SPDocument *document, Inkscape::XML
         ((SPObjectClass *) (parent_class))->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "unicode");
-    sp_object_read_attr(object, "glyph-name");
-    sp_object_read_attr(object, "d");
-    sp_object_read_attr(object, "orientation");
-    sp_object_read_attr(object, "arabic-form");
-    sp_object_read_attr(object, "lang");
-    sp_object_read_attr(object, "horiz-adv-x");
-    sp_object_read_attr(object, "vert-origin-x");
-    sp_object_read_attr(object, "vert-origin-y");
-    sp_object_read_attr(object, "vert-adv-y");
+    object->readAttr( "unicode");
+    object->readAttr( "glyph-name");
+    object->readAttr( "d");
+    object->readAttr( "orientation");
+    object->readAttr( "arabic-form");
+    object->readAttr( "lang");
+    object->readAttr( "horiz-adv-x");
+    object->readAttr( "vert-origin-x");
+    object->readAttr( "vert-origin-y");
+    object->readAttr( "vert-adv-y");
 }
 
 static void sp_glyph_release(SPObject *object)
@@ -250,16 +250,16 @@ sp_glyph_update(SPObject *object, SPCtx *ctx, guint flags)
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         /* do something to trigger redisplay, updates? */
-            sp_object_read_attr(object, "unicode");
-            sp_object_read_attr(object, "glyph-name");
-            sp_object_read_attr(object, "d");
-            sp_object_read_attr(object, "orientation");
-            sp_object_read_attr(object, "arabic-form");
-            sp_object_read_attr(object, "lang");
-            sp_object_read_attr(object, "horiz-adv-x");
-            sp_object_read_attr(object, "vert-origin-x");
-            sp_object_read_attr(object, "vert-origin-y");
-            sp_object_read_attr(object, "vert-adv-y");
+            object->readAttr( "unicode");
+            object->readAttr( "glyph-name");
+            object->readAttr( "d");
+            object->readAttr( "orientation");
+            object->readAttr( "arabic-form");
+            object->readAttr( "lang");
+            object->readAttr( "horiz-adv-x");
+            object->readAttr( "vert-origin-x");
+            object->readAttr( "vert-origin-y");
+            object->readAttr( "vert-adv-y");
     }
 
     if (((SPObjectClass *) parent_class)->update) {

@@ -1374,7 +1374,7 @@ void sp_selection_apply_affine(Inkscape::Selection *selection, Geom::Matrix cons
          * Same for linked offset if we are also moving its source: do not move it. */
         if (transform_textpath_with_path || transform_offset_with_source) {
             // Restore item->transform field from the repr, in case it was changed by seltrans.
-            sp_object_read_attr(SP_OBJECT(item), "transform");
+            SP_OBJECT(item)->readAttr( "transform");
         } else if (transform_flowtext_with_frame) {
             // apply the inverse of the region's transform to the <use> so that the flow remains
             // the same (even though the output itself gets transformed)
@@ -1392,7 +1392,7 @@ void sp_selection_apply_affine(Inkscape::Selection *selection, Geom::Matrix cons
             // transform and its move compensation are both cancelled out.
 
             // restore item->transform field from the repr, in case it was changed by seltrans
-            sp_object_read_attr(SP_OBJECT(item), "transform");
+            SP_OBJECT(item)->readAttr( "transform");
 
             // calculate the matrix we need to apply to the clone to cancel its induced transform from its original
             Geom::Matrix parent2dt = SP_ITEM(SP_OBJECT_PARENT(item))->i2d_affine();

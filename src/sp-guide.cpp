@@ -158,8 +158,8 @@ static void sp_guide_build(SPObject *object, SPDocument *document, Inkscape::XML
         (* ((SPObjectClass *) (parent_class))->build)(object, document, repr);
     }
 
-    sp_object_read_attr(object, "orientation");
-    sp_object_read_attr(object, "position");
+    object->readAttr( "orientation");
+    object->readAttr( "position");
 }
 
 static void sp_guide_release(SPObject *object)

@@ -217,53 +217,53 @@ static void sp_namedview_build(SPObject *object, SPDocument *document, Inkscape:
         (* ((SPObjectClass *) (parent_class))->build)(object, document, repr);
     }
 
-    sp_object_read_attr(object, "inkscape:document-units");
-    sp_object_read_attr(object, "viewonly");
-    sp_object_read_attr(object, "showguides");
-    sp_object_read_attr(object, "showgrid");
-    sp_object_read_attr(object, "gridtolerance");
-    sp_object_read_attr(object, "guidetolerance");
-    sp_object_read_attr(object, "objecttolerance");
-    sp_object_read_attr(object, "guidecolor");
-    sp_object_read_attr(object, "guideopacity");
-    sp_object_read_attr(object, "guidehicolor");
-    sp_object_read_attr(object, "guidehiopacity");
-    sp_object_read_attr(object, "showborder");
-    sp_object_read_attr(object, "inkscape:showpageshadow");
-    sp_object_read_attr(object, "borderlayer");
-    sp_object_read_attr(object, "bordercolor");
-    sp_object_read_attr(object, "borderopacity");
-    sp_object_read_attr(object, "pagecolor");
-    sp_object_read_attr(object, "inkscape:pageopacity");
-    sp_object_read_attr(object, "inkscape:pageshadow");
-    sp_object_read_attr(object, "inkscape:zoom");
-    sp_object_read_attr(object, "inkscape:cx");
-    sp_object_read_attr(object, "inkscape:cy");
-    sp_object_read_attr(object, "inkscape:window-width");
-    sp_object_read_attr(object, "inkscape:window-height");
-    sp_object_read_attr(object, "inkscape:window-x");
-    sp_object_read_attr(object, "inkscape:window-y");
-    sp_object_read_attr(object, "inkscape:window-maximized");
-    sp_object_read_attr(object, "inkscape:snap-global");
-    sp_object_read_attr(object, "inkscape:snap-bbox");
-    sp_object_read_attr(object, "inkscape:snap-nodes");
-    sp_object_read_attr(object, "inkscape:snap-from-guide");
-    sp_object_read_attr(object, "inkscape:snap-center");
-    sp_object_read_attr(object, "inkscape:snap-smooth-nodes");
-    sp_object_read_attr(object, "inkscape:snap-midpoints");
-    sp_object_read_attr(object, "inkscape:snap-object-midpoints");
-    sp_object_read_attr(object, "inkscape:snap-bbox-edge-midpoints");
-    sp_object_read_attr(object, "inkscape:snap-bbox-midpoints");
-	sp_object_read_attr(object, "inkscape:snap-to-guides");
-	sp_object_read_attr(object, "inkscape:snap-grids");
-    sp_object_read_attr(object, "inkscape:snap-intersection-paths");
-    sp_object_read_attr(object, "inkscape:object-paths");
-    sp_object_read_attr(object, "inkscape:object-nodes");
-    sp_object_read_attr(object, "inkscape:bbox-paths");
-    sp_object_read_attr(object, "inkscape:bbox-nodes");
-    sp_object_read_attr(object, "inkscape:snap-page");
-    sp_object_read_attr(object, "inkscape:current-layer");
-    sp_object_read_attr(object, "inkscape:connector-spacing");
+    object->readAttr( "inkscape:document-units");
+    object->readAttr( "viewonly");
+    object->readAttr( "showguides");
+    object->readAttr( "showgrid");
+    object->readAttr( "gridtolerance");
+    object->readAttr( "guidetolerance");
+    object->readAttr( "objecttolerance");
+    object->readAttr( "guidecolor");
+    object->readAttr( "guideopacity");
+    object->readAttr( "guidehicolor");
+    object->readAttr( "guidehiopacity");
+    object->readAttr( "showborder");
+    object->readAttr( "inkscape:showpageshadow");
+    object->readAttr( "borderlayer");
+    object->readAttr( "bordercolor");
+    object->readAttr( "borderopacity");
+    object->readAttr( "pagecolor");
+    object->readAttr( "inkscape:pageopacity");
+    object->readAttr( "inkscape:pageshadow");
+    object->readAttr( "inkscape:zoom");
+    object->readAttr( "inkscape:cx");
+    object->readAttr( "inkscape:cy");
+    object->readAttr( "inkscape:window-width");
+    object->readAttr( "inkscape:window-height");
+    object->readAttr( "inkscape:window-x");
+    object->readAttr( "inkscape:window-y");
+    object->readAttr( "inkscape:window-maximized");
+    object->readAttr( "inkscape:snap-global");
+    object->readAttr( "inkscape:snap-bbox");
+    object->readAttr( "inkscape:snap-nodes");
+    object->readAttr( "inkscape:snap-from-guide");
+    object->readAttr( "inkscape:snap-center");
+    object->readAttr( "inkscape:snap-smooth-nodes");
+    object->readAttr( "inkscape:snap-midpoints");
+    object->readAttr( "inkscape:snap-object-midpoints");
+    object->readAttr( "inkscape:snap-bbox-edge-midpoints");
+    object->readAttr( "inkscape:snap-bbox-midpoints");
+	object->readAttr( "inkscape:snap-to-guides");
+	object->readAttr( "inkscape:snap-grids");
+    object->readAttr( "inkscape:snap-intersection-paths");
+    object->readAttr( "inkscape:object-paths");
+    object->readAttr( "inkscape:object-nodes");
+    object->readAttr( "inkscape:bbox-paths");
+    object->readAttr( "inkscape:bbox-nodes");
+    object->readAttr( "inkscape:snap-page");
+    object->readAttr( "inkscape:current-layer");
+    object->readAttr( "inkscape:connector-spacing");
 
     /* Construct guideline list */
     for (SPObject *o = SP_OBJECT(og)->first_child() ; o != NULL; o = SP_OBJECT_NEXT(o) ) {
@@ -920,7 +920,7 @@ gchar const *SPNamedView::getName() const
 {
     SPException ex;
     SP_EXCEPTION_INIT(&ex);
-    return sp_object_getAttribute(SP_OBJECT(this), "id", &ex);
+    return SP_OBJECT(this)->getAttribute("id", &ex);
 }
 
 guint SPNamedView::getViewCount()

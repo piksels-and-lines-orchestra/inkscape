@@ -104,10 +104,10 @@ SPLine::sp_line_build (SPObject * object, SPDocument * document, Inkscape::XML::
 		((SPObjectClass *) SPLineClass::static_parent_class)->build (object, document, repr);
         }
 
-	sp_object_read_attr (object, "x1");
-	sp_object_read_attr (object, "y1");
-	sp_object_read_attr (object, "x2");
-	sp_object_read_attr (object, "y2");
+	object->readAttr( "x1");
+	object->readAttr( "y1");
+	object->readAttr( "x2");
+	object->readAttr( "y2");
 }
 
 void

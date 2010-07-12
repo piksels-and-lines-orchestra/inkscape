@@ -145,7 +145,7 @@ sp_group_init (SPGroup *group)
 
 static void sp_group_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
 {
-    sp_object_read_attr(object, "inkscape:groupmode");
+    object->readAttr( "inkscape:groupmode");
 
     if (((SPObjectClass *)parent_class)->build) {
         ((SPObjectClass *)parent_class)->build(object, document, repr);

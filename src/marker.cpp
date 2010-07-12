@@ -141,14 +141,14 @@ sp_marker_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *re
 	group = (SPGroup *) object;
 	marker = (SPMarker *) object;
 
-	sp_object_read_attr (object, "markerUnits");
-	sp_object_read_attr (object, "refX");
-	sp_object_read_attr (object, "refY");
-	sp_object_read_attr (object, "markerWidth");
-	sp_object_read_attr (object, "markerHeight");
-	sp_object_read_attr (object, "orient");
-	sp_object_read_attr (object, "viewBox");
-	sp_object_read_attr (object, "preserveAspectRatio");
+	object->readAttr( "markerUnits");
+	object->readAttr( "refX");
+	object->readAttr( "refY");
+	object->readAttr( "markerWidth");
+	object->readAttr( "markerHeight");
+	object->readAttr( "orient");
+	object->readAttr( "viewBox");
+	object->readAttr( "preserveAspectRatio");
 
 	if (((SPObjectClass *) parent_class)->build)
 		((SPObjectClass *) parent_class)->build (object, document, repr);

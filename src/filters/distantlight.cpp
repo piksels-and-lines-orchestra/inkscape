@@ -101,8 +101,8 @@ sp_fedistantlight_build(SPObject *object, SPDocument *document, Inkscape::XML::N
     }
 
     //Read values of key attributes from XML nodes into object.
-    sp_object_read_attr(object, "azimuth");
-    sp_object_read_attr(object, "elevation");
+    object->readAttr( "azimuth");
+    object->readAttr( "elevation");
 
 //is this necessary?
     document->add_resource("fedistantlight", object);
@@ -189,8 +189,8 @@ sp_fedistantlight_update(SPObject *object, SPCtx *ctx, guint flags)
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         /* do something to trigger redisplay, updates? */
-        sp_object_read_attr(object, "azimuth");
-        sp_object_read_attr(object, "elevation");
+        object->readAttr( "azimuth");
+        object->readAttr( "elevation");
     }
 
     if (((SPObjectClass *) feDistantLight_parent_class)->update) {

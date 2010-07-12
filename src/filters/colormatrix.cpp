@@ -98,8 +98,8 @@ sp_feColorMatrix_build(SPObject *object, SPDocument *document, Inkscape::XML::No
     }
 
     /*LOAD ATTRIBUTES FROM REPR HERE*/
-    sp_object_read_attr(object, "type");
-    sp_object_read_attr(object, "values");
+    object->readAttr( "type");
+    object->readAttr( "values");
 }
 
 /**

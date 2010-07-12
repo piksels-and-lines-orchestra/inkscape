@@ -110,15 +110,15 @@ sp_feConvolveMatrix_build(SPObject *object, SPDocument *document, Inkscape::XML:
     }
 
     /*LOAD ATTRIBUTES FROM REPR HERE*/
-    sp_object_read_attr(object, "order");
-    sp_object_read_attr(object, "kernelMatrix");
-    sp_object_read_attr(object, "divisor");
-    sp_object_read_attr(object, "bias");
-    sp_object_read_attr(object, "targetX");
-    sp_object_read_attr(object, "targetY");
-    sp_object_read_attr(object, "edgeMode");
-    sp_object_read_attr(object, "kernelUnitLength");
-    sp_object_read_attr(object, "preserveAlpha");
+    object->readAttr( "order");
+    object->readAttr( "kernelMatrix");
+    object->readAttr( "divisor");
+    object->readAttr( "bias");
+    object->readAttr( "targetX");
+    object->readAttr( "targetY");
+    object->readAttr( "edgeMode");
+    object->readAttr( "kernelUnitLength");
+    object->readAttr( "preserveAlpha");
 }
 
 /**

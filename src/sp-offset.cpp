@@ -219,7 +219,7 @@ sp_offset_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
 
 	//XML Tree being used directly here while it shouldn't be.
     if (object->getRepr()->attribute("inkscape:radius")) {
-        sp_object_read_attr (object, "inkscape:radius");
+        object->readAttr( "inkscape:radius");
     } else {
 
 		
@@ -229,19 +229,19 @@ sp_offset_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
         object->getRepr()->setAttribute("inkscape:radius",oldA);
         object->getRepr()->setAttribute("sodipodi:radius",NULL);
 
-        sp_object_read_attr (object, "inkscape:radius");
+        object->readAttr( "inkscape:radius");
     }
     if (object->getRepr()->attribute("inkscape:original")) {
-        sp_object_read_attr (object, "inkscape:original");
+        object->readAttr( "inkscape:original");
     } else {
         gchar const *oldA = object->getRepr()->attribute("sodipodi:original");
         object->getRepr()->setAttribute("inkscape:original",oldA);
         object->getRepr()->setAttribute("sodipodi:original",NULL);
 
-        sp_object_read_attr (object, "inkscape:original");
+        object->readAttr( "inkscape:original");
     }
     if (object->getRepr()->attribute("xlink:href")) {
-        sp_object_read_attr(object, "xlink:href");
+        object->readAttr( "xlink:href");
     } else {
         gchar const *oldA = object->getRepr()->attribute("inkscape:href");
         if (oldA) {
@@ -254,7 +254,7 @@ sp_offset_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
             free(nA);
             object->getRepr()->setAttribute("inkscape:href",NULL);
         }
-        sp_object_read_attr (object, "xlink:href");
+        object->readAttr( "xlink:href");
     }
 }
 

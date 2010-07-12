@@ -113,12 +113,12 @@ sp_rect_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build(object, document, repr);
 
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "width");
-    sp_object_read_attr(object, "height");
-    sp_object_read_attr(object, "rx");
-    sp_object_read_attr(object, "ry");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "width");
+    object->readAttr( "height");
+    object->readAttr( "rx");
+    object->readAttr( "ry");
 }
 
 static void

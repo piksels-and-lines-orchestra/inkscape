@@ -133,12 +133,12 @@ sp_tspan_build(SPObject *object, SPDocument *doc, Inkscape::XML::Node *repr)
 {
     //SPTSpan *tspan = SP_TSPAN(object);
 	
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "dx");
-    sp_object_read_attr(object, "dy");
-    sp_object_read_attr(object, "rotate");
-    sp_object_read_attr(object, "sodipodi:role");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "dx");
+    object->readAttr( "dy");
+    object->readAttr( "rotate");
+    object->readAttr( "sodipodi:role");
 	
     if (((SPObjectClass *) tspan_parent_class)->build)
         ((SPObjectClass *) tspan_parent_class)->build(object, doc, repr);
@@ -392,13 +392,13 @@ sp_textpath_build(SPObject *object, SPDocument *doc, Inkscape::XML::Node *repr)
 {
     //SPTextPath *textpath = SP_TEXTPATH(object);
 	
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "dx");
-    sp_object_read_attr(object, "dy");
-    sp_object_read_attr(object, "rotate");
-    sp_object_read_attr(object, "startOffset");
-    sp_object_read_attr(object, "xlink:href");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "dx");
+    object->readAttr( "dy");
+    object->readAttr( "rotate");
+    object->readAttr( "startOffset");
+    object->readAttr( "xlink:href");
 	
     bool  no_content=true;
     for (Inkscape::XML::Node* rch = repr->firstChild() ; rch != NULL; rch = rch->next()) {

@@ -118,16 +118,16 @@ sp_star_build (SPObject * object, SPDocument * document, Inkscape::XML::Node * r
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build (object, document, repr);
 
-    sp_object_read_attr (object, "sodipodi:cx");
-    sp_object_read_attr (object, "sodipodi:cy");
-    sp_object_read_attr (object, "sodipodi:sides");
-    sp_object_read_attr (object, "sodipodi:r1");
-    sp_object_read_attr (object, "sodipodi:r2");
-    sp_object_read_attr (object, "sodipodi:arg1");
-    sp_object_read_attr (object, "sodipodi:arg2");
-    sp_object_read_attr (object, "inkscape:flatsided");
-    sp_object_read_attr (object, "inkscape:rounded");
-    sp_object_read_attr (object, "inkscape:randomized");
+    object->readAttr( "sodipodi:cx");
+    object->readAttr( "sodipodi:cy");
+    object->readAttr( "sodipodi:sides");
+    object->readAttr( "sodipodi:r1");
+    object->readAttr( "sodipodi:r2");
+    object->readAttr( "sodipodi:arg1");
+    object->readAttr( "sodipodi:arg2");
+    object->readAttr( "inkscape:flatsided");
+    object->readAttr( "inkscape:rounded");
+    object->readAttr( "inkscape:randomized");
 }
 
 static Inkscape::XML::Node *

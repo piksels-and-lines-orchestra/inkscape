@@ -637,13 +637,13 @@ sp_image_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
         ((SPObjectClass *) parent_class)->build (object, document, repr);
     }
 
-    sp_object_read_attr (object, "xlink:href");
-    sp_object_read_attr (object, "x");
-    sp_object_read_attr (object, "y");
-    sp_object_read_attr (object, "width");
-    sp_object_read_attr (object, "height");
-    sp_object_read_attr (object, "preserveAspectRatio");
-    sp_object_read_attr (object, "color-profile");
+    object->readAttr( "xlink:href");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "width");
+    object->readAttr( "height");
+    object->readAttr( "preserveAspectRatio");
+    object->readAttr( "color-profile");
 
     /* Register */
     document->add_resource ("image", object);

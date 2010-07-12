@@ -56,16 +56,16 @@ public:
         SPStyleElem *style_elem = static_cast<SPStyleElem *>(g_object_new(SP_TYPE_STYLE_ELEM, NULL));
         SP_OBJECT(style_elem)->document = _doc;
 
-        sp_object_set(SP_OBJECT(style_elem), SP_ATTR_TYPE, "something unrecognized");
+        SP_OBJECT(style_elem)->setKeyValue( SP_ATTR_TYPE, "something unrecognized");
         TS_ASSERT( !style_elem->is_css );
 
-        sp_object_set(SP_OBJECT(style_elem), SP_ATTR_TYPE, "text/css");
+        SP_OBJECT(style_elem)->setKeyValue( SP_ATTR_TYPE, "text/css");
         TS_ASSERT( style_elem->is_css );
 
-        sp_object_set(SP_OBJECT(style_elem), SP_ATTR_TYPE, "atext/css");
+        SP_OBJECT(style_elem)->setKeyValue( SP_ATTR_TYPE, "atext/css");
         TS_ASSERT( !style_elem->is_css );
 
-        sp_object_set(SP_OBJECT(style_elem), SP_ATTR_TYPE, "text/cssx");
+        SP_OBJECT(style_elem)->setKeyValue( SP_ATTR_TYPE, "text/cssx");
         TS_ASSERT( !style_elem->is_css );
 
         g_object_unref(style_elem);
@@ -82,7 +82,7 @@ public:
         SPStyleElem *style_elem = SP_STYLE_ELEM(g_object_new(SP_TYPE_STYLE_ELEM, NULL));
         SP_OBJECT(style_elem)->document = _doc;
 
-        sp_object_set(SP_OBJECT(style_elem), SP_ATTR_TYPE, "text/css");
+        SP_OBJECT(style_elem)->setKeyValue( SP_ATTR_TYPE, "text/css");
         Inkscape::XML::Node *repr = sp_document_repr_doc(_doc)->createElement("svg:style");
         SP_OBJECT(style_elem)->updateRepr(sp_document_repr_doc(_doc), repr, SP_OBJECT_WRITE_ALL);
         {

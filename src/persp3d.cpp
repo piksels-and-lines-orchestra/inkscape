@@ -116,10 +116,10 @@ static void persp3d_build(SPObject *object, SPDocument *document, Inkscape::XML:
 
     /* calls sp_object_set for the respective attributes */
     // The transformation matrix is updated according to the values we read for the VPs
-    sp_object_read_attr(object, "inkscape:vp_x");
-    sp_object_read_attr(object, "inkscape:vp_y");
-    sp_object_read_attr(object, "inkscape:vp_z");
-    sp_object_read_attr(object, "inkscape:persp3d-origin");
+    object->readAttr( "inkscape:vp_x");
+    object->readAttr( "inkscape:vp_y");
+    object->readAttr( "inkscape:vp_z");
+    object->readAttr( "inkscape:persp3d-origin");
 
     if (repr) {
         repr->addListener (&persp3d_repr_events, object);

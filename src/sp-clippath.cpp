@@ -104,7 +104,7 @@ sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *r
     if (((SPObjectClass *) parent_class)->build)
         ((SPObjectClass *) parent_class)->build(object, document, repr);
 
-    sp_object_read_attr(object, "clipPathUnits");
+    object->readAttr( "clipPathUnits");
 
     /* Register ourselves */
     document->add_resource("clipPath", object);

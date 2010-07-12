@@ -114,14 +114,14 @@ sp_fespotlight_build(SPObject *object, SPDocument *document, Inkscape::XML::Node
     }
 
     //Read values of key attributes from XML nodes into object.
-    sp_object_read_attr(object, "x");
-    sp_object_read_attr(object, "y");
-    sp_object_read_attr(object, "z");
-    sp_object_read_attr(object, "pointsAtX");
-    sp_object_read_attr(object, "pointsAtY");
-    sp_object_read_attr(object, "pointsAtZ");
-    sp_object_read_attr(object, "specularExponent");
-    sp_object_read_attr(object, "limitingConeAngle");
+    object->readAttr( "x");
+    object->readAttr( "y");
+    object->readAttr( "z");
+    object->readAttr( "pointsAtX");
+    object->readAttr( "pointsAtY");
+    object->readAttr( "pointsAtZ");
+    object->readAttr( "specularExponent");
+    object->readAttr( "limitingConeAngle");
 
 //is this necessary?
     document->add_resource("fespotlight", object);
@@ -309,14 +309,14 @@ sp_fespotlight_update(SPObject *object, SPCtx *ctx, guint flags)
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         /* do something to trigger redisplay, updates? */
-        sp_object_read_attr(object, "x");
-        sp_object_read_attr(object, "y");
-        sp_object_read_attr(object, "z");
-        sp_object_read_attr(object, "pointsAtX");
-        sp_object_read_attr(object, "pointsAtY");
-        sp_object_read_attr(object, "pointsAtZ");
-        sp_object_read_attr(object, "specularExponent");
-        sp_object_read_attr(object, "limitingConeAngle");
+        object->readAttr( "x");
+        object->readAttr( "y");
+        object->readAttr( "z");
+        object->readAttr( "pointsAtX");
+        object->readAttr( "pointsAtY");
+        object->readAttr( "pointsAtZ");
+        object->readAttr( "specularExponent");
+        object->readAttr( "limitingConeAngle");
     }
 
     if (((SPObjectClass *) feSpotLight_parent_class)->update) {

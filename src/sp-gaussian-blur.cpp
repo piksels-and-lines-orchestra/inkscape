@@ -100,7 +100,7 @@ sp_gaussianBlur_build(SPObject *object, SPDocument *document, Inkscape::XML::Nod
         ((SPObjectClass *) gaussianBlur_parent_class)->build(object, document, repr);
     }
 
-    sp_object_read_attr(object, "stdDeviation");
+    object->readAttr( "stdDeviation");
 
 }
 
@@ -143,7 +143,7 @@ static void
 sp_gaussianBlur_update(SPObject *object, SPCtx *ctx, guint flags)
 {
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
-        sp_object_read_attr(object, "stdDeviation");
+        object->readAttr( "stdDeviation");
     }
 
     if (((SPObjectClass *) gaussianBlur_parent_class)->update) {

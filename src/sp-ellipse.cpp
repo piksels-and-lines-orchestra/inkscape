@@ -433,10 +433,10 @@ sp_ellipse_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *re
     if (((SPObjectClass *) ellipse_parent_class)->build)
         (* ((SPObjectClass *) ellipse_parent_class)->build) (object, document, repr);
 
-    sp_object_read_attr(object, "cx");
-    sp_object_read_attr(object, "cy");
-    sp_object_read_attr(object, "rx");
-    sp_object_read_attr(object, "ry");
+    object->readAttr( "cx");
+    object->readAttr( "cy");
+    object->readAttr( "rx");
+    object->readAttr( "ry");
 }
 
 static Inkscape::XML::Node *
@@ -581,9 +581,9 @@ sp_circle_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     if (((SPObjectClass *) circle_parent_class)->build)
         (* ((SPObjectClass *) circle_parent_class)->build)(object, document, repr);
 
-    sp_object_read_attr(object, "cx");
-    sp_object_read_attr(object, "cy");
-    sp_object_read_attr(object, "r");
+    object->readAttr( "cx");
+    object->readAttr( "cy");
+    object->readAttr( "r");
 }
 
 static Inkscape::XML::Node *
@@ -706,14 +706,14 @@ sp_arc_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
     if (((SPObjectClass *) arc_parent_class)->build)
         (* ((SPObjectClass *) arc_parent_class)->build) (object, document, repr);
 
-    sp_object_read_attr(object, "sodipodi:cx");
-    sp_object_read_attr(object, "sodipodi:cy");
-    sp_object_read_attr(object, "sodipodi:rx");
-    sp_object_read_attr(object, "sodipodi:ry");
+    object->readAttr( "sodipodi:cx");
+    object->readAttr( "sodipodi:cy");
+    object->readAttr( "sodipodi:rx");
+    object->readAttr( "sodipodi:ry");
 
-    sp_object_read_attr(object, "sodipodi:start");
-    sp_object_read_attr(object, "sodipodi:end");
-    sp_object_read_attr(object, "sodipodi:open");
+    object->readAttr( "sodipodi:start");
+    object->readAttr( "sodipodi:end");
+    object->readAttr( "sodipodi:open");
 }
 
 /*
