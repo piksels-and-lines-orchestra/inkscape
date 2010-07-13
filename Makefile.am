@@ -162,23 +162,29 @@ EXTRA_DIST = \
 	packaging/win32/languages/French.nsh	\
 	packaging/win32/languages/Galician.nsh	\
 	packaging/win32/languages/German.nsh	\
+	packaging/win32/languages/Indonesian.nsh \
 	packaging/win32/languages/Italian.nsh	\
 	packaging/win32/languages/Japanese.nsh	\
 	packaging/win32/languages/Polish.nsh	\
+	packaging/win32/languages/Romanian.nsh	\
 	packaging/win32/languages/Russian.nsh	\
 	packaging/win32/languages/Slovak.nsh	\
 	packaging/win32/languages/Slovenian.nsh	\
 	packaging/win32/languages/Spanish.nsh	\
 	packaging/win32/languages/SimpChinese.nsh	\
 	packaging/win32/languages/TradChinese.nsh	\
+	packaging/win32/languages/Ukrainian.nsh	\
 	packaging/win32/header.bmp	\
 	packaging/win32/header.svg	\
 	packaging/win32/AdvUninstLog.nsh	\
 	packaging/win32/AdvUninstLog.txt	\
+	packaging/win32/ifexist.nsh \
 	packaging/win32/md5dll.dll	\
 	packaging/win32/md5dll.txt	\
 	packaging/win32/messagebox.dll	\
 	packaging/win32/MessageBox.txt	\
+	packaging/win32/RequireLatestNSIS.nsh \
+	packaging/win32/VersionCompleteXXXX.nsh \
 	packaging/win32/welcomefinish.bmp	\
 	packaging/win32/welcomefinish.svg	\
 	packaging/win32/portable/help.html \
@@ -238,7 +244,7 @@ install-data-local: inkscape.fr.1
 	$(mkinstalldirs) $(DESTDIR)$(mandir)/fr/man1
 	$(INSTALL_DATA) `if [ -f inkscape.fr.1 ]; then :; else echo $(srcdir)/;fi`inkscape.fr.1 $(DESTDIR)$(mandir)/fr/man1/inkscape.1
 
-.PHONY: warn_markup
+#.PHONY: warn_markup
 noinst_DATA = warn_markup
 warn_markup:
 	@if perl $(srcdir)/po/check-markup $(srcdir)/po/*.po; [ $$? = 1 ]; then \

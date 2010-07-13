@@ -8,7 +8,7 @@ This file contains the default Inkscape keyboard shortcuts. In each "bind" eleme
 <gdk/gdkkeysyms.h> header file but without the leading "GDK_". If you don't have GDK
 source locally, you can view that file at:
 
-  http://cvs.gnome.org/viewcvs/gtk%2B/gdk/gdkkeysyms.h?view=markup
+  http://git.gnome.org/browse/gtk+/plain/gdk/gdkkeysyms.h
 
 - The "modifiers" attribute contains a comma-separated list of modifiers, which can be
 one or more of: "Ctrl", "Shift", "Alt".
@@ -33,7 +33,7 @@ default keybindings by copying inkscape.xml to default.xml again.
 
 In case of conflict, those bindings that come later override those before them. This
 file resides in the share/keys directory of your Inkscape installation, but you may also
-have a default.xml in your personal Inkscape profile directory (e.g. ~/.inkscape
+have a default.xml in your personal Inkscape profile directory (e.g. ~/.config/inkscape
 on Unix). The bindings in that personal file are added to (or, if there's a conflict,
 override) the bindings in the main default.xml.
 -->
@@ -183,6 +183,13 @@ override) the bindings in the main default.xml.
   <bind key="D" action="ToolDropper" />
 
   <bind action="DropperPrefs" />
+
+  <bind key="F3" modifiers="Shift" action="ToolSpray" display="true"/>
+  <bind key="a" action="ToolSpray" />
+  <bind key="A" action="ToolSpray" />
+
+  <bind action="SprayPrefs" />
+
 
 <!-- Zoom -->
 

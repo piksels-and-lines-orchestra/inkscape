@@ -44,7 +44,6 @@
 
 #include "desktop-style.h"
 #include "svg/svg-icc-color.h"
-#include "svg/svg-device-color.h"
 #include "box3d-side.h"
 
 /**
@@ -196,10 +195,29 @@ sp_desktop_set_style(SPDesktop *desktop, SPCSSAttr *css, bool change, bool write
 
 // 3. If nobody has intercepted the signal, apply the style to the selection
     if (!intercepted) {
+
+        // Remove text attributes if not text...
+        // Do this once in case a zillion objects are selected.
+        SPCSSAttr *css_no_text = sp_repr_css_attr_new();
+        sp_repr_css_merge(css_no_text, css);
+        css_no_text = sp_css_attr_unset_text(css_no_text);
+
         for (GSList const *i = desktop->selection->itemList(); i != NULL; i = i->next) {
-            /// \todo if the style is text-only, apply only to texts?
-            sp_desktop_apply_css_recursive(SP_OBJECT(i->data), css, true);
+
+            // If not text, don't apply text attributes (can a group have text attributes?)
+            if ( SP_IS_TEXT(i->data) || SP_IS_FLOWTEXT(i->data)
+                || SP_IS_TSPAN(i->data) || SP_IS_TREF(i->data) || SP_IS_TEXTPATH(i->data)
+                || SP_IS_FLOWDIV(i->data) || SP_IS_FLOWPARA(i->data) || SP_IS_FLOWTSPAN(i->data)) {
+
+                sp_desktop_apply_css_recursive(SP_OBJECT(i->data), css, true);
+
+            } else {
+
+                sp_desktop_apply_css_recursive(SP_OBJECT(i->data), css_no_text, true);
+
+            }
         }
+        sp_repr_css_attr_unref(css_no_text);
     }
 }
 
@@ -417,6 +435,20 @@ stroke_average_width (GSList const *objects)
     return avgwidth / (g_slist_length ((GSList *) objects) - n_notstroked);
 }
 
+static bool vectorsClose( std::vector<double> const &lhs, std::vector<double> const &rhs )
+{
+    static double epsilon = 1e-6;
+    bool isClose = false;
+    if ( lhs.size() == rhs.size() ) {
+        isClose = true;
+        for ( size_t i = 0; (i < lhs.size()) && isClose; ++i ) {
+            isClose = fabs(lhs[i] - rhs[i]) < epsilon;
+        }
+    }
+    return isClose;
+}
+
+
 /**
  * Write to style_res the average fill or stroke of list of objects, if applicable.
  */
@@ -433,7 +465,6 @@ objects_query_fillstroke (GSList *objects, SPStyle *style_res, bool const isfill
     paint_res->set = TRUE;
 
     SVGICCColor* iccColor = 0;
-    SVGDeviceColor* devColor = 0;
 
     bool iccSeen = false;
     gfloat c[4];
@@ -517,11 +548,15 @@ objects_query_fillstroke (GSList *objects, SPStyle *style_res, bool const isfill
                 iccColor = paint->value.color.icc;
                 iccSeen = true;
             } else {
-                if (same_color && (prev[0] != d[0] || prev[1] != d[1] || prev[2] != d[2]))
+                if (same_color && (prev[0] != d[0] || prev[1] != d[1] || prev[2] != d[2])) {
                     same_color = false;
-                if ( iccSeen ) {
-                    if(paint->value.color.icc) {
-                        // TODO fix this
+                    iccColor = 0;
+                }
+                if ( iccSeen && iccColor ) {
+                    if ( !paint->value.color.icc
+                         || (iccColor->colorProfile != paint->value.color.icc->colorProfile)
+                         || !vectorsClose(iccColor->colors, paint->value.color.icc->colors) ) {
+                        same_color = false;
                         iccColor = 0;
                     }
                 }
@@ -532,22 +567,6 @@ objects_query_fillstroke (GSList *objects, SPStyle *style_res, bool const isfill
             c[1] += d[1];
             c[2] += d[2];
             c[3] += SP_SCALE24_TO_FLOAT (isfill? style->fill_opacity.value : style->stroke_opacity.value);
-
-            // average device color
-            unsigned int it;
-            if (i==objects /*if this is the first object in the GList*/
-                && paint->value.color.device){
-                devColor = new SVGDeviceColor(*paint->value.color.device);
-                for (it=0; it < paint->value.color.device->colors.size(); it++){
-                    devColor->colors[it] = 0;
-                }
-            }
-
-            if (devColor && paint->value.color.device && paint->value.color.device->type == devColor->type){
-                for (it=0; it < paint->value.color.device->colors.size(); it++){
-                    devColor->colors[it] += paint->value.color.device->colors[it];
-                }
-            }
 
             num ++;
         }
@@ -586,14 +605,6 @@ objects_query_fillstroke (GSList *objects, SPStyle *style_res, bool const isfill
             // TODO check for existing
             SVGICCColor* tmp = new SVGICCColor(*iccColor);
             paint_res->value.color.icc = tmp;
-        }
-
-        // divide and store the device-color
-        if (devColor){
-            for (unsigned int it=0; it < devColor->colors.size(); it++){
-                devColor->colors[it] /= num;
-            }
-            paint_res->value.color.device = devColor;
         }
 
         if (num > 1) {
@@ -1052,6 +1063,101 @@ objects_query_fontstyle (GSList *objects, SPStyle *style_res)
 }
 
 /**
+ * Write to style_res the baseline numbers.
+ */
+int
+objects_query_baselines (GSList *objects, SPStyle *style_res)
+{
+    bool different = false;
+
+    // Only baseline-shift at the moment
+    // We will return:
+    //   If baseline-shift is same for all objects:
+    //     The full baseline-shift data (used for subscripts and superscripts)
+    //   If baseline-shift is different:
+    //     The average baseline-shift (not implemented at the moment as this is complicated June 2010)
+    SPIBaselineShift old;
+    old.value = 0.0;
+    old.computed = 0.0;
+
+    // double baselineshift = 0.0;
+    bool set = false;
+
+    int texts = 0;
+
+    for (GSList const *i = objects; i != NULL; i = i->next) {
+        SPObject *obj = SP_OBJECT (i->data);
+
+        if (!SP_IS_TEXT(obj) && !SP_IS_FLOWTEXT(obj)
+            && !SP_IS_TSPAN(obj) && !SP_IS_TREF(obj) && !SP_IS_TEXTPATH(obj)
+            && !SP_IS_FLOWDIV(obj) && !SP_IS_FLOWPARA(obj) && !SP_IS_FLOWTSPAN(obj))
+            continue;
+
+        SPStyle *style = SP_OBJECT_STYLE (obj);
+        if (!style) continue;
+
+        texts ++;
+
+        SPIBaselineShift current;
+        if(style->baseline_shift.set) {
+
+            current.set      = style->baseline_shift.set;
+            current.inherit  = style->baseline_shift.inherit;
+            current.type     = style->baseline_shift.type;
+            current.literal  = style->baseline_shift.literal;
+            current.value    = style->baseline_shift.value;
+            current.computed = style->baseline_shift.computed;
+
+            if( set ) {
+                if( current.set      != old.set ||
+                    current.inherit  != old.inherit ||
+                    current.type     != old.type ||
+                    current.literal  != old.literal ||
+                    current.value    != old.value ||
+                    current.computed != old.computed ) {
+                    // Maybe this needs to be better thought out.
+                    different = true;
+                }
+            }
+
+            set = true;
+
+            old.set      = current.set;
+            old.inherit  = current.inherit;
+            old.type     = current.type;
+            old.literal  = current.literal;
+            old.value    = current.value;
+            old.computed = current.computed;
+        }
+    }
+
+    if (different || !set ) {
+        style_res->baseline_shift.set = false;
+        style_res->baseline_shift.computed = 0.0;
+    } else {
+        style_res->baseline_shift.set      = old.set;
+        style_res->baseline_shift.inherit  = old.inherit;
+        style_res->baseline_shift.type     = old.type;
+        style_res->baseline_shift.literal  = old.literal;
+        style_res->baseline_shift.value    = old.value;
+        style_res->baseline_shift.computed = old.computed;
+    }
+
+    if (texts == 0 || !set)
+        return QUERY_STYLE_NOTHING;
+
+    if (texts > 1) {
+        if (different) {
+            return QUERY_STYLE_MULTIPLE_DIFFERENT;
+        } else {
+            return QUERY_STYLE_MULTIPLE_SAME;
+        }
+    } else {
+        return QUERY_STYLE_SINGLE;
+    }
+}
+
+/**
  * Write to style_res the average font family of objects.
  */
 int
@@ -1346,6 +1452,8 @@ sp_desktop_query_style_from_list (GSList *list, SPStyle *style, int property)
         return objects_query_fontstyle (list, style);
     } else if (property == QUERY_STYLE_PROPERTY_FONTNUMBERS) {
         return objects_query_fontnumbers (list, style);
+    } else if (property == QUERY_STYLE_PROPERTY_BASELINES) {
+        return objects_query_baselines (list, style);
 
     } else if (property == QUERY_STYLE_PROPERTY_BLEND) {
         return objects_query_blend (list, style);

@@ -18,25 +18,26 @@
 # include <config.h>
 #endif
 
-#include <string.h>
-#include <vector>
-#include <string>
-
 #include <cmath>
 #include <gtkmm.h>
-#include "ui/widget/button.h"
+#include <string>
+#include <string.h>
+#include <vector>
 
-#include "ui/widget/scalar-unit.h"
-
-#include "helper/units.h"
-#include "inkscape.h"
-#include "verbs.h"
 #include "desktop-handles.h"
 #include "document.h"
 #include "desktop.h"
-#include "page-sizer.h"
 #include "helper/action.h"
+#include "helper/units.h"
+#include "inkscape.h"
+#include "page-sizer.h"
+#include "sp-namedview.h"
 #include "sp-root.h"
+#include "ui/widget/button.h"
+#include "ui/widget/scalar-unit.h"
+#include "verbs.h"
+#include "xml/node.h"
+#include "xml/repr.h"
 
 using std::pair;
 
@@ -310,9 +311,17 @@ PageSizer::PageSizer(Registry & _wr)
     _customDimTable.attach(_dimensionHeight,       0,1, 1,2);
     _customDimTable.attach(_fitPageMarginExpander, 0,2, 2,3);
     
+    _dimTabOrderGList = NULL;
+    _dimTabOrderGList = g_list_append(_dimTabOrderGList, _dimensionWidth.gobj());
+    _dimTabOrderGList = g_list_append(_dimTabOrderGList, _dimensionHeight.gobj());
+    _dimTabOrderGList = g_list_append(_dimTabOrderGList, _dimensionUnits.gobj());
+    _dimTabOrderGList = g_list_append(_dimTabOrderGList, _fitPageMarginExpander.gobj());
+    Glib::ListHandle<Widget *> dimFocusChain(_dimTabOrderGList, Glib::OWNERSHIP_NONE);
+    _customDimTable.set_focus_chain(dimFocusChain);    
+
     //## Set up fit page expander
-    _fitPageMarginExpander.set_label(_("Resi_ze page to content..."));
     _fitPageMarginExpander.set_use_underline();
+    _fitPageMarginExpander.set_label(_("Resi_ze page to content..."));
     _fitPageMarginExpander.add(_marginTable);
     
     //## Set up margin settings
@@ -320,11 +329,11 @@ PageSizer::PageSizer(Registry & _wr)
     _marginTable.set_border_width(4);
     _marginTable.set_row_spacings(4);
     _marginTable.set_col_spacings(4);
-    _marginTable.attach(_fitPageButtonAlign, 0,2, 0,1);
-    _marginTable.attach(_marginTopAlign,     0,2, 1,2);
-    _marginTable.attach(_marginLeftAlign,    0,1, 2,3);
-    _marginTable.attach(_marginRightAlign,   1,2, 2,3);
-    _marginTable.attach(_marginBottomAlign,  0,2, 3,4);
+    _marginTable.attach(_marginTopAlign,     0,2, 0,1);
+    _marginTable.attach(_marginLeftAlign,    0,1, 1,2);
+    _marginTable.attach(_marginRightAlign,   1,2, 1,2);
+    _marginTable.attach(_marginBottomAlign,  0,2, 2,3);
+    _marginTable.attach(_fitPageButtonAlign, 0,2, 3,4);
     
     _marginTopAlign.set(0.5, 0.5, 0.0, 1.0);
     _marginTopAlign.add(_marginTop);
@@ -349,6 +358,7 @@ PageSizer::PageSizer(Registry & _wr)
  */
 PageSizer::~PageSizer()
 {
+    g_list_free(_dimTabOrderGList);
 }
 
 
@@ -437,6 +447,28 @@ PageSizer::setDim (double w, double h, bool changeList)
     _called = false;
 }
 
+/**
+ * Updates the scalar widgets for the fit margins.  (Just changes the value
+ * of the ui widgets to match the xml).
+ */
+void 
+PageSizer::updateFitMarginsUI(Inkscape::XML::Node *nv_repr)
+{
+    double value = 0.0;
+    if (sp_repr_get_double(nv_repr, "fit-margin-top", &value)) {
+        _marginTop.setValue(value);
+    }
+    if (sp_repr_get_double(nv_repr, "fit-margin-left", &value)) {
+        _marginLeft.setValue(value);
+    }
+    if (sp_repr_get_double(nv_repr, "fit-margin-right", &value)) {
+        _marginRight.setValue(value);
+    }
+    if (sp_repr_get_double(nv_repr, "fit-margin-bottom", &value)) {
+        _marginBottom.setValue(value);
+    }
+}
+
 
 /**
  * Returns an iterator pointing to a row in paperSizeListStore which
@@ -492,11 +524,23 @@ PageSizer::fire_fit_canvas_to_selection_or_drawing()
     if (!dt) {
         return;
     }
+    SPDocument *doc;
+    SPNamedView *nv;
+    Inkscape::XML::Node *nv_repr;
+    if ((doc = sp_desktop_document(SP_ACTIVE_DESKTOP))
+            && (nv = sp_document_namedview(doc, 0))
+            && (nv_repr = SP_OBJECT_REPR(nv))) {
+        sp_repr_set_svg_double(nv_repr, "fit-margin-top", _marginTop.getValue());
+        sp_repr_set_svg_double(nv_repr, "fit-margin-left", _marginLeft.getValue());
+        sp_repr_set_svg_double(nv_repr, "fit-margin-right", _marginRight.getValue());
+        sp_repr_set_svg_double(nv_repr, "fit-margin-bottom", _marginBottom.getValue());
+    }
     Verb *verb = Verb::get( SP_VERB_FIT_CANVAS_TO_SELECTION_OR_DRAWING );
     if (verb) {
         SPAction *action = verb->get_action(dt);
-        if (action)
+        if (action) {
             sp_action_perform(action, NULL);
+        }
     }
 }
 

@@ -289,13 +289,9 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
 
     // Next, get all points to consider for snapping
     SnapManager const &m = _desktop->namedview->snap_manager;
-    Inkscape::SnapPreferences local_snapprefs = m.snapprefs;
-    local_snapprefs.setSnapToItemNode(true); // We should get at least the cusp nodes here. This might
-    // have been turned off because (for example) the user only want paths as a snap target, not nodes
-    // but as a snap source we still need some nodes though!
     _snap_points.clear();
-    _snap_points = selection->getSnapPoints(&local_snapprefs);
-    std::vector<Inkscape::SnapCandidatePoint> snap_points_hull = selection->getSnapPointsConvexHull(&local_snapprefs);
+    _snap_points = selection->getSnapPoints(&m.snapprefs);
+    std::vector<Inkscape::SnapCandidatePoint> snap_points_hull = selection->getSnapPointsConvexHull(&m.snapprefs);
     if (_snap_points.size() > 200) {
         /* Snapping a huge number of nodes will take way too long, so limit the number of snappable nodes
         An average user would rarely ever try to snap such a large number of nodes anyway, because
@@ -1213,7 +1209,7 @@ gboolean Inkscape::SelTrans::skewRequest(SPSelTransHandle const &handle, Geom::P
         SnapManager &m = _desktop->namedview->snap_manager;
         m.setup(_desktop, false, _items_const);
 
-        Inkscape::Snapper::ConstraintLine const constraint(component_vectors[dim_b]);
+        Inkscape::Snapper::SnapConstraint const constraint(component_vectors[dim_b]);
         // When skewing, we cannot snap the corners of the bounding box, see the comment in "constrainedSnapSkew" for details
         Geom::Point const s(skew[dim_a], scale[dim_a]);
         Inkscape::SnappedPoint sn = m.constrainedSnapSkew(_snap_points, _point, constraint, s, _origin, Geom::Dim2(dim_b));
@@ -1280,7 +1276,10 @@ gboolean Inkscape::SelTrans::rotateRequest(Geom::Point &pt, guint state)
     if (fabs(h2) < 1e-15) return FALSE;
     Geom::Point q2 = d2 / h2; // normalized new vector to handle
 
-    double radians;
+    Geom::Rotate r1(q1);
+    Geom::Rotate r2(q2);
+
+    double radians = atan2(Geom::dot(Geom::rot90(d1), d2), Geom::dot(d1, d2));;
     if (state & GDK_CONTROL_MASK) {
         // Snap to defined angle increments
         double cos_t = Geom::dot(q1, q2);
@@ -1289,15 +1288,25 @@ gboolean Inkscape::SelTrans::rotateRequest(Geom::Point &pt, guint state)
         if (snaps) {
             radians = ( M_PI / snaps ) * floor( radians * snaps / M_PI + .5 );
         }
-        q1 = Geom::Point(1, 0);
-        q2 = Geom::Point(cos(radians), sin(radians));
+        r1 = Geom::Rotate(0); //q1 = Geom::Point(1, 0);
+        r2 = Geom::Rotate(radians); //q2 = Geom::Point(cos(radians), sin(radians));
     } else {
-        radians = atan2(Geom::dot(Geom::rot90(d1), d2),
-                        Geom::dot(d1, d2));
+        SnapManager &m = _desktop->namedview->snap_manager;
+        m.setup(_desktop, false, _items_const);
+        // When rotating, we cannot snap the corners of the bounding box, see the comment in "constrainedSnapRotate" for details
+        Inkscape::SnappedPoint sn = m.constrainedSnapRotate(_snap_points, _point, radians, _origin);
+
+        if (sn.getSnapped()) {
+            _desktop->snapindicator->set_new_snaptarget(sn);
+            // We snapped something, so change the rotation to reflect it
+            radians = sn.getTransformation()[0];
+            r1 = Geom::Rotate(0);
+            r2 = Geom::Rotate(radians);
+        } else {
+            _desktop->snapindicator->remove_snaptarget();
+        }
     }
 
-    Geom::Rotate const r1(q1);
-    Geom::Rotate const r2(q2);
 
     // Calculate the relative affine
     _relative_affine = r2 * r1.inverse();
@@ -1464,14 +1473,14 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             // the constraint-line once. The constraint lines are parallel, but might not be colinear.
             // Therefore we will have to set the point through which the constraint-line runs
             // individually for each point to be snapped; this will be handled however by _snapTransformed()
-            s.push_back(m.constrainedSnapTranslation(_bbox_points_for_translating,
+            s.push_back(m.constrainedSnapTranslate(_bbox_points_for_translating,
                                                      _point,
-                                                     Inkscape::Snapper::ConstraintLine(component_vectors[dim]),
+                                                     Inkscape::Snapper::SnapConstraint(component_vectors[dim]),
                                                      dxy));
 
-            s.push_back(m.constrainedSnapTranslation(_snap_points,
+            s.push_back(m.constrainedSnapTranslate(_snap_points,
                                                      _point,
-                                                     Inkscape::Snapper::ConstraintLine(component_vectors[dim]),
+                                                     Inkscape::Snapper::SnapConstraint(component_vectors[dim]),
                                                      dxy));
         } else { // !control
 
@@ -1481,8 +1490,8 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             g_get_current_time(&starttime); */
 
             /* Snap to things with no constraint */
-            s.push_back(m.freeSnapTranslation(_bbox_points_for_translating, _point, dxy));
-            s.push_back(m.freeSnapTranslation(_snap_points, _point, dxy));
+            s.push_back(m.freeSnapTranslate(_bbox_points_for_translating, _point, dxy));
+            s.push_back(m.freeSnapTranslate(_snap_points, _point, dxy));
 
               /*g_get_current_time(&endtime);
               double elapsed = ((((double)endtime.tv_sec - starttime.tv_sec) * G_USEC_PER_SEC + (endtime.tv_usec - starttime.tv_usec))) / 1000.0;
@@ -1508,7 +1517,7 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             if (control) {
                 // If we didn't snap, then we should still constrain horizontally or vertically
                 // (When we did snap, then this constraint has already been enforced by
-                // calling constrainedSnapTranslation() above)
+                // calling constrainedSnapTranslate() above)
                 if (fabs(dxy[Geom::X]) > fabs(dxy[Geom::Y])) {
                     dxy[Geom::Y] = 0;
                 } else {

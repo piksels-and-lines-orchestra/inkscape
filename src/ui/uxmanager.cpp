@@ -16,10 +16,12 @@
 #include <algorithm>
 
 #include "uxmanager.h"
+#include "desktop.h"
 #include "util/ege-tags.h"
 #include "widgets/toolbox.h"
 #include "widgets/desktop-widget.h"
 #include "preferences.h"
+#include "gdkmm/screen.h"
 
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -38,23 +40,72 @@ static vector<SPDesktopWidget*> dtws;
 static map<SPDesktop*, vector<GtkWidget*> > trackedBoxes;
 
 
+namespace {
+// TODO unify this later:
+static Glib::ustring getLayoutPrefPath( Inkscape::UI::View::View *view )
+{
+    Glib::ustring prefPath;
+
+    if (reinterpret_cast<SPDesktop*>(view)->is_focusMode()) {
+        prefPath = "/focus/";
+    } else if (reinterpret_cast<SPDesktop*>(view)->is_fullscreen()) {
+        prefPath = "/fullscreen/";
+    } else {
+        prefPath = "/window/";
+    }
+
+    return prefPath;
+}
+
+}
 
 namespace Inkscape {
 namespace UI {
 
 UXManager* instance = 0;
 
+class UXManagerImpl : public UXManager
+{
+public:
+    UXManagerImpl();
+    virtual ~UXManagerImpl();
+
+    virtual void addTrack( SPDesktopWidget* dtw );
+    virtual void delTrack( SPDesktopWidget* dtw );
+
+    virtual void connectToDesktop( vector<GtkWidget *> const & toolboxes, SPDesktop *desktop );
+
+    virtual gint getDefaultTask( SPDesktop *desktop );
+    virtual void setTask(SPDesktop* dt, gint val);
+
+    virtual bool isFloatWindowProblem() const;
+    virtual bool isWidescreen() const;
+
+private:
+    bool _floatwindowIssues;
+    bool _widescreen;
+};
+
 UXManager* UXManager::getInstance()
 {
     if (!instance) {
-        instance = new UXManager();
+        instance = new UXManagerImpl();
     }
     return instance;
 }
 
 
-UXManager::UXManager() :
-    floatwindowIssues(false)
+UXManager::UXManager()
+{
+}
+
+UXManager::~UXManager()
+{
+}
+
+UXManagerImpl::UXManagerImpl() :
+    _floatwindowIssues(false),
+    _widescreen(false)
 {
     ege::TagSet tags;
     tags.setLang("en");
@@ -68,24 +119,50 @@ UXManager::UXManager() :
 
     //if (g_ascii_strcasecmp( wmName, UNKOWN_WINDOW_MANAGER_NAME ) == 0) {
     if (g_ascii_strcasecmp( wmName, KDE_WINDOW_MANAGER_NAME ) == 0) {
-        floatwindowIssues = true;
+        _floatwindowIssues = true;
     }
 #elif defined(GDK_WINDOWING_WIN32)
-    floatwindowIssues = true;
+    _floatwindowIssues = true;
 #endif // GDK_WINDOWING_WIN32
+
+
+    Glib::RefPtr<Gdk::Screen> defaultScreen = Gdk::Screen::get_default();
+    if (defaultScreen) {
+        int width = defaultScreen->get_width();
+        int height = defaultScreen->get_height();
+        gdouble aspect = static_cast<gdouble>(width) / static_cast<gdouble>(height);
+        if (aspect > 1.65) {
+            _widescreen = true;
+        }
+    }
 }
 
-UXManager::~UXManager()
+UXManagerImpl::~UXManagerImpl()
 {
 }
 
-
-bool UXManager::isFloatWindowProblem() const
+bool UXManagerImpl::isFloatWindowProblem() const
 {
-    return floatwindowIssues;
+    return _floatwindowIssues;
 }
 
-void UXManager::setTask(SPDesktop* dt, gint val)
+bool UXManagerImpl::isWidescreen() const
+{
+    return _widescreen;
+}
+
+gint UXManagerImpl::getDefaultTask( SPDesktop *desktop )
+{
+    gint taskNum = isWidescreen() ? 2 : 0;
+
+    Glib::ustring prefPath = getLayoutPrefPath( desktop );
+    taskNum = Inkscape::Preferences::get()->getInt( prefPath + "task/taskset", taskNum );
+    taskNum = (taskNum < 0) ? 0 : (taskNum > 2) ? 2 : taskNum;
+
+    return taskNum;
+}
+
+void UXManagerImpl::setTask(SPDesktop* dt, gint val)
 {
     for (vector<SPDesktopWidget*>::iterator it = dtws.begin(); it != dtws.end(); ++it) {
         SPDesktopWidget* dtw = *it;
@@ -93,6 +170,7 @@ void UXManager::setTask(SPDesktop* dt, gint val)
         gboolean notDone = Inkscape::Preferences::get()->getBool("/options/workarounds/dynamicnotdone", false);
 
         if (dtw->desktop == dt) {
+            int taskNum = val;
             switch (val) {
                 default:
                 case 0:
@@ -101,15 +179,16 @@ void UXManager::setTask(SPDesktop* dt, gint val)
                     if (notDone) {
                         dtw->setToolboxPosition("AuxToolbar", GTK_POS_TOP);
                     }
-                    dtw->setToolboxPosition("SnapToolbar", GTK_POS_TOP);
+                    dtw->setToolboxPosition("SnapToolbar", GTK_POS_RIGHT);
+                    taskNum = val; // in case it was out of range
                     break;
                 case 1:
-                    dtw->setToolboxPosition("ToolToolbar", GTK_POS_TOP);
-                    dtw->setToolboxPosition("CommandsToolbar", GTK_POS_LEFT);
+                    dtw->setToolboxPosition("ToolToolbar", GTK_POS_LEFT);
+                    dtw->setToolboxPosition("CommandsToolbar", GTK_POS_TOP);
                     if (notDone) {
                         dtw->setToolboxPosition("AuxToolbar", GTK_POS_TOP);
                     }
-                    dtw->setToolboxPosition("SnapToolbar", GTK_POS_RIGHT);
+                    dtw->setToolboxPosition("SnapToolbar", GTK_POS_TOP);
                     break;
                 case 2:
                     dtw->setToolboxPosition("ToolToolbar", GTK_POS_LEFT);
@@ -119,19 +198,21 @@ void UXManager::setTask(SPDesktop* dt, gint val)
                         dtw->setToolboxPosition("AuxToolbar", GTK_POS_RIGHT);
                     }
             }
+            Glib::ustring prefPath = getLayoutPrefPath( dtw->desktop );
+            Inkscape::Preferences::get()->setInt( prefPath + "task/taskset", taskNum );
         }
     }
 }
 
 
-void UXManager::addTrack( SPDesktopWidget* dtw )
+void UXManagerImpl::addTrack( SPDesktopWidget* dtw )
 {
     if (std::find(dtws.begin(), dtws.end(), dtw) == dtws.end()) {
         dtws.push_back(dtw);
     }
 }
 
-void UXManager::delTrack( SPDesktopWidget* dtw )
+void UXManagerImpl::delTrack( SPDesktopWidget* dtw )
 {
     vector<SPDesktopWidget*>::iterator iter = std::find(dtws.begin(), dtws.end(), dtw);
     if (iter != dtws.end()) {
@@ -139,9 +220,9 @@ void UXManager::delTrack( SPDesktopWidget* dtw )
     }
 }
 
-void UXManager::connectToDesktop( vector<GtkWidget *> const & toolboxes, SPDesktop *desktop )
+void UXManagerImpl::connectToDesktop( vector<GtkWidget *> const & toolboxes, SPDesktop *desktop )
 {
-//static map<SPDesktop*, vector<GtkWidget*> > trackedBoxes;
+    //static map<SPDesktop*, vector<GtkWidget*> > trackedBoxes;
 
     for (vector<GtkWidget*>::const_iterator it = toolboxes.begin(); it != toolboxes.end(); ++it ) {
         GtkWidget* toolbox = *it;
@@ -156,6 +237,11 @@ void UXManager::connectToDesktop( vector<GtkWidget *> const & toolboxes, SPDeskt
     if (std::find(desktops.begin(), desktops.end(), desktop) == desktops.end()) {
         desktops.push_back(desktop);
     }
+
+    gint taskNum = getDefaultTask( desktop );
+
+    // note: this will change once more options are in the task set support:
+    Inkscape::UI::UXManager::getInstance()->setTask( desktop, taskNum );
 }
 
 

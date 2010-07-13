@@ -653,23 +653,23 @@ void ClipboardManagerImpl::_copySelection(Inkscape::Selection *selection)
 void ClipboardManagerImpl::_copyUsedDefs(SPItem *item)
 {
     // copy fill and stroke styles (patterns and gradients)
-    SPStyle *style = SP_OBJECT_STYLE(item);
+    SPStyle *style = item->style;
 
     if (style && (style->fill.isPaintserver())) {
-        SPObject *server = SP_OBJECT_STYLE_FILL_SERVER(item);
-        if (SP_IS_LINEARGRADIENT(server) || SP_IS_RADIALGRADIENT(server)) {
+        SPPaintServer *server = item->style->getFillPaintServer();
+        if ( SP_IS_LINEARGRADIENT(server) || SP_IS_RADIALGRADIENT(server) ) {
             _copyGradient(SP_GRADIENT(server));
         }
-        if (SP_IS_PATTERN(server)) {
+        if ( SP_IS_PATTERN(server) ) {
             _copyPattern(SP_PATTERN(server));
         }
     }
     if (style && (style->stroke.isPaintserver())) {
-        SPObject *server = SP_OBJECT_STYLE_STROKE_SERVER(item);
-        if (SP_IS_LINEARGRADIENT(server) || SP_IS_RADIALGRADIENT(server)) {
+        SPPaintServer *server = item->style->getStrokePaintServer();
+        if ( SP_IS_LINEARGRADIENT(server) || SP_IS_RADIALGRADIENT(server) ) {
             _copyGradient(SP_GRADIENT(server));
         }
-        if (SP_IS_PATTERN(server)) {
+        if ( SP_IS_PATTERN(server) ) {
             _copyPattern(SP_PATTERN(server));
         }
     }
@@ -1057,6 +1057,8 @@ void ClipboardManagerImpl::_applyPathEffect(SPItem *item, gchar const *effectsta
     {
         SPLPEItem *lpeitem = SP_LPE_ITEM(item);
         // for each effect in the stack, check if we need to fork it before adding it to the item
+        sp_lpe_item_fork_path_effects_if_necessary(lpeitem, 1);
+
         std::istringstream iss(effectstack);
         std::string href;
         while (std::getline(iss, href, ';'))
@@ -1065,8 +1067,7 @@ void ClipboardManagerImpl::_applyPathEffect(SPItem *item, gchar const *effectsta
             if (!obj) {
                 return;
             }
-            // if the effectstack is not used by anyone, we might as well take it
-            LivePathEffectObject *lpeobj = LIVEPATHEFFECT(obj)->fork_private_if_necessary(1);
+            LivePathEffectObject *lpeobj = LIVEPATHEFFECT(obj);
             sp_lpe_item_add_path_effect(lpeitem, lpeobj);
         }
     }

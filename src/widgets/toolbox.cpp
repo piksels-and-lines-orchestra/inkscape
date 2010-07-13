@@ -85,6 +85,8 @@
 #include "../sp-text.h"
 #include "../style.h"
 #include "../svg/css-ostringstream.h"
+#include "../text-context.h"
+#include "../text-editing.h"
 #include "../tools-switch.h"
 #include "../tweak-context.h"
 #include "../spray-context.h"
@@ -106,7 +108,6 @@
 
 #include "toolbox.h"
 
-#define ENABLE_TASK_SUPPORT 1
 //#define DEBUG_TEXT
 
 using Inkscape::UnitTracker;
@@ -144,14 +145,6 @@ static void       sp_paintbucket_toolbox_prep(SPDesktop *desktop, GtkActionGroup
 static void       sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_lpetool_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
-
-#if ENABLE_TASK_SUPPORT
-static void fireTaskChange( EgeSelectOneAction *act, SPDesktop *dt )
-{
-    gint selected = ege_select_one_action_get_active( act );
-    UXManager::getInstance()->setTask(dt, selected);
-}
-#endif // ENABLE_TASK_SUPPORT
 
 using Inkscape::UI::ToolboxFactory;
 
@@ -487,9 +480,15 @@ static gchar const * ui_descr =
         "    <separator />"
         "    <toolitem action='TextAlignAction' />"
         "    <separator />"
+        "    <toolitem action='TextSuperscriptAction' />"
+        "    <toolitem action='TextSubscriptAction' />"
+        "    <separator />"
         "    <toolitem action='TextLineHeightAction' />"
         "    <toolitem action='TextLetterSpacingAction' />"
         "    <toolitem action='TextWordSpacingAction' />"
+        "    <toolitem action='TextDxAction' />"
+        "    <toolitem action='TextDyAction' />"
+        "    <toolitem action='TextRotationAction' />"
         "    <separator />"
         "    <toolitem action='TextOrientationAction' />"
         "  </toolbar>"
@@ -970,44 +969,6 @@ static Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* deskto
         }
     }
 
-#if ENABLE_TASK_SUPPORT
-    if ( !mainActions->get_action("TaskSetAction") ) {
-        GtkListStore* model = gtk_list_store_new( 2, G_TYPE_STRING, G_TYPE_STRING );
-
-        GtkTreeIter iter;
-        gtk_list_store_append( model, &iter );
-        gtk_list_store_set( model, &iter,
-                            0, _("Default"),
-                            1, _("Default interface setup"),
-                            -1 );
-
-        gtk_list_store_append( model, &iter );
-        gtk_list_store_set( model, &iter,
-                            0, _("Custom"),
-                            1, _("Set the custom task"),
-                            -1 );
-
-        gtk_list_store_append( model, &iter );
-        gtk_list_store_set( model, &iter,
-                            0, _("Wide"),
-                            1, _("Setup for widescreen work"),
-                            -1 );
-
-        EgeSelectOneAction* act = ege_select_one_action_new( "TaskSetAction", _("Task"), (""), NULL, GTK_TREE_MODEL(model) );
-        g_object_set( act, "short_label", _("Task:"), NULL );
-        mainActions->add(Glib::wrap(GTK_ACTION(act)));
-        //g_object_set_data( holder, "mode_action", act );
-
-        ege_select_one_action_set_appearance( act, "minimal" );
-        ege_select_one_action_set_radio_action_type( act, INK_RADIO_ACTION_TYPE );
-        //ege_select_one_action_set_icon_size( act, secondarySize );
-        ege_select_one_action_set_tooltip_column( act, 1  );
-
-        //ege_select_one_action_set_active( act, mode );
-        g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(fireTaskChange), desktop );
-    }
-#endif // ENABLE_TASK_SUPPORT
-
     return mainActions;
 }
 
@@ -1031,7 +992,8 @@ static GtkWidget* toolboxNewCommon( GtkWidget* tb, BarId id, GtkPositionType han
     gtk_widget_set_sensitive(tb, FALSE);
 
     GtkWidget *hb = 0;
-    if ( UXManager::getInstance()->isFloatWindowProblem() ) {
+    gboolean forceFloatAllowed = Inkscape::Preferences::get()->getBool("/options/workarounds/floatallowed", false);
+    if ( UXManager::getInstance()->isFloatWindowProblem() && !forceFloatAllowed ) {
         hb = gtk_event_box_new(); // A simple, neutral container.
     } else {
         hb = gtk_handle_box_new();
@@ -1853,26 +1815,40 @@ void setup_tool_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
     gchar const * descr =
         "<ui>"
         "  <toolbar name='ToolToolbar'>"
+
+        "   <!-- Basics -->"
         "    <toolitem action='ToolSelector' />"
         "    <toolitem action='ToolNode' />"
         "    <toolitem action='ToolTweak' />"
-        "    <toolitem action='ToolSpray' />"
         "    <toolitem action='ToolZoom' />"
+
+        "   <!-- Shapes -->"
         "    <toolitem action='ToolRect' />"
         "    <toolitem action='Tool3DBox' />"
         "    <toolitem action='ToolArc' />"
         "    <toolitem action='ToolStar' />"
         "    <toolitem action='ToolSpiral' />"
+
+        "   <!-- Paths -->"
         "    <toolitem action='ToolPencil' />"
         "    <toolitem action='ToolPen' />"
         "    <toolitem action='ToolCalligraphic' />"
-        "    <toolitem action='ToolEraser' />"
-//        "    <toolitem action='ToolLPETool' />"
-        "    <toolitem action='ToolPaintBucket' />"
+
+        "   <!-- Text -->"
         "    <toolitem action='ToolText' />"
-        "    <toolitem action='ToolConnector' />"
+
+        "   <!-- Paint large areas -->"
+        "    <toolitem action='ToolSpray' />"
+        "    <toolitem action='ToolEraser' />"
+
+        "   <!-- Fill -->"
+        "    <toolitem action='ToolPaintBucket' />"
         "    <toolitem action='ToolGradient' />"
         "    <toolitem action='ToolDropper' />"
+
+        "    <toolitem action='ToolConnector' />"
+
+//        "    <toolitem action='ToolLPETool' />"
         "  </toolbar>"
         "</ui>";
 
@@ -2039,10 +2015,6 @@ void setup_commands_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
         "    <separator />"
         "    <toolitem action='DialogPreferences' />"
         "    <toolitem action='DialogDocumentProperties' />"
-#if ENABLE_TASK_SUPPORT
-        "    <separator />"
-        "    <toolitem action='TaskSetAction' />"
-#endif // ENABLE_TASK_SUPPORT
         "  </toolbar>"
         "</ui>";
 
@@ -6605,6 +6577,82 @@ static void sp_text_style_changed( InkToggleAction* act, GObject *tbl )
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
 
+// Handles both Superscripts and Subscripts
+static void sp_text_script_changed( InkToggleAction* act, GObject *tbl )
+{
+    // quit if run by the _changed callbacks
+    if (g_object_get_data(G_OBJECT(tbl), "freeze")) {
+        return;
+    }
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+
+    // Called by Superscript or Subscript button?
+    const gchar* name = gtk_action_get_name( GTK_ACTION( act ) );
+    gint prop = (strcmp(name, "TextSuperscriptAction") == 0) ? 0 : 1;
+
+#ifdef DEBUG_TEXT
+    std::cout << "sp_text_script_changed: " << prop << std::endl;
+#endif
+
+    // Query baseline
+    SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
+    int result_baseline = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_BASELINES);
+
+    bool setSuper = false;
+    bool setSub   = false;
+
+    if(result_baseline == QUERY_STYLE_NOTHING || result_baseline == QUERY_STYLE_MULTIPLE_DIFFERENT ) {
+        // If not set or mixed, turn on superscript or subscript
+        if( prop == 0 ) {
+            setSuper = true;
+        } else {
+            setSub = true;
+        }
+    } else {
+        // Superscript
+        gboolean superscriptSet = (query->baseline_shift.set &&
+                                   query->baseline_shift.type == SP_BASELINE_SHIFT_LITERAL &&
+                                   query->baseline_shift.literal == SP_CSS_BASELINE_SHIFT_SUPER );
+
+        // Subscript
+        gboolean subscriptSet = (query->baseline_shift.set &&
+                                 query->baseline_shift.type == SP_BASELINE_SHIFT_LITERAL &&
+                                 query->baseline_shift.literal == SP_CSS_BASELINE_SHIFT_SUB );
+
+        setSuper = !superscriptSet && prop == 0;
+        setSub   = !subscriptSet   && prop == 1;
+    }
+
+    // Set css properties
+    SPCSSAttr *css = sp_repr_css_attr_new ();
+    if( setSuper || setSub ) {
+        // Openoffice 2.3 and Adobe use 58%, Microsoft Word 2002 uses 65%, LaTex about 70%.
+        // 58% looks too small to me, especially if a superscript is placed on a superscript.
+        // If you make a change here, consider making a change to baseline-shift amount
+        // in style.cpp.
+        sp_repr_css_set_property (css, "font-size", "65%");
+    } else {
+        sp_repr_css_set_property (css, "font-size", "");
+    }
+    if( setSuper ) {
+        sp_repr_css_set_property (css, "baseline-shift", "super");
+    } else if( setSub ) {
+        sp_repr_css_set_property (css, "baseline-shift", "sub");
+    } else {
+        sp_repr_css_set_property (css, "baseline-shift", "baseline");
+    }
+
+    // Apply css to selected objects.
+    SPDesktop *desktop = SP_ACTIVE_DESKTOP;
+    sp_desktop_set_style (desktop, css, true, false);
+
+    // Save for undo
+    sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:script", SP_VERB_NONE,
+                                   _("Text: Change superscript or subscript"));
+
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
+}
+
 static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
 {
     // quit if run by the _changed callbacks
@@ -6769,7 +6817,17 @@ static void sp_text_lineheight_value_changed( GtkAdjustment *adj, GObject *tbl )
 
     // Apply line-height to selected objects.
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
-    sp_desktop_set_style (desktop, css, true, true);
+    sp_desktop_set_style (desktop, css, true, false);
+
+
+    // Until deprecated sodipodi:linespacing purged:
+    Inkscape::Selection *selection = sp_desktop_selection(desktop);
+    GSList const *items = selection->itemList();
+    for (; items != NULL; items = items->next) {
+        if (SP_IS_TEXT (items->data)) {
+            SP_OBJECT_REPR(items->data)->setAttribute("sodipodi:linespacing", sp_repr_css_property (css, "line-height", NULL));
+        }
+    }
 
     // Save for undo
     sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:line-height", SP_VERB_NONE,
@@ -6803,12 +6861,12 @@ static void sp_text_wordspacing_value_changed( GtkAdjustment *adj, GObject *tbl 
     // Set css word-spacing
     SPCSSAttr *css = sp_repr_css_attr_new ();
     Inkscape::CSSOStringStream osfs;
-    osfs << adj->value;
+    osfs << adj->value << "px"; // For now always use px
     sp_repr_css_set_property (css, "word-spacing", osfs.str().c_str());
 
     // Apply word-spacing to selected objects.
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
-    sp_desktop_set_style (desktop, css, true, true);
+    sp_desktop_set_style (desktop, css, true, false);
 
     // Save for undo
     sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:word-spacing", SP_VERB_NONE,
@@ -6842,12 +6900,12 @@ static void sp_text_letterspacing_value_changed( GtkAdjustment *adj, GObject *tb
     // Set css letter-spacing
     SPCSSAttr *css = sp_repr_css_attr_new ();
     Inkscape::CSSOStringStream osfs;
-    osfs << adj->value;
+    osfs << adj->value << "px";  // For now always use px
     sp_repr_css_set_property (css, "letter-spacing", osfs.str().c_str());
 
     // Apply letter-spacing to selected objects.
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
-    sp_desktop_set_style (desktop, css, true, true);
+    sp_desktop_set_style (desktop, css, true, false);
 
     // Save for undo
     sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:letter-spacing", SP_VERB_NONE,
@@ -6865,6 +6923,100 @@ static void sp_text_letterspacing_value_changed( GtkAdjustment *adj, GObject *tb
     sp_style_unref(query);
 
     sp_repr_css_attr_unref (css);
+
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
+}
+
+
+static void sp_text_dx_value_changed( GtkAdjustment *adj, GObject *tbl )
+{
+    // quit if run by the _changed callbacks
+    if (g_object_get_data(G_OBJECT(tbl), "freeze")) {
+        return;
+    }
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+
+    gdouble new_dx = adj->value;
+
+    if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
+        SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
+        if( tc ) {
+            unsigned char_index = -1;
+            TextTagAttributes *attributes =
+                text_tag_attributes_at_position( tc->text, std::min(tc->text_sel_start, tc->text_sel_end), &char_index );
+            if( attributes ) {
+                double old_dx = attributes->getDx( char_index );
+                double delta_dx = new_dx - old_dx;
+                sp_te_adjust_dx( tc->text, tc->text_sel_start, tc->text_sel_end, SP_ACTIVE_DESKTOP, delta_dx );
+            }
+        }
+    }
+
+    // Save for undo
+    sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:dx", SP_VERB_NONE,
+                                   _("Text: Change dx (kern)"));
+
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
+}
+
+static void sp_text_dy_value_changed( GtkAdjustment *adj, GObject *tbl )
+{
+    // quit if run by the _changed callbacks
+    if (g_object_get_data(G_OBJECT(tbl), "freeze")) {
+        return;
+    }
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+
+    gdouble new_dy = adj->value;
+
+    if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
+        SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
+        if( tc ) {
+            unsigned char_index = -1;
+            TextTagAttributes *attributes =
+                text_tag_attributes_at_position( tc->text, std::min(tc->text_sel_start, tc->text_sel_end), &char_index );
+            if( attributes ) {
+                double old_dy = attributes->getDy( char_index );
+                double delta_dy = new_dy - old_dy;
+                sp_te_adjust_dy( tc->text, tc->text_sel_start, tc->text_sel_end, SP_ACTIVE_DESKTOP, delta_dy );
+            }
+        }
+    }
+
+    // Save for undo
+    sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:dy", SP_VERB_NONE,
+                                   _("Text: Change dy"));
+
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
+}
+
+static void sp_text_rotation_value_changed( GtkAdjustment *adj, GObject *tbl )
+{
+    // quit if run by the _changed callbacks
+    if (g_object_get_data(G_OBJECT(tbl), "freeze")) {
+        return;
+    }
+    g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
+
+    gdouble new_degrees = adj->value;
+
+    if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
+        SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
+        if( tc ) {
+            unsigned char_index = -1;
+            TextTagAttributes *attributes =
+                text_tag_attributes_at_position( tc->text, std::min(tc->text_sel_start, tc->text_sel_end), &char_index );
+            if( attributes ) {
+                double old_degrees = attributes->getRotate( char_index );
+                double delta_deg = new_degrees - old_degrees;
+                sp_te_adjust_rotation( tc->text, tc->text_sel_start, tc->text_sel_end, SP_ACTIVE_DESKTOP, delta_deg );
+            } 
+        }
+    }
+
+    // Save for undo
+    sp_document_maybe_done (sp_desktop_document (SP_ACTIVE_DESKTOP), "ttb:rotate", SP_VERB_NONE,
+                                   _("Text: Change rotate"));
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
@@ -6938,6 +7090,9 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
         const gchar* id = SP_OBJECT_ID((SPItem *) items->data);
         std::cout << "    " << id << std::endl;
     }
+    Glib::ustring selected_text = sp_text_get_selected_text((SP_ACTIVE_DESKTOP)->event_context);
+    std::cout << "  Selected text:" << std::endl;
+    std::cout << selected_text << std::endl;
 #endif
 
     // quit if run by the _changed callbacks
@@ -6951,6 +7106,21 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
     }
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
 
+    // Only flowed text can be justified, only normal text can be kerned...
+    // Find out if we have flowed text now so we can use it several places
+    gboolean isFlow = false;
+    for (GSList const *items = sp_desktop_selection(SP_ACTIVE_DESKTOP)->itemList();
+         items != NULL;
+         items = items->next) {
+        // const gchar* id = SP_OBJECT_ID((SPItem *) items->data);
+        // std::cout << "    " << id << std::endl;
+        if( SP_IS_FLOWTEXT(( SPItem *) items->data )) {
+            isFlow = true;
+            // std::cout << "   Found flowed text" << std::endl;
+            break;
+        }
+    }
+
     /*
      * Query from current selection:
      *   Font family (font-family)
@@ -6963,6 +7133,8 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
     int result_family   = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_FONTFAMILY);
     int result_style    = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_FONTSTYLE);
     int result_numbers  = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_FONTNUMBERS);
+    int result_baseline = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_BASELINES);
+
     // Used later:
     sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_FONT_SPECIFICATION);
 
@@ -7007,6 +7179,7 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
             ink_comboboxentry_action_set_active_text( fontFamilyAction, fontFamily );
         }
 
+
         // Size (average of text selected)
         double size = query->font_size.computed;
         gchar size_text[G_ASCII_DTOSTR_BUF_SIZE];
@@ -7015,6 +7188,7 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
         Ink_ComboBoxEntry_Action* fontSizeAction =
             INK_COMBOBOXENTRY_ACTION( g_object_get_data( tbl, "TextFontSizeAction" ) );
         ink_comboboxentry_action_set_active_text( fontSizeAction, size_text );
+
 
         // Weight (Bold)
         // Note: in the enumeration, normal and lighter come at the end so we must explicitly test for them.
@@ -7033,31 +7207,47 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
         gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(textItalicAction), italicSet );
 
 
+        // Superscript
+        gboolean superscriptSet =
+            ((result_baseline == QUERY_STYLE_SINGLE || result_baseline == QUERY_STYLE_MULTIPLE_SAME ) && 
+             query->baseline_shift.set &&
+             query->baseline_shift.type == SP_BASELINE_SHIFT_LITERAL &&
+             query->baseline_shift.literal == SP_CSS_BASELINE_SHIFT_SUPER );
+
+        InkToggleAction* textSuperscriptAction = INK_TOGGLE_ACTION( g_object_get_data( tbl, "TextSuperscriptAction" ) );
+        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(textSuperscriptAction), superscriptSet );
+
+
+        // Subscript
+        gboolean subscriptSet =
+            ((result_baseline == QUERY_STYLE_SINGLE || result_baseline == QUERY_STYLE_MULTIPLE_SAME ) && 
+             query->baseline_shift.set &&
+             query->baseline_shift.type == SP_BASELINE_SHIFT_LITERAL &&
+             query->baseline_shift.literal == SP_CSS_BASELINE_SHIFT_SUB );
+
+        InkToggleAction* textSubscriptAction = INK_TOGGLE_ACTION( g_object_get_data( tbl, "TextSubscriptAction" ) );
+        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(textSubscriptAction), subscriptSet );
+
+
         // Alignment
+        EgeSelectOneAction* textAlignAction = EGE_SELECT_ONE_ACTION( g_object_get_data( tbl, "TextAlignAction" ) );
+
         // Note: SVG 1.1 doesn't include text-align, SVG 1.2 Tiny doesn't include text-align="justify"
         // text-align="justify" was a draft SVG 1.2 item (along with flowed text).
         // Only flowed text can be left and right justified at the same time.
-        // Check if we have flowed text and disable botton.
-        // NEED: ege_select_one_action_set_sensitve( )
-        /*
-        gboolean isFlow = false;
-        for (GSList const *items = sp_desktop_selection(SP_ACTIVE_DESKTOP)->itemList();
-             items != NULL;
-             items = items->next) {
-            const gchar* id = SP_OBJECT_ID((SPItem *) items->data);
-            std::cout << "    " << id << std::endl;
-            if( SP_IS_FLOWTEXT(( SPItem *) items->data )) {
-                isFlow = true;
-                std::cout << "   Found flowed text" << std::endl;
-                break;
-            }
-        }
-        if( isFlow ) {
-            // enable justify button
-        } else {
-            // disable justify button
-        }
-        */
+        // Disable button if we don't have flowed text.
+
+        // The GtkTreeModel class doesn't have a set function so we can't
+        // simply add an ege_select_one_action_set_sensitive method!
+        // We must set values directly with the GtkListStore and then
+        // ask that the GtkAction update the sensitive parameters.
+        GtkListStore * model = GTK_LIST_STORE( ege_select_one_action_get_model( textAlignAction ) );
+        GtkTreePath * path = gtk_tree_path_new_from_string("3"); // Justify entry
+        GtkTreeIter iter;
+        gtk_tree_model_get_iter( GTK_TREE_MODEL (model), &iter, path );
+        gtk_list_store_set( model, &iter, /* column */ 3, isFlow, -1 );
+        ege_select_one_action_update_sensitive( textAlignAction );
+        // ege_select_one_action_set_sensitive( textAlignAction, 3, isFlow );
 
         int activeButton = 0;
         if (query->text_align.computed  == SP_CSS_TEXT_ALIGN_JUSTIFY)
@@ -7068,7 +7258,6 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
             if (query->text_anchor.computed == SP_CSS_TEXT_ANCHOR_MIDDLE) activeButton = 1;
             if (query->text_anchor.computed == SP_CSS_TEXT_ANCHOR_END)    activeButton = 2;
         }
-        EgeSelectOneAction* textAlignAction = EGE_SELECT_ONE_ACTION( g_object_get_data( tbl, "TextAlignAction" ) );
         ege_select_one_action_set_active( textAlignAction, activeButton );
 
 
@@ -7099,7 +7288,7 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
         GtkAdjustment *wordSpacingAdjustment =
             ege_adjustment_action_get_adjustment(EGE_ADJUSTMENT_ACTION( wordSpacingAction ));
         gtk_adjustment_set_value( wordSpacingAdjustment, wordSpacing );
- 
+
 
         // Letter spacing
         double letterSpacing;
@@ -7141,11 +7330,67 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
               << "  letter_spacing.value: "    << query->letter_spacing.value
               << "  letter_spacing.unit: "     << query->letter_spacing.unit  << std::endl;
     std::cout << "    GUI: writing_mode.computed: " << query->writing_mode.computed << std::endl;
-    std::cout << "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&" << std::endl;
-    std::cout << std::endl;
 #endif
 
     sp_style_unref(query);
+
+    // Kerning (xshift), yshift, rotation.  NB: These are not CSS attributes.
+    if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
+        SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
+        if( tc ) {
+            unsigned char_index = -1;
+            TextTagAttributes *attributes =
+                text_tag_attributes_at_position( tc->text, std::min(tc->text_sel_start, tc->text_sel_end), &char_index );
+            if( attributes ) {
+
+                // Dx
+                double dx = attributes->getDx( char_index );
+                GtkAction* dxAction = GTK_ACTION( g_object_get_data( tbl, "TextDxAction" ));
+                GtkAdjustment *dxAdjustment =
+                    ege_adjustment_action_get_adjustment(EGE_ADJUSTMENT_ACTION( dxAction ));
+                gtk_adjustment_set_value( dxAdjustment, dx );
+
+                // Dy
+                double dy = attributes->getDy( char_index );
+                GtkAction* dyAction = GTK_ACTION( g_object_get_data( tbl, "TextDyAction" ));
+                GtkAdjustment *dyAdjustment =
+                    ege_adjustment_action_get_adjustment(EGE_ADJUSTMENT_ACTION( dyAction ));
+                gtk_adjustment_set_value( dyAdjustment, dy );
+
+                // Rotation
+                double rotation = attributes->getRotate( char_index );
+                /* SVG value is between 0 and 360 but we're using -180 to 180 in widget */
+                if( rotation > 180.0 ) rotation -= 360.0;
+                GtkAction* rotationAction = GTK_ACTION( g_object_get_data( tbl, "TextRotationAction" ));
+                GtkAdjustment *rotationAdjustment =
+                    ege_adjustment_action_get_adjustment(EGE_ADJUSTMENT_ACTION( rotationAction ));
+                gtk_adjustment_set_value( rotationAdjustment, rotation );
+
+#ifdef DEBUG_TEXT
+                std::cout << "    GUI: Dx: " << dx << std::endl;
+                std::cout << "    GUI: Dy: " << dy << std::endl;
+                std::cout << "    GUI: Rotation: " << rotation << std::endl;
+#endif
+            }
+        }
+    }
+
+    {
+        // Set these here as we don't always have kerning/rotating attributes
+        GtkAction* dxAction = GTK_ACTION( g_object_get_data( tbl, "TextDxAction" ));
+        gtk_action_set_sensitive( GTK_ACTION(dxAction), !isFlow );
+
+        GtkAction* dyAction = GTK_ACTION( g_object_get_data( tbl, "TextDyAction" ));
+        gtk_action_set_sensitive( GTK_ACTION(dyAction), !isFlow );
+
+        GtkAction* rotationAction = GTK_ACTION( g_object_get_data( tbl, "TextRotationAction" ));
+        gtk_action_set_sensitive( GTK_ACTION(rotationAction), !isFlow );
+    }
+
+#ifdef DEBUG_TEXT
+    std::cout << "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&" << std::endl;
+    std::cout << std::endl;
+#endif
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 
@@ -7221,7 +7466,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
 
         Ink_ComboBoxEntry_Action* act = ink_comboboxentry_action_new( "TextFontSizeAction",
                                                                       _("Font Size"),
-                                                                      _("Select Font Size"),
+                                                                      _("Font size (px)"),
                                                                       NULL,
                                                                       GTK_TREE_MODEL(model_size),
                                                                       4 ); // Width in characters
@@ -7234,7 +7479,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* act = ink_toggle_action_new( "TextBoldAction",               // Name
                                                       _("Toggle Bold"),               // Label
-                                                      _("Toggle On/Off Bold Style"),  // Tooltip
+                                                      _("Toggle bold or normal weight"),  // Tooltip
                                                       GTK_STOCK_BOLD,                 // Icon (inkId)
                                                       secondarySize );                // Icon size
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
@@ -7247,7 +7492,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     {
         InkToggleAction* act = ink_toggle_action_new( "TextItalicAction",                     // Name
                                                       _("Toggle Italic/Oblique"),             // Label
-                                                      _("Toggle On/Off Italic/Oblique Style"),// Tooltip
+                                                      _("Toggle italic/oblique style"),// Tooltip
                                                       GTK_STOCK_ITALIC,                       // Icon (inkId)
                                                       secondarySize );                        // Icon size
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
@@ -7256,9 +7501,35 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         g_object_set_data( holder, "TextItalicAction", act );
     }
 
+    /* Style - Superscript */
+    {
+        InkToggleAction* act = ink_toggle_action_new( "TextSuperscriptAction",             // Name
+                                                      _("Toggle Superscript"),             // Label
+                                                      _("Toggle superscript"),             // Tooltip
+                                                      "text_superscript",                  // Icon (inkId)
+                                                      secondarySize );                     // Icon size
+        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_text_script_changed), holder );
+        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), prefs->getBool("/tools/text/super", false) );
+        g_object_set_data( holder, "TextSuperscriptAction", act );
+    }
+
+    /* Style - Subscript */
+    {
+        InkToggleAction* act = ink_toggle_action_new( "TextSubscriptAction",             // Name
+                                                      _("Toggle Subscript"),             // Label
+                                                      _("Toggle subscript"),             // Tooltip
+                                                      "text_subscript",                  // Icon (inkId)
+                                                      secondarySize );                     // Icon size
+        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_text_script_changed), holder );
+        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), prefs->getBool("/tools/text/sub", false) );
+        g_object_set_data( holder, "TextSubscriptAction", act );
+    }
+
     /* Alignment */
     {
-        GtkListStore* model = gtk_list_store_new( 3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING );
+        GtkListStore* model = gtk_list_store_new( 4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN );
 
         GtkTreeIter iter;
 
@@ -7267,6 +7538,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
                             0, _("Align left"),
                             1, _("Align left"),
                             2, GTK_STOCK_JUSTIFY_LEFT,
+                            3, true,
                             -1 );
 
         gtk_list_store_append( model, &iter );
@@ -7274,6 +7546,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
                             0, _("Align center"),
                             1, _("Align center"),
                             2, GTK_STOCK_JUSTIFY_CENTER,
+                            3, true,
                             -1 );
 
         gtk_list_store_append( model, &iter );
@@ -7281,21 +7554,23 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
                             0, _("Align right"),
                             1, _("Align right"),
                             2, GTK_STOCK_JUSTIFY_RIGHT,
+                            3, true,
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Justify"),
-                            1, _("Justify - Only flowed text"),
+                            1, _("Justify (only flowed text)"),
                             2, GTK_STOCK_JUSTIFY_FILL,
+                            3, false,
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "TextAlignAction",       // Name
                                                              _("Alignment"),          // Label
-                                                             _("Text Alignment"),     // Tooltip
+                                                             _("Text alignment"),     // Tooltip
                                                              NULL,                    // StockID
                                                              GTK_TREE_MODEL(model) ); // Model
-        g_object_set( act, "short_label", _("Align"), NULL );
+        g_object_set( act, "short_label", "NotUsed", NULL );
         gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
         g_object_set_data( holder, "TextAlignAction", act );
 
@@ -7305,7 +7580,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         ege_select_one_action_set_icon_column( act, 2 );
         ege_select_one_action_set_icon_size( act, secondarySize );
         ege_select_one_action_set_tooltip_column( act, 1  );
-
+        ege_select_one_action_set_sensitive_column( act, 3 );
         gint mode = prefs->getInt("/tools/text/align_mode", 0);
         ege_select_one_action_set_active( act, mode );
         g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(sp_text_align_mode_changed), holder );
@@ -7320,24 +7595,24 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Horizontal"),
-                            1, _("Horizontal Text"),
+                            1, _("Horizontal text"),
                             2, INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL,
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Vertical"),
-                            1, _("Vertical Text"),
+                            1, _("Vertical text"),
                             2, INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL,
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "TextOrientationAction", // Name
                                                              _("Orientation"),        // Label
-                                                             _("Text Orientation"),   // Tooltip
+                                                             _("Text orientation"),   // Tooltip
                                                              NULL,                    // StockID
                                                              GTK_TREE_MODEL(model) ); // Model
 
-        g_object_set( act, "short_label", _("O:"), NULL );
+        g_object_set( act, "short_label", "NotUsed", NULL );
         gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
         g_object_set_data( holder, "TextOrientationAction", act );
 
@@ -7363,8 +7638,8 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             "TextLineHeightAction",               /* name */
             _("Line Height"),                     /* label */
             _("Line:"),                           /* short label */
-            _("Spacing between lines."),          /* tooltip */
-            "/tools/text/lineheight",             /* path? */
+            _("Spacing between lines (times font size)"),      /* tooltip */
+            "/tools/text/lineheight",             /* preferences path */
             0.0,                                  /* default */
             GTK_WIDGET(desktop->canvas),          /* focusTarget */
             NULL,                                 /* unit selector */
@@ -7381,6 +7656,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
         g_object_set_data( holder, "TextLineHeightAction", eact );
+        g_object_set( G_OBJECT(eact), "iconId", "text_line_spacing", NULL );
     }
 
     /* Word spacing */
@@ -7393,8 +7669,8 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             "TextWordSpacingAction",              /* name */
             _("Word spacing"),                    /* label */
             _("Word:"),                           /* short label */
-            _("Spacing between words."),          /* tooltip */
-            "/tools/text/wordspacing",            /* path? */
+            _("Spacing between words (px)"),     /* tooltip */
+            "/tools/text/wordspacing",            /* preferences path */
             0.0,                                  /* default */
             GTK_WIDGET(desktop->canvas),          /* focusTarget */
             NULL,                                 /* unit selector */
@@ -7411,6 +7687,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
         g_object_set_data( holder, "TextWordSpacingAction", eact );
+        g_object_set( G_OBJECT(eact), "iconId", "text_word_spacing", NULL );
     }
 
     /* Letter spacing */
@@ -7423,8 +7700,8 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             "TextLetterSpacingAction",            /* name */
             _("Letter spacing"),                  /* label */
             _("Letter:"),                         /* short label */
-            _("Spacing between letters."),        /* tooltip */
-            "/tools/text/letterspacing",          /* path? */
+            _("Spacing between letters (px)"),   /* tooltip */
+            "/tools/text/letterspacing",          /* preferences path */
             0.0,                                  /* default */
             GTK_WIDGET(desktop->canvas),          /* focusTarget */
             NULL,                                 /* unit selector */
@@ -7441,6 +7718,100 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
         gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
         g_object_set_data( holder, "TextLetterSpacingAction", eact );
+        g_object_set( G_OBJECT(eact), "iconId", "text_letter_spacing", NULL );
+    }
+
+    /* Character kerning (horizontal shift) */
+    {
+        // Drop down menu
+        gchar const* labels[] = {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 };
+        gdouble values[]      = { -2.0, -1.5, -1.0, -0.5,   0,  0.5,  1.0,  1.5,  2.0, 2.5 };
+
+        EgeAdjustmentAction *eact = create_adjustment_action(
+            "TextDxAction",                       /* name */
+            _("Kerning"),                         /* label */
+            _("Kern:"),                           /* short label */
+            _("Horizontal kerning (px)"), /* tooltip */
+            "/tools/text/dx",                     /* preferences path */
+            0.0,                                  /* default */
+            GTK_WIDGET(desktop->canvas),          /* focusTarget */
+            NULL,                                 /* unit selector */
+            holder,                               /* dataKludge */
+            FALSE,                                /* set alt-x keyboard shortcut? */
+            NULL,                                 /* altx_mark */
+            -100.0, 100.0, 0.01, 0.1,             /* lower, upper, step (arrow up/down), page up/down */
+            labels, values, G_N_ELEMENTS(labels), /* drop down menu */
+            sp_text_dx_value_changed,             /* callback */
+            0.1,                                  /* step (used?) */
+            2,                                    /* digits to show */
+            1.0                                   /* factor (multiplies default) */
+            );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+        g_object_set_data( holder, "TextDxAction", eact );
+        g_object_set( G_OBJECT(eact), "iconId", "text_horz_kern", NULL );
+    }
+
+    /* Character vertical shift */
+    {
+        // Drop down menu
+        gchar const* labels[] = {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 };
+        gdouble values[]      = { -2.0, -1.5, -1.0, -0.5,   0,  0.5,  1.0,  1.5,  2.0, 2.5 };
+
+        EgeAdjustmentAction *eact = create_adjustment_action(
+            "TextDyAction",                       /* name */
+            _("Vertical Shift"),                  /* label */
+            _("Vert:"),                           /* short label */
+            _("Vertical shift (px)"),   /* tooltip */
+            "/tools/text/dy",                     /* preferences path */
+            0.0,                                  /* default */
+            GTK_WIDGET(desktop->canvas),          /* focusTarget */
+            NULL,                                 /* unit selector */
+            holder,                               /* dataKludge */
+            FALSE,                                /* set alt-x keyboard shortcut? */
+            NULL,                                 /* altx_mark */
+            -100.0, 100.0, 0.01, 0.1,             /* lower, upper, step (arrow up/down), page up/down */
+            labels, values, G_N_ELEMENTS(labels), /* drop down menu */
+            sp_text_dy_value_changed,             /* callback */
+            0.1,                                  /* step (used?) */
+            2,                                    /* digits to show */
+            1.0                                   /* factor (multiplies default) */
+            );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+        g_object_set_data( holder, "TextDyAction", eact );
+        g_object_set( G_OBJECT(eact), "iconId", "text_vert_kern", NULL );
+    }
+
+    /* Character rotation */
+    {
+        // Drop down menu
+        gchar const* labels[] = {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 };
+        gdouble values[]      = { -90, -45, -30, -15,   0,  15,  30,  45,  90, 180 };
+
+        EgeAdjustmentAction *eact = create_adjustment_action(
+            "TextRotationAction",                 /* name */
+            _("Letter rotation"),                 /* label */
+            _("Rot:"),                            /* short label */
+            _("Character rotation (degrees)"),/* tooltip */
+            "/tools/text/rotation",               /* preferences path */
+            0.0,                                  /* default */
+            GTK_WIDGET(desktop->canvas),          /* focusTarget */
+            NULL,                                 /* unit selector */
+            holder,                               /* dataKludge */
+            FALSE,                                /* set alt-x keyboard shortcut? */
+            NULL,                                 /* altx_mark */
+            -180.0, 180.0, 0.1, 1.0,              /* lower, upper, step (arrow up/down), page up/down */
+            labels, values, G_N_ELEMENTS(labels), /* drop down menu */
+            sp_text_rotation_value_changed,       /* callback */
+            0.1,                                  /* step (used?) */
+            2,                                    /* digits to show */
+            1.0                                   /* factor (multiplies default) */
+            );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
+        g_object_set_data( holder, "TextRotationAction", eact );
+        g_object_set( G_OBJECT(eact), "iconId", "text_rotation", NULL );
     }
 
     // Is this necessary to call? Shouldn't hurt.

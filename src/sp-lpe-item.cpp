@@ -772,14 +772,21 @@ bool sp_lpe_item_set_current_path_effect(SPLPEItem *lpeitem, Inkscape::LivePathE
     return false;
 }
 
-void sp_lpe_item_replace_path_effect(SPLPEItem *lpeitem, LivePathEffectObject * old_lpeobj,
-                                        LivePathEffectObject * new_lpeobj)
+/**
+ * Writes a new "inkscape:path-effect" string to xml, where the old_lpeobjects are substituted by the new ones.
+ *  Note that this method messes up the item's \c PathEffectList.
+ */
+void SPLPEItem::replacePathEffects( std::vector<LivePathEffectObject const *> const old_lpeobjs,
+                                    std::vector<LivePathEffectObject const *> const new_lpeobjs )
 {
     HRefList hreflist;
-    for (PathEffectList::const_iterator it = lpeitem->path_effect_list->begin(); it != lpeitem->path_effect_list->end(); ++it)
+    for (PathEffectList::const_iterator it = this->path_effect_list->begin(); it != this->path_effect_list->end(); ++it)
     {
-        if ((*it)->lpeobject == old_lpeobj) {
-            const gchar * repr_id = SP_OBJECT_REPR(new_lpeobj)->attribute("id");
+        LivePathEffectObject const * current_lpeobj = (*it)->lpeobject;
+        std::vector<LivePathEffectObject const *>::const_iterator found_it(std::find(old_lpeobjs.begin(), old_lpeobjs.end(), current_lpeobj));
+        if ( found_it != old_lpeobjs.end() ) {
+            std::vector<LivePathEffectObject const *>::difference_type found_index = std::distance (old_lpeobjs.begin(), found_it);
+            const gchar * repr_id = SP_OBJECT_REPR(new_lpeobjs[found_index])->attribute("id");
             gchar *hrefstr = g_strdup_printf("#%s", repr_id);
             hreflist.push_back( std::string(hrefstr) );
             g_free(hrefstr);
@@ -789,7 +796,49 @@ void sp_lpe_item_replace_path_effect(SPLPEItem *lpeitem, LivePathEffectObject * 
         }
     }
     std::string r = hreflist_write_svg(hreflist);
-    SP_OBJECT_REPR(lpeitem)->setAttribute("inkscape:path-effect", r.c_str());
+    SP_OBJECT_REPR(this)->setAttribute("inkscape:path-effect", r.c_str());
+}
+
+/**
+ *  Check all effects in the stack if they are used by other items, and fork them if so.
+ *  It is not recommended to fork the effects by yourself calling LivePathEffectObject::fork_private_if_necessary,
+ *  use this method instead.
+ *  Returns true if one or more effects were forked; returns false if nothing was done.
+ */
+bool sp_lpe_item_fork_path_effects_if_necessary(SPLPEItem *lpeitem, unsigned int nr_of_allowed_users)
+{
+    bool forked = false;
+
+    if ( sp_lpe_item_has_path_effect(lpeitem) ) {
+        // If one of the path effects is used by 2 or more items, fork it
+        // so that each object has its own independent copy of the effect.
+        // Note: replacing path effects messes up the path effect list
+
+        // Clones of the LPEItem will increase the refcount of the lpeobjects.
+        // Therefore, nr_of_allowed_users should be increased with the number of clones (i.e. refs to the lpeitem)
+        nr_of_allowed_users += SP_OBJECT(lpeitem)->hrefcount;
+
+        std::vector<LivePathEffectObject const *> old_lpeobjs, new_lpeobjs;
+        PathEffectList effect_list =  sp_lpe_item_get_effect_list(lpeitem);
+        for (PathEffectList::iterator it = effect_list.begin(); it != effect_list.end(); it++)
+        {
+            LivePathEffectObject *lpeobj = (*it)->lpeobject;
+            if (lpeobj) {
+                LivePathEffectObject *forked_lpeobj = lpeobj->fork_private_if_necessary(nr_of_allowed_users);
+                if (forked_lpeobj != lpeobj) {
+                    forked = true;
+                    old_lpeobjs.push_back(lpeobj);
+                    new_lpeobjs.push_back(forked_lpeobj);
+                }
+            }
+        }
+
+        if (forked) {
+            lpeitem->replacePathEffects(old_lpeobjs, new_lpeobjs);
+        }
+    }
+
+    return forked;
 }
 
 // Enable or disable the path effects of the item.

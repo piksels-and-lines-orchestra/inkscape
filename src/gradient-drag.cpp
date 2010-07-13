@@ -1,5 +1,3 @@
-#define __GRADIENT_DRAG_C__
-
 /*
  * On-canvas gradient dragging
  *
@@ -178,41 +176,74 @@ gr_drag_style_query (SPStyle *style, int property, gpointer data)
     }
 }
 
-bool
-gr_drag_style_set (const SPCSSAttr *css, gpointer data)
+bool GrDrag::styleSet( const SPCSSAttr *css )
 {
-    GrDrag *drag = (GrDrag *) data;
-
-    if (!drag->selected)
+    if (!selected) {
         return false;
+    }
 
-    SPCSSAttr *stop = sp_repr_css_attr_new ();
+    SPCSSAttr *stop = sp_repr_css_attr_new();
 
     // See if the css contains interesting properties, and if so, translate them into the format
     // acceptable for gradient stops
 
     // any of color properties, in order of increasing priority:
-    if (css->attribute("flood-color"))
+    if (css->attribute("flood-color")) {
         sp_repr_css_set_property (stop, "stop-color", css->attribute("flood-color"));
+    }
 
-    if (css->attribute("lighting-color"))
+    if (css->attribute("lighting-color")) {
         sp_repr_css_set_property (stop, "stop-color", css->attribute("lighting-color"));
+    }
 
-    if (css->attribute("color"))
+    if (css->attribute("color")) {
         sp_repr_css_set_property (stop, "stop-color", css->attribute("color"));
+    }
 
-    if (css->attribute("stroke") && strcmp(css->attribute("stroke"), "none"))
+    if (css->attribute("stroke") && strcmp(css->attribute("stroke"), "none")) {
         sp_repr_css_set_property (stop, "stop-color", css->attribute("stroke"));
+    }
 
-    if (css->attribute("fill") && strcmp(css->attribute("fill"), "none"))
+    if (css->attribute("fill") && strcmp(css->attribute("fill"), "none")) {
         sp_repr_css_set_property (stop, "stop-color", css->attribute("fill"));
+    }
 
-    if (css->attribute("stop-color"))
+    if (css->attribute("stop-color")) {
         sp_repr_css_set_property (stop, "stop-color", css->attribute("stop-color"));
+    }
+
+    // Make sure the style is allowed for gradient stops.
+    if ( !sp_repr_css_property_is_unset( stop, "stop-color") ) {
+        Glib::ustring tmp = sp_repr_css_property( stop, "stop-color", "" );
+        Glib::ustring::size_type pos = tmp.find("url(#");
+        if ( pos != Glib::ustring::npos ) {
+            Glib::ustring targetName = tmp.substr(pos + 5, tmp.length() - 6);
+            const GSList *gradients = sp_document_get_resource_list(desktop->doc(), "gradient");
+            for (const GSList *item = gradients; item; item = item->next) {
+                SPGradient* grad = SP_GRADIENT(item->data);
+                if ( targetName == grad->getId() ) {
+                    SPGradient *vect = grad->getVector();
+                    SPStop *firstStop = (vect) ? vect->getFirstStop() : grad->getFirstStop();
+                    if (firstStop) {
+                        Glib::ustring stopColorStr;
+                        if (firstStop->currentColor) {
+                            stopColorStr = sp_object_get_style_property(firstStop, "color", NULL);
+                        } else {
+                            stopColorStr = firstStop->specified_color.toString();
+                        }
+                        if ( !stopColorStr.empty() ) {
+                            sp_repr_css_set_property( stop, "stop-color", stopColorStr.c_str() );
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
 
 
     if (css->attribute("stop-opacity")) { // direct setting of stop-opacity has priority
-        sp_repr_css_set_property (stop, "stop-opacity", css->attribute("stop-opacity"));
+        sp_repr_css_set_property(stop, "stop-opacity", css->attribute("stop-opacity"));
     } else {  // multiply all opacity properties:
         gdouble accumulated = 1.0;
         accumulated *= sp_svg_read_percentage(css->attribute("flood-opacity"), 1.0);
@@ -222,11 +253,12 @@ gr_drag_style_set (const SPCSSAttr *css, gpointer data)
 
         Inkscape::CSSOStringStream os;
         os << accumulated;
-        sp_repr_css_set_property (stop, "stop-opacity", os.str().c_str());
+        sp_repr_css_set_property(stop, "stop-opacity", os.str().c_str());
 
         if ((css->attribute("fill") && !css->attribute("stroke") && !strcmp(css->attribute("fill"), "none")) ||
-            (css->attribute("stroke") && !css->attribute("fill") && !strcmp(css->attribute("stroke"), "none")))
-            sp_repr_css_set_property (stop, "stop-opacity", "0"); // if a single fill/stroke property is set to none, don't change color, set opacity to 0
+            (css->attribute("stroke") && !css->attribute("fill") && !strcmp(css->attribute("stroke"), "none"))) {
+            sp_repr_css_set_property(stop, "stop-opacity", "0"); // if a single fill/stroke property is set to none, don't change color, set opacity to 0
+        }
     }
 
     if (!stop->attributeList()) { // nothing for us here, pass it on
@@ -234,13 +266,13 @@ gr_drag_style_set (const SPCSSAttr *css, gpointer data)
         return false;
     }
 
-    for (GList const* sel = drag->selected; sel != NULL; sel = sel->next) { // for all selected draggers
-        GrDragger* dragger = (GrDragger*) sel->data;
+    for (GList const* sel = selected; sel != NULL; sel = sel->next) { // for all selected draggers
+        GrDragger* dragger = reinterpret_cast<GrDragger*>(sel->data);
         for (GSList const* i = dragger->draggables; i != NULL; i = i->next) { // for all draggables of dragger
-               GrDraggable *draggable = (GrDraggable *) i->data;
+            GrDraggable *draggable = reinterpret_cast<GrDraggable *>(i->data);
 
-               drag->local_change = true;
-               sp_item_gradient_stop_set_style (draggable->item, draggable->point_type, draggable->point_i, draggable->fill_or_stroke, stop);
+            local_change = true;
+            sp_item_gradient_stop_set_style(draggable->item, draggable->point_type, draggable->point_i, draggable->fill_or_stroke, stop);
         }
     }
 
@@ -348,7 +380,7 @@ GrDrag::addStopNearPoint (SPItem *item, Geom::Point mouse_p, double tolerance)
 
 
         SPStop *newstop = sp_vector_add_stop (vector, prev_stop, next_stop, offset);
-        sp_gradient_ensure_vector (gradient);
+        gradient->ensureVector();
         updateDraggers();
 
         return newstop;
@@ -404,51 +436,47 @@ GrDrag::dropColor(SPItem */*item*/, gchar const *c, Geom::Point p)
 }
 
 
-GrDrag::GrDrag(SPDesktop *desktop) {
-
-    this->desktop = desktop;
-
-    this->selection = sp_desktop_selection(desktop);
-
-    this->draggers = NULL;
-    this->lines = NULL;
-    this->selected = NULL;
-
-    this->hor_levels.clear();
-    this->vert_levels.clear();
-
-    this->local_change = false;
-
-    this->sel_changed_connection = this->selection->connectChanged(
-        sigc::bind (
+GrDrag::GrDrag(SPDesktop *desktop) :
+    selected(0),
+    keep_selection(false),
+    local_change(false),
+    desktop(desktop),
+    hor_levels(),
+    vert_levels(),
+    draggers(0),
+    lines(0),
+    selection(sp_desktop_selection(desktop)),
+    sel_changed_connection(),
+    sel_modified_connection(),
+    style_set_connection(),
+    style_query_connection()
+{
+    sel_changed_connection = selection->connectChanged(
+        sigc::bind(
             sigc::ptr_fun(&gr_drag_sel_changed),
             (gpointer)this )
 
         );
-    this->sel_modified_connection = this->selection->connectModified(
+    sel_modified_connection = selection->connectModified(
         sigc::bind(
             sigc::ptr_fun(&gr_drag_sel_modified),
             (gpointer)this )
         );
 
-    this->style_set_connection = this->desktop->connectSetStyle(
-        sigc::bind(
-            sigc::ptr_fun(&gr_drag_style_set),
-            (gpointer)this )
-        );
+    style_set_connection = desktop->connectSetStyle( sigc::mem_fun(*this, &GrDrag::styleSet) );
 
-    this->style_query_connection = this->desktop->connectQueryStyle(
+    style_query_connection = desktop->connectQueryStyle(
         sigc::bind(
             sigc::ptr_fun(&gr_drag_style_query),
             (gpointer)this )
         );
 
-    this->updateDraggers ();
-    this->updateLines ();
-    this->updateLevels ();
+    updateDraggers();
+    updateLines();
+    updateLevels();
 
     if (desktop->gr_item) {
-        this->setSelected (getDraggerFor (desktop->gr_item, desktop->gr_point_type, desktop->gr_point_i, desktop->gr_fill_or_stroke));
+        setSelected(getDraggerFor(desktop->gr_item, desktop->gr_point_type, desktop->gr_point_i, desktop->gr_fill_or_stroke));
     }
 }
 
@@ -503,17 +531,18 @@ GrDraggable::~GrDraggable ()
 }
 
 
-SPObject *
-GrDraggable::getServer ()
+SPObject *GrDraggable::getServer()
 {
-    if (!item)
+    if (!item) {
         return NULL;
+    }
 
     SPObject *server = NULL;
-    if (fill_or_stroke)
-        server = SP_OBJECT_STYLE_FILL_SERVER (item);
-    else
-        server = SP_OBJECT_STYLE_STROKE_SERVER (item);
+    if (fill_or_stroke) {
+        server = item->style->getFillPaintServer();
+    }else {
+        server = item->style->getStrokePaintServer();
+    }
 
     return server;
 }
@@ -659,7 +688,7 @@ gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gp
                     snap_vector = get_snap_vector (p, dr_snap, M_PI/snaps, 0);
                 }
                 if (snap_vector) {
-                    Inkscape::Snapper::ConstraintLine cl(dr_snap, p + *snap_vector - dr_snap);
+                    Inkscape::Snapper::SnapConstraint cl(dr_snap, p + *snap_vector - dr_snap);
                     Inkscape::SnappedPoint s = m.constrainedSnap(Inkscape::SnapCandidatePoint(p + *snap_vector, Inkscape::SNAPSOURCE_OTHER_HANDLE), cl);
                     if (s.getSnapped()) {
                         s.setTransformation(s.getPoint() - p);
@@ -809,9 +838,10 @@ gr_knot_moved_midpoint_handler(SPKnot */*knot*/, Geom::Point const &ppointer, gu
     } else {
         p = snap_vector_midpoint (p, low_lim, high_lim, 0);
         if (!(state & GDK_SHIFT_MASK)) {
+            Inkscape::Snapper::SnapConstraint cl(low_lim, high_lim - low_lim);
             SPDesktop *desktop = dragger->parent->desktop;
             SnapManager &m = desktop->namedview->snap_manager;
-            Inkscape::Snapper::ConstraintLine cl(low_lim, high_lim - low_lim);
+            m.setup(desktop);
             m.constrainedSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE, cl);
         }
     }
@@ -1623,41 +1653,43 @@ GrDrag::grabKnot (SPItem *item, gint point_type, gint point_i, bool fill_or_stro
 Regenerates the draggers list from the current selection; is called when selection is changed or
 modified, also when a radial dragger needs to update positions of other draggers in the gradient
 */
-void
-GrDrag::updateDraggers ()
+void GrDrag::updateDraggers ()
 {
     while (selected) {
         selected = g_list_remove(selected, selected->data);
     }
     // delete old draggers
     for (GList const* i = this->draggers; i != NULL; i = i->next) {
-        delete ((GrDragger *) i->data);
+        delete static_cast<GrDragger *>(i->data);
     }
-    g_list_free (this->draggers);
+    g_list_free(this->draggers);
     this->draggers = NULL;
 
-    g_return_if_fail (this->selection != NULL);
+    g_return_if_fail(this->selection != NULL);
 
     for (GSList const* i = this->selection->itemList(); i != NULL; i = i->next) {
-
         SPItem *item = SP_ITEM(i->data);
-        SPStyle *style = SP_OBJECT_STYLE (item);
+        SPStyle *style = item->style;
 
         if (style && (style->fill.isPaintserver())) {
-            SPObject *server = SP_OBJECT_STYLE_FILL_SERVER (item);
-            if (SP_IS_LINEARGRADIENT (server)) {
-                addDraggersLinear (SP_LINEARGRADIENT (server), item, true);
-            } else if (SP_IS_RADIALGRADIENT (server)) {
-                addDraggersRadial (SP_RADIALGRADIENT (server), item, true);
+            SPPaintServer *server = style->getFillPaintServer();
+            if ( server && server->isSolid() ) {
+                // Suppress "gradientness" of solid paint
+            } else if ( SP_IS_LINEARGRADIENT(server) ) {
+                addDraggersLinear( SP_LINEARGRADIENT(server), item, true );
+            } else if ( SP_IS_RADIALGRADIENT(server) ) {
+                addDraggersRadial( SP_RADIALGRADIENT(server), item, true );
             }
         }
 
         if (style && (style->stroke.isPaintserver())) {
-            SPObject *server = SP_OBJECT_STYLE_STROKE_SERVER (item);
-            if (SP_IS_LINEARGRADIENT (server)) {
-                addDraggersLinear (SP_LINEARGRADIENT (server), item, false);
-            } else if (SP_IS_RADIALGRADIENT (server)) {
-                addDraggersRadial (SP_RADIALGRADIENT (server), item, false);
+            SPPaintServer *server = style->getStrokePaintServer();
+            if ( server && server->isSolid() ) {
+                // Suppress "gradientness" of solid paint
+            } else if ( SP_IS_LINEARGRADIENT(server) ) {
+                addDraggersLinear( SP_LINEARGRADIENT(server), item, false );
+            } else if ( SP_IS_RADIALGRADIENT(server) ) {
+                addDraggersRadial( SP_RADIALGRADIENT(server), item, false );
             }
         }
     }
@@ -1702,10 +1734,12 @@ GrDrag::updateLines ()
         SPStyle *style = SP_OBJECT_STYLE (item);
 
         if (style && (style->fill.isPaintserver())) {
-            SPObject *server = SP_OBJECT_STYLE_FILL_SERVER (item);
-            if (SP_IS_LINEARGRADIENT (server)) {
+            SPPaintServer *server = item->style->getFillPaintServer();
+            if ( server && server->isSolid() ) {
+                // Suppress "gradientness" of solid paint
+            } else if ( SP_IS_LINEARGRADIENT(server) ) {
                 this->addLine (item, sp_item_gradient_get_coords (item, POINT_LG_BEGIN, 0, true), sp_item_gradient_get_coords (item, POINT_LG_END, 0, true), GR_LINE_COLOR_FILL);
-            } else if (SP_IS_RADIALGRADIENT (server)) {
+            } else if ( SP_IS_RADIALGRADIENT(server) ) {
                 Geom::Point center = sp_item_gradient_get_coords (item, POINT_RG_CENTER, 0, true);
                 this->addLine (item, center, sp_item_gradient_get_coords (item, POINT_RG_R1, 0, true), GR_LINE_COLOR_FILL);
                 this->addLine (item, center, sp_item_gradient_get_coords (item, POINT_RG_R2, 0, true), GR_LINE_COLOR_FILL);
@@ -1713,10 +1747,12 @@ GrDrag::updateLines ()
         }
 
         if (style && (style->stroke.isPaintserver())) {
-            SPObject *server = SP_OBJECT_STYLE_STROKE_SERVER (item);
-            if (SP_IS_LINEARGRADIENT (server)) {
+            SPPaintServer *server = item->style->getStrokePaintServer();
+            if ( server && server->isSolid() ) {
+                // Suppress "gradientness" of solid paint
+            } else if ( SP_IS_LINEARGRADIENT(server) ) {
                 this->addLine (item, sp_item_gradient_get_coords (item, POINT_LG_BEGIN, 0, false), sp_item_gradient_get_coords (item, POINT_LG_END, 0, false), GR_LINE_COLOR_STROKE);
-            } else if (SP_IS_RADIALGRADIENT (server)) {
+            } else if ( SP_IS_RADIALGRADIENT(server) ) {
                 Geom::Point center = sp_item_gradient_get_coords (item, POINT_RG_CENTER, 0, false);
                 this->addLine (item, center, sp_item_gradient_get_coords (item, POINT_RG_R1, 0, false), GR_LINE_COLOR_STROKE);
                 this->addLine (item, center, sp_item_gradient_get_coords (item, POINT_RG_R2, 0, false), GR_LINE_COLOR_STROKE);

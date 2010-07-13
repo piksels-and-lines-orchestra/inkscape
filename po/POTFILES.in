@@ -70,6 +70,18 @@
 [type: gettext/xml] share/extensions/inkscape_help_svgspec.inx
 [type: gettext/xml] share/extensions/interp.inx
 [type: gettext/xml] share/extensions/interp_att_g.inx
+[type: gettext/xml] share/extensions/jessyInk_autoTexts.inx
+[type: gettext/xml] share/extensions/jessyInk_effects.inx
+[type: gettext/xml] share/extensions/jessyInk_export.inx
+[type: gettext/xml] share/extensions/jessyInk_install.inx
+[type: gettext/xml] share/extensions/jessyInk_keyBindings.inx
+[type: gettext/xml] share/extensions/jessyInk_masterSlide.inx
+[type: gettext/xml] share/extensions/jessyInk_mouseHandler.inx
+[type: gettext/xml] share/extensions/jessyInk_summary.inx
+[type: gettext/xml] share/extensions/jessyInk_transitions.inx
+[type: gettext/xml] share/extensions/jessyInk_uninstall.inx
+[type: gettext/xml] share/extensions/jessyInk_video.inx
+[type: gettext/xml] share/extensions/jessyInk_view.inx
 [type: gettext/xml] share/extensions/lindenmayer.inx
 [type: gettext/xml] share/extensions/lorem_ipsum.inx
 [type: gettext/xml] share/extensions/markers_strokepaint.inx
@@ -109,7 +121,6 @@
 [type: gettext/xml] share/extensions/text_lowercase.inx
 [type: gettext/xml] share/extensions/text_randomcase.inx
 [type: gettext/xml] share/extensions/text_replace.inx
-[type: gettext/xml] share/extensions/text_sentencecase.inx
 [type: gettext/xml] share/extensions/text_titlecase.inx
 [type: gettext/xml] share/extensions/text_uppercase.inx
 [type: gettext/xml] share/extensions/triangle.inx
@@ -123,8 +134,6 @@
 [type: gettext/xml] share/extensions/wmf_input.inx
 [type: gettext/xml] share/extensions/wmf_output.inx
 [type: gettext/xml] share/extensions/xaml2svg.inx
-[type: gettext/xml] src/extension/dxf2svg/dxf_input.inx
-[type: gettext/xml] src/extension/dxf2svg/dxf_input_windows.inx
 cxxtest/cxxtestgen.py
 inkscape.desktop.in
 share/extensions/dimension.py
@@ -328,10 +337,12 @@ src/sp-line.cpp
 src/sp-lpe-item.cpp
 src/sp-namedview.cpp
 src/sp-offset.cpp
+src/sp-path.cpp
 src/sp-polygon.cpp
 src/sp-polyline.cpp
 src/sp-rect.cpp
 src/sp-spiral.cpp
+src/sp-star.cpp
 src/sp-text.cpp
 src/sp-tref.cpp
 src/sp-tspan.cpp
@@ -362,7 +373,7 @@ src/ui/dialog/filedialogimpl-win32.cpp
 src/ui/dialog/fill-and-stroke.cpp
 src/ui/dialog/filter-effects-dialog.cpp
 src/ui/dialog/find.cpp
-src/ui/dialog/glyphs.cpp 
+src/ui/dialog/glyphs.cpp
 src/ui/dialog/guides.cpp
 src/ui/dialog/icon-preview.cpp
 src/ui/dialog/inkscape-preferences.cpp

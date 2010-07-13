@@ -108,8 +108,9 @@ static char const menus_skeleton[] =
 "         <verb verb-id=\"ViewModeNormal\" radio=\"yes\" default=\"yes\"/>\n"
 "         <verb verb-id=\"ViewModeNoFilters\" radio=\"yes\"/>\n"
 "         <verb verb-id=\"ViewModeOutline\" radio=\"yes\"/>\n"
-"         <verb verb-id=\"ViewModePrintColorsPreview\" radio=\"yes\"/>\n"
-"         <verb verb-id=\"DialogPrintColorsPreview\" />\n"
+// Better location in menu needs to be found
+//"         <verb verb-id=\"ViewModePrintColorsPreview\" radio=\"yes\"/>\n"
+//"         <verb verb-id=\"DialogPrintColorsPreview\" />\n"
 "       </submenu>\n"
 "       <separator/>\n"
 "       <verb verb-id=\"ToggleGrid\" />\n"
@@ -133,6 +134,8 @@ static char const menus_skeleton[] =
 "       <verb verb-id=\"ViewNew\" />\n"
 "       <separator/>\n"
 "       <verb verb-id=\"FullScreen\" />\n"
+"       <separator/>\n"
+"       <task-checkboxes/>\n"
 // Not quite ready to be in the menus.
 // "       <verb verb-id=\"FocusToggle\" />\n"
 "   </submenu>\n"
