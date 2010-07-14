@@ -367,6 +367,14 @@ ink_cairo_surface_create_identical(cairo_surface_t *s)
     return ns;
 }
 
+cairo_surface_t *
+ink_cairo_surface_create_same_size(cairo_surface_t *s, cairo_content_t c)
+{
+    cairo_surface_t *ns = cairo_surface_create_similar(s, c,
+        ink_cairo_surface_get_width(s), ink_cairo_surface_get_height(s));
+    return ns;
+}
+
 /** @brief Extract the alpha channel into a new surface.
  * Creates a surface with a content type of CAIRO_CONTENT_ALPHA that contains
  * the alpha values of pixels from @a s. */

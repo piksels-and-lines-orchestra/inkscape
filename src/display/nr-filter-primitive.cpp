@@ -12,8 +12,8 @@
  */
 
 #include "display/nr-filter-primitive.h"
+#include "display/nr-filter-slot.h"
 #include "display/nr-filter-types.h"
-#include "libnr/nr-pixblock.h"
 #include "svg/svg-length.h"
 
 namespace Inkscape {

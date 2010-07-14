@@ -86,6 +86,7 @@ void ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, do
 
 cairo_surface_t *ink_cairo_surface_copy(cairo_surface_t *s);
 cairo_surface_t *ink_cairo_surface_create_identical(cairo_surface_t *s);
+cairo_surface_t *ink_cairo_surface_create_same_size(cairo_surface_t *s, cairo_content_t c);
 cairo_surface_t *ink_cairo_extract_alpha(cairo_surface_t *s);
 cairo_surface_t *ink_cairo_surface_unshare(cairo_surface_t *s);
 int ink_cairo_surface_get_width(cairo_surface_t *surface);

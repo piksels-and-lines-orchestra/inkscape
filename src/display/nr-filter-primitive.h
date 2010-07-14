@@ -1,6 +1,3 @@
-#ifndef __NR_FILTER_PRIMITIVE_H__
-#define __NR_FILTER_PRIMITIVE_H__
-
 /*
  * SVG filters rendering
  *
@@ -11,14 +8,19 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
+#ifndef SEEN_NR_FILTER_PRIMITIVE_H
+#define SEEN_NR_FILTER_PRIMITIVE_H
 
-#include "display/nr-filter-slot.h"
-#include "libnr/nr-pixblock.h"
-#include "libnr/nr-rect-l.h"
+#include <2geom/forward.h>
 #include "svg/svg-length.h"
+
+struct NRRectL;
 
 namespace Inkscape {
 namespace Filters {
+
+class FilterSlot;
+class FilterUnits;
 
 /*
  * Different filter effects need different types of inputs. This is what
@@ -112,7 +114,7 @@ public:
     /** @brief Indicate whether the filter primitive can handle the given affine.
      *
      * Results of some filter primitives depend on the coordinate system used when rendering.
-     * A gaussian blur will equal x and y deviation will remain unchanged by rotations.
+     * A gaussian blur with equal x and y deviation will remain unchanged by rotations.
      * Per-pixel filters like color matrix and blend will not change regardless of
      * the transformation.
      *

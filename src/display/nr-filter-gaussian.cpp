@@ -32,6 +32,7 @@
 #include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-types.h"
 #include "display/nr-filter-units.h"
+#include "display/nr-filter-slot.h"
 #include <2geom/matrix.h>
 #include "util/fixed_point.h"
 #include "preferences.h"
