@@ -159,6 +159,7 @@ void surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_surface_t *
     // WARNING: code below assumes that:
     // 1. Cairo ARGB32 surface strides are always divisible by 4
     // 2. We can only receive CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_A8 surfaces
+    // 3. Both surfaces are of the same size
 
     int w = cairo_image_surface_get_width(in2);
     int h = cairo_image_surface_get_height(in2);
