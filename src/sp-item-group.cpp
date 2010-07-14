@@ -858,12 +858,12 @@ sp_group_perform_patheffect(SPGroup *group, SPGroup *topgroup, bool write)
             if (SP_IS_PATH(subitem)) {
                 c = sp_path_get_original_curve(SP_PATH(subitem));
             } else {
-                c = sp_shape_get_curve(SP_SHAPE(subitem));
+                c = SP_SHAPE(subitem)->getCurve();
             }
             // only run LPEs when the shape has a curve defined
             if (c) {
                 sp_lpe_item_perform_path_effect(SP_LPE_ITEM(topgroup), c);
-                sp_shape_set_curve(SP_SHAPE(subitem), c, TRUE);
+                SP_SHAPE(subitem)->setCurve(c, TRUE);
 
                 if (write) {
                     Inkscape::XML::Node *repr = SP_OBJECT_REPR(subitem);

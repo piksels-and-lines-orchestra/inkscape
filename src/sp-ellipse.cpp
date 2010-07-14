@@ -153,7 +153,7 @@ sp_genericellipse_update(SPObject *object, SPCtx *ctx, guint flags)
         ellipse->cy.update(em, ex, dy);
         ellipse->rx.update(em, ex, dr);
         ellipse->ry.update(em, ex, dr);
-        sp_shape_set_shape((SPShape *) object);
+        ((SPShape *) object)->setShape();
     }
 
     if (((SPObjectClass *) ge_parent_class)->update)
@@ -190,7 +190,7 @@ static void sp_genericellipse_set_shape(SPShape *shape)
             // unconditionally read the curve from d, if any, to preserve appearance
             Geom::PathVector pv = sp_svg_read_pathv(SP_OBJECT_REPR(shape)->attribute("d"));
             SPCurve *cold = new SPCurve(pv);
-            sp_shape_set_curve_insync (shape, cold, TRUE);
+            shape->setCurveInsync( cold, TRUE);
             cold->unref();
         }
         return;
@@ -257,12 +257,12 @@ static void sp_genericellipse_set_shape(SPShape *shape)
 
     /* Reset the shape'scurve to the "original_curve"
      * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
-    sp_shape_set_curve_insync (shape, curve, TRUE);
+    shape->setCurveInsync( curve, TRUE);
     if (sp_lpe_item_has_path_effect(SP_LPE_ITEM(shape)) && sp_lpe_item_path_effects_enabled(SP_LPE_ITEM(shape))) {
         SPCurve *c_lpe = curve->copy();
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM (shape), c_lpe);
         if (success) {
-            sp_shape_set_curve_insync (shape, c_lpe, TRUE);
+            shape->setCurveInsync( c_lpe, TRUE);
         }
         c_lpe->unref();
     }
@@ -855,7 +855,7 @@ static void
 sp_arc_modified(SPObject *object, guint flags)
 {
     if (flags & (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG | SP_OBJECT_VIEWPORT_MODIFIED_FLAG)) {
-        sp_shape_set_shape((SPShape *) object);
+        ((SPShape *) object)->setShape();
     }
 
     if (((SPObjectClass *) arc_parent_class)->modified)

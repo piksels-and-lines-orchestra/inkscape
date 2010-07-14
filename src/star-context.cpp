@@ -492,7 +492,7 @@ sp_star_finish (SPStarContext * sc)
         SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
         SPObject *object = SP_OBJECT(sc->item);
 
-        sp_shape_set_shape(SP_SHAPE(sc->item));
+        (SP_SHAPE(sc->item))->setShape();
 
         object->updateRepr(SP_OBJECT_WRITE_EXT);
 

@@ -279,11 +279,11 @@ sp_path_set(SPObject *object, unsigned int key, gchar const *value)
                     Geom::PathVector pv = sp_svg_read_pathv(value);
                     SPCurve *curve = new SPCurve(pv);
                     if (curve) {
-                        sp_shape_set_curve((SPShape *) path, curve, TRUE);
+                        ((SPShape *) path)->setCurve(curve, TRUE);
                         curve->unref();
                     }
                 } else {
-                    sp_shape_set_curve((SPShape *) path, NULL, TRUE);
+                    ((SPShape *) path)->setCurve(NULL, TRUE);
                 }
                 object->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
             break;
@@ -425,7 +425,7 @@ g_message("sp_path_update_patheffect");
         SPCurve *curve = path->original_curve->copy();
         /* if a path does not have an lpeitem applied, then reset the curve to the original_curve.
          * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
-        sp_shape_set_curve_insync(shape, curve, TRUE);
+        shape->setCurveInsync(curve, TRUE);
 
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM(shape), curve);
         if (success && write) {
@@ -446,7 +446,7 @@ g_message("sp_path_update_patheffect writes 'd' attribute");
                 Geom::PathVector pv = sp_svg_read_pathv(value);
                 SPCurve *oldcurve = new SPCurve(pv);
                 if (oldcurve) {
-                    sp_shape_set_curve(shape, oldcurve, TRUE);
+                    shape->setCurve(oldcurve, TRUE);
                     oldcurve->unref();
                 }
             }
@@ -505,7 +505,7 @@ sp_path_get_curve_for_edit (SPPath *path)
                                 sp_lpe_item_has_path_effect_recursive(SP_LPE_ITEM(path))) {
         return sp_path_get_original_curve(path);
     } else {
-        return sp_shape_get_curve( (SPShape *) path );
+        return ((SPShape *) path)->getCurve();
     }
 }
 

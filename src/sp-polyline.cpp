@@ -141,7 +141,7 @@ SPPolyLine::sp_polyline_set (SPObject *object, unsigned int key, const gchar *va
 			}
 		}
 		
-		sp_shape_set_curve (SP_SHAPE (polyline), curve, TRUE);
+		(SP_SHAPE (polyline))->setCurve (curve, TRUE);
 		curve->unref();
 		break;
 	}

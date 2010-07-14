@@ -1250,7 +1250,7 @@ void PathManipulator::_setGeometry()
         if (_path->getRepr()->attribute("inkscape:original-d"))
             sp_path_set_original_curve(_path, _spcurve, false, false);
         else
-            sp_shape_set_curve(SP_SHAPE(_path), _spcurve, false);
+            SP_SHAPE(_path)->setCurve(_spcurve, false);
     }
 }
 

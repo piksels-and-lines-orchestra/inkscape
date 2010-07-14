@@ -518,7 +518,7 @@ Effect::getHelperPaths(SPLPEItem *lpeitem)
     //       rather than copying PathVectors all over the place
     if (show_orig_path) {
         // add original path to helperpaths
-        SPCurve* curve = sp_shape_get_curve (SP_SHAPE(lpeitem));
+        SPCurve* curve = SP_SHAPE(lpeitem)->getCurve ();
         hp_vec.push_back(curve->get_pathvector());
     }
 

@@ -667,7 +667,7 @@ Geom::PathVector* item_outline(SPItem const *item)
 
     SPCurve *curve = NULL;
     if (SP_IS_SHAPE(item)) {
-        curve = sp_shape_get_curve(SP_SHAPE(item));
+        curve = SP_SHAPE(item)->getCurve();
     } else if (SP_IS_TEXT(item)) {
         curve = SP_TEXT(item)->getNormalizedBpath();
     }
@@ -782,7 +782,7 @@ Geom::PathVector* item_outline(SPItem const *item)
     if (res->descr_cmd.size() > 1) { // if there's 0 or 1 node left, drop this path altogether
         ret_pathv = orig->MakePathVector();
 
-        if (SP_IS_SHAPE(item) && sp_shape_has_markers (SP_SHAPE(item))) {
+        if (SP_IS_SHAPE(item) && SP_SHAPE(item)->hasMarkers ()) {
             SPShape *shape = SP_SHAPE(item);
 
             Geom::PathVector const & pathv = curve->get_pathvector();
@@ -891,7 +891,7 @@ sp_selected_path_outline(SPDesktop *desktop)
 
         SPCurve *curve = NULL;
         if (SP_IS_SHAPE(item)) {
-            curve = sp_shape_get_curve(SP_SHAPE(item));
+            curve = SP_SHAPE(item)->getCurve();
             if (curve == NULL)
                 continue;
         }
@@ -1075,7 +1075,7 @@ sp_selected_path_outline(SPDesktop *desktop)
             if (clip_path)
                 repr->setAttribute("clip-path", clip_path);
 
-            if (SP_IS_SHAPE(item) && sp_shape_has_markers (SP_SHAPE(item))) {
+            if (SP_IS_SHAPE(item) && SP_SHAPE(item)->hasMarkers ()) {
 
                 Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
                 Inkscape::XML::Node *g_repr = xml_doc->createElement("svg:g");
@@ -1308,7 +1308,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
     }
     if (SP_IS_SHAPE(item))
     {
-        curve = sp_shape_get_curve(SP_SHAPE(item));
+        curve = SP_SHAPE(item)->getCurve();
         if (curve == NULL)
             return;
     }
@@ -1537,7 +1537,7 @@ sp_selected_path_do_offset(SPDesktop *desktop, bool expand, double prefOffset)
 
         SPCurve *curve = NULL;
         if (SP_IS_SHAPE(item)) {
-            curve = sp_shape_get_curve(SP_SHAPE(item));
+            curve = SP_SHAPE(item)->getCurve();
             if (curve == NULL)
                 continue;
         }
@@ -1779,7 +1779,7 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
     SPCurve *curve = NULL;
 
     if (SP_IS_SHAPE(item)) {
-        curve = sp_shape_get_curve(SP_SHAPE(item));
+        curve = SP_SHAPE(item)->getCurve();
         if (!curve)
             return false;
     }
@@ -2112,7 +2112,7 @@ SPCurve* curve_for_item(SPItem *item)
         if (SP_IS_PATH(item)) {
             curve = sp_path_get_curve_for_edit(SP_PATH(item));
         } else {
-            curve = sp_shape_get_curve(SP_SHAPE(item));
+            curve = SP_SHAPE(item)->getCurve();
         }
     }
     else if (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item))

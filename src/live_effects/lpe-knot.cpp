@@ -498,7 +498,7 @@ void collectPathsAndWidths (SPLPEItem const *lpeitem, std::vector<Geom::Path> &p
         if (SP_IS_PATH(lpeitem)) {
             c = sp_path_get_curve_for_edit(SP_PATH(lpeitem));
         } else {
-            c = sp_shape_get_curve(SP_SHAPE(lpeitem));
+            c = SP_SHAPE(lpeitem)->getCurve();
         }
         if (c) {
             Geom::PathVector subpaths = c->get_pathvector();

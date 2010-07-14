@@ -117,7 +117,7 @@ box3d_side_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
         sp_repr_set_int(repr, "inkscape:box3dsidetype", side->dir1 ^ side->dir2 ^ side->front_or_rear);
     }
 
-    sp_shape_set_shape ((SPShape *) object);
+    ((SPShape *) object)->setShape ();
 
     /* Duplicate the path */
     SPCurve const *curve = ((SPShape *) object)->curve;
@@ -179,7 +179,7 @@ box3d_side_update (SPObject *object, SPCtx *ctx, guint flags)
     if (flags & (SP_OBJECT_MODIFIED_FLAG |
                  SP_OBJECT_STYLE_MODIFIED_FLAG |
                  SP_OBJECT_VIEWPORT_MODIFIED_FLAG)) {
-        sp_shape_set_shape ((SPShape *) object);
+        ((SPShape *) object)->setShape ();
     }
 
     if (((SPObjectClass *) parent_class)->update)
@@ -251,19 +251,24 @@ box3d_side_set_shape (SPShape *shape)
 
     /* Reset the shape'scurve to the "original_curve"
      * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
-    sp_shape_set_curve_insync (shape, c, TRUE);
+    shape->setCurveInsync( c, TRUE);
     if (sp_lpe_item_has_path_effect(SP_LPE_ITEM(shape)) && sp_lpe_item_path_effects_enabled(SP_LPE_ITEM(shape))) {
         SPCurve *c_lpe = c->copy();
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM (shape), c_lpe);
         if (success) {
-            sp_shape_set_curve_insync (shape, c_lpe, TRUE);
+            shape->setCurveInsync( c_lpe, TRUE);
         }
         c_lpe->unref();
     }
     c->unref();
 }
 
-void
+/* removed to be merged into box3d-context function sp_box3d_drag 
+ * so as to remove the faulty mehcanism of accessing a parent's/base
+ * level class members from a derived subclass.
+ */
+
+/*void
 box3d_side_apply_style (Box3DSide *side) {
     Inkscape::XML::Node *repr_face = SP_OBJECT_REPR(SP_OBJECT(side));
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -276,15 +281,15 @@ box3d_side_apply_style (Box3DSide *side) {
     SPDesktop *desktop = inkscape_active_desktop();
     bool use_current = prefs->getBool("/tools/shapes/3dbox/usecurrent", false);
     if (use_current && !cur_style.empty()) {
-        /* use last used style */
+        // use last used style 
         repr_face->setAttribute("style", cur_style.data());
     } else {
-        /* use default style */
+        // use default style 
         GString *pstring = g_string_new("");
         g_string_printf (pstring, "/tools/shapes/3dbox/%s", box3d_side_axes_string(side));
         sp_desktop_apply_style_tool (desktop, repr_face, pstring->str, false);
     }
-}
+}*/
 
 gchar *
 box3d_side_axes_string(Box3DSide *side)

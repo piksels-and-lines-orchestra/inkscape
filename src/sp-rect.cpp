@@ -185,7 +185,7 @@ sp_rect_update(SPObject *object, SPCtx *ctx, guint flags)
         rect->height.update(em, ex, h);
         rect->rx.update(em, ex, w);
         rect->ry.update(em, ex, h);
-        sp_shape_set_shape((SPShape *) object);
+        ((SPShape *) object)->setShape();
         flags &= ~SP_OBJECT_USER_MODIFIED_FLAG_B; // since we change the description, it's not a "just translation" anymore
     }
 
@@ -231,7 +231,7 @@ sp_rect_set_shape(SPShape *shape)
     SPRect *rect = (SPRect *) shape;
 
     if ((rect->height.computed < 1e-18) || (rect->width.computed < 1e-18)) {
-        sp_shape_set_curve_insync(SP_SHAPE(rect), NULL, TRUE);
+        SP_SHAPE(rect)->setCurveInsync( NULL, TRUE);
         return;
     }
 
@@ -281,7 +281,7 @@ sp_rect_set_shape(SPShape *shape)
     }
 
     c->closepath();
-    sp_shape_set_curve_insync(SP_SHAPE(rect), c, TRUE);
+    SP_SHAPE(rect)->setCurveInsync( c, TRUE);
     c->unref();
 }
 

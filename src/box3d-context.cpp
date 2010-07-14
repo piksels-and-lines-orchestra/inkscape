@@ -573,7 +573,8 @@ static gint sp_box3d_context_root_handler(SPEventContext *event_context, GdkEven
 
 static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
 {
-    SPDesktop *desktop = SP_EVENT_CONTEXT(&bc)->desktop;
+    //SPDesktop *desktop = SP_EVENT_CONTEXT(&bc)->desktop;
+    SPDesktop *desktop = bc.desktop;
 
     if (!bc.item) {
 
@@ -582,7 +583,12 @@ static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
         }
 
         /* Create object */
-        Inkscape::XML::Document *xml_doc = sp_document_repr_doc(SP_EVENT_CONTEXT_DOCUMENT(&bc));
+		
+		/* Remove convoluted code. */
+        //Inkscape::XML::Document *xml_doc = sp_document_repr_doc(SP_EVENT_CONTEXT_DOCUMENT(&bc));
+
+		/*To be removed for directly accessing the XML Document*/ 
+		Inkscape::XML::Document *xml_doc = desktop->doc()->rdoc;
         Inkscape::XML::Node *repr = xml_doc->createElement("svg:g");
         repr->setAttribute("sodipodi:type", "inkscape:box3d");
 
@@ -598,7 +604,8 @@ static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
             repr_side->setAttribute("sodipodi:type", "inkscape:box3dside");
             repr->addChild(repr_side, NULL);
 
-            Box3DSide *side = SP_BOX3D_SIDE(inkscape_active_document()->getObjectByRepr (repr_side));
+            //Box3DSide *side = SP_BOX3D_SIDE(inkscape_active_document()->getObjectByRepr (repr_side));
+			Box3DSide *side = SP_BOX3D_SIDE(desktop->doc()->getObjectByRepr(repr_side));
 
             guint desc = Box3D::int_to_face(i);
 
@@ -609,7 +616,28 @@ static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
             side->front_or_rear = (Box3D::FrontOrRear) (desc & 0x8);
 
             /* Set style */
-            box3d_side_apply_style(side);
+			/* Removed the faulty usage */
+            //box3d_side_apply_style(side);
+
+    		Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+
+    		Glib::ustring descr = "/desktop/";
+    		descr += box3d_side_axes_string(side);
+    		descr += "/style";
+    		Glib::ustring cur_style = prefs->getString(descr);    
+    
+    		bool use_current = prefs->getBool("/tools/shapes/3dbox/usecurrent", false);
+    		if (use_current && !cur_style.empty()) {
+        		// use last used style 
+        		side->setAttribute("style", cur_style.data());
+				
+    		} else {
+        		// use default style 
+        		GString *pstring = g_string_new("");
+        		g_string_printf (pstring, "/tools/shapes/3dbox/%s", box3d_side_axes_string(side));
+        		sp_desktop_apply_style_tool (desktop, side->getRepr(), pstring->str, false);
+    		}
+
 
             SP_OBJECT(side)->updateRepr(); // calls box3d_side_write() and updates, e.g., the axes string description
         }

@@ -283,7 +283,7 @@ sp_offset_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XM
 
 
     // Make sure the object has curve
-    SPCurve *curve = sp_shape_get_curve (SP_SHAPE (offset));
+    SPCurve *curve = SP_SHAPE (offset)->getCurve();
     if (curve == NULL) {
         sp_offset_set_shape (SP_SHAPE (offset));
     }
@@ -410,7 +410,7 @@ sp_offset_update(SPObject *object, SPCtx *ctx, guint flags)
     if (flags &
         (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG |
          SP_OBJECT_VIEWPORT_MODIFIED_FLAG)) {
-        sp_shape_set_shape ((SPShape *) object);
+        ((SPShape *) object)->setShape ();
     }
     offset->isUpdating=false;
 
@@ -465,7 +465,7 @@ sp_offset_set_shape(SPShape *shape)
             Geom::PathVector pv = sp_svg_read_pathv(res_d);
             SPCurve *c = new SPCurve(pv);
             g_assert(c != NULL);
-            sp_shape_set_curve_insync ((SPShape *) offset, c, TRUE);
+            ((SPShape *) offset)->setCurveInsync (c, TRUE);
             c->unref();
         }
         return;
@@ -714,7 +714,7 @@ sp_offset_set_shape(SPShape *shape)
         Geom::PathVector pv = sp_svg_read_pathv(res_d);
         SPCurve *c = new SPCurve(pv);
         g_assert(c != NULL);
-        sp_shape_set_curve_insync ((SPShape *) offset, c, TRUE);
+        ((SPShape *) offset)->setCurveInsync (c, TRUE);
         c->unref();
 
         free (res_d);
@@ -954,11 +954,11 @@ sp_offset_top_point (SPOffset * offset, Geom::Point *px)
         return;
     }
 
-    SPCurve *curve = sp_shape_get_curve (SP_SHAPE (offset));
+    SPCurve *curve = SP_SHAPE (offset)->getCurve();
     if (curve == NULL)
     {
         sp_offset_set_shape (SP_SHAPE (offset));
-        curve = sp_shape_get_curve (SP_SHAPE (offset));
+        curve = SP_SHAPE (offset)->getCurve();
         if (curve == NULL)
             return;
     }
@@ -1082,7 +1082,7 @@ sp_offset_source_modified (SPObject */*iSource*/, guint /*flags*/, SPItem *item)
     SPOffset *offset = SP_OFFSET(item);
     offset->sourceDirty=true;
     refresh_offset_source(offset);
-    sp_shape_set_shape ((SPShape *) offset);
+    ((SPShape *) offset)->setShape ();
 }
 
 static void
@@ -1100,7 +1100,7 @@ refresh_offset_source(SPOffset* offset)
     SPCurve *curve=NULL;
     if (!SP_IS_SHAPE (item) && !SP_IS_TEXT (item)) return;
     if (SP_IS_SHAPE (item)) {
-        curve = sp_shape_get_curve (SP_SHAPE (item));
+        curve = SP_SHAPE (item)->getCurve ();
         if (curve == NULL)
             return;
     }

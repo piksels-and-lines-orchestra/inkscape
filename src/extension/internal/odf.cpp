@@ -2002,7 +2002,7 @@ bool OdfOutput::writeTree(Writer &couts, Writer &souts,
     else if (SP_IS_SHAPE(item))
         {
         //g_message("### %s is a shape", nodeName.c_str());
-        curve = sp_shape_get_curve(SP_SHAPE(item));
+        curve = SP_SHAPE(item)->getCurve();
         }
     else if (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item))
         {

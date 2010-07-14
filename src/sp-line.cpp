@@ -158,7 +158,7 @@ SPLine::sp_line_update (SPObject *object, SPCtx *ctx, guint flags)
  		line->y1.update(em, ex, h);
  		line->y2.update(em, ex, h);
 
-		sp_shape_set_shape ((SPShape *) object);
+		((SPShape *) object)->setShape ();
 	}
 
 	if (((SPObjectClass *) SPLineClass::static_parent_class)->update)
@@ -244,7 +244,7 @@ SPLine::sp_line_set_shape (SPShape *shape)
 	c->moveto(line->x1.computed, line->y1.computed);
 	c->lineto(line->x2.computed, line->y2.computed);
 
-	sp_shape_set_curve_insync (shape, c, TRUE); // *_insync does not call update, avoiding infinite recursion when set_shape is called by update
+	shape->setCurveInsync (c, TRUE); // *_insync does not call update, avoiding infinite recursion when set_shape is called by update
 
 	c->unref();
 }
