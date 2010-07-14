@@ -337,11 +337,21 @@ ink_cairo_surface_copy(cairo_surface_t *s)
 {
     cairo_surface_t *ns = ink_cairo_surface_create_identical(s);
 
-    cairo_t *ct = cairo_create(ns);
-    cairo_set_source_surface(ct, s, 0, 0);
-    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(ct);
-    cairo_destroy(ct);
+    if (cairo_surface_get_type(s) == CAIRO_SURFACE_TYPE_IMAGE) {
+        // use memory copy instead of using a Cairo context
+        cairo_surface_flush(s);
+        int stride = cairo_image_surface_get_stride(s);
+        int h = cairo_image_surface_get_height(s);
+        memcpy(cairo_image_surface_get_data(ns), cairo_image_surface_get_data(s), stride * h);
+        cairo_surface_mark_dirty(ns);
+    } else {
+        // generic implementation
+        cairo_t *ct = cairo_create(ns);
+        cairo_set_source_surface(ct, s, 0, 0);
+        cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(ct);
+        cairo_destroy(ct);
+    }
 
     return ns;
 }

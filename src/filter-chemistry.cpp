@@ -22,9 +22,9 @@
 #include "filter-enums.h"
 
 #include "filters/blend.h"
+#include "filters/gaussian-blur.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
-#include "sp-gaussian-blur.h"
 #include "svg/css-ostringstream.h"
 #include "libnr/nr-matrix-fns.h"
 

@@ -1,6 +1,3 @@
-#ifndef __NR_ARENA_ITEM_H__
-#define __NR_ARENA_ITEM_H__
-
 /*
  * RGBA display list system for inkscape
  *
@@ -12,6 +9,22 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
+
+#ifndef SEEN_DISPLAY_NR_ARENA_ITEM_H
+#define SEEN_DISPLAY_NR_ARENA_ITEM_H
+
+#include <cairo.h>
+#include <2geom/matrix.h>
+#include <libnr/nr-rect-l.h>
+#include <libnr/nr-pixblock.h>
+#include <libnr/nr-object.h>
+#include "gc-soft-ptr.h"
+#include "nr-arena-forward.h"
+
+namespace Inkscape {
+namespace Filters {
+class Filter;
+} }
 
 #define NR_TYPE_ARENA_ITEM (nr_arena_item_get_type ())
 #define NR_ARENA_ITEM(o) (NR_CHECK_INSTANCE_CAST ((o), NR_TYPE_ARENA_ITEM, NRArenaItem))
@@ -51,15 +64,6 @@
 #define NR_ARENA_ITEM_UNSET_STATE(i,s) (NR_ARENA_ITEM (i)->state &= ~(s))
 
 #define NR_ARENA_ITEM_RENDER_NO_CACHE (1 << 0)
-
-#include <2geom/matrix.h>
-#include <libnr/nr-rect-l.h>
-#include <libnr/nr-pixblock.h>
-#include <libnr/nr-object.h>
-#include "gc-soft-ptr.h"
-#include "nr-arena-forward.h"
-#include "display/nr-filter.h"
-#include <cairo.h>
 
 struct NRGC {
     NRGC(NRGC const *p) : parent(p) {}
@@ -181,8 +185,7 @@ NRArenaItem *nr_arena_item_detach (NRArenaItem *parent, NRArenaItem *child);
 #define NR_ARENA_ITEM_SET_KEY(i,k) (((NRArenaItem *) (i))->key = (k))
 #define NR_ARENA_ITEM_GET_KEY(i) (((NRArenaItem *) (i))->key)
 
-
-#endif /* !__NR_ARENA_ITEM_H__ */
+#endif /* !SEEN_DISPLAY_NR_ARENA_ITEM_H */
 
 /*
   Local Variables:

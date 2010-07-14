@@ -21,12 +21,8 @@
 #include "display/cairo-utils.h"
 #include "display/nr-arena.h"
 #include "display/nr-filter.h"
-#include "display/nr-filter-gaussian.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
-#include "sp-gaussian-blur.h"
-#include "filters/blend.h"
-#include "display/nr-filter-blend.h"
 
 int nr_arena_image_x_sample = 1;
 int nr_arena_image_y_sample = 1;

@@ -39,7 +39,9 @@ public:
     static FilterPrimitive *create();
     virtual ~FilterBlend();
 
+    virtual void render_cairo(FilterSlot &slot);
     virtual int render(FilterSlot &slot, FilterUnits const &units);
+    virtual bool can_handle_affine(Geom::Matrix const &);
 
     virtual void set_input(int slot);
     virtual void set_input(int input, int slot);

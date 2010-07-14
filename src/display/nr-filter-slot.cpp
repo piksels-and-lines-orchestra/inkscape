@@ -20,7 +20,6 @@
 #include "display/nr-filter-types.h"
 #include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-slot.h"
-#include "display/nr-filter-getalpha.h"
 #include "display/nr-filter-units.h"
 #include "display/pixblock-scaler.h"
 #include "display/pixblock-transform.h"
@@ -131,10 +130,9 @@ cairo_surface_t *FilterSlot::getcairo(int slot_nr)
                 cairo_surface_destroy(tr);
             } break;
             case NR_FILTER_BACKGROUNDIMAGE: {
-                // TODO
-                //cairo_surface_t *bg = _get_transformed_background();
-                //_set_internal(NR_FILTER_BACKGROUNDIMAGE, bg);
-                //cairo_surface_destroy(bg);
+                cairo_surface_t *bg = _get_transformed_background();
+                _set_internal(NR_FILTER_BACKGROUNDIMAGE, bg);
+                cairo_surface_destroy(bg);
             } break;
             case NR_FILTER_SOURCEALPHA: {
                 cairo_surface_t *src = getcairo(NR_FILTER_SOURCEGRAPHIC);
@@ -158,8 +156,12 @@ cairo_surface_t *FilterSlot::getcairo(int slot_nr)
 
     if (s == _slots.end()) {
         // create empty surface
-        // TODO
-        return NULL;
+        cairo_surface_t *empty = cairo_surface_create_similar(
+            _source_graphic, cairo_surface_get_content(_source_graphic),
+            _slot_area.x1 - _slot_area.x0, _slot_area.y1 - _slot_area.y0);
+        _set_internal(slot_nr, empty);
+        cairo_surface_destroy(empty);
+        s = _slots.find(slot_nr);
     }
     return s->second;
 
@@ -189,7 +191,23 @@ cairo_surface_t *FilterSlot::_get_transformed_source_graphic()
 
 cairo_surface_t *FilterSlot::_get_transformed_background()
 {
-    return NULL;
+    Geom::Matrix trans = _units.get_matrix_display2pb();
+
+    cairo_surface_t *bg = cairo_get_target(_background_ct);
+    cairo_surface_t *tbg = cairo_surface_create_similar(
+        bg, cairo_surface_get_content(bg),
+        _slot_area.x1 - _slot_area.x0, _slot_area.y1 - _slot_area.y0);
+    cairo_t *tbg_ct = cairo_create(tbg);
+
+    cairo_translate(tbg_ct, -_slot_area.x0, -_slot_area.y0);
+    ink_cairo_transform(tbg_ct, trans);
+    cairo_translate(tbg_ct, _background_area->x0, _background_area->y0);
+    cairo_set_source_surface(tbg_ct, bg, 0, 0);
+    cairo_set_operator(tbg_ct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(tbg_ct);
+    cairo_destroy(tbg_ct);
+
+    return tbg;
 }
 
 cairo_surface_t *FilterSlot::get_result(int res)
@@ -298,11 +316,6 @@ void FilterSlot::set(int slot_nr, cairo_surface_t *surface)
                               trans[1] * x0 + trans[3] * y1 + trans[5],
                               trans[1] * x1 + trans[3] * y0 + trans[5],
                               trans[1] * x1 + trans[3] * y1 + trans[5]);
-
-            cairo_surface_t *trans_s = cairo_surface_create_similar(s,
-                CAIRO_CONTENT_COLOR, max_x - min_x, max_y - min_y);
-            cairo_t *ct = cairo_create(trans_s);
-            
 
             nr_pixblock_setup_fast(trans_pb, pb->mode,
                                    min_x, min_y,

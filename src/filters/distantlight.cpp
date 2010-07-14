@@ -22,9 +22,9 @@
 
 #include "attributes.h"
 #include "document.h"
-#include "distantlight.h"
-#include "diffuselighting-fns.h"
-#include "specularlighting-fns.h"
+#include "filters/distantlight.h"
+#include "filters/diffuselighting.h"
+#include "filters/specularlighting.h"
 #include "xml/repr.h"
 
 #define SP_MACROS_SILENT

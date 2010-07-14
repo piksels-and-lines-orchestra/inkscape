@@ -1,5 +1,3 @@
-#define __SP_SPRAY_CONTEXT_C__
-
 /*
  * Spray Tool
  *
@@ -36,7 +34,6 @@
 #include "desktop.h"
 #include "desktop-events.h"
 #include "desktop-handles.h"
-#include "unistd.h"
 #include "desktop-style.h"
 #include "message-context.h"
 #include "pixmaps/cursor-spray.xpm"
@@ -72,9 +69,6 @@
 #include "style.h"
 #include "box3d.h"
 #include "sp-item-transform.h"
-#include "filter-chemistry.h"
-#include "sp-gaussian-blur-fns.h"
-#include "sp-gaussian-blur.h"
 
 #include "spray-context.h"
 #include "ui/dialog/dialog-manager.h"

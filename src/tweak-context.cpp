@@ -72,8 +72,7 @@
 #include "box3d.h"
 #include "sp-item-transform.h"
 #include "filter-chemistry.h"
-#include "sp-gaussian-blur-fns.h"
-#include "sp-gaussian-blur.h"
+#include "filters/gaussian-blur.h"
 
 #include "tweak-context.h"
 

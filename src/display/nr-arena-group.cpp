@@ -14,12 +14,10 @@
 
 #include "display/nr-arena-group.h"
 #include "display/nr-filter.h"
-#include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-types.h"
 #include "style.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
-#include "sp-gaussian-blur.h"
 #include "filters/blend.h"
 #include "display/nr-filter-blend.h"
 #include "helper/geom.h"

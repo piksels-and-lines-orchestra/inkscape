@@ -27,6 +27,7 @@
 #include "xml/repr.h"
 #include "helper-fns.h"
 
+#include "display/nr-filter.h"
 #include "display/nr-filter-colormatrix.h"
 
 /* FeColorMatrix base class */

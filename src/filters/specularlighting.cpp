@@ -25,6 +25,7 @@
 #include "svg/svg-color.h"
 #include "specularlighting.h"
 #include "xml/repr.h"
+#include "display/nr-filter.h"
 #include "display/nr-filter-specularlighting.h"
 
 /* FeSpecularLighting base class */

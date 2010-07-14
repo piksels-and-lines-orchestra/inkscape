@@ -28,7 +28,7 @@
 #include "filters/blend.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
-#include "sp-gaussian-blur.h"
+#include "filters/gaussian-blur.h"
 #include "sp-flowtext.h"
 #include "sp-flowregion.h"
 #include "sp-flowdiv.h"
