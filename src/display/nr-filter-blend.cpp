@@ -151,23 +151,18 @@ void FilterBlend::render_cairo(FilterSlot &slot)
 
     // input2 is the "background" image
     // out should be ARGB32 if any of the inputs is ARGB32
-    cairo_surface_t *out = NULL;
+    cairo_surface_t *out = ink_cairo_surface_create_output(input1, input2);
+
     if ((ct1 == CAIRO_CONTENT_ALPHA && ct2 == CAIRO_CONTENT_ALPHA)
         || _blend_mode == BLEND_NORMAL)
     {
-        out = ink_cairo_surface_copy(input2);
+        ink_cairo_surface_blit(input2, out);
         cairo_t *out_ct = cairo_create(out);
         cairo_set_source_surface(out_ct, input1, 0, 0);
         cairo_paint(out_ct);
         cairo_destroy(out_ct);
     } else {
         // blend mode != normal and at least 1 surface is not pure alpha
-        // create surface identical to the ARGB32 surface
-        if (ct1 == CAIRO_CONTENT_ALPHA) {
-            out = ink_cairo_surface_create_identical(input2);
-        } else {
-            out = ink_cairo_surface_create_identical(input1);
-        }
 
         // TODO: convert to Cairo blending operators once we start using the 1.10 series
         switch (_blend_mode) {

@@ -17,6 +17,7 @@
 #include "preferences.h"
 #endif
 
+#include <algorithm>
 #include <cairo.h>
 #include <glib.h>
 
@@ -32,7 +33,7 @@ void ink_cairo_surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_s
     cairo_surface_flush(in1);
     cairo_surface_flush(in2);
 
-    // WARNING: code below assumes that:
+    // ASSUMPTIONS
     // 1. Cairo ARGB32 surface strides are always divisible by 4
     // 2. We can only receive CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_A8 surfaces
     // 3. Both surfaces are of the same size
@@ -45,30 +46,50 @@ void ink_cairo_surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_s
     int strideout = cairo_image_surface_get_stride(out);
     int bpp1   = cairo_image_surface_get_format(in1) == CAIRO_FORMAT_A8 ? 1 : 4;
     int bpp2   = cairo_image_surface_get_format(in2) == CAIRO_FORMAT_A8 ? 1 : 4;
+    int bppout = std::max(bpp1, bpp2);
+
+    // Check whether we can loop over pixels without taking stride into account.
+    bool fast_path = true;
+    fast_path &= (stride1 == w * bpp1);
+    fast_path &= (stride2 == w * bpp2);
+    fast_path &= (strideout == w * bppout);
+
+    int limit = w * h;
 
     guint32 *const in1_data = (guint32*) cairo_image_surface_get_data(in1);
     guint32 *const in2_data = (guint32*) cairo_image_surface_get_data(in2);
     guint32 *const out_data = (guint32*) cairo_image_surface_get_data(out);
 
+    // NOTE
+    // OpenMP probably doesn't help much here.
+    // It would be better to render more than 1 tile at a time.
     #if HAVE_OPENMP
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
     #endif
 
+    // The number of code paths here is evil.
     if (bpp1 == 4) {
         if (bpp2 == 4) {
-            #if HAVE_OPENMP
-            #pragma omp parallel for num_threads(num_threads)
-            #endif
-            for (int i = 0; i < h; ++i) {
-                guint32 *in1_p = in1_data + i * stride1/4;
-                guint32 *in2_p = in2_data + i * stride2/4;
-                guint32 *out_p = out_data + i * strideout/4;
-                for (int j = 0; j < w; ++j) {
-                    *out_p = blend(*in1_p, *in2_p);
-                    ++in1_p;
-                    ++in2_p;
-                    ++out_p;
+            if (fast_path) {
+                #if HAVE_OPENMP
+                #pragma omp parallel for num_threads(num_threads)
+                #endif
+                for (int i = 0; i < limit; ++i) {
+                    *(out_data + i) = blend(*(in1_data + i), *(in2_data + i));
+                }
+            } else {
+                #if HAVE_OPENMP
+                #pragma omp parallel for num_threads(num_threads)
+                #endif
+                for (int i = 0; i < h; ++i) {
+                    guint32 *in1_p = in1_data + i * stride1/4;
+                    guint32 *in2_p = in2_data + i * stride2/4;
+                    guint32 *out_p = out_data + i * strideout/4;
+                    for (int j = 0; j < w; ++j) {
+                        *out_p = blend(*in1_p, *in2_p);
+                        ++in1_p; ++in2_p; ++out_p;
+                    }
                 }
             }
         } else {
@@ -84,9 +105,7 @@ void ink_cairo_surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_s
                     guint32 in2_px = *in2_p;
                     in2_px <<= 24;
                     *out_p = blend(*in1_p, in2_px);
-                    ++in1_p;
-                    ++in2_p;
-                    ++out_p;
+                    ++in1_p; ++in2_p; ++out_p;
                 }
             }
         }
@@ -104,20 +123,81 @@ void ink_cairo_surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_s
                     guint32 in1_px = *in1_p;
                     in1_px <<= 24;
                     *out_p = blend(in1_px, *in2_p);
-                    ++in1_p;
-                    ++in2_p;
-                    ++out_p;
+                    ++in1_p; ++in2_p; ++out_p;
                 }
             }
         } else {
             // bpp1 == 1 && bpp2 == 1
-            // don't do anything - this should have been handled via Cairo blending
-            g_assert_not_reached();
+            if (fast_path) {
+                #if HAVE_OPENMP
+                #pragma omp parallel for num_threads(num_threads)
+                #endif
+                for (int i = 0; i < limit; ++i) {
+                    guint8 *in1_p = reinterpret_cast<guint8*>(in1_data) + i;
+                    guint8 *in2_p = reinterpret_cast<guint8*>(in2_data) + i;
+                    guint8 *out_p = reinterpret_cast<guint8*>(out_data) + i;
+                    guint32 in1_px = *in1_p; in1_px <<= 24;
+                    guint32 in2_px = *in2_p; in2_px <<= 24;
+                    guint32 out_px = blend(in1_px, in2_px);
+                    *out_p = out_px >> 24;
+                }
+            } else {
+                #if HAVE_OPENMP
+                #pragma omp parallel for num_threads(num_threads)
+                #endif
+                for (int i = 0; i < h; ++i) {
+                    guint8  *in1_p = reinterpret_cast<guint8*>(in1_data) + i * stride1;
+                    guint8 *in2_p = reinterpret_cast<guint8*>(in2_data) + i * stride2;
+                    guint8 *out_p = reinterpret_cast<guint8*>(out_data) + i * strideout;
+                    for (int j = 0; j < w; ++j) {
+                        guint32 in1_px = *in1_p; in1_px <<= 24;
+                        guint32 in2_px = *in2_p; in2_px <<= 24;
+                        guint32 out_px = blend(in1_px, in2_px);
+                        *out_p = out_px >> 24;
+                        ++in1_p; ++in2_p; ++out_p;
+                    }
+                }
+            }
         }
     }
 
     cairo_surface_mark_dirty(out);
 }
+
+#if 0
+template <typename Filter>
+ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter filter)
+{
+    cairo_surface_flush(in);
+
+    // ASSUMPTIONS
+    // 1. Cairo ARGB32 surface strides are always divisible by 4
+    // 2. We can only receive CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_A8 surfaces
+    // 3. Surfaces have the same dimensions and pixel formats
+
+    int w = cairo_image_surface_get_width(in);
+    int h = cairo_image_surface_get_height(in);
+    int stridein   = cairo_image_surface_get_stride(in);
+    int strideout = cairo_image_surface_get_stride(out);
+    int bpp = cairo_image_surface_get_format(in) == CAIRO_FORMAT_A8 ? 1 : 4;
+
+    guint32 *const in_data = (guint32*) cairo_image_surface_get_data(in);
+    guint32 *const out_data = (guint32*) cairo_image_surface_get_data(out);
+
+    #if HAVE_OPENMP
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+    #endif
+
+    if (bpp == 4) {
+        
+    } else {
+        #if HAVE_OPENMP
+        #pragma omp parallel for num_threads(num_threads)
+        #endif
+    }
+}
+#endif
 
 // helper macros for pixel extraction
 #define EXTRACT_ARGB32(px,a,r,g,b) \

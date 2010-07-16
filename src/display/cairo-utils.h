@@ -88,7 +88,8 @@ cairo_surface_t *ink_cairo_surface_copy(cairo_surface_t *s);
 cairo_surface_t *ink_cairo_surface_create_identical(cairo_surface_t *s);
 cairo_surface_t *ink_cairo_surface_create_same_size(cairo_surface_t *s, cairo_content_t c);
 cairo_surface_t *ink_cairo_extract_alpha(cairo_surface_t *s);
-cairo_surface_t *ink_cairo_surface_unshare(cairo_surface_t *s);
+cairo_surface_t *ink_cairo_surface_create_output(cairo_surface_t *image, cairo_surface_t *bg);
+void ink_cairo_surface_blit(cairo_surface_t *src, cairo_surface_t *dest);
 int ink_cairo_surface_get_width(cairo_surface_t *surface);
 int ink_cairo_surface_get_height(cairo_surface_t *surface);
 

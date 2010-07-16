@@ -362,8 +362,7 @@ ink_cairo_surface_copy(cairo_surface_t *s)
 cairo_surface_t *
 ink_cairo_surface_create_identical(cairo_surface_t *s)
 {
-    cairo_surface_t *ns = cairo_surface_create_similar(s, cairo_surface_get_content(s),
-        ink_cairo_surface_get_width(s), ink_cairo_surface_get_height(s));
+    cairo_surface_t *ns = ink_cairo_surface_create_same_size(s, cairo_surface_get_content(s));
     return ns;
 }
 
@@ -381,8 +380,7 @@ ink_cairo_surface_create_same_size(cairo_surface_t *s, cairo_content_t c)
 cairo_surface_t *
 ink_cairo_extract_alpha(cairo_surface_t *s)
 {
-    cairo_surface_t *alpha = cairo_surface_create_similar(s, CAIRO_CONTENT_ALPHA,
-        ink_cairo_surface_get_width(s), ink_cairo_surface_get_height(s));
+    cairo_surface_t *alpha = ink_cairo_surface_create_same_size(s, CAIRO_CONTENT_ALPHA);
 
     cairo_t *ct = cairo_create(alpha);
     cairo_set_source_surface(ct, s, 0, 0);
@@ -394,13 +392,44 @@ ink_cairo_extract_alpha(cairo_surface_t *s)
 }
 
 cairo_surface_t *
-ink_cairo_surface_unshare(cairo_surface_t *s)
+ink_cairo_surface_create_output(cairo_surface_t *image, cairo_surface_t *bg)
 {
-    if (cairo_surface_get_reference_count(s) > 1) {
-        return ink_cairo_surface_copy(s);
+    cairo_content_t imgt = cairo_surface_get_content(image);
+    cairo_content_t bgt = cairo_surface_get_content(bg);
+    cairo_surface_t *out = NULL;
+
+    if (bgt == CAIRO_CONTENT_ALPHA && imgt == CAIRO_CONTENT_ALPHA) {
+        out = ink_cairo_surface_create_identical(bg);
     } else {
-        cairo_surface_reference(s);
-        return s;
+        out = ink_cairo_surface_create_same_size(bg, CAIRO_CONTENT_COLOR_ALPHA);
+    }
+
+    return out;
+}
+
+void
+ink_cairo_surface_blit(cairo_surface_t *src, cairo_surface_t *dest)
+{
+    if (cairo_surface_get_type(src) == CAIRO_SURFACE_TYPE_IMAGE &&
+        cairo_surface_get_type(dest) == CAIRO_SURFACE_TYPE_IMAGE &&
+        cairo_image_surface_get_format(src) == cairo_image_surface_get_format(dest) &&
+        cairo_image_surface_get_height(src) == cairo_image_surface_get_height(dest) &&
+        cairo_image_surface_get_width(src) == cairo_image_surface_get_width(dest) &&
+        cairo_image_surface_get_stride(src) == cairo_image_surface_get_stride(dest))
+    {
+        // use memory copy instead of using a Cairo context
+        cairo_surface_flush(src);
+        int stride = cairo_image_surface_get_stride(src);
+        int h = cairo_image_surface_get_height(src);
+        memcpy(cairo_image_surface_get_data(dest), cairo_image_surface_get_data(src), stride * h);
+        cairo_surface_mark_dirty(dest);
+    } else {
+        // generic implementation
+        cairo_t *ct = cairo_create(dest);
+        cairo_set_source_surface(ct, src, 0, 0);
+        cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(ct);
+        cairo_destroy(ct);
     }
 }
 
