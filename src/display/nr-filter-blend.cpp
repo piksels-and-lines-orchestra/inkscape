@@ -19,6 +19,7 @@
 #include "config.h"
 #endif
 
+#include "display/cairo-templates.h"
 #include "display/cairo-utils.h"
 #include "display/nr-filter-blend.h"
 #include "display/nr-filter-primitive.h"
@@ -55,19 +56,9 @@ FilterPrimitive * FilterBlend::create() {
 FilterBlend::~FilterBlend()
 {}
 
-#define EXTRACT_ARGB32(px,a,r,g,b) \
-    guint32 a, r, g, b; \
-    a = (px & 0xff000000) >> 24; \
-    r = (px & 0x00ff0000) >> 16; \
-    g = (px & 0x0000ff00) >> 8;  \
-    b = (px & 0x000000ff);
-
-#define ASSEMBLE_ARGB32(px,a,r,g,b) \
-    guint32 px = (a << 24) | (r << 16) | (g << 8) | b;
-
 // cr = (1-qa)*cb + (1-qb)*ca + ca*cb
 struct BlendMultiply {
-    void operator()(guint32 in1, guint32 in2, guint32 *out)
+    guint32 operator()(guint32 in1, guint32 in2)
     {
         EXTRACT_ARGB32(in1, aa, ra, ga, ba)
         EXTRACT_ARGB32(in2, ab, rb, gb, bb)
@@ -78,13 +69,13 @@ struct BlendMultiply {
         guint32 bo = (255-aa)*bb + (255-ab)*ba + ba*bb;  bo = (bo + 127) / 255;
 
         ASSEMBLE_ARGB32(pxout, ao, ro, go, bo)
-        *out = pxout;
+        return pxout;
     }
 };
 
 // cr = cb + ca - ca * cb
 struct BlendScreen {
-    void operator()(guint32 in1, guint32 in2, guint32 *out)
+    guint32 operator()(guint32 in1, guint32 in2)
     {
         EXTRACT_ARGB32(in1, aa, ra, ga, ba)
         EXTRACT_ARGB32(in2, ab, rb, gb, bb)
@@ -95,13 +86,13 @@ struct BlendScreen {
         guint32 bo = 255*(bb + ba) - ba * bb;        bo = (bo + 127) / 255;
 
         ASSEMBLE_ARGB32(pxout, ao, ro, go, bo)
-        *out = pxout;
+        return pxout;
     }
 };
 
 // cr = Min ((1 - qa) * cb + ca, (1 - qb) * ca + cb)
 struct BlendDarken {
-    void operator()(guint32 in1, guint32 in2, guint32 *out)
+    guint32 operator()(guint32 in1, guint32 in2)
     {
         EXTRACT_ARGB32(in1, aa, ra, ga, ba)
         EXTRACT_ARGB32(in2, ab, rb, gb, bb)
@@ -112,13 +103,13 @@ struct BlendDarken {
         guint32 bo = std::min((255-aa)*bb + 255*ba, (255-ab)*ba + 255*bb);  bo = (bo + 127) / 255;
 
         ASSEMBLE_ARGB32(pxout, ao, ro, go, bo)
-        *out = pxout;
+        return pxout;
     }
 };
 
 // cr = Max ((1 - qa) * cb + ca, (1 - qb) * ca + cb)
 struct BlendLighten {
-    void operator()(guint32 in1, guint32 in2, guint32 *out)
+    guint32 operator()(guint32 in1, guint32 in2)
     {
         EXTRACT_ARGB32(in1, aa, ra, ga, ba)
         EXTRACT_ARGB32(in2, ab, rb, gb, bb)
@@ -129,7 +120,7 @@ struct BlendLighten {
         guint32 bo = std::max((255-aa)*bb + 255*ba, (255-ab)*ba + 255*bb);  bo = (bo + 127) / 255;
 
         ASSEMBLE_ARGB32(pxout, ao, ro, go, bo)
-        *out = pxout;
+        return pxout;
     }
 };
 
@@ -149,99 +140,6 @@ static inline void blend_alpha(guint32 in1, guint32 in2, guint32 *out)
     *out = pxout;
 }
 */
-
-template <typename Blend>
-void surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_surface_t *out)
-{
-    cairo_surface_flush(in1);
-    cairo_surface_flush(in2);
-
-    // WARNING: code below assumes that:
-    // 1. Cairo ARGB32 surface strides are always divisible by 4
-    // 2. We can only receive CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_A8 surfaces
-    // 3. Both surfaces are of the same size
-
-    int w = cairo_image_surface_get_width(in2);
-    int h = cairo_image_surface_get_height(in2);
-    int stride1   = cairo_image_surface_get_stride(in1);
-    int stride2   = cairo_image_surface_get_stride(in2);
-    int strideout = cairo_image_surface_get_stride(out);
-    int bpp1   = cairo_image_surface_get_format(in1) == CAIRO_FORMAT_A8 ? 1 : 4;
-    int bpp2   = cairo_image_surface_get_format(in2) == CAIRO_FORMAT_A8 ? 1 : 4;
-    // assumption: out surface is CAIRO_FORMAT_ARGB32 if at least one input is ARGB32
-
-    guint32 *const in1_data = (guint32*) cairo_image_surface_get_data(in1);
-    guint32 *const in2_data = (guint32*) cairo_image_surface_get_data(in2);
-    guint32 *const out_data = (guint32*) cairo_image_surface_get_data(out);
-
-    #if HAVE_OPENMP
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
-    #endif
-
-    if (bpp1 == 4) {
-        if (bpp2 == 4) {
-            #if HAVE_OPENMP
-            #pragma omp parallel for num_threads(num_threads)
-            #endif
-            for (int i = 0; i < h; ++i) {
-                guint32 *in1_p = in1_data + i * stride1/4;
-                guint32 *in2_p = in2_data + i * stride2/4;
-                guint32 *out_p = out_data + i * strideout/4;
-                for (int j = 0; j < w; ++j) {
-                    Blend()(*in1_p, *in2_p, out_p);
-                    ++in1_p;
-                    ++in2_p;
-                    ++out_p;
-                }
-            }
-        } else {
-            // bpp2 == 1
-            #if HAVE_OPENMP
-            #pragma omp parallel for num_threads(num_threads)
-            #endif
-            for (int i = 0; i < h; ++i) {
-                guint32 *in1_p = in1_data + i * stride1/4;
-                guint8  *in2_p = reinterpret_cast<guint8*>(in2_data) + i * stride2;
-                guint32 *out_p = out_data + i * strideout/4;
-                for (int j = 0; j < w; ++j) {
-                    guint32 in2_px = *in2_p;
-                    in2_px <<= 24;
-                    Blend()(*in1_p, in2_px, out_p);
-                    ++in1_p;
-                    ++in2_p;
-                    ++out_p;
-                }
-            }
-        }
-    } else {
-        if (bpp2 == 4) {
-            // bpp1 == 1
-            #if HAVE_OPENMP
-            #pragma omp parallel for num_threads(num_threads)
-            #endif
-            for (int i = 0; i < h; ++i) {
-                guint8  *in1_p = reinterpret_cast<guint8*>(in1_data) + i * stride1;
-                guint32 *in2_p = in2_data + i * stride2/4;
-                guint32 *out_p = out_data + i * strideout/4;
-                for (int j = 0; j < w; ++j) {
-                    guint32 in1_px = *in1_p;
-                    in1_px <<= 24;
-                    Blend()(in1_px, *in2_p, out_p);
-                    ++in1_p;
-                    ++in2_p;
-                    ++out_p;
-                }
-            }
-        } else {
-            // bpp1 == 1 && bpp2 == 1
-            // don't do anything - this should have been handled via Cairo blending
-            g_assert_not_reached();
-        }
-    }
-
-    cairo_surface_mark_dirty(out);
-}
 
 void FilterBlend::render_cairo(FilterSlot &slot)
 {
@@ -274,16 +172,16 @@ void FilterBlend::render_cairo(FilterSlot &slot)
         // TODO: convert to Cairo blending operators once we start using the 1.10 series
         switch (_blend_mode) {
             case BLEND_MULTIPLY:
-                surface_blend<BlendMultiply>(input1, input2, out);
+                ink_cairo_surface_blend(input1, input2, out, BlendMultiply());
                 break;
             case BLEND_SCREEN:
-                surface_blend<BlendScreen>(input1, input2, out);
+                ink_cairo_surface_blend(input1, input2, out, BlendScreen());
                 break;
             case BLEND_DARKEN:
-                surface_blend<BlendDarken>(input1, input2, out);
+                ink_cairo_surface_blend(input1, input2, out, BlendDarken());
                 break;
             case BLEND_LIGHTEN:
-                surface_blend<BlendLighten>(input1, input2, out);
+                ink_cairo_surface_blend(input1, input2, out, BlendLighten());
                 break;
             case BLEND_NORMAL:
             default:

@@ -4,6 +4,7 @@ display/canvas-arena.$(OBJEXT): helper/sp-marshal.h
 display/sp-canvas.$(OBJEXT): helper/sp-marshal.h
 
 ink_common_sources += \
+	display/cairo-templates.h	\
 	display/cairo-utils.cpp	\
 	display/cairo-utils.h	\
 	display/canvas-arena.cpp	\
