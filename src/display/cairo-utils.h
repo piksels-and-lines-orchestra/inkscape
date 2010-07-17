@@ -98,6 +98,12 @@ void convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int rs);
 void convert_pixbuf_normal_to_argb32(GdkPixbuf *);
 void convert_pixbuf_argb32_to_normal(GdkPixbuf *);
 
+inline guint32 premul_alpha(guint32 color, guint32 alpha)
+{
+    guint32 temp = alpha * color + 128;
+    return (temp + (temp >> 8)) >> 8;
+}
+
 // TODO: move those to 2Geom
 void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv, Geom::Matrix trans, Geom::OptRect area, bool optimize_stroke, double stroke_width);
 void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv);

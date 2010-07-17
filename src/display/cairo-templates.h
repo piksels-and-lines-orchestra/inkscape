@@ -265,6 +265,7 @@ void ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter 
             }
         }
     }
+    cairo_surface_mark_dirty(out);
 }
 
 // Some helpers for pixel manipulation

@@ -12,13 +12,14 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <vector>
+#include <2geom/forward.h>
 #include "display/nr-filter-primitive.h"
-#include "display/nr-filter-slot.h"
-#include "display/nr-filter-units.h"
-#include<vector>
 
 namespace Inkscape {
 namespace Filters {
+
+class FilterSlot;
 
 enum FilterColorMatrixType {
     COLORMATRIX_MATRIX,

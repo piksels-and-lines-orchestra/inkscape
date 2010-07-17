@@ -448,13 +448,6 @@ ink_cairo_surface_get_height(cairo_surface_t *surface)
     return cairo_image_surface_get_height(surface);
 }
 
-// taken from Cairo sources
-static inline guint32 premul_alpha(guint32 color, guint32 alpha)
-{
-    guint32 temp = alpha * color + 128;
-    return (temp + (temp >> 8)) >> 8;
-}
-
 /**
  * @brief Convert pixel data from GdkPixbuf format to ARGB.
  * This will convert pixel data from GdkPixbuf format to Cairo's native pixel format.
