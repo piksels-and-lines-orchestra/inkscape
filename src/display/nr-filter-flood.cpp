@@ -37,18 +37,19 @@ void FilterFlood::render_cairo(FilterSlot &slot)
 {
     cairo_surface_t *input = slot.getcairo(_input);
 
-    double r, g, b, a;
-    r = SP_RGBA32_R_F(color);
-    g = SP_RGBA32_G_F(color);
-    b = SP_RGBA32_B_F(color);
-    a = opacity;
+    double r = SP_RGBA32_R_F(color);
+    double g = SP_RGBA32_G_F(color);
+    double b = SP_RGBA32_B_F(color);
+    double a = opacity;
 
     #if ENABLE_LCMS
-    guchar ru, gu, bu;
-    icc_color_to_sRGB(icc, &ru, &gu, &bu);
-    r = SP_COLOR_U_TO_F(ru);
-    g = SP_COLOR_U_TO_F(gu);
-    b = SP_COLOR_U_TO_F(bu);
+    if (icc) {
+        guchar ru, gu, bu;
+        icc_color_to_sRGB(icc, &ru, &gu, &bu);
+        r = SP_COLOR_U_TO_F(ru);
+        g = SP_COLOR_U_TO_F(gu);
+        b = SP_COLOR_U_TO_F(bu);
+    }
     #endif
 
     cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
