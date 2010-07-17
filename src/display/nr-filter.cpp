@@ -186,13 +186,14 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
         units.set_automatic_resolution(true);
     }
 
-    /*units.set_paraller(false);
+    units.set_paraller(false);
+    Geom::Matrix pbtrans = units.get_matrix_display2pb();
     for (int i = 0 ; i < _primitive_count ; i++) {
-        if (_primitive[i]->get_input_traits() & TRAIT_PARALLER) {
+        if (!_primitive[i]->can_handle_affine(pbtrans)) {
             units.set_paraller(true);
             break;
         }
-    }*/
+    }
     units.set_paraller(true);
 
     FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, bgarea, cairo_get_target(graphic), area, units);
