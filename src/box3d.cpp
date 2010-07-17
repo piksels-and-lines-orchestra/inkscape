@@ -511,6 +511,18 @@ box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &sta
     return box3d_get_perspective(box)->perspective_impl->tmat.preimage (result, z_coord, Proj::Z);
 }
 
+/*create a SPBox3D and append it to the parent*/
+
+SPBox3D * SPBox3D::createBox3D(SPItem * parent)
+{
+	SPBox3D *box3d = 0;
+	Inkscape::XML::Document *xml_doc = parent->document->rdoc;
+	Inkscape::XML::Node *repr = xml_doc->createElement("svg:g");
+	repr->setAttribute("sodipodi:type", "inkscape:box3d");
+	box3d = (SPBox3D *)parent->appendChildRepr(repr);
+	return box3d;
+}
+
 void
 box3d_set_corner (SPBox3D *box, const guint id, Geom::Point const &new_pos, const Box3D::Axis movement, bool constrained) {
     g_return_if_fail ((movement != Box3D::NONE) && (movement != Box3D::XYZ));

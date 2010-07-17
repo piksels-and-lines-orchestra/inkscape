@@ -185,6 +185,18 @@ box3d_side_update (SPObject *object, SPCtx *ctx, guint flags)
     if (((SPObjectClass *) parent_class)->update)
         ((SPObjectClass *) parent_class)->update (object, ctx, flags);
 }
+
+/* Create a new Box3DSide and append it to the parent box */
+Box3DSide * Box3DSide::createBox3DSide(SPBox3D *box)
+{
+	Box3DSide *box3d_side = 0;
+	Inkscape::XML::Document *xml_doc = box->document->rdoc;
+	Inkscape::XML::Node *repr_side = xml_doc->createElement("svg:path");
+	repr_side->setAttribute("sodipodi:type", "inkscape:box3dside");
+	box3d_side = (Box3DSide *)box->appendChildRepr(repr_side);
+	return box3d_side;
+}
+
 /*
  * Function which return the type attribute for Box3D. 
  * Acts as a replacement for directly accessing the XML Tree directly.

@@ -45,6 +45,7 @@ class SPBox3D : public SPGroup {
     Box3D::Axis swapped; // to indicate which coordinates are swapped during dragging
 
     gint my_counter; // for debugging only
+	static SPBox3D * createBox3D(SPItem * parent);
 };
 
 class SPBox3DClass {

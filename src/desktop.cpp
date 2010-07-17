@@ -90,6 +90,7 @@
 #include "display/canvas-grid.h"
 #include "widgets/desktop-widget.h"
 #include "box3d-context.h"
+#include "desktop-style.h"
 
 // TODO those includes are only for node tool quick zoom. Remove them after fixing it.
 #include "ui/tool/node-tool.h"
@@ -958,6 +959,27 @@ SPDesktop::zoom_absolute_keep_point (double cx, double cy, double px, double py,
                      cx + (1 - px) * width2,
                      cy + (1 - py) * height2,
                      0.0);
+}
+
+/**
+  * Apply the desktop's current style or the tool style to the object.
+  */
+void SPDesktop::applyCurrentOrToolStyle(SPObject *obj, Glib::ustring const &tool_path, bool with_text)
+{
+	SPCSSAttr *css_current = sp_desktop_get_style(this, with_text);
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+
+    if (prefs->getBool(tool_path + "/usecurrent") && css_current) {
+        sp_repr_css_set(obj->getRepr(), css_current, "style");
+    } else {
+        SPCSSAttr *css = prefs->getInheritedStyle(tool_path + "/style");
+        sp_repr_css_set(obj->getRepr(), css, "style");
+        sp_repr_css_attr_unref(css);
+    }
+    if (css_current) {
+        sp_repr_css_attr_unref(css_current);
+    }
+
 }
 
 /**

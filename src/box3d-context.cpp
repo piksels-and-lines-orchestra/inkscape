@@ -588,25 +588,28 @@ static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
         //Inkscape::XML::Document *xml_doc = sp_document_repr_doc(SP_EVENT_CONTEXT_DOCUMENT(&bc));
 
 		/*To be removed for directly accessing the XML Document*/ 
-		Inkscape::XML::Document *xml_doc = desktop->doc()->rdoc;
-        Inkscape::XML::Node *repr = xml_doc->createElement("svg:g");
-        repr->setAttribute("sodipodi:type", "inkscape:box3d");
-
+		//Inkscape::XML::Document *xml_doc = desktop->doc()->rdoc;
+        //Inkscape::XML::Node *repr = xml_doc->createElement("svg:g");
+        //repr->setAttribute("sodipodi:type", "inkscape:box3d");
+		SPBox3D *box3d = 0;
+		box3d = SPBox3D::createBox3D((SPItem *)desktop->currentLayer());
         /* Set style */
-        sp_desktop_apply_style_tool (desktop, repr, "/tools/shapes/3dbox", false);
-
-        bc.item = (SPItem *) desktop->currentLayer()->appendChildRepr(repr);
-        Inkscape::GC::release(repr);
-        Inkscape::XML::Node *repr_side;
+        desktop->applyCurrentOrToolStyle(box3d, "/tools/shapes/3dbox", false);
+		
+		bc.item = box3d;
+        //bc.item = (SPItem *) desktop->currentLayer()->appendChildRepr(repr);
+        //Inkscape::GC::release(repr);
+        //Inkscape::XML::Node *repr_side;
         // TODO: Incorporate this in box3d-side.cpp!
         for (int i = 0; i < 6; ++i) {
-            repr_side = xml_doc->createElement("svg:path");
-            repr_side->setAttribute("sodipodi:type", "inkscape:box3dside");
-            repr->addChild(repr_side, NULL);
+            //repr_side = xml_doc->createElement("svg:path");
+            //repr_side->setAttribute("sodipodi:type", "inkscape:box3dside");
+            //repr->addChild(repr_side, NULL);
 
             //Box3DSide *side = SP_BOX3D_SIDE(inkscape_active_document()->getObjectByRepr (repr_side));
-			Box3DSide *side = SP_BOX3D_SIDE(desktop->doc()->getObjectByRepr(repr_side));
-
+			//Box3DSide *side = SP_BOX3D_SIDE(desktop->doc()->getObjectByRepr(repr_side));
+			Box3DSide *side = Box3DSide::createBox3DSide(box3d);
+				
             guint desc = Box3D::int_to_face(i);
 
             Box3D::Axis plane = (Box3D::Axis) (desc & 0x7);
@@ -635,11 +638,12 @@ static void sp_box3d_drag(Box3DContext &bc, guint /*state*/)
         		// use default style 
         		GString *pstring = g_string_new("");
         		g_string_printf (pstring, "/tools/shapes/3dbox/%s", box3d_side_axes_string(side));
-        		sp_desktop_apply_style_tool (desktop, side->getRepr(), pstring->str, false);
+        		desktop->applyCurrentOrToolStyle (side, pstring->str, false);
     		}
 
 
-            SP_OBJECT(side)->updateRepr(); // calls box3d_side_write() and updates, e.g., the axes string description
+            //SP_OBJECT(side)->updateRepr(); // calls box3d_side_write() and updates, e.g., the axes string description
+            side->updateRepr(); // calls box3d_side_write() and updates, e.g., the axes string description
         }
 
         box3d_set_z_orders(SP_BOX3D(bc.item));

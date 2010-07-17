@@ -324,6 +324,8 @@ struct SPDesktop : public Inkscape::UI::View::View
     virtual bool onDeleteUI (GdkEventAny*);
     virtual bool onWindowStateEvent (GdkEventWindowState* event);
 
+	void applyCurrentOrToolStyle(SPObject *obj, Glib::ustring const &tool_path, bool with_text);
+
 private:
     Inkscape::UI::View::EditWidgetInterface       *_widget;
     Inkscape::Application     *_inkscape;
