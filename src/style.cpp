@@ -85,7 +85,6 @@ static void sp_style_read_ilength(SPILength *val, gchar const *str);
 static void sp_style_read_ilengthornormal(SPILengthOrNormal *val, gchar const *str);
 static void sp_style_read_itextdecoration(SPITextDecoration *val, gchar const *str);
 static void sp_style_read_icolor(SPIPaint *paint, gchar const *str, SPStyle *style, SPDocument *document);
-static void sp_style_read_ipaint(SPIPaint *paint, gchar const *str, SPStyle *style, SPDocument *document);
 static void sp_style_read_ifontsize(SPIFontSize *val, gchar const *str);
 static void sp_style_read_ibaselineshift(SPIBaselineShift *val, gchar const *str);
 static void sp_style_read_ifilter(gchar const *str, SPStyle *style, SPDocument *document);
@@ -662,7 +661,7 @@ sp_style_read(SPStyle *style, SPObject *object, Inkscape::XML::Node *repr)
     if (!style->fill.set) {
         val = repr->attribute("fill");
         if (val) {
-            sp_style_read_ipaint(&style->fill, val, style, (object) ? SP_OBJECT_DOCUMENT(object) : NULL);
+            style->fill.read( val, *style, (object) ? SP_OBJECT_DOCUMENT(object) : NULL );
         }
     }
     /* fill-opacity */
@@ -678,7 +677,7 @@ sp_style_read(SPStyle *style, SPObject *object, Inkscape::XML::Node *repr)
     if (!style->stroke.set) {
         val = repr->attribute("stroke");
         if (val) {
-            sp_style_read_ipaint(&style->stroke, val, style, (object) ? SP_OBJECT_DOCUMENT(object) : NULL);
+            style->stroke.read( val, *style, (object) ? SP_OBJECT_DOCUMENT(object) : NULL );
         }
     }
     SPS_READ_PLENGTH_IF_UNSET(&style->stroke_width, repr, "stroke-width");
@@ -1083,7 +1082,7 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
         }
         case SP_PROP_FILL:
             if (!style->fill.set) {
-                sp_style_read_ipaint(&style->fill, val, style, (style->object) ? SP_OBJECT_DOCUMENT(style->object) : NULL);
+                style->fill.read( val, *style, (style->object) ? SP_OBJECT_DOCUMENT(style->object) : NULL );
             }
             break;
         case SP_PROP_FILL_OPACITY:
@@ -1150,7 +1149,7 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
 
         case SP_PROP_STROKE:
             if (!style->stroke.set) {
-                sp_style_read_ipaint(&style->stroke, val, style, (style->object) ? SP_OBJECT_DOCUMENT(style->object) : NULL);
+                style->stroke.read( val, *style, (style->object) ? SP_OBJECT_DOCUMENT(style->object) : NULL );
             }
             break;
         case SP_PROP_STROKE_WIDTH:
@@ -3200,18 +3199,17 @@ sp_style_read_icolor(SPIPaint *paint, gchar const *str, SPStyle *style, SPDocume
  *
  * \pre paint == \&style.fill || paint == \&style.stroke.
  */
-static void
-sp_style_read_ipaint(SPIPaint *paint, gchar const *str, SPStyle *style, SPDocument *document)
+void SPIPaint::read( gchar const *str, SPStyle &style, SPDocument *document )
 {
     while (g_ascii_isspace(*str)) {
         ++str;
     }
 
-    paint->clear();
+    clear();
 
     if (streq(str, "inherit")) {
-        paint->set = TRUE;
-        paint->inherit = TRUE;
+        set = TRUE;
+        inherit = TRUE;
     } else {
         if ( strneq(str, "url", 3) ) {
             gchar *uri = extract_uri( str, &str );
@@ -3219,33 +3217,33 @@ sp_style_read_ipaint(SPIPaint *paint, gchar const *str, SPStyle *style, SPDocume
                 ++str;
             }
             // TODO check on and comment the comparrison "paint != &style->color".
-            if ( uri && *uri && (paint != &style->color) ) {
-                paint->set = TRUE;
+            if ( uri && *uri && (this != &style.color) ) {
+                set = TRUE;
 
                 // it may be that this style's SPIPaint has not yet created its URIReference;
                 // now that we have a document, we can create it here
-                if (!paint->value.href && document) {
-                    paint->value.href = new SPPaintServerReference(document);
-                    paint->value.href->changedSignal().connect(sigc::bind(sigc::ptr_fun((paint == &style->fill)? sp_style_fill_paint_server_ref_changed : sp_style_stroke_paint_server_ref_changed), style));
+                if (!value.href && document) {
+                    value.href = new SPPaintServerReference(document);
+                    value.href->changedSignal().connect(sigc::bind(sigc::ptr_fun((this == &style.fill)? sp_style_fill_paint_server_ref_changed : sp_style_stroke_paint_server_ref_changed), &style));
                 }
 
                 // TODO check what this does in light of move away from union
-                sp_style_set_ipaint_to_uri_string (style, paint, uri);
+                sp_style_set_ipaint_to_uri_string (&style, this, uri);
             }
             g_free( uri );
         }
 
-        if (streq(str, "currentColor") && paint != &style->color) {
-            paint->set = TRUE;
-            paint->currentcolor = TRUE;
-        } else if (streq(str, "none") && paint != &style->color) {
-            paint->set = TRUE;
-            paint->noneSet = TRUE;
+        if (streq(str, "currentColor") && (this != &style.color)) {
+            set = TRUE;
+            currentcolor = TRUE;
+        } else if (streq(str, "none") && (this != &style.color)) {
+            set = TRUE;
+            noneSet = TRUE;
         } else {
             guint32 const rgb0 = sp_svg_read_color(str, &str, 0xff);
             if (rgb0 != 0xff) {
-                paint->setColor( rgb0 );
-                paint->set = TRUE;
+                setColor( rgb0 );
+                set = TRUE;
 
                 while (g_ascii_isspace(*str)) {
                     ++str;
@@ -3256,7 +3254,7 @@ sp_style_read_ipaint(SPIPaint *paint, gchar const *str, SPStyle *style, SPDocume
                         delete tmp;
                         tmp = 0;
                     }
-                    paint->value.color.icc = tmp;
+                    value.color.icc = tmp;
                 }
             }
         }
@@ -4025,6 +4023,16 @@ sp_style_write_ifilter(gchar *p, gint const len, gchar const *key,
     return 0;
 }
 
+SPIPaint::SPIPaint() :
+    set(0),
+    inherit(0),
+    currentcolor(0),
+    colorSet(0),
+    noneSet(0),
+    value()
+{
+    value.href = 0;
+}
 
 void SPIPaint::clear()
 {
