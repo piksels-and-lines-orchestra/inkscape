@@ -1,5 +1,3 @@
-#define __SP_STYLE_C__
-
 /** @file
  * @brief SVG stylesheets implementation.
  */
@@ -487,11 +485,11 @@ sp_style_new_from_object(SPObject *object)
     g_return_val_if_fail(object != NULL, NULL);
     g_return_val_if_fail(SP_IS_OBJECT(object), NULL);
 
-    SPStyle *style = sp_style_new(SP_OBJECT_DOCUMENT(object));
+    SPStyle *style = sp_style_new( object->document );
     style->object = object;
     style->release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_style_object_release), style));
 
-    if (object && SP_OBJECT_IS_CLONED(object)) {
+    if (object && object->cloned) {
         style->cloned = true;
     }
 
@@ -573,7 +571,7 @@ sp_style_read(SPStyle *style, SPObject *object, Inkscape::XML::Node *repr)
 
     sp_style_clear(style);
 
-    if (object && SP_OBJECT_IS_CLONED(object)) {
+    if (object && object->cloned) {
         style->cloned = true;
     }
 
@@ -4031,6 +4029,7 @@ SPIPaint::SPIPaint() :
     noneSet(0),
     value()
 {
+    value.color.set( 0 );
     value.href = 0;
 }
 
