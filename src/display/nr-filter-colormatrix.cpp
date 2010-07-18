@@ -33,7 +33,7 @@ FilterColorMatrix::~FilterColorMatrix()
 
 struct ColorMatrixMatrix {
     ColorMatrixMatrix(std::vector<double> const &values) {
-        unsigned limit = std::min(20ul, values.size());
+        unsigned limit = std::min(static_cast<size_t>(20), values.size());
         for (unsigned i = 0; i < limit; ++i) {
             if (i % 5 == 4) {
                 _v[i] = round(values[i]*255*255);
