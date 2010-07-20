@@ -314,7 +314,8 @@ void SPAvoidRef::handleSettingChange(void)
             _transformed_connection = item->connectTransformed(
                     sigc::ptr_fun(&avoid_item_move));
 
-            const char *id = SP_OBJECT_REPR(item)->attribute("id");
+            //const char *id = SP_OBJECT_REPR(item)->attribute("id");
+            const char *id = item->getAttribute("id");
             g_assert(id != NULL);
 
             // Get a unique ID for the item.

@@ -13,7 +13,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#define SP_TYPE_CLIPPATH (sp_clippath_get_type ())
+#define SP_TYPE_CLIPPATH (SPClipPath::sp_clippath_get_type ())
 #define SP_CLIPPATH(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_CLIPPATH, SPClipPath))
 #define SP_CLIPPATH_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), SP_TYPE_CLIPPATH, SPClipPathClass))
 #define SP_IS_CLIPPATH(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_CLIPPATH))
@@ -27,20 +27,47 @@ class SPClipPathView;
 #include "uri-references.h"
 #include "xml/node.h"
 
-struct SPClipPath : public SPObjectGroup {
+class SPClipPath : public SPObjectGroup {
+	public:
 	class Reference;
 
 	unsigned int clipPathUnits_set : 1;
 	unsigned int clipPathUnits : 1;
 
 	SPClipPathView *display;
+	static const gchar *create (GSList *reprs, SPDocument *document, Geom::Matrix const* applyTransform);
+	static GType sp_clippath_get_type (void);
+
+	NRArenaItem *sp_clippath_show(NRArena *arena, unsigned int key);
+	void sp_clippath_hide(unsigned int key);
+
+	void sp_clippath_set_bbox(unsigned int key, NRRect *bbox);
+	void sp_clippath_get_bbox(NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
+	private:
+	static void sp_clippath_init(SPClipPath *clippath);
+
+	static void sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr);
+	static void sp_clippath_release(SPObject * object);
+	static void sp_clippath_set(SPObject *object, unsigned int key, gchar const *value);
+	static void sp_clippath_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref);
+	static void sp_clippath_update(SPObject *object, SPCtx *ctx, guint flags);
+	static void sp_clippath_modified(SPObject *object, guint flags);
+	static Inkscape::XML::Node *sp_clippath_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
+
+	friend class SPClipPathClass;
 };
 
-struct SPClipPathClass {
+class SPClipPathClass {
+	public:
 	SPObjectGroupClass parent_class;
+	private:
+	static void sp_clippath_class_init(SPClipPathClass *klass);
+	static SPObjectGroupClass *static_parent_class;
+
+	friend class SPClipPath;
 };
 
-GType sp_clippath_get_type (void);
+//GType sp_clippath_get_type (void);
 
 class SPClipPathReference : public Inkscape::URIReference {
 public:
@@ -87,12 +114,12 @@ protected:
 	}
 };
 
-NRArenaItem *sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key);
+/*NRArenaItem *sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key);
 void sp_clippath_hide(SPClipPath *cp, unsigned int key);
 
 void sp_clippath_set_bbox(SPClipPath *cp, unsigned int key, NRRect *bbox);
-void sp_clippath_get_bbox(SPClipPath *cp, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
+void sp_clippath_get_bbox(SPClipPath *cp, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);*/
 
-const gchar *sp_clippath_create (GSList *reprs, SPDocument *document, Geom::Matrix const* applyTransform);
+//const gchar *sp_clippath_create (GSList *reprs, SPDocument *document, Geom::Matrix const* applyTransform);
 
 #endif

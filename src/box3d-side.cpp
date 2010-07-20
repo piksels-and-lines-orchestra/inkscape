@@ -346,8 +346,10 @@ box3d_side_convert_to_path(Box3DSide *side) {
     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
 
     Inkscape::XML::Node *repr = xml_doc->createElement("svg:path");
-    repr->setAttribute("d", SP_OBJECT_REPR(side)->attribute("d"));
-    repr->setAttribute("style", SP_OBJECT_REPR(side)->attribute("style"));
+    //repr->setAttribute("d", SP_OBJECT_REPR(side)->attribute("d"));
+    repr->setAttribute("d", side->getAttribute("d"));
+    //repr->setAttribute("style", SP_OBJECT_REPR(side)->attribute("style"));
+    repr->setAttribute("style", side->getAttribute("style"));
 
     return repr;
 }

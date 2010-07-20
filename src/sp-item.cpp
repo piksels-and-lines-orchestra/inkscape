@@ -563,7 +563,7 @@ SPItem::clip_ref_changed(SPObject *old_clip, SPObject *clip, SPItem *item)
         SPItemView *v;
         /* Hide clippath */
         for (v = item->display; v != NULL; v = v->next) {
-            sp_clippath_hide(SP_CLIPPATH(old_clip), NR_ARENA_ITEM_GET_KEY(v->arenaitem));
+            SP_CLIPPATH(old_clip)->sp_clippath_hide(NR_ARENA_ITEM_GET_KEY(v->arenaitem));
             nr_arena_item_set_clip(v->arenaitem, NULL);
         }
     }
@@ -574,12 +574,12 @@ SPItem::clip_ref_changed(SPObject *old_clip, SPObject *clip, SPItem *item)
             if (!v->arenaitem->key) {
                 NR_ARENA_ITEM_SET_KEY(v->arenaitem, SPItem::display_key_new(3));
             }
-            NRArenaItem *ai = sp_clippath_show(SP_CLIPPATH(clip),
+            NRArenaItem *ai = SP_CLIPPATH(clip)->sp_clippath_show(
                                                NR_ARENA_ITEM_ARENA(v->arenaitem),
                                                NR_ARENA_ITEM_GET_KEY(v->arenaitem));
             nr_arena_item_set_clip(v->arenaitem, ai);
             nr_arena_item_unref(ai);
-            sp_clippath_set_bbox(SP_CLIPPATH(clip), NR_ARENA_ITEM_GET_KEY(v->arenaitem), &bbox);
+            SP_CLIPPATH(clip)->sp_clippath_set_bbox(NR_ARENA_ITEM_GET_KEY(v->arenaitem), &bbox);
             SP_OBJECT(clip)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
         }
     }
@@ -636,7 +636,7 @@ SPItem::sp_item_update(SPObject *object, SPCtx *ctx, guint flags)
             item->invoke_bbox( &bbox, Geom::identity(), TRUE);
             if (clip_path) {
                 for (SPItemView *v = item->display; v != NULL; v = v->next) {
-                    sp_clippath_set_bbox(clip_path, NR_ARENA_ITEM_GET_KEY(v->arenaitem), &bbox);
+                    clip_path->sp_clippath_set_bbox(NR_ARENA_ITEM_GET_KEY(v->arenaitem), &bbox);
                 }
             }
             if (mask) {
@@ -846,7 +846,7 @@ SPItem::invoke_bbox_full( Geom::OptRect &bbox, Geom::Matrix const &transform, un
         }
         if (this->clip_ref->getObject()) {
             NRRect b;
-            sp_clippath_get_bbox(SP_CLIPPATH(this->clip_ref->getObject()), &b, transform, flags);
+            SP_CLIPPATH(this->clip_ref->getObject())->sp_clippath_get_bbox(&b, transform, flags);
             nr_rect_d_intersect (&temp_bbox, &temp_bbox, &b);
         }
     }
@@ -899,7 +899,7 @@ SPItem::invoke_bbox_full( NRRect *bbox, Geom::Matrix const &transform, unsigned 
     // unless this is geometric bbox, crop the bbox by clip path, if any
     if ((SPItem::BBoxType) flags != SPItem::GEOMETRIC_BBOX && this->clip_ref->getObject()) {
         NRRect b;
-        sp_clippath_get_bbox(SP_CLIPPATH(this->clip_ref->getObject()), &b, transform, flags);
+        SP_CLIPPATH(this->clip_ref->getObject())->sp_clippath_get_bbox(&b, transform, flags);
         nr_rect_d_intersect (&this_bbox, &this_bbox, &b);
     }
 
@@ -1125,14 +1125,14 @@ SPItem::invoke_show(NRArena *arena, unsigned key, unsigned flags)
             int clip_key = NR_ARENA_ITEM_GET_KEY(display->arenaitem);
 
             // Show and set clip
-            NRArenaItem *ac = sp_clippath_show(cp, arena, clip_key);
+            NRArenaItem *ac = cp->sp_clippath_show(arena, clip_key);
             nr_arena_item_set_clip(ai, ac);
             nr_arena_item_unref(ac);
 
             // Update bbox, in case the clip uses bbox units
             NRRect bbox;
             invoke_bbox( &bbox, Geom::identity(), TRUE);
-            sp_clippath_set_bbox(SP_CLIPPATH(cp), clip_key, &bbox);
+            SP_CLIPPATH(cp)->sp_clippath_set_bbox(clip_key, &bbox);
             SP_OBJECT(cp)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
         }
         if (mask_ref->getObject()) {
@@ -1179,7 +1179,7 @@ SPItem::invoke_hide(unsigned key)
         SPItemView *next = v->next;
         if (v->key == key) {
             if (clip_ref->getObject()) {
-                sp_clippath_hide(clip_ref->getObject(), NR_ARENA_ITEM_GET_KEY(v->arenaitem));
+                (clip_ref->getObject())->sp_clippath_hide(NR_ARENA_ITEM_GET_KEY(v->arenaitem));
                 nr_arena_item_set_clip(v->arenaitem, NULL);
             }
             if (mask_ref->getObject()) {

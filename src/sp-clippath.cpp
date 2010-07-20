@@ -37,7 +37,7 @@ struct SPClipPathView {
     NRRect bbox;
 };
 
-static void sp_clippath_class_init(SPClipPathClass *klass);
+/*static void sp_clippath_class_init(SPClipPathClass *klass);
 static void sp_clippath_init(SPClipPath *clippath);
 
 static void sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr);
@@ -46,22 +46,23 @@ static void sp_clippath_set(SPObject *object, unsigned int key, gchar const *val
 static void sp_clippath_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref);
 static void sp_clippath_update(SPObject *object, SPCtx *ctx, guint flags);
 static void sp_clippath_modified(SPObject *object, guint flags);
-static Inkscape::XML::Node *sp_clippath_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
+static Inkscape::XML::Node *sp_clippath_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);*/
 
 SPClipPathView *sp_clippath_view_new_prepend(SPClipPathView *list, unsigned int key, NRArenaItem *arenaitem);
 SPClipPathView *sp_clippath_view_list_remove(SPClipPathView *list, SPClipPathView *view);
 
-static SPObjectGroupClass *parent_class;
+//static SPObjectGroupClass *parent_class;
+SPObjectGroupClass * SPClipPathClass::static_parent_class = 0;
 
 GType
-sp_clippath_get_type(void)
+SPClipPath::sp_clippath_get_type(void)
 {
     static GType type = 0;
     if (!type) {
         GTypeInfo info = {
             sizeof(SPClipPathClass),
             NULL, NULL,
-            (GClassInitFunc) sp_clippath_class_init,
+            (GClassInitFunc) SPClipPathClass::sp_clippath_class_init,
             NULL, NULL,
             sizeof(SPClipPath),
             16,
@@ -73,24 +74,24 @@ sp_clippath_get_type(void)
     return type;
 }
 
-static void
-sp_clippath_class_init(SPClipPathClass *klass)
+void
+SPClipPathClass::sp_clippath_class_init(SPClipPathClass *klass)
 {
     SPObjectClass *sp_object_class = (SPObjectClass *) klass;
 
-    parent_class = (SPObjectGroupClass*)g_type_class_ref(SP_TYPE_OBJECTGROUP);
+    static_parent_class = (SPObjectGroupClass*)g_type_class_ref(SP_TYPE_OBJECTGROUP);
 
-    sp_object_class->build = sp_clippath_build;
-    sp_object_class->release = sp_clippath_release;
-    sp_object_class->set = sp_clippath_set;
-    sp_object_class->child_added = sp_clippath_child_added;
-    sp_object_class->update = sp_clippath_update;
-    sp_object_class->modified = sp_clippath_modified;
-    sp_object_class->write = sp_clippath_write;
+    sp_object_class->build = SPClipPath::sp_clippath_build;
+    sp_object_class->release = SPClipPath::sp_clippath_release;
+    sp_object_class->set = SPClipPath::sp_clippath_set;
+    sp_object_class->child_added = SPClipPath::sp_clippath_child_added;
+    sp_object_class->update = SPClipPath::sp_clippath_update;
+    sp_object_class->modified = SPClipPath::sp_clippath_modified;
+    sp_object_class->write = SPClipPath::sp_clippath_write;
 }
 
-static void
-sp_clippath_init(SPClipPath *cp)
+void
+SPClipPath::sp_clippath_init(SPClipPath *cp)
 {
     cp->clipPathUnits_set = FALSE;
     cp->clipPathUnits = SP_CONTENT_UNITS_USERSPACEONUSE;
@@ -98,11 +99,11 @@ sp_clippath_init(SPClipPath *cp)
     cp->display = NULL;
 }
 
-static void
-sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
+void
+SPClipPath::sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
 {
-    if (((SPObjectClass *) parent_class)->build)
-        ((SPObjectClass *) parent_class)->build(object, document, repr);
+    if (((SPObjectClass *) SPClipPathClass::static_parent_class)->build)
+        ((SPObjectClass *) SPClipPathClass::static_parent_class)->build(object, document, repr);
 
     object->readAttr( "clipPathUnits");
 
@@ -110,8 +111,8 @@ sp_clippath_build(SPObject *object, SPDocument *document, Inkscape::XML::Node *r
     document->add_resource("clipPath", object);
 }
 
-static void
-sp_clippath_release(SPObject * object)
+void
+SPClipPath::sp_clippath_release(SPObject * object)
 {
     if (SP_OBJECT_DOCUMENT(object)) {
         /* Unregister ourselves */
@@ -124,13 +125,13 @@ sp_clippath_release(SPObject * object)
         cp->display = sp_clippath_view_list_remove(cp->display, cp->display);
     }
 
-    if (((SPObjectClass *) (parent_class))->release) {
-        ((SPObjectClass *) parent_class)->release(object);
+    if (((SPObjectClass *) (SPClipPathClass::static_parent_class))->release) {
+        ((SPObjectClass *) SPClipPathClass::static_parent_class)->release(object);
     }
 }
 
-static void
-sp_clippath_set(SPObject *object, unsigned int key, gchar const *value)
+void
+SPClipPath::sp_clippath_set(SPObject *object, unsigned int key, gchar const *value)
 {
     SPClipPath *cp = SP_CLIPPATH(object);
 
@@ -149,17 +150,17 @@ sp_clippath_set(SPObject *object, unsigned int key, gchar const *value)
             object->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
             break;
 	default:
-            if (((SPObjectClass *) parent_class)->set)
-                ((SPObjectClass *) parent_class)->set(object, key, value);
+            if (((SPObjectClass *) SPClipPathClass::static_parent_class)->set)
+                ((SPObjectClass *) SPClipPathClass::static_parent_class)->set(object, key, value);
             break;
     }
 }
 
-static void
-sp_clippath_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
+void
+SPClipPath::sp_clippath_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
 {
     /* Invoke SPObjectGroup implementation */
-    ((SPObjectClass *) (parent_class))->child_added(object, child, ref);
+    ((SPObjectClass *) (SPClipPathClass::static_parent_class))->child_added(object, child, ref);
 
     /* Show new object */
     SPObject *ochild = SP_OBJECT_DOCUMENT(object)->getObjectByRepr(child);
@@ -176,8 +177,8 @@ sp_clippath_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::
     }
 }
 
-static void
-sp_clippath_update(SPObject *object, SPCtx *ctx, guint flags)
+void
+SPClipPath::sp_clippath_update(SPObject *object, SPCtx *ctx, guint flags)
 {
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         flags |= SP_OBJECT_PARENT_MODIFIED_FLAG;
@@ -214,8 +215,8 @@ sp_clippath_update(SPObject *object, SPCtx *ctx, guint flags)
     }
 }
 
-static void
-sp_clippath_modified(SPObject *object, guint flags)
+void
+SPClipPath::sp_clippath_modified(SPObject *object, guint flags)
 {
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         flags |= SP_OBJECT_PARENT_MODIFIED_FLAG;
@@ -240,31 +241,31 @@ sp_clippath_modified(SPObject *object, guint flags)
     }
 }
 
-static Inkscape::XML::Node *
-sp_clippath_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags)
+Inkscape::XML::Node *
+SPClipPath::sp_clippath_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags)
 {
     if ((flags & SP_OBJECT_WRITE_BUILD) && !repr) {
         repr = xml_doc->createElement("svg:clipPath");
     }
 
-    if (((SPObjectClass *) (parent_class))->write)
-        ((SPObjectClass *) (parent_class))->write(object, xml_doc, repr, flags);
+    if (((SPObjectClass *) (SPClipPathClass::static_parent_class))->write)
+        ((SPObjectClass *) (SPClipPathClass::static_parent_class))->write(object, xml_doc, repr, flags);
 
     return repr;
 }
 
 NRArenaItem *
-sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key)
+SPClipPath::sp_clippath_show(NRArena *arena, unsigned int key)
 {
-    g_return_val_if_fail(cp != NULL, NULL);
-    g_return_val_if_fail(SP_IS_CLIPPATH(cp), NULL);
+    //g_return_val_if_fail(cp != NULL, NULL);
+    //g_return_val_if_fail(SP_IS_CLIPPATH(cp), NULL);
     g_return_val_if_fail(arena != NULL, NULL);
     g_return_val_if_fail(NR_IS_ARENA(arena), NULL);
 
     NRArenaItem *ai = NRArenaGroup::create(arena);
-    cp->display = sp_clippath_view_new_prepend(cp->display, key, ai);
+    this->display = sp_clippath_view_new_prepend(this->display, key, ai);
 
-    for (SPObject *child = SP_OBJECT(cp)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = this->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
             NRArenaItem *ac = SP_ITEM(child)->invoke_show(arena, key, SP_ITEM_REFERENCE_FLAGS);
             if (ac) {
@@ -274,10 +275,10 @@ sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key)
         }
     }
 
-    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
-        Geom::Matrix t(Geom::Scale(cp->display->bbox.x1 - cp->display->bbox.x0, cp->display->bbox.y1 - cp->display->bbox.y0));
-        t[4] = cp->display->bbox.x0;
-        t[5] = cp->display->bbox.y0;
+    if (this->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
+        Geom::Matrix t(Geom::Scale(this->display->bbox.x1 - this->display->bbox.x0, this->display->bbox.y1 - this->display->bbox.y0));
+        t[4] = this->display->bbox.x0;
+        t[5] = this->display->bbox.y0;
         nr_arena_group_set_child_transform(NR_ARENA_GROUP(ai), &t);
     }
 
@@ -285,21 +286,21 @@ sp_clippath_show(SPClipPath *cp, NRArena *arena, unsigned int key)
 }
 
 void
-sp_clippath_hide(SPClipPath *cp, unsigned int key)
+SPClipPath::sp_clippath_hide(unsigned int key)
 {
-    g_return_if_fail(cp != NULL);
-    g_return_if_fail(SP_IS_CLIPPATH(cp));
+    //g_return_if_fail(cp != NULL);
+    //g_return_if_fail(SP_IS_CLIPPATH(cp));
 
-    for (SPObject *child = SP_OBJECT(cp)->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child)) {
+    for (SPObject *child = this->first_child() ; child != NULL; child = SP_OBJECT_NEXT(child)) {
         if (SP_IS_ITEM(child)) {
             SP_ITEM(child)->invoke_hide(key);
         }
     }
 
-    for (SPClipPathView *v = cp->display; v != NULL; v = v->next) {
+    for (SPClipPathView *v = this->display; v != NULL; v = v->next) {
         if (v->key == key) {
             /* We simply unref and let item to manage this in handler */
-            cp->display = sp_clippath_view_list_remove(cp->display, v);
+            this->display = sp_clippath_view_list_remove(this->display, v);
             return;
         }
     }
@@ -308,9 +309,9 @@ sp_clippath_hide(SPClipPath *cp, unsigned int key)
 }
 
 void
-sp_clippath_set_bbox(SPClipPath *cp, unsigned int key, NRRect *bbox)
+SPClipPath::sp_clippath_set_bbox(unsigned int key, NRRect *bbox)
 {
-    for (SPClipPathView *v = cp->display; v != NULL; v = v->next) {
+    for (SPClipPathView *v = this->display; v != NULL; v = v->next) {
         if (v->key == key) {
             if (!NR_DF_TEST_CLOSE(v->bbox.x0, bbox->x0, NR_EPSILON) ||
                 !NR_DF_TEST_CLOSE(v->bbox.y0, bbox->y0, NR_EPSILON) ||
@@ -324,10 +325,10 @@ sp_clippath_set_bbox(SPClipPath *cp, unsigned int key, NRRect *bbox)
 }
 
 void
-sp_clippath_get_bbox(SPClipPath *cp, NRRect *bbox, Geom::Matrix const &transform, unsigned const /*flags*/)
+SPClipPath::sp_clippath_get_bbox(NRRect *bbox, Geom::Matrix const &transform, unsigned const /*flags*/)
 {
     SPObject *i;
-    for (i = SP_OBJECT(cp)->first_child(); i && !SP_IS_ITEM(i); i = SP_OBJECT_NEXT(i)){};
+    for (i = this->first_child(); i && !SP_IS_ITEM(i); i = SP_OBJECT_NEXT(i)){};
     if (!i) return;
 
     SP_ITEM(i)->invoke_bbox_full( bbox, Geom::Matrix(SP_ITEM(i)->transform) * transform, SPItem::GEOMETRIC_BBOX, FALSE);
@@ -380,7 +381,7 @@ sp_clippath_view_list_remove(SPClipPathView *list, SPClipPathView *view)
 
 // Create a mask element (using passed elements), add it to <defs>
 const gchar *
-sp_clippath_create (GSList *reprs, SPDocument *document, Geom::Matrix const* applyTransform)
+SPClipPath::create (GSList *reprs, SPDocument *document, Geom::Matrix const* applyTransform)
 {
     Inkscape::XML::Node *defsrepr = SP_OBJECT_REPR (SP_DOCUMENT_DEFS (document));
 

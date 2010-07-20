@@ -41,10 +41,11 @@ static Condition _condition_handlers[] = {
 
 /* function which evaluates if item should be displayed */
 bool sp_item_evaluate(SPItem const *item) {
-    Inkscape::XML::Node *grepr = SP_OBJECT_REPR (item);
+    //Inkscape::XML::Node *grepr = SP_OBJECT_REPR (item);
     
     for ( unsigned int i = 0 ; i < sizeof(_condition_handlers)/sizeof(_condition_handlers[0]) ; i++ ) {
-        gchar const *value = grepr->attribute(_condition_handlers[i].attribute);
+        //gchar const *value = grepr->attribute(_condition_handlers[i].attribute);
+        gchar const *value = item->getAttribute(_condition_handlers[i].attribute);
         if ( NULL == value )
             continue;
 

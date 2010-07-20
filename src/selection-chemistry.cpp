@@ -2970,7 +2970,7 @@ sp_selection_set_mask(SPDesktop *desktop, bool apply_clip_path, bool apply_to_la
 
         gchar const *mask_id = NULL;
         if (apply_clip_path) {
-            mask_id = sp_clippath_create(mask_items_dup, doc, &maskTransform);
+            mask_id = SPClipPath::create(mask_items_dup, doc, &maskTransform);
         } else {
             mask_id = sp_mask_create(mask_items_dup, doc, &maskTransform);
         }
