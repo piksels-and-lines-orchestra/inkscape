@@ -140,6 +140,13 @@ static void convolve2D(unsigned char *const out_data, unsigned char const *const
     }
 }
 
+/*
+void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *input = slot.getcairo(_input);
+    cairo_surface_t *out = ink_cairo_surface_create_identical(input);
+}*/
+
 int FilterConvolveMatrix::render(FilterSlot &slot, FilterUnits const &/*units*/) {
     NRPixBlock *in = slot.get(_input);
     if (!in) {

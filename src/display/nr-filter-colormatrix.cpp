@@ -51,9 +51,9 @@ struct ColorMatrixMatrix {
         // we need to un-premultiply alpha values for this type of matrix
         // TODO: unpremul can be ignored if there is an identity mapping on the alpha channel
         if (a != 0) {
-            r = (r * 255 + a/2) / a;
-            b = (b * 255 + a/2) / a;
-            g = (g * 255 + a/2) / a;
+            r = unpremul_alpha(r, a);
+            g = unpremul_alpha(g, a);
+            b = unpremul_alpha(b, a);
         }
 
         gint32 ro = r*_v[0]  + g*_v[1]  + b*_v[2]  + a*_v[3]  + _v[4];
@@ -141,9 +141,9 @@ struct ColorMatrixLuminanceToAlpha {
         EXTRACT_ARGB32(in, a, r, g, b)
         // unpremultiply color values
         if (a != 0) {
-            r = (r * 255 + a/2) / a;
-            b = (b * 255 + a/2) / a;
-            g = (g * 255 + a/2) / a;
+            r = unpremul_alpha(r, a);
+            g = unpremul_alpha(g, a);
+            b = unpremul_alpha(b, a);
         }
         guint32 ao = r*54 + g*182 + b*18;
         return ((ao + 127) / 255) << 24;

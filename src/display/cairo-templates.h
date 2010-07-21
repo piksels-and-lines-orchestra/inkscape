@@ -268,6 +268,110 @@ void ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter 
     cairo_surface_mark_dirty(out);
 }
 
+template <typename Synth>
+void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
+{
+    // ASSUMPTIONS
+    // 1. Cairo ARGB32 surface strides are always divisible by 4
+    // 2. We can only receive CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_A8 surfaces
+
+    int w = cairo_image_surface_get_width(out);
+    int h = cairo_image_surface_get_height(out);
+    int strideout = cairo_image_surface_get_stride(out);
+    int bppout = cairo_image_surface_get_format(out) == CAIRO_FORMAT_A8 ? 1 : 4;
+    int limit = w * h;
+    // NOTE: fast path is not used, because we would need 2 divisions to get pixel indices
+
+    guint32 *const out_data = (guint32*) cairo_image_surface_get_data(out);
+
+    #if HAVE_OPENMP
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+    #endif
+
+    if (bppout == 4) {
+        #if HAVE_OPENMP
+        #pragma omp parallel for num_threads(num_threads)
+        #endif
+        for (int i = 0; i < h; ++i) {
+            guint32 *out_p = out_data + i * strideout/4;
+            for (int j = 0; j < w; ++j) {
+                *out_p = synth(j, i);
+                ++out_p;
+            }
+        }
+    } else {
+        // bppout == 1
+        #if HAVE_OPENMP
+        #pragma omp parallel for num_threads(num_threads)
+        #endif
+        for (int i = 0; i < h; ++i) {
+            guint8 *out_p = reinterpret_cast<guint8*>(out_data) + i * strideout;
+            for (int j = 0; j < w; ++j) {
+                guint32 out_px = synth(j, i);
+                *out_p = out_px >> 24;
+                ++out_p;
+            }
+        }
+    }
+    cairo_surface_mark_dirty(out);
+}
+
+// simple pixel accessor for image surface that handles different edge wrapping modes
+class PixelAccessor {
+public:
+    typedef PixelAccessor self;
+    enum EdgeMode {
+        EDGE_PAD,
+        EDGE_WRAP,
+        EDGE_ZERO
+    };
+
+    PixelAccessor(cairo_surface_t *s, EdgeMode e)
+        : _surface(s)
+        , _px(cairo_image_surface_get_data(s))
+        , _x(0), _y(0)
+        , _w(cairo_image_surface_get_width(s))
+        , _h(cairo_image_surface_get_height(s))
+        , _stride(cairo_image_surface_get_stride(s))
+        , _edge_mode(e)
+        , _alpha(cairo_image_surface_get_format(s) == CAIRO_FORMAT_A8)
+    {}
+
+    guint32 pixelAt(int x, int y) {
+        // This is a lot of ifs for a single pixel access. However, branch prediction
+        // should help us a lot, as the result of ifs is always the same for a single image.
+        int real_x = x, real_y = y;
+        switch (_edge_mode) {
+        case EDGE_PAD:
+            real_x = CLAMP(x, 0, _w-1);
+            real_y = CLAMP(y, 0, _h-1);
+            break;
+        case EDGE_WRAP:
+            real_x %= _w;
+            real_y %= _h;
+            break;
+        case EDGE_ZERO:
+        default:
+            if (x < 0 || x >= _w || y < 0 || y >= _h)
+                return 0;
+            break;
+        }
+        if (_alpha) {
+            return *(_px + real_y*_stride + real_x) << 24;
+        } else {
+            guint32 *px = reinterpret_cast<guint32*>(_px +real_y*_stride + real_x*4);
+            return *px;
+        }
+    }
+private:
+    cairo_surface_t *_surface;
+    guint8 *_px;
+    int _x, _y, _w, _h, _stride;
+    EdgeMode _edge_mode;
+    bool _alpha;
+};
+
 // Some helpers for pixel manipulation
 
 G_GNUC_CONST inline gint32
