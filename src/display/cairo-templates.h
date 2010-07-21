@@ -15,6 +15,7 @@
 #ifdef HAVE_OPENMP
 #include <omp.h>
 #include "preferences.h"
+#define OPENMP_THRESHOLD 4096
 #endif
 
 #include <algorithm>
@@ -66,6 +67,7 @@ void ink_cairo_surface_blend(cairo_surface_t *in1, cairo_surface_t *in2, cairo_s
     #if HAVE_OPENMP
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+    if (limit < OPENMP_THRESHOLD) num_threads = 1; // do not spawn threads for very small surfaces
     #endif
 
     // The number of code paths here is evil.
@@ -194,6 +196,7 @@ void ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter 
     #if HAVE_OPENMP
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+    if (limit < OPENMP_THRESHOLD) num_threads = 1; // do not spawn threads for very small surfaces
     #endif
 
     if (bppin == 4) {
@@ -287,6 +290,7 @@ void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
     #if HAVE_OPENMP
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+    if (limit < OPENMP_THRESHOLD) num_threads = 1; // do not spawn threads for very small surfaces
     #endif
 
     if (bppout == 4) {

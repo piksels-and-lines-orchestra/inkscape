@@ -10,10 +10,13 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <vector>
+#include "display/cairo-templates.h"
+#include "display/cairo-utils.h"
 #include "display/nr-filter-convolve-matrix.h"
+#include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"
 #include "display/nr-filter-utils.h"
-#include <vector>
 
 namespace Inkscape {
 namespace Filters {
@@ -28,8 +31,8 @@ FilterPrimitive * FilterConvolveMatrix::create() {
 FilterConvolveMatrix::~FilterConvolveMatrix()
 {}
 
-template<bool PREMULTIPLIED, bool PRESERVE_ALPHA, bool X_LOWER, bool X_UPPER, bool Y_LOWER, bool Y_UPPER>
-static inline void convolve2D_XY(unsigned int const x, unsigned int const y, unsigned char *const out_data, unsigned char const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const bias) {
+template<bool PRESERVE_ALPHA, bool X_LOWER, bool X_UPPER, bool Y_LOWER, bool Y_UPPER>
+static inline void convolve2D_XY(unsigned int const x, unsigned int const y, guint32 *const out_data, guint32 const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const bias) {
     double result_R = 0;
     double result_G = 0;
     double result_B = 0;
@@ -42,41 +45,38 @@ static inline void convolve2D_XY(unsigned int const x, unsigned int const y, uns
 
     for (unsigned int i=iBegin; i<iEnd; i++){
         for (unsigned int j=jBegin; j<jEnd; j++){
-            unsigned int index = 4*( x - targetX + j + width*(y - targetY + i) );
+            unsigned int index = x - targetX + j + width*(y - targetY + i);
             unsigned int kernel_index = orderX-j-1 + orderX*(orderY-i-1);
-            double k = PREMULTIPLIED ? kernel[kernel_index] : in_data[index+3] * kernel[kernel_index];
-            result_R += in_data[index+0] * k;
-            result_G += in_data[index+1] * k;
-            result_B += in_data[index+2] * k;
-            result_A += in_data[index+3] * kernel[kernel_index];
+            guint32 px = in_data[index];
+            EXTRACT_ARGB32(px, a,r,g,b)
+
+            double k = kernel[kernel_index];
+            result_R += r * k;
+            result_G += g * k;
+            result_B += b * k;
+            result_A += a * k;
         }
     }
 
-    unsigned int const out_index = 4*( x + width*y );
+    unsigned int const out_index = x + width*y;
+    guint32 ao;
     if (PRESERVE_ALPHA) {
-        out_data[out_index+3] = in_data[out_index+3];
-    } else if (PREMULTIPLIED) {
-        out_data[out_index+3] = CLAMP_D_TO_U8(result_A + 255*bias);
+        ao = (in_data[out_index] & 0xff000000) >> 24;
     } else {
-        out_data[out_index+3] = CLAMP_D_TO_U8(result_A + bias);
+        ao = CLAMP_D_TO_U8(result_A + 255*bias);
     }
-    if (PREMULTIPLIED) {
-        out_data[out_index+0] = CLAMP_D_TO_U8_ALPHA(result_R + out_data[out_index+3]*bias, out_data[out_index+3]); // CLAMP includes rounding!
-        out_data[out_index+1] = CLAMP_D_TO_U8_ALPHA(result_G + out_data[out_index+3]*bias, out_data[out_index+3]);
-        out_data[out_index+2] = CLAMP_D_TO_U8_ALPHA(result_B + out_data[out_index+3]*bias, out_data[out_index+3]);
-    } else if (out_data[out_index+3]==0) {
-        out_data[out_index+0] = 0; // TODO: Is there a more sensible value that can be used here?
-        out_data[out_index+1] = 0;
-        out_data[out_index+2] = 0;
-    } else {
-        out_data[out_index+0] = CLAMP_D_TO_U8(result_R / out_data[out_index+3] + bias); // CLAMP includes rounding!
-        out_data[out_index+1] = CLAMP_D_TO_U8(result_G / out_data[out_index+3] + bias);
-        out_data[out_index+2] = CLAMP_D_TO_U8(result_B / out_data[out_index+3] + bias);
-    }
+
+    guint32 ro = CLAMP_D_TO_U8_ALPHA(result_R + ao*bias, ao); // CLAMP includes rounding!
+    guint32 go = CLAMP_D_TO_U8_ALPHA(result_G + ao*bias, ao);
+    guint32 bo = CLAMP_D_TO_U8_ALPHA(result_B + ao*bias, ao);
+
+    ASSEMBLE_ARGB32(result, ao,ro,go,bo)
+
+    out_data[out_index] = result;
 }
 
-template<bool PREMULTIPLIED, bool PRESERVE_ALPHA, bool Y_LOWER, bool Y_UPPER>
-static inline void convolve2D_Y(unsigned int const y, unsigned char *const out_data, unsigned char const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const bias) {
+template<bool PRESERVE_ALPHA, bool Y_LOWER, bool Y_UPPER>
+static inline void convolve2D_Y(unsigned int const y, guint32 *const out_data, guint32 const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const bias) {
     // See convolve2D below for rationale.
 
     unsigned int const lowerEnd = std::min(targetX,width);
@@ -85,29 +85,29 @@ static inline void convolve2D_Y(unsigned int const y, unsigned char *const out_d
     unsigned int const midXEnd = std::max(lowerEnd,upperBegin);
 
     for (unsigned int x=0; x<midXBegin; x++) {
-        convolve2D_XY<PREMULTIPLIED,PRESERVE_ALPHA,true,false,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+        convolve2D_XY<PRESERVE_ALPHA,true,false,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
     }
     if (lowerEnd==upperBegin) {
         // Do nothing, empty mid section
     } else if (lowerEnd<upperBegin) {
         // In the middle no bounds have to be adjusted
         for (unsigned int x=midXBegin; x<midXEnd; x++) {
-            convolve2D_XY<PREMULTIPLIED,PRESERVE_ALPHA,false,false,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+            convolve2D_XY<PRESERVE_ALPHA,false,false,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
         }
     } else {
         // In the middle both bounds have to be adjusted
         for (unsigned int x=midXBegin; x<midXEnd; x++) {
-            convolve2D_XY<PREMULTIPLIED,PRESERVE_ALPHA,true,true,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+            convolve2D_XY<PRESERVE_ALPHA,true,true,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
         }
     }
     for (unsigned int x=midXEnd; x<width; x++) {
-        convolve2D_XY<PREMULTIPLIED,PRESERVE_ALPHA,false,true,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+        convolve2D_XY<PRESERVE_ALPHA,false,true,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
     }
 }
 
-template<bool PREMULTIPLIED, bool PRESERVE_ALPHA>
-static void convolve2D(unsigned char *const out_data, unsigned char const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const _bias) {
-    double const bias = PREMULTIPLIED ? _bias : 255*_bias; // If we're using non-premultiplied values the bias is always multiplied by 255.
+template<bool PRESERVE_ALPHA>
+static void convolve2D(guint32 *const out_data, guint32 const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const _bias) {
+    double const bias = _bias;
 
     // For the middle section it should hold that (for all i such that 0<=i<orderY):
     //   0 <= y - targetY + i < height
@@ -120,77 +120,114 @@ static void convolve2D(unsigned char *const out_data, unsigned char const *const
     unsigned int const midYEnd = std::max(lowerEnd,upperBegin);
 
     for (unsigned int y=0; y<midYBegin; y++) {
-        convolve2D_Y<PREMULTIPLIED,PRESERVE_ALPHA,true,false>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+        convolve2D_Y<PRESERVE_ALPHA,true,false>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
     }
     if (lowerEnd==upperBegin) {
         // Do nothing, empty mid section
     } else if (lowerEnd<upperBegin) {
         // In the middle no bounds have to be adjusted
         for (unsigned int y=midYBegin; y<midYEnd; y++) {
-            convolve2D_Y<PREMULTIPLIED,PRESERVE_ALPHA,false,false>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+            convolve2D_Y<PRESERVE_ALPHA,false,false>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
         }
     } else {
         // In the middle both bounds have to be adjusted
         for (unsigned int y=midYBegin; y<midYEnd; y++) {
-            convolve2D_Y<PREMULTIPLIED,PRESERVE_ALPHA,true,true>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+            convolve2D_Y<PRESERVE_ALPHA,true,true>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
         }
     }
     for (unsigned int y=midYEnd; y<height; y++) {
-        convolve2D_Y<PREMULTIPLIED,PRESERVE_ALPHA,false,true>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
+        convolve2D_Y<PRESERVE_ALPHA,false,true>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
     }
 }
 
 /*
+struct ConvolveMatrix {
+    ConvolveMatrix(guint32 *px, int yskip, int targetX, int targetY, int orderX, int orderY,
+            double divisor, double bias, PixelAccessor::EdgeMode emode,
+            std::vector<double> const &kernel)
+        : _kernel(kernel.size())
+//        , _in(in, emode)
+        , _tx(targetX), _ty(targetY)
+        , _oX(orderX), _oY(orderY)
+        , _yskip(yskip)
+        , _bias(bias)
+    {
+        for (unsigned i = 0; i < kernel.size(); ++i) {
+            _kernel[i] = kernel[i] / divisor;
+        }
+    }
+
+    guint32 operator()(int x, int y) {
+        int start_x = x - _tX;
+        int start_y = y - _tY;
+
+        double ro = 0, go = 0, bo = 0, ao = 0;
+
+        for (int i = 0; i < _oY; ++i) {
+            for (int j = 0; j < _oX; ++j) {
+                guint32 in = pixelAt(start_x + j, start_y + i);
+                EXTRACT_ARGB(in, a,r,g,b)
+
+                unsigned kidx = i*_oY + j;
+                double k = kernel[]
+
+                ro += r * 
+            }
+        }
+        
+    }
+
+private:
+    inline guint32 pixelAt(int x, int y) {
+        return *(_px + y * _yskip + x);
+    }
+
+    std::vector<double> _kernel;
+    guint32 *_px;
+    // PixelAccessor _in;
+    double _bias;
+    int _tX, _tY, _oX, _oY, _yskip;
+}; */
+
 void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
 {
     cairo_surface_t *input = slot.getcairo(_input);
-    cairo_surface_t *out = ink_cairo_surface_create_identical(input);
-}*/
 
-int FilterConvolveMatrix::render(FilterSlot &slot, FilterUnits const &/*units*/) {
-    NRPixBlock *in = slot.get(_input);
-    if (!in) {
-        g_warning("Missing source image for feConvolveMatrix (in=%d)", _input);
-        return 1;
-    }
     if (orderX<=0 || orderY<=0) {
         g_warning("Empty kernel!");
-        return 1;
+        return;
     }
     if (targetX<0 || targetX>=orderX || targetY<0 || targetY>=orderY) {
         g_warning("Invalid target!");
-        return 1;
+        return;
     }
     if (kernelMatrix.size()!=(unsigned int)(orderX*orderY)) {
         g_warning("kernelMatrix does not have orderX*orderY elements!");
-        return 1;
+        return;
     }
 
+    cairo_surface_t *out = ink_cairo_surface_create_identical(input);
+
     if (bias!=0) {
-        g_warning("It is unknown whether Inkscape's implementation of bias in feConvolveMatrix is correct!");
-        // The SVG specification implies that feConvolveMatrix is defined for premultiplied colors (which makes sense).
-        // It also says that bias should simply be added to the result for each color (without taking the alpha into account)
-        // However, it also says that one purpose of bias is "to have .5 gray value be the zero response of the filter".
-        // It seems sensible to indeed support the latter behaviour instead of the former, but this does appear to go against the standard.
+        g_warning("It is unknown whether Inkscape's implementation of bias in feConvolveMatrix "
+                  "is correct!");
+        // The SVG specification implies that feConvolveMatrix is defined for premultiplied
+        // colors (which makes sense). It also says that bias should simply be added to the result
+        // for each color (without taking the alpha into account). However, it also says that one
+        // purpose of bias is "to have .5 gray value be the zero response of the filter".
+        // It seems sensible to indeed support the latter behaviour instead of the former,
+        // but this does appear to go against the standard.
         // Note that Batik simply does not support bias!=0
     }
     if (edgeMode!=CONVOLVEMATRIX_EDGEMODE_NONE) {
         g_warning("Inkscape only supports edgeMode=\"none\" (and a filter uses a different one)!");
-        // Note that to properly support edgeMode the interaction with area_enlarge should be well understood (and probably something needs to change)
-        // area_enlarge should NOT let Inkscape enlarge the area beyond the filter area, it should only enlarge the rendered area if a part of the object is rendered to make it overlapping (enough) with adjacent parts.
     }
 
-    NRPixBlock *out = new NRPixBlock;
+    guint32 *in_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(input));
+    guint32 *out_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(out));
 
-    nr_pixblock_setup_fast(out, in->mode,
-                           in->area.x0, in->area.y0, in->area.x1, in->area.y1,
-                           true);
-
-    unsigned char *in_data = NR_PIXBLOCK_PX(in);
-    unsigned char *out_data = NR_PIXBLOCK_PX(out);
-
-    unsigned int const width = in->area.x1 - in->area.x0;
-    unsigned int const height = in->area.y1 - in->area.y0;
+    int width = cairo_image_surface_get_width(input);
+    int height = cairo_image_surface_get_height(input);
 
     // Set up predivided kernel matrix
     std::vector<double> kernel(kernelMatrix);
@@ -198,23 +235,21 @@ int FilterConvolveMatrix::render(FilterSlot &slot, FilterUnits const &/*units*/)
         kernel[i] /= divisor; // The code that creates this object makes sure that divisor != 0
     }
 
-    if (in->mode==NR_PIXBLOCK_MODE_R8G8B8A8P) {
-        if (preserveAlpha) {
-            convolve2D<true,true>(out_data, in_data, width, height, &kernel.front(), orderX, orderY, targetX, targetY, bias);
-        } else {
-            convolve2D<true,false>(out_data, in_data, width, height, &kernel.front(), orderX, orderY, targetX, targetY, bias);
-        }
+    if (preserveAlpha) {
+        convolve2D<true>(out_data, in_data, width, height, &kernel.front(), orderX, orderY,
+            targetX, targetY, bias);
     } else {
-        if (preserveAlpha) {
-            convolve2D<false,true>(out_data, in_data, width, height, &kernel.front(), orderX, orderY, targetX, targetY, bias);
-        } else {
-            convolve2D<false,false>(out_data, in_data, width, height, &kernel.front(), orderX, orderY, targetX, targetY, bias);
-        }
+        convolve2D<false>(out_data, in_data, width, height, &kernel.front(), orderX, orderY,
+            targetX, targetY, bias);
     }
 
-    out->empty = FALSE;
     slot.set(_output, out);
-    return 0;
+    cairo_surface_destroy(out);
+}
+
+bool FilterConvolveMatrix::can_handle_affine(Geom::Matrix const &)
+{
+    return false;
 }
 
 void FilterConvolveMatrix::set_targetX(int coord) {
@@ -261,10 +296,6 @@ void FilterConvolveMatrix::area_enlarge(NRRectL &area, Geom::Matrix const &/*tra
     area.y0 -= targetY;
     area.x1 += orderX - targetX - 1; // This makes sure the last row/column in the original image corresponds to the last row/column in the new image that can be convolved without adjusting the boundary conditions).
     area.y1 += orderY - targetY - 1;
-}
-
-FilterTraits FilterConvolveMatrix::get_input_traits() {
-    return TRAIT_PARALLER;
 }
 
 } /* namespace Filters */
