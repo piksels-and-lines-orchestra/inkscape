@@ -1,3 +1,4 @@
+#!/usr/bin/env js
 /*
 **  InkWeb - Inkscape's Javscript features for the open vector web
 **
