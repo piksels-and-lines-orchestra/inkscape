@@ -279,7 +279,8 @@ void ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter 
  * This template accepts a functor that gets called with the x and y coordinates of the pixels,
  * given as integers.
  * @param out       Output surface
- * @param out_area  The region of the output surface that should be synthesized */
+ * @param out_area  The region of the output surface that should be synthesized
+ * @param synth     Synthesis functor */
 template <typename Synth>
 void ink_cairo_surface_synthesize(cairo_surface_t *out, cairo_rectangle_t const &out_area, Synth synth)
 {
@@ -493,10 +494,11 @@ protected:
                     +1.0 * p01 +2.0 * p11 +1.0 * p21;
             } else {
                 // interior pixels
+                // note: p11 is actually unused, so we don't fetch its value
                 fx *= (1.0/4.0);
                 fy *= (1.0/4.0);
                 double p00 = alphaAt(x-1, y-1), p10 = alphaAt(x, y-1), p20 = alphaAt(x+1, y-1),
-                       p01 = alphaAt(x-1, y  ), p11 = alphaAt(x, y  ), p21 = alphaAt(x+1, y  ),
+                       p01 = alphaAt(x-1, y  ), p11 = 0.0,             p21 = alphaAt(x+1, y  ),
                        p02 = alphaAt(x-1, y+1), p12 = alphaAt(x, y+1), p22 = alphaAt(x+1, y+1);
                 normal[X_3D] =
                     -1.0 * p00 +0.0 * p10 +1.0 * p20

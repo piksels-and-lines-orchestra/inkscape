@@ -4,8 +4,9 @@
  * Authors:
  *   Niko Kiirala <niko@kiirala.com>
  *   Jean-Rene Reinhard <jr@komite.net>
+ *   Krzysztof Kosiński <tweenk.pl@gmail.com>
  *
- * Copyright (C) 2007 authors
+ * Copyright (C) 2007-2010 Authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -17,15 +18,11 @@
 #include "display/nr-3dutils.h"
 #include "display/nr-arena-item.h"
 #include "display/nr-filter-diffuselighting.h"
-#include "display/nr-filter-getalpha.h"
 #include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"
 #include "display/nr-filter-utils.h"
 #include "display/nr-light.h"
-#include "libnr/nr-blit.h"
-#include "libnr/nr-pixblock.h"
 #include "libnr/nr-rect-l.h"
-#include "color.h"
 
 namespace Inkscape {
 namespace Filters {
@@ -45,83 +42,16 @@ FilterPrimitive * FilterDiffuseLighting::create() {
 FilterDiffuseLighting::~FilterDiffuseLighting()
 {}
 
-struct DiffuseDistantLight : public SurfaceSynth {
-    DiffuseDistantLight(cairo_surface_t *bumpmap, SPFeDistantLight *light, guint32 color,
-            double scale, double diffuse_constant)
+struct DiffuseLight : public SurfaceSynth {
+    DiffuseLight(cairo_surface_t *bumpmap, double scale, double kd)
         : SurfaceSynth(bumpmap)
         , _scale(scale)
-        , _kd(diffuse_constant)
-    {
-        DistantLight dl(light, color);
-        dl.light_vector(_lightv);
-        dl.light_components(_light_components);
-    }
-
-    guint32 operator()(int x, int y) {
-        NR::Fvector normal = surfaceNormalAt(x, y, _scale);
-        double k = _kd * NR::scalar_product(normal, _lightv);
-
-        guint32 r = CLAMP_D_TO_U8(k * _light_components[LIGHT_RED]);
-        guint32 g = CLAMP_D_TO_U8(k * _light_components[LIGHT_GREEN]);
-        guint32 b = CLAMP_D_TO_U8(k * _light_components[LIGHT_BLUE]);
-
-        ASSEMBLE_ARGB32(pxout, 255,r,g,b)
-        return pxout;
-    }
-private:
-    NR::Fvector _lightv, _light_components;
-    double _scale, _kd;
-};
-
-struct DiffusePointLight : public SurfaceSynth {
-    DiffusePointLight(cairo_surface_t *bumpmap, SPFePointLight *light, guint32 color,
-            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
-        : SurfaceSynth(bumpmap)
-        , _light(light, color, trans)
-        , _scale(scale)
-        , _kd(diffuse_constant)
-        , _x0(x0)
-        , _y0(y0)
-    {
-        _light.light_components(_light_components);
-    }
-
-    guint32 operator()(int x, int y) {
-        NR::Fvector normal = surfaceNormalAt(x, y, _scale);
-        NR::Fvector light;
-        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
-        double k = _kd * NR::scalar_product(normal, light);
-
-        guint32 r = CLAMP_D_TO_U8(k * _light_components[LIGHT_RED]);
-        guint32 g = CLAMP_D_TO_U8(k * _light_components[LIGHT_GREEN]);
-        guint32 b = CLAMP_D_TO_U8(k * _light_components[LIGHT_BLUE]);
-
-        ASSEMBLE_ARGB32(pxout, 255,r,g,b)
-        return pxout;
-    }
-private:
-    PointLight _light;
-    NR::Fvector _light_components;
-    double _scale, _kd, _x0, _y0;
-};
-
-struct DiffuseSpotLight : public SurfaceSynth {
-    DiffuseSpotLight(cairo_surface_t *bumpmap, SPFeSpotLight *light, guint32 color,
-            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
-        : SurfaceSynth(bumpmap)
-        , _light(light, color, trans)
-        , _scale(scale)
-        , _kd(diffuse_constant)
-        , _x0(x0)
-        , _y0(y0)
+        , _kd(kd)
     {}
 
-    guint32 operator()(int x, int y) {
+protected:
+    guint32 diffuseLighting(int x, int y, NR::Fvector const &light, NR::Fvector const &light_components) {
         NR::Fvector normal = surfaceNormalAt(x, y, _scale);
-        NR::Fvector light;
-        NR::Fvector light_components;
-        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
-        _light.light_components(light_components, light);
         double k = _kd * NR::scalar_product(normal, light);
 
         guint32 r = CLAMP_D_TO_U8(k * light_components[LIGHT_RED]);
@@ -131,9 +61,66 @@ struct DiffuseSpotLight : public SurfaceSynth {
         ASSEMBLE_ARGB32(pxout, 255,r,g,b)
         return pxout;
     }
+    double _scale, _kd;
+};
+
+struct DiffuseDistantLight : public DiffuseLight {
+    DiffuseDistantLight(cairo_surface_t *bumpmap, SPFeDistantLight *light, guint32 color,
+            double scale, double diffuse_constant)
+        : DiffuseLight(bumpmap, scale, diffuse_constant)
+    {
+        DistantLight dl(light, color);
+        dl.light_vector(_lightv);
+        dl.light_components(_light_components);
+    }
+
+    guint32 operator()(int x, int y) {
+        return diffuseLighting(x, y, _lightv, _light_components);
+    }
+private:
+    NR::Fvector _lightv, _light_components;
+};
+
+struct DiffusePointLight : public DiffuseLight {
+    DiffusePointLight(cairo_surface_t *bumpmap, SPFePointLight *light, guint32 color,
+            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
+        : DiffuseLight(bumpmap, scale, diffuse_constant)
+        , _light(light, color, trans)
+        , _x0(x0)
+        , _y0(y0)
+    {
+        _light.light_components(_light_components);
+    }
+
+    guint32 operator()(int x, int y) {
+        NR::Fvector light;
+        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        return diffuseLighting(x, y, light, _light_components);
+    }
+private:
+    PointLight _light;
+    NR::Fvector _light_components;
+    double _x0, _y0;
+};
+
+struct DiffuseSpotLight : public DiffuseLight {
+    DiffuseSpotLight(cairo_surface_t *bumpmap, SPFeSpotLight *light, guint32 color,
+            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
+        : DiffuseLight(bumpmap, scale, diffuse_constant)
+        , _light(light, color, trans)
+        , _x0(x0)
+        , _y0(y0)
+    {}
+
+    guint32 operator()(int x, int y) {
+        NR::Fvector light, light_components;
+        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        _light.light_components(light_components, light);
+        return diffuseLighting(x, y, light, light_components);
+    }
 private:
     SpotLight _light;
-    double _scale, _kd, _x0, _y0;
+    double _x0, _y0;
 };
 
 void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
@@ -144,7 +131,7 @@ void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
     NRRectL const &slot_area = slot.get_slot_area();
     Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
     double x0 = slot_area.x0, y0 = slot_area.y0;
-    double scale = surfaceScale * trans[0];
+    double scale = surfaceScale * trans.descrim();
 
     switch (light_type) {
     case DISTANT_LIGHT:
@@ -175,14 +162,13 @@ void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
 void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
 {
     // TODO: support kernelUnitLength
-    double scalex = std::fabs(trans[0]) + std::fabs(trans[1]);
-    double scaley = std::fabs(trans[2]) + std::fabs(trans[3]);
 
-    //FIXME: no +2 should be there!... (noticable only for big scales at big zoom factor)
-    area.x0 -= (int)(scalex) + 2;
-    area.x1 += (int)(scalex) + 2;
-    area.y0 -= (int)(scaley) + 2;
-    area.y1 += (int)(scaley) + 2;
+    // We expand the area by 1 in every direction to avoid artifacts on tile edges.
+    // However, it means that edge pixels will be incorrect.
+    area.x0 -= 1;
+    area.x1 += 1;
+    area.y0 -= 1;
+    area.y1 += 1;
 }
 
 } /* namespace Filters */
