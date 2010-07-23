@@ -17,7 +17,8 @@
  * Released under GNU GPL version 2 (or later), read the file 'COPYING' for more information
  */
 
-#include "display/nr-arena-item.h"
+#include "display/cairo-templates.h"
+#include "display/cairo-utils.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-turbulence.h"
 #include "display/nr-filter-units.h"
@@ -28,6 +29,33 @@
 
 namespace Inkscape {
 namespace Filters{
+
+/* Produces results in the range [1, 2**31 - 2].
+Algorithm is: r = (a * r) mod m
+where a = 16807 and m = 2**31 - 1 = 2147483647
+See [Park & Miller], CACM vol. 31 no. 10 p. 1195, Oct. 1988
+To test: the algorithm should produce the result 1043618065
+as the 10,000th generated number if the original seed is 1.
+*/
+#define RAND_m 2147483647 /* 2**31 - 1 */
+#define RAND_a 16807 /* 7**5; primitive root of m */
+#define RAND_q 127773 /* m / a */
+#define RAND_r 2836 /* m % a */
+//#define BSize 0x100 // defined in the header
+#define BM 0xff
+#define PerlinN 0x1000
+#define NP 12 /* 2^PerlinN */
+#define NM 0xfff
+#define s_curve(t) ( t * t * (3. - 2. * t) )
+#define turb_lerp(t, a, b) ( a + t * (b - a) )
+
+struct StitchInfo
+{
+  int nWidth; // How much to subtract to wrap for stitching.
+  int nHeight;
+  int nWrapX; // Minimum value to wrap.
+  int nWrapY;
+};
 
 FilterTurbulence::FilterTurbulence()
 : XbaseFrequency(0),
@@ -82,6 +110,7 @@ void FilterTurbulence::set_updated(bool u){
 }
 
 void FilterTurbulence::render_area(NRPixBlock *pix, NR::IRect &full_area, FilterUnits const &units) {
+#if 0
     const int bbox_x0 = full_area.min()[NR::X];
     const int bbox_y0 = full_area.min()[NR::Y];
     const int bbox_x1 = full_area.max()[NR::X];
@@ -122,6 +151,7 @@ void FilterTurbulence::render_area(NRPixBlock *pix, NR::IRect &full_area, Filter
     }
 
     pix->empty = FALSE;
+#endif
 }
 
 void FilterTurbulence::update_pixbuffer(NR::IRect &area, FilterUnits const &units) {
@@ -162,6 +192,75 @@ void FilterTurbulence::update_pixbuffer(NR::IRect &area, FilterUnits const &unit
     updated_area = area;
 }
 
+void FilterTurbulence::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *input = slot.getcairo(_input);
+    cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
+
+    if (!updated) {
+        TurbulenceInit((long)seed);
+        updated = true;
+    }
+
+    // TODO: convert this to ink_cairo_surface_synthesize
+    Geom::Matrix unit_trans = slot.get_units().get_matrix_primitiveunits2pb().inverse();
+    NRRectL const &slot_area = slot.get_slot_area();
+
+    int w = cairo_image_surface_get_width(out);
+    int h = cairo_image_surface_get_height(out);
+    int stride = cairo_image_surface_get_stride(out);
+    unsigned char *data = cairo_image_surface_get_data(out);
+
+    if (type == TURBULENCE_TURBULENCE) {
+        for (int i = 0; i < h; ++i) {
+            guint32 *out_p = reinterpret_cast<guint32*>(data + i*stride);
+            for (int j = 0; j < w; ++j) {
+                Geom::Point pt(slot_area.x0 + j, slot_area.y0 + i);
+                pt *= unit_trans;
+
+                guint32 r = CLAMP_D_TO_U8(turbulence(0, pt)*255);
+                guint32 g = CLAMP_D_TO_U8(turbulence(1, pt)*255);
+                guint32 b = CLAMP_D_TO_U8(turbulence(2, pt)*255);
+                guint32 a = CLAMP_D_TO_U8(turbulence(3, pt)*255);
+
+                r = premul_alpha(r, a);
+                g = premul_alpha(g, a);
+                b = premul_alpha(b, a);
+
+                ASSEMBLE_ARGB32(result, a,r,g,b)
+                *out_p++ = result;
+            }
+        }
+    } else {
+        // TURBULENCE_FRACTALNOISE
+        for (int i = 0; i < h; ++i) {
+            guint32 *out_p = reinterpret_cast<guint32*>(data + i*stride);
+            for (int j = 0; j < w; ++j) {
+                Geom::Point pt(slot_area.x0 + j, slot_area.y0 + i);
+                pt *= unit_trans;
+
+                guint32 r = CLAMP_D_TO_U8((turbulence(0, pt)*255 + 255)/2);
+                guint32 g = CLAMP_D_TO_U8((turbulence(1, pt)*255 + 255)/2);
+                guint32 b = CLAMP_D_TO_U8((turbulence(2, pt)*255 + 255)/2);
+                guint32 a = CLAMP_D_TO_U8((turbulence(3, pt)*255 + 255)/2);
+
+                r = premul_alpha(r, a);
+                g = premul_alpha(g, a);
+                b = premul_alpha(b, a);
+
+                ASSEMBLE_ARGB32(result, a,r,g,b)
+                *out_p++ = result;
+            }
+        }
+    }
+
+    cairo_surface_mark_dirty(out);
+
+    slot.set(_output, out);
+    cairo_surface_destroy(out);
+}
+
+#if 0
 int FilterTurbulence::render(FilterSlot &slot, FilterUnits const &units) {
     NR::IRect area = units.get_pixblock_filterarea_paraller();
     // TODO: could be faster - updated_area only has to be same size as area
@@ -190,6 +289,7 @@ int FilterTurbulence::render(FilterSlot &slot, FilterUnits const &units) {
     slot.set(_output, out);
     return 0;
 }
+#endif
 
 long FilterTurbulence::Turbulence_setup_seed(long lSeed)
 {
@@ -286,7 +386,7 @@ double FilterTurbulence::TurbulenceNoise2(int nColorChannel, double vec[2], Stit
   return turb_lerp(sy, a, b);
 }
 
-double FilterTurbulence::turbulence(int nColorChannel, double *point)
+double FilterTurbulence::turbulence(int nColorChannel, Geom::Point const &point)
 {
   StitchInfo stitch;
   StitchInfo *pStitchInfo = NULL; // Not stitching when NULL.
@@ -322,8 +422,8 @@ double FilterTurbulence::turbulence(int nColorChannel, double *point)
   }
   double fSum = 0.0f;
   double vec[2];
-  vec[0] = point[0] * XbaseFrequency;
-  vec[1] = point[1] * YbaseFrequency;
+  vec[0] = point[Geom::X] * XbaseFrequency;
+  vec[1] = point[Geom::Y] * YbaseFrequency;
   double ratio = 1;
   for(int nOctave = 0; nOctave < numOctaves; nOctave++)
   {
@@ -345,10 +445,6 @@ double FilterTurbulence::turbulence(int nColorChannel, double *point)
     }
   }
   return fSum;
-}
-
-FilterTraits FilterTurbulence::get_input_traits() {
-    return TRAIT_PARALLER;
 }
 
 } /* namespace Filters */
