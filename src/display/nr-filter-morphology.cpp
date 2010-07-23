@@ -10,9 +10,12 @@
  */
 
 #include <cmath>
+#include <algorithm>
+#include "display/cairo-templates.h"
+#include "display/cairo-utils.h"
 #include "display/nr-filter-morphology.h"
+#include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"
-#include "libnr/nr-blit.h"
 
 namespace Inkscape {
 namespace Filters {
@@ -28,6 +31,134 @@ FilterPrimitive * FilterMorphology::create() {
 FilterMorphology::~FilterMorphology()
 {}
 
+struct MorphologyErode : public SurfaceSynth {
+    MorphologyErode(cairo_surface_t *in, double xradius, double yradius)
+        : SurfaceSynth(in)
+        , _xr(round(xradius))
+        , _yr(round(yradius))
+    {}
+    guint32 operator()(int x, int y) {
+        int startx = std::max(x - _xr, 0), endx = std::min(x + _xr + 1, _w);
+        int starty = std::max(y - _yr, 0), endy = std::min(y + _yr + 1, _h);
+
+        guint32 ao = 255;
+        guint32 ro = 255;
+        guint32 go = 255;
+        guint32 bo = 255;
+
+        if (_alpha) {
+            ao = 0xff000000;
+            for (int i = starty; i < endy; ++i) {
+                for (int j = startx; j < endx; ++j) {
+                    guint32 px = pixelAt(j, i);
+                    ao = std::min(ao, px & 0xff000000);
+                }
+            }
+            return ao;
+        } else {
+            for (int i = starty; i < endy; ++i) {
+                for (int j = startx; j < endx; ++j) {
+                    guint32 px = pixelAt(j, i);
+                    EXTRACT_ARGB32(px, a,r,g,b);
+                    if (a) {
+                        r = unpremul_alpha(r, a);
+                        g = unpremul_alpha(g, a);
+                        b = unpremul_alpha(b, a);
+                        ao = std::min(ao, a);
+                        ro = std::min(ro, r);
+                        go = std::min(go, g);
+                        bo = std::min(bo, b);
+                    } else {
+                        // zero pixel is guaranteed to be the minimum
+                        ao = 0; ro = 0; go = 0; bo = 0;
+                        goto end_loop;
+                    }
+                }
+            }
+            end_loop:
+
+            ro = premul_alpha(ro, ao);
+            go = premul_alpha(go, ao);
+            bo = premul_alpha(bo, ao);
+            ASSEMBLE_ARGB32(pxout, ao,ro,go,bo)
+            return pxout;
+        }
+    }
+private:
+    int _xr, _yr;
+};
+
+struct MorphologyDilate : public SurfaceSynth {
+    MorphologyDilate(cairo_surface_t *in, double xradius, double yradius)
+        : SurfaceSynth(in)
+        , _xr(round(xradius))
+        , _yr(round(yradius))
+    {}
+    guint32 operator()(int x, int y) {
+        int startx = std::max(x - _xr, 0), endx = std::min(x + _xr + 1, _w);
+        int starty = std::max(y - _yr, 0), endy = std::min(y + _yr + 1, _h);
+
+        guint32 ao = 0;
+        guint32 ro = 0;
+        guint32 go = 0;
+        guint32 bo = 0;
+
+        if (_alpha) {
+            for (int i = starty; i < endy; ++i) {
+                for (int j = startx; j < endx; ++j) {
+                    guint32 px = pixelAt(j, i);
+                    ao = std::max(ao, px & 0xff000000);
+                }
+            }
+            return ao;
+        } else {
+            for (int i = starty; i < endy; ++i) {
+                for (int j = startx; j < endx; ++j) {
+                    guint32 px = pixelAt(j, i);
+                    EXTRACT_ARGB32(px, a,r,g,b)
+                    if (a == 0) continue; // this cannot affect the maximum
+
+                    r = unpremul_alpha(r, a);
+                    g = unpremul_alpha(g, a);
+                    b = unpremul_alpha(b, a);
+                    ao = std::max(ao, a);
+                    ro = std::max(ro, r);
+                    go = std::max(go, g);
+                    bo = std::max(bo, b);
+                }
+            }
+
+            ro = premul_alpha(ro, ao);
+            go = premul_alpha(go, ao);
+            bo = premul_alpha(bo, ao);
+            ASSEMBLE_ARGB32(pxout, ao,ro,go,bo)
+            return pxout;
+        }
+    }
+private:
+    int _xr, _yr;
+};
+
+void FilterMorphology::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *input = slot.getcairo(_input);
+    cairo_surface_t *out = ink_cairo_surface_create_identical(input);
+
+    Geom::Matrix p2pb = slot.get_units().get_matrix_primitiveunits2pb();
+    double xr = xradius * p2pb.expansionX();
+    double yr = yradius * p2pb.expansionY();
+
+    if (Operator == MORPHOLOGY_OPERATOR_DILATE) {
+        ink_cairo_surface_synthesize(out, MorphologyDilate(input, xr, yr));
+    } else {
+        ink_cairo_surface_synthesize(out, MorphologyErode(input, xr, yr));
+    }
+
+    slot.set(_output, out);
+    cairo_surface_destroy(out);
+}
+
+/*
 int FilterMorphology::render(FilterSlot &slot, FilterUnits const &units) {
     NRPixBlock *in = slot.get(_input);
     if (!in) {
@@ -110,7 +241,7 @@ int FilterMorphology::render(FilterSlot &slot, FilterUnits const &units) {
     out->empty = FALSE;
     slot.set(_output, out);
     return 0;
-}
+}*/
 
 void FilterMorphology::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
 {
@@ -133,10 +264,6 @@ void FilterMorphology::set_xradius(double x){
 
 void FilterMorphology::set_yradius(double y){
     yradius = y;
-}
-
-FilterTraits FilterMorphology::get_input_traits() {
-    return TRAIT_PARALLER;
 }
 
 } /* namespace Filters */
