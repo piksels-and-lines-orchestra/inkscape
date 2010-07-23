@@ -62,8 +62,6 @@ ink_common_sources += \
 	display/nr-filter-flood.h    \
 	display/nr-filter-gaussian.cpp  \
 	display/nr-filter-gaussian.h    \
-	display/nr-filter-getalpha.cpp	\
-	display/nr-filter-getalpha.h	\
 	display/nr-filter.h             \
 	display/nr-filter-image.cpp	\
 	display/nr-filter-image.h	\
