@@ -17,7 +17,6 @@
 #include "display/cairo-utils.h"
 #include "display/nr-3dutils.h"
 #include "display/nr-filter-specularlighting.h"
-#include "display/nr-filter-getalpha.h"
 #include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"
 #include "display/nr-filter-utils.h"
@@ -42,20 +41,6 @@ FilterPrimitive * FilterSpecularLighting::create() {
 
 FilterSpecularLighting::~FilterSpecularLighting()
 {}
-
-//Investigating Phong Lighting model we should not take N.H but
-//R.E which equals to 2*N.H^2 - 1
-//replace the second line by
-//gdouble scal = scalar_product((N), (H)); scal = 2 * scal * scal - 1;
-//to get the expected formula
-#define COMPUTE_INTER(inter, H, N, ks, speculaExponent) \
-do {\
-    gdouble scal = NR::scalar_product((N), (H)); \
-    if (scal <= 0)\
-        (inter) = 0;\
-    else\
-        (inter) = (ks) * std::pow(scal, (specularExponent));\
-}while(0)
 
 struct SpecularLight : public SurfaceSynth {
     SpecularLight(cairo_surface_t *bumpmap, double scale, double specular_constant,

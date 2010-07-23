@@ -16,7 +16,6 @@
 #include <gdk/gdktypes.h>
 #include "display/nr-light-types.h"
 #include "display/nr-filter-primitive.h"
-#include "display/nr-filter-slot.h"
 
 class SPFeDistantLight;
 class SPFePointLight;
@@ -24,7 +23,9 @@ class SPFeSpotLight;
 
 namespace Inkscape {
 namespace Filters {
-    
+
+class FilterSlot;
+
 class FilterSpecularLighting : public FilterPrimitive {
 public:
     FilterSpecularLighting();

@@ -191,6 +191,9 @@ private:
 
 void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
 {
+    static bool bias_warning = false;
+    static bool edge_warning = false;
+
     cairo_surface_t *input = slot.getcairo(_input);
 
     if (orderX<=0 || orderY<=0) {
@@ -208,9 +211,10 @@ void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
 
     cairo_surface_t *out = ink_cairo_surface_create_identical(input);
 
-    if (bias!=0) {
+    if (bias!=0 && !bias_warning) {
         g_warning("It is unknown whether Inkscape's implementation of bias in feConvolveMatrix "
                   "is correct!");
+        bias_warning = true;
         // The SVG specification implies that feConvolveMatrix is defined for premultiplied
         // colors (which makes sense). It also says that bias should simply be added to the result
         // for each color (without taking the alpha into account). However, it also says that one
@@ -219,8 +223,9 @@ void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
         // but this does appear to go against the standard.
         // Note that Batik simply does not support bias!=0
     }
-    if (edgeMode!=CONVOLVEMATRIX_EDGEMODE_NONE) {
+    if (edgeMode!=CONVOLVEMATRIX_EDGEMODE_NONE && !edge_warning) {
         g_warning("Inkscape only supports edgeMode=\"none\" (and a filter uses a different one)!");
+        edge_warning = true;
     }
 
     guint32 *in_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(input));

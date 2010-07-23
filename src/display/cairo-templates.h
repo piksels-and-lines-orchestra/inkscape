@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cairo.h>
 #include <glib.h>
+#include <math.h>
 #include "display/nr-3dutils.h"
 
 /**
@@ -356,7 +357,7 @@ struct SurfaceSynth {
     {
         cairo_surface_flush(surface);
     }
-protected:
+
     guint32 pixelAt(int x, int y) {
         if (_alpha) {
             unsigned char *px = _px + y*_stride + x;
@@ -376,9 +377,74 @@ protected:
             return (p & 0xff000000) >> 24;
         }
     }
+
+    // retrieve a pixel value with bilinear interpolation
+    guint32 pixelAt(double x, double y) {
+        if (_alpha) {
+            return alphaAt(x, y) << 24;
+        }
+
+        double xf = floor(x), yf = floor(y);
+        int xi = xf, yi = yf;
+        guint32 xif = round((x - xf) * 255), yif = round((y - yf) * 255);
+        guint32 p00, p01, p10, p11;
+
+        unsigned char *pxi = _px + yi*_stride + xi*4;
+        guint32 *pxu = reinterpret_cast<guint32*>(pxi);
+        guint32 *pxl = reinterpret_cast<guint32*>(pxi + _stride);
+        p00 = *pxu;  p10 = *(pxu + 1);
+        p01 = *pxl;  p11 = *(pxl + 1);
+
+        guint32 comp[4];
+
+        for (unsigned i = 0; i < 4; ++i) {
+            guint32 shift = i*8;
+            guint32 mask = 0xff << shift;
+            guint32 c00 = (p00 & mask) >> shift;
+            guint32 c10 = (p10 & mask) >> shift;
+            guint32 c01 = (p01 & mask) >> shift;
+            guint32 c11 = (p11 & mask) >> shift;
+
+            guint32 iu = (255-xif) * c00 + xif * c10;
+            guint32 il = (255-xif) * c01 + xif * c11;
+            comp[i] = (255-yif) * iu + yif * il;
+            comp[i] = (comp[i] + (255*255/2)) / (255*255);
+        }
+
+        guint32 result = comp[0] | (comp[1] << 8) | (comp[2] << 16) | (comp[3] << 24);
+        return result;
+    }
+
+    // retrieve an alpha value with bilinear interpolation
+    guint32 alphaAt(double x, double y) {
+        double xf = floor(x), yf = floor(y);
+        int xi = xf, yi = yf;
+        guint32 xif = round((x - xf) * 255), yif = round((y - yf) * 255);
+        guint32 p00, p01, p10, p11;
+        if (_alpha) {
+            unsigned char *pxu = _px + yi*_stride + xi;
+            unsigned char *pxl = pxu + _stride;
+            p00 = *pxu;  p10 = *(pxu + 1);
+            p01 = *pxl;  p11 = *(pxl + 1);
+        } else {
+            unsigned char *pxi = _px + yi*_stride + xi*4;
+            guint32 *pxu = reinterpret_cast<guint32*>(pxi);
+            guint32 *pxl = reinterpret_cast<guint32*>(pxi + _stride);
+            p00 = (*pxu & 0xff000000) >> 24;  p10 = (*(pxu + 1) & 0xff000000) >> 24;
+            p01 = (*pxl & 0xff000000) >> 24;  p11 = (*(pxl + 1) & 0xff000000) >> 24;
+        }
+        guint32 iu = (255-xif) * p00 + xif * p10;
+        guint32 il = (255-xif) * p01 + xif * p11;
+        guint32 result = (255-yif) * iu + yif * il;
+        result = (result + (255*255/2)) / (255*255);
+        return result;
+    }
+
+    // compute surface normal at given coordinates using 3x3 Sobel gradient filter
     NR::Fvector surfaceNormalAt(int x, int y, double scale) {
         // Below there are some multiplies by zero. They will be optimized out.
         // Do not remove them, because they improve readability.
+        // NOTE: fetching using alphaAt is slightly lazy.
         NR::Fvector normal;
         double fx = -scale/255.0, fy = -scale/255.0;
         normal[Z_3D] = 1.0;
