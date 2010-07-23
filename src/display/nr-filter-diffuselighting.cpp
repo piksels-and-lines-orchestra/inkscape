@@ -12,6 +12,8 @@
 
 #include <glib/gmessages.h>
 
+#include "display/cairo-templates.h"
+#include "display/cairo-utils.h"
 #include "display/nr-3dutils.h"
 #include "display/nr-arena-item.h"
 #include "display/nr-filter-diffuselighting.h"
@@ -43,129 +45,131 @@ FilterPrimitive * FilterDiffuseLighting::create() {
 FilterDiffuseLighting::~FilterDiffuseLighting()
 {}
 
-int FilterDiffuseLighting::render(FilterSlot &slot, FilterUnits const &units) {
-    NRPixBlock *in = slot.get(_input);
-    if (!in) {
-        g_warning("Missing source image for feDiffuseLighting (in=%d)", _input);
-        return 1;
+struct DiffuseDistantLight : public SurfaceSynth {
+    DiffuseDistantLight(cairo_surface_t *bumpmap, SPFeDistantLight *light, guint32 color,
+            double scale, double diffuse_constant)
+        : SurfaceSynth(bumpmap)
+        , _scale(scale)
+        , _kd(diffuse_constant)
+    {
+        DistantLight dl(light, color);
+        dl.light_vector(_lightv);
+        dl.light_components(_light_components);
     }
 
-    NRPixBlock *out = new NRPixBlock;
+    guint32 operator()(int x, int y) {
+        NR::Fvector normal = surfaceNormalAt(x, y, _scale);
+        double k = _kd * NR::scalar_product(normal, _lightv);
 
-    int w = in->area.x1 - in->area.x0;
-    int h = in->area.y1 - in->area.y0;
-    int x0 = in->area.x0;
-    int y0 = in->area.y0;
-    int i, j;
-    //As long as FilterRes and kernel unit is not supported we hardcode the
-    //default value
-    int dx = 1; //TODO setup
-    int dy = 1; //TODO setup
-    //surface scale
-    Geom::Matrix trans = units.get_matrix_primitiveunits2pb();
-    gdouble ss = surfaceScale * trans[0];
-    gdouble kd = diffuseConstant; //diffuse lighting constant
+        guint32 r = CLAMP_D_TO_U8(k * _light_components[LIGHT_RED]);
+        guint32 g = CLAMP_D_TO_U8(k * _light_components[LIGHT_GREEN]);
+        guint32 b = CLAMP_D_TO_U8(k * _light_components[LIGHT_BLUE]);
 
-    NR::Fvector L, N, LC;
-    gdouble inter;
+        ASSEMBLE_ARGB32(pxout, 255,r,g,b)
+        return pxout;
+    }
+private:
+    NR::Fvector _lightv, _light_components;
+    double _scale, _kd;
+};
 
-    nr_pixblock_setup_fast(out, in->mode,
-            in->area.x0, in->area.y0, in->area.x1, in->area.y1,
-            true);
-    unsigned char *data_i = NR_PIXBLOCK_PX (in);
-    unsigned char *data_o = NR_PIXBLOCK_PX (out);
-    //No light, nothing to do
+struct DiffusePointLight : public SurfaceSynth {
+    DiffusePointLight(cairo_surface_t *bumpmap, SPFePointLight *light, guint32 color,
+            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
+        : SurfaceSynth(bumpmap)
+        , _light(light, color, trans)
+        , _scale(scale)
+        , _kd(diffuse_constant)
+        , _x0(x0)
+        , _y0(y0)
+    {
+        _light.light_components(_light_components);
+    }
+
+    guint32 operator()(int x, int y) {
+        NR::Fvector normal = surfaceNormalAt(x, y, _scale);
+        NR::Fvector light;
+        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        double k = _kd * NR::scalar_product(normal, light);
+
+        guint32 r = CLAMP_D_TO_U8(k * _light_components[LIGHT_RED]);
+        guint32 g = CLAMP_D_TO_U8(k * _light_components[LIGHT_GREEN]);
+        guint32 b = CLAMP_D_TO_U8(k * _light_components[LIGHT_BLUE]);
+
+        ASSEMBLE_ARGB32(pxout, 255,r,g,b)
+        return pxout;
+    }
+private:
+    PointLight _light;
+    NR::Fvector _light_components;
+    double _scale, _kd, _x0, _y0;
+};
+
+struct DiffuseSpotLight : public SurfaceSynth {
+    DiffuseSpotLight(cairo_surface_t *bumpmap, SPFeSpotLight *light, guint32 color,
+            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
+        : SurfaceSynth(bumpmap)
+        , _light(light, color, trans)
+        , _scale(scale)
+        , _kd(diffuse_constant)
+        , _x0(x0)
+        , _y0(y0)
+    {}
+
+    guint32 operator()(int x, int y) {
+        NR::Fvector normal = surfaceNormalAt(x, y, _scale);
+        NR::Fvector light;
+        NR::Fvector light_components;
+        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        _light.light_components(light_components, light);
+        double k = _kd * NR::scalar_product(normal, light);
+
+        guint32 r = CLAMP_D_TO_U8(k * light_components[LIGHT_RED]);
+        guint32 g = CLAMP_D_TO_U8(k * light_components[LIGHT_GREEN]);
+        guint32 b = CLAMP_D_TO_U8(k * light_components[LIGHT_BLUE]);
+
+        ASSEMBLE_ARGB32(pxout, 255,r,g,b)
+        return pxout;
+    }
+private:
+    SpotLight _light;
+    double _scale, _kd, _x0, _y0;
+};
+
+void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *input = slot.getcairo(_input);
+    cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
+
+    NRRectL const &slot_area = slot.get_slot_area();
+    Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
+    double x0 = slot_area.x0, y0 = slot_area.y0;
+    double scale = surfaceScale * trans[0];
+
     switch (light_type) {
-        case DISTANT_LIGHT:  
-            //the light vector is constant
-            {
-            DistantLight *dl = new DistantLight(light.distant, lighting_color);
-            dl->light_vector(L);
-            dl->light_components(LC);
-            //finish the work
-            for (i = 0, j = 0; i < w*h; i++) {
-                NR::compute_surface_normal(N, ss, in, i / w, i % w, dx, dy);
-                inter = kd * NR::scalar_product(N, L);
-
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_RED]); // CLAMP includes rounding!
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_GREEN]);
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_BLUE]);
-                data_o[j++] = 255;
-            }
-            out->empty = FALSE;
-            delete dl;
-            }
-            break;
-        case POINT_LIGHT:
-            {
-            PointLight *pl = new PointLight(light.point, lighting_color, trans);
-            pl->light_components(LC);
-        //TODO we need a reference to the filter to determine primitiveUnits
-        //if objectBoundingBox is used, use a different matrix for light_vector
-        // UPDATE: trans is now correct matrix from primitiveUnits to
-        // pixblock coordinates
-            //finish the work
-            for (i = 0, j = 0; i < w*h; i++) {
-                NR::compute_surface_normal(N, ss, in, i / w, i % w, dx, dy);
-                pl->light_vector(L,
-                        i % w + x0,
-                        i / w + y0,
-                        ss * (double) data_i[4*i+3]/ 255);
-                inter = kd * NR::scalar_product(N, L);
-
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_RED]);
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_GREEN]);
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_BLUE]);
-                data_o[j++] = 255;
-            }
-            out->empty = FALSE;
-            delete pl;
-            }
-            break;
-        case SPOT_LIGHT:
-            {
-            SpotLight *sl = new SpotLight(light.spot, lighting_color, trans);
-        //TODO we need a reference to the filter to determine primitiveUnits
-        //if objectBoundingBox is used, use a different matrix for light_vector
-        // UPDATE: trans is now correct matrix from primitiveUnits to
-        // pixblock coordinates
-            //finish the work
-            for (i = 0, j = 0; i < w*h; i++) {
-                NR::compute_surface_normal(N, ss, in, i / w, i % w, dx, dy);
-                sl->light_vector(L,
-                    i % w + x0,
-                    i / w + y0,
-                    ss * (double) data_i[4*i+3]/ 255);
-                sl->light_components(LC, L);
-                inter = kd * NR::scalar_product(N, L);
-                
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_RED]);
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_GREEN]);
-                data_o[j++] = CLAMP_D_TO_U8(inter * LC[LIGHT_BLUE]);
-                data_o[j++] = 255;
-            }
-            out->empty = FALSE;
-            delete sl;
-            }
-            break;
-        //else unknown light source, doing nothing
-        case NO_LIGHT:
-        default:
-            {
-            if (light_type != NO_LIGHT)
-                g_warning("unknown light source %d", light_type);
-            for (i = 0; i < w*h; i++) {
-                data_o[4*i+3] = 255;
-            }
-            out->empty = false;
-            }
+    case DISTANT_LIGHT:
+        ink_cairo_surface_synthesize(out,
+            DiffuseDistantLight(input, light.distant, lighting_color, scale, diffuseConstant));
+        break;
+    case POINT_LIGHT:
+        ink_cairo_surface_synthesize(out,
+            DiffusePointLight(input, light.point, lighting_color, trans, scale, diffuseConstant, x0, y0));
+        break;
+    case SPOT_LIGHT:
+        ink_cairo_surface_synthesize(out,
+            DiffuseSpotLight(input, light.spot, lighting_color, trans, scale, diffuseConstant, x0, y0));
+        break;
+    default: {
+        cairo_t *ct = cairo_create(out);
+        cairo_set_source_rgba(ct, 0,0,0,1);
+        cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(ct);
+        cairo_destroy(ct);
+        } break;
     }
-        
-    //finishing
+
     slot.set(_output, out);
-    //nr_pixblock_release(in);
-    //delete in;
-    return 0;
+    cairo_surface_destroy(out);
 }
 
 void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
@@ -179,10 +183,6 @@ void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Matrix const &tran
     area.x1 += (int)(scalex) + 2;
     area.y0 -= (int)(scaley) + 2;
     area.y1 += (int)(scaley) + 2;
-}
-
-FilterTraits FilterDiffuseLighting::get_input_traits() {
-    return TRAIT_PARALLER;
 }
 
 } /* namespace Filters */

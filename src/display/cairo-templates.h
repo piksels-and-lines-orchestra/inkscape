@@ -15,12 +15,14 @@
 #ifdef HAVE_OPENMP
 #include <omp.h>
 #include "preferences.h"
+// single-threaded operation if the number of pixels is below this threshold
 #define OPENMP_THRESHOLD 4096
 #endif
 
 #include <algorithm>
 #include <cairo.h>
 #include <glib.h>
+#include "display/nr-3dutils.h"
 
 /**
  * @brief Blend two surfaces using the supplied functor.
@@ -271,23 +273,30 @@ void ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter 
     cairo_surface_mark_dirty(out);
 }
 
+
+/**
+ * @brief Synthesize surface pixels based on their position.
+ * This template accepts a functor that gets called with the x and y coordinates of the pixels,
+ * given as integers.
+ * @param out       Output surface
+ * @param out_area  The region of the output surface that should be synthesized */
 template <typename Synth>
-void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
+void ink_cairo_surface_synthesize(cairo_surface_t *out, cairo_rectangle_t const &out_area, Synth synth)
 {
     // ASSUMPTIONS
     // 1. Cairo ARGB32 surface strides are always divisible by 4
     // 2. We can only receive CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_A8 surfaces
 
-    int w = cairo_image_surface_get_width(out);
-    int h = cairo_image_surface_get_height(out);
+    int w = out_area.width;
+    int h = out_area.height;
     int strideout = cairo_image_surface_get_stride(out);
     int bppout = cairo_image_surface_get_format(out) == CAIRO_FORMAT_A8 ? 1 : 4;
-    int limit = w * h;
     // NOTE: fast path is not used, because we would need 2 divisions to get pixel indices
 
-    guint32 *const out_data = (guint32*) cairo_image_surface_get_data(out);
+    unsigned char *out_data = cairo_image_surface_get_data(out);
 
     #if HAVE_OPENMP
+    int limit = w * h;
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
     if (limit < OPENMP_THRESHOLD) num_threads = 1; // do not spawn threads for very small surfaces
@@ -297,9 +306,9 @@ void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
         #if HAVE_OPENMP
         #pragma omp parallel for num_threads(num_threads)
         #endif
-        for (int i = 0; i < h; ++i) {
-            guint32 *out_p = out_data + i * strideout/4;
-            for (int j = 0; j < w; ++j) {
+        for (int i = out_area.y; i < h; ++i) {
+            guint32 *out_p = reinterpret_cast<guint32*>(out_data + i * strideout);
+            for (int j = out_area.x; j < w; ++j) {
                 *out_p = synth(j, i);
                 ++out_p;
             }
@@ -309,9 +318,9 @@ void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
         #if HAVE_OPENMP
         #pragma omp parallel for num_threads(num_threads)
         #endif
-        for (int i = 0; i < h; ++i) {
-            guint8 *out_p = reinterpret_cast<guint8*>(out_data) + i * strideout;
-            for (int j = 0; j < w; ++j) {
+        for (int i = out_area.y; i < h; ++i) {
+            guint8 *out_p = out_data + i * strideout;
+            for (int j = out_area.x; j < w; ++j) {
                 guint32 out_px = synth(j, i);
                 *out_p = out_px >> 24;
                 ++out_p;
@@ -321,6 +330,196 @@ void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
     cairo_surface_mark_dirty(out);
 }
 
+template <typename Synth>
+void ink_cairo_surface_synthesize(cairo_surface_t *out, Synth synth)
+{
+    int w = cairo_image_surface_get_width(out);
+    int h = cairo_image_surface_get_height(out);
+
+    cairo_rectangle_t area;
+    area.x = 0;
+    area.y = 0;
+    area.width = w;
+    area.height = h;
+
+    ink_cairo_surface_synthesize(out, area, synth);
+}
+
+struct SurfaceSynth {
+    SurfaceSynth(cairo_surface_t *surface)
+        : _px(cairo_image_surface_get_data(surface))
+        , _w(cairo_image_surface_get_width(surface))
+        , _h(cairo_image_surface_get_height(surface))
+        , _stride(cairo_image_surface_get_stride(surface))
+        , _alpha(cairo_surface_get_content(surface) == CAIRO_CONTENT_ALPHA)
+    {
+        cairo_surface_flush(surface);
+    }
+protected:
+    guint32 pixelAt(int x, int y) {
+        if (_alpha) {
+            unsigned char *px = _px + y*_stride + x;
+            return *px << 24;
+        } else {
+            unsigned char *px = _px + y*_stride + x*4;
+            return *reinterpret_cast<guint32*>(px);
+        }
+    }
+    guint32 alphaAt(int x, int y) {
+        if (_alpha) {
+            unsigned char *px = _px + y*_stride + x;
+            return *px;
+        } else {
+            unsigned char *px = _px + y*_stride + x*4;
+            guint32 p = *reinterpret_cast<guint32*>(px);
+            return (p & 0xff000000) >> 24;
+        }
+    }
+    NR::Fvector surfaceNormalAt(int x, int y, double scale) {
+        // Below there are some multiplies by zero. They will be optimized out.
+        // Do not remove them, because they improve readability.
+        NR::Fvector normal;
+        double fx = -scale/255.0, fy = -scale/255.0;
+        normal[Z_3D] = 1.0;
+        if (G_UNLIKELY(x == 0)) {
+            // leftmost column
+            if (G_UNLIKELY(y == 0)) {
+                // upper left corner
+                fx *= (2.0/3.0);
+                fy *= (2.0/3.0);
+                double p00 = alphaAt(x,y),   p10 = alphaAt(x+1, y),
+                       p01 = alphaAt(x,y+1), p11 = alphaAt(x+1, y+1);
+                normal[X_3D] =
+                    -2.0 * p00 +2.0 * p10
+                    -1.0 * p01 +1.0 * p11;
+                normal[Y_3D] = 
+                    -2.0 * p00 -1.0 * p10
+                    +2.0 * p01 +1.0 * p11;
+            } else if (G_UNLIKELY(y == (_h - 1))) {
+                // lower left corner
+                fx *= (2.0/3.0);
+                fy *= (2.0/3.0);
+                double p00 = alphaAt(x,y-1), p10 = alphaAt(x+1, y-1),
+                       p01 = alphaAt(x,y  ), p11 = alphaAt(x+1, y);
+                normal[X_3D] =
+                    -1.0 * p00 +1.0 * p10
+                    -2.0 * p01 +2.0 * p11;
+                normal[Y_3D] = 
+                    -2.0 * p00 -1.0 * p10
+                    +2.0 * p01 +1.0 * p11;
+            } else {
+                // leftmost column
+                fx *= (1.0/2.0);
+                fy *= (1.0/3.0);
+                double p00 = alphaAt(x, y-1), p10 = alphaAt(x+1, y-1),
+                       p01 = alphaAt(x, y  ), p11 = alphaAt(x+1, y  ),
+                       p02 = alphaAt(x, y+1), p12 = alphaAt(x+1, y+1);
+                normal[X_3D] =
+                    -1.0 * p00 +1.0 * p10
+                    -2.0 * p01 +2.0 * p11
+                    -1.0 * p02 +1.0 * p12;
+                normal[Y_3D] =
+                    -2.0 * p00 -1.0 * p10
+                    +0.0 * p01 +0.0 * p11 // this will be optimized out
+                    +2.0 * p02 +1.0 * p12;
+            }
+        } else if (G_UNLIKELY(x == (_w - 1))) {
+            // rightmost column
+            if (G_UNLIKELY(y == 0)) {
+                // top right corner
+                fx *= (2.0/3.0);
+                fy *= (2.0/3.0);
+                double p00 = alphaAt(x-1,y),   p10 = alphaAt(x, y),
+                       p01 = alphaAt(x-1,y+1), p11 = alphaAt(x, y+1);
+                normal[X_3D] =
+                    -2.0 * p00 +2.0 * p10
+                    -1.0 * p01 +1.0 * p11;
+                normal[Y_3D] = 
+                    -1.0 * p00 -2.0 * p10
+                    +1.0 * p01 +2.0 * p11;
+            } else if (G_UNLIKELY(y == (_h - 1))) {
+                // bottom right corner
+                fx *= (2.0/3.0);
+                fy *= (2.0/3.0);
+                double p00 = alphaAt(x-1,y-1), p10 = alphaAt(x, y-1),
+                       p01 = alphaAt(x-1,y  ), p11 = alphaAt(x, y);
+                normal[X_3D] =
+                    -1.0 * p00 +1.0 * p10
+                    -2.0 * p01 +2.0 * p11;
+                normal[Y_3D] = 
+                    -1.0 * p00 -2.0 * p10
+                    +1.0 * p01 +2.0 * p11;
+            } else {
+                // rightmost column
+                fx *= (1.0/2.0);
+                fy *= (1.0/3.0);
+                double p00 = alphaAt(x-1, y-1), p10 = alphaAt(x, y-1),
+                       p01 = alphaAt(x-1, y  ), p11 = alphaAt(x, y  ),
+                       p02 = alphaAt(x-1, y+1), p12 = alphaAt(x, y+1);
+                normal[X_3D] =
+                    -1.0 * p00 +1.0 * p10
+                    -2.0 * p01 +2.0 * p11
+                    -1.0 * p02 +1.0 * p12;
+                normal[Y_3D] =
+                    -1.0 * p00 -2.0 * p10
+                    +0.0 * p01 +0.0 * p11
+                    +1.0 * p02 +2.0 * p12;
+            }
+        } else {
+            // interior
+            if (G_UNLIKELY(y == 0)) {
+                // top row
+                fx *= (1.0/3.0);
+                fy *= (1.0/2.0);
+                double p00 = alphaAt(x-1, y  ), p10 = alphaAt(x, y  ), p20 = alphaAt(x+1, y  ),
+                       p01 = alphaAt(x-1, y+1), p11 = alphaAt(x, y+1), p21 = alphaAt(x+1, y+1);
+                normal[X_3D] =
+                    -2.0 * p00 +0.0 * p10 +2.0 * p20
+                    -1.0 * p01 +0.0 * p11 +1.0 * p21;
+                normal[Y_3D] =
+                    -1.0 * p00 -2.0 * p10 -1.0 * p20
+                    +1.0 * p01 +2.0 * p11 +1.0 * p21;
+            } else if (G_UNLIKELY(y == (_h - 1))) {
+                // bottom row
+                fx *= (1.0/3.0);
+                fy *= (1.0/2.0);
+                double p00 = alphaAt(x-1, y-1), p10 = alphaAt(x, y-1), p20 = alphaAt(x+1, y-1),
+                       p01 = alphaAt(x-1, y  ), p11 = alphaAt(x, y  ), p21 = alphaAt(x+1, y  );
+                normal[X_3D] =
+                    -1.0 * p00 +0.0 * p10 +1.0 * p20
+                    -2.0 * p01 +0.0 * p11 +2.0 * p21;
+                normal[Y_3D] =
+                    -1.0 * p00 -2.0 * p10 -1.0 * p20
+                    +1.0 * p01 +2.0 * p11 +1.0 * p21;
+            } else {
+                // interior pixels
+                fx *= (1.0/4.0);
+                fy *= (1.0/4.0);
+                double p00 = alphaAt(x-1, y-1), p10 = alphaAt(x, y-1), p20 = alphaAt(x+1, y-1),
+                       p01 = alphaAt(x-1, y  ), p11 = alphaAt(x, y  ), p21 = alphaAt(x+1, y  ),
+                       p02 = alphaAt(x-1, y+1), p12 = alphaAt(x, y+1), p22 = alphaAt(x+1, y+1);
+                normal[X_3D] =
+                    -1.0 * p00 +0.0 * p10 +1.0 * p20
+                    -2.0 * p01 +0.0 * p11 +2.0 * p21
+                    -1.0 * p02 +0.0 * p12 +1.0 * p22;
+                normal[Y_3D] =
+                    -1.0 * p00 -2.0 * p10 -1.0 * p20
+                    +0.0 * p01 +0.0 * p11 +0.0 * p21
+                    +1.0 * p02 +2.0 * p12 +1.0 * p22;
+            }
+        }
+        normal[X_3D] *= fx;
+        normal[Y_3D] *= fy;
+        NR::normalize_vector(normal);
+        return normal;
+    }
+
+    unsigned char *_px;
+    int _w, _h, _stride;
+    bool _alpha;
+};
+
+/*
 // simple pixel accessor for image surface that handles different edge wrapping modes
 class PixelAccessor {
 public:
@@ -374,7 +573,7 @@ private:
     int _x, _y, _w, _h, _stride;
     EdgeMode _edge_mode;
     bool _alpha;
-};
+};*/
 
 // Some helpers for pixel manipulation
 

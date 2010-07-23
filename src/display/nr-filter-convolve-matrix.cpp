@@ -247,11 +247,6 @@ void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-bool FilterConvolveMatrix::can_handle_affine(Geom::Matrix const &)
-{
-    return false;
-}
-
 void FilterConvolveMatrix::set_targetX(int coord) {
     targetX = coord;
 }

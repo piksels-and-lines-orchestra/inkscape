@@ -62,8 +62,6 @@ public:
 
     cairo_surface_t *get_result(int slot_nr);
 
-    NRRectL const *get_slot_area();
-
     /** Returns the number of slots in use. */
     int get_slot_count();
 
@@ -80,6 +78,7 @@ public:
     int get_blurquality(void);
 
     FilterUnits const &get_units() const { return _units; }
+    NRRectL const &get_slot_area() const { return _slot_area; }
 
 private:
     typedef std::map<int, cairo_surface_t *> SlotMap;

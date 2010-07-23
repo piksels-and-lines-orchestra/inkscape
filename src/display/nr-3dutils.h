@@ -28,12 +28,24 @@ namespace NR {
 /**
  * a type of 3 gdouble components vectors
  */
-typedef gdouble Fvector[3];
+struct Fvector {
+    Fvector() {
+        v[0] = v[1] = v[2] = 0.0;
+    }
+    Fvector(double x, double y, double z) {
+        v[0] = x;
+        v[1] = y;
+        v[2] = z;
+    }
+    double v[3];
+    double &operator[](unsigned i) { return v[i]; }
+    double operator[](unsigned i) const { return v[i]; }
+};
 
 /**
  * The eye vector
  */
-const static Fvector EYE_VECTOR = {0, 0, 1};
+const static Fvector EYE_VECTOR(0, 0, 1);
 
 /**
  * returns the euclidian norm of the vector v
