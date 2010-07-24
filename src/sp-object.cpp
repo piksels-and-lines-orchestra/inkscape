@@ -937,6 +937,13 @@ void SPObject::appendChild(Inkscape::XML::Node *child) {
 	repr->appendChild(child);
 }
 
+void SPObject::addChild(Inkscape::XML::Node *child, Inkscape::XML::Node * prev)
+{
+	g_assert(this->repr);
+
+	repr->addChild(child,prev);
+}
+
 void SPObject::releaseReferences() {
     g_assert(this->document);
     g_assert(this->repr);

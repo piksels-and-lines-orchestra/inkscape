@@ -242,7 +242,7 @@ static void sp_guide_set(SPObject *object, unsigned int key, const gchar *value)
 }
 
 SPGuide *
-sp_guide_create(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &pt2) {
+SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &pt2) {
     SPDocument *doc=sp_desktop_document(desktop);
     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
 
@@ -253,7 +253,8 @@ sp_guide_create(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &p
     sp_repr_set_point(repr, "position", pt1);
     sp_repr_set_point(repr, "orientation", n);
 
-    SP_OBJECT_REPR(desktop->namedview)->appendChild(repr);
+    //SP_OBJECT_REPR(desktop->namedview)->appendChild(repr);
+    desktop->namedview->appendChild(repr);
     Inkscape::GC::release(repr);
 
     SPGuide *guide= SP_GUIDE(doc->getObjectByRepr(repr));
@@ -263,7 +264,7 @@ sp_guide_create(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &p
 void
 sp_guide_pt_pairs_to_guides(SPDesktop *dt, std::list<std::pair<Geom::Point, Geom::Point> > &pts) {
     for (std::list<std::pair<Geom::Point, Geom::Point> >::iterator i = pts.begin(); i != pts.end(); ++i) {
-        sp_guide_create(dt, (*i).first, (*i).second);
+		SPGuide::createSPGuide(dt, (*i).first, (*i).second);
     }
 }
 
@@ -287,27 +288,27 @@ sp_guide_create_guides_around_page(SPDesktop *dt) {
     SPDocumentUndo::done (doc, SP_VERB_NONE, _("Guides Around Page"));
 }
 
-void sp_guide_show(SPGuide *guide, SPCanvasGroup *group, GCallback handler)
+void SPGuide::showSPGuide(SPCanvasGroup *group, GCallback handler)
 {
-    SPCanvasItem *item = sp_guideline_new(group, guide->point_on_line, guide->normal_to_line);
-    sp_guideline_set_color(SP_GUIDELINE(item), guide->color);
+    SPCanvasItem *item = sp_guideline_new(group, this->point_on_line, this->normal_to_line);
+    sp_guideline_set_color(SP_GUIDELINE(item), this->color);
 
-    g_signal_connect(G_OBJECT(item), "event", G_CALLBACK(handler), guide);
+    g_signal_connect(G_OBJECT(item), "event", G_CALLBACK(handler), this);
 
-    guide->views = g_slist_prepend(guide->views, item);
+    this->views = g_slist_prepend(this->views, item);
 }
 
-void sp_guide_hide(SPGuide *guide, SPCanvas *canvas)
+void SPGuide::hideSPGuide(SPCanvas *canvas)
 {
-    g_assert(guide != NULL);
-    g_assert(SP_IS_GUIDE(guide));
+    //g_assert(guide != NULL);
+    //g_assert(SP_IS_GUIDE(guide));
     g_assert(canvas != NULL);
     g_assert(SP_IS_CANVAS(canvas));
 
-    for (GSList *l = guide->views; l != NULL; l = l->next) {
+    for (GSList *l = this->views; l != NULL; l = l->next) {
         if (canvas == SP_CANVAS_ITEM(l->data)->canvas) {
             sp_guideline_delete(SP_GUIDELINE(l->data));
-            guide->views = g_slist_remove(guide->views, l->data);
+            this->views = g_slist_remove(this->views, l->data);
             return;
         }
     }
@@ -315,14 +316,14 @@ void sp_guide_hide(SPGuide *guide, SPCanvas *canvas)
     g_assert_not_reached();
 }
 
-void sp_guide_sensitize(SPGuide *guide, SPCanvas *canvas, gboolean sensitive)
+void SPGuide::sensitize(SPCanvas *canvas, gboolean sensitive)
 {
-    g_assert(guide != NULL);
-    g_assert(SP_IS_GUIDE(guide));
+    //g_assert(guide != NULL);
+    //g_assert(SP_IS_GUIDE(guide));
     g_assert(canvas != NULL);
     g_assert(SP_IS_CANVAS(canvas));
 
-    for (GSList *l = guide->views; l != NULL; l = l->next) {
+    for (GSList *l = this->views; l != NULL; l = l->next) {
         if (canvas == SP_CANVAS_ITEM(l->data)->canvas) {
             sp_guideline_set_sensitive(SP_GUIDELINE(l->data), sensitive);
             return;
@@ -332,14 +333,14 @@ void sp_guide_sensitize(SPGuide *guide, SPCanvas *canvas, gboolean sensitive)
     g_assert_not_reached();
 }
 
-Geom::Point sp_guide_position_from_pt(SPGuide const *guide, Geom::Point const &pt)
+Geom::Point SPGuide::getPositionFrom(Geom::Point const &pt) const
 {
-    return -(pt - guide->point_on_line);
+    return -(pt - this->point_on_line);
 }
 
-double sp_guide_distance_from_pt(SPGuide const *guide, Geom::Point const &pt)
+double SPGuide::getDistanceFrom(Geom::Point const &pt) const
 {
-    return Geom::dot(pt - guide->point_on_line, guide->normal_to_line);
+    return Geom::dot(pt - this->point_on_line, this->normal_to_line);
 }
 
 /**

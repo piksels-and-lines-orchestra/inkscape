@@ -532,6 +532,7 @@ public:
 	unsigned getPosition();
 	gchar const * getAttribute(gchar const *name,SPException *ex=0) const;
 	void appendChild(Inkscape::XML::Node *child);
+	void addChild(Inkscape::XML::Node *child,Inkscape::XML::Node *prev=0);
 	void setKeyValue(unsigned int key, gchar const *value);
 	void setAttribute(gchar const *key, gchar const *value, SPException *ex=0);
 	void readAttr(gchar const *key);

@@ -101,7 +101,8 @@ SPFilter *new_filter(SPDocument *document)
     repr = xml_doc->createElement("svg:filter");
 
     // Append the new filter node to defs
-    SP_OBJECT_REPR(defs)->appendChild(repr);
+    //SP_OBJECT_REPR(defs)->appendChild(repr);
+	defs->appendChild(repr);
     Inkscape::GC::release(repr);
 
     // get corresponding object
@@ -169,7 +170,8 @@ filter_add_primitive(SPFilter *filter, const Inkscape::Filters::FilterPrimitiveT
 
     //set primitive as child of filter node
 	// XML tree being used directly while/where it shouldn't be...
-    filter->getRepr()->appendChild(repr);
+    //filter->getRepr()->appendChild(repr);
+	filter->appendChild(repr);
     Inkscape::GC::release(repr);
     
     // get corresponding object
@@ -218,7 +220,8 @@ new_filter_gaussian_blur (SPDocument *document, gdouble radius, double expansion
     Inkscape::GC::release(b_repr);
     
     // Append the new filter node to defs
-    SP_OBJECT_REPR(defs)->appendChild(repr);
+    //SP_OBJECT_REPR(defs)->appendChild(repr);
+	defs->appendChild(repr);
     Inkscape::GC::release(repr);
 
     // get corresponding object
@@ -254,7 +257,8 @@ new_filter_blend_gaussian_blur (SPDocument *document, const char *blendmode, gdo
     repr->setAttribute("inkscape:collect", "always");
 
     // Append the new filter node to defs
-    SP_OBJECT_REPR(defs)->appendChild(repr);
+    //SP_OBJECT_REPR(defs)->appendChild(repr);
+	defs->appendChild(repr);
     Inkscape::GC::release(repr);
  
     // get corresponding object
@@ -361,7 +365,8 @@ modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *item,
         Inkscape::XML::Node *repr;
         repr = SP_OBJECT_REPR(item->style->getFilter())->duplicate(xml_doc);
         SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
-        SP_OBJECT_REPR(defs)->appendChild(repr);
+        //SP_OBJECT_REPR(defs)->appendChild(repr);
+		defs->appendChild(repr);
 
         filter = SP_FILTER( document->getObjectByRepr(repr) );
         Inkscape::GC::release(repr);

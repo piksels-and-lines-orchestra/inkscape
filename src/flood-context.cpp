@@ -418,7 +418,7 @@ static void do_trace(bitmap_coords_info bci, guchar *trace_px, SPDesktop *deskto
     gray_map->destroy(gray_map);
 
 	//XML Tree being used here directly while it shouldn't be...."
-    Inkscape::XML::Node *layer_repr = SP_GROUP(desktop->currentLayer())->getRepr();
+    //Inkscape::XML::Node *layer_repr = SP_GROUP(desktop->currentLayer())->getRepr();
     Inkscape::XML::Document *xml_doc = sp_document_repr_doc(desktop->doc());
 
     long totalNodeCount = 0L;
@@ -482,7 +482,8 @@ static void do_trace(bitmap_coords_info bci, guchar *trace_px, SPDesktop *deskto
             g_free(str);
         }
 
-        layer_repr->addChild(pathRepr, NULL);
+        //layer_repr->addChild(pathRepr, NULL);
+		desktop->currentLayer()->addChild(pathRepr,NULL);
 
         SPObject *reprobj = document->getObjectByRepr(pathRepr);
         if (reprobj) {
@@ -1137,9 +1138,10 @@ static gint sp_flood_context_item_handler(SPEventContext *event_context, SPItem 
             
             SPItem *item = sp_event_context_find_item (desktop, button_w, TRUE, TRUE);
             
-            Inkscape::XML::Node *pathRepr = SP_OBJECT_REPR(item);
+            //Inkscape::XML::Node *pathRepr = SP_OBJECT_REPR(item);
             /* Set style */
-            sp_desktop_apply_style_tool (desktop, pathRepr, "/tools/paintbucket", false);
+            //sp_desktop_apply_style_tool (desktop, pathRepr, "/tools/paintbucket", false);
+			desktop->applyCurrentOrToolStyle(item, "/tools/paintbucket", false);
             SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_CONTEXT_PAINTBUCKET, _("Set style on object"));
             ret = TRUE;
         }

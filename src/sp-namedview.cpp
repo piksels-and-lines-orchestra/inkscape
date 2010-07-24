@@ -642,10 +642,9 @@ static void sp_namedview_child_added(SPObject *object, Inkscape::XML::Node *chil
             g_object_set(G_OBJECT(g), "color", nv->guidecolor, "hicolor", nv->guidehicolor, NULL);
             if (nv->editable) {
                 for (GSList *l = nv->views; l != NULL; l = l->next) {
-                    sp_guide_show(g, static_cast<SPDesktop*>(l->data)->guides, (GCallback) sp_dt_guide_event);
+                    g->SPGuide::showSPGuide(static_cast<SPDesktop*>(l->data)->guides, (GCallback) sp_dt_guide_event);
                     if (static_cast<SPDesktop*>(l->data)->guides_active)
-                        sp_guide_sensitize(g,
-                                           sp_desktop_canvas(static_cast<SPDesktop*> (l->data)),
+                        g->sensitize(sp_desktop_canvas(static_cast<SPDesktop*> (l->data)),
                                            TRUE);
                     sp_namedview_show_single_guide(SP_GUIDE(g), nv->showguides);
                 }
@@ -703,9 +702,9 @@ static Inkscape::XML::Node *sp_namedview_write(SPObject *object, Inkscape::XML::
 void SPNamedView::show(SPDesktop *desktop)
 {
     for (GSList *l = guides; l != NULL; l = l->next) {
-        sp_guide_show(SP_GUIDE(l->data), desktop->guides, (GCallback) sp_dt_guide_event);
+        SP_GUIDE(l->data)->showSPGuide( desktop->guides, (GCallback) sp_dt_guide_event);
         if (desktop->guides_active) {
-            sp_guide_sensitize(SP_GUIDE(l->data), sp_desktop_canvas(desktop), TRUE);
+            SP_GUIDE(l->data)->sensitize(sp_desktop_canvas(desktop), TRUE);
         }
         sp_namedview_show_single_guide(SP_GUIDE(l->data), showguides);
     }
@@ -841,7 +840,7 @@ void SPNamedView::hide(SPDesktop const *desktop)
     g_assert(g_slist_find(views, desktop));
 
     for (GSList *l = guides; l != NULL; l = l->next) {
-        sp_guide_hide(SP_GUIDE(l->data), sp_desktop_canvas(desktop));
+        SP_GUIDE(l->data)->hideSPGuide(sp_desktop_canvas(desktop));
     }
 
     views = g_slist_remove(views, desktop);
@@ -855,7 +854,7 @@ void SPNamedView::activateGuides(gpointer desktop, gboolean active)
     SPDesktop *dt = static_cast<SPDesktop*>(desktop);
 
     for (GSList *l = guides; l != NULL; l = l->next) {
-        sp_guide_sensitize(SP_GUIDE(l->data), sp_desktop_canvas(dt), active);
+        SP_GUIDE(l->data)->sensitize( sp_desktop_canvas(dt), active);
     }
 }
 

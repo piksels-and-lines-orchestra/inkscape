@@ -207,7 +207,7 @@ SPLine::sp_line_convert_to_guides(SPItem *item)
 	points[0] = Geom::Point(line->x1.computed, line->y1.computed)*i2d;
 	points[1] = Geom::Point(line->x2.computed, line->y2.computed)*i2d;
 
-	sp_guide_create(inkscape_active_desktop(), points[0], points[1]);
+	SPGuide::createSPGuide(inkscape_active_desktop(), points[0], points[1]);
 }
 
 Geom::Matrix

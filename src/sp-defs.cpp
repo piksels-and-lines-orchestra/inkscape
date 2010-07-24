@@ -20,7 +20,7 @@
 #include "xml/repr.h"
 #include "document.h"
 
-static void sp_defs_class_init(SPDefsClass *dc);
+/*static void sp_defs_class_init(SPDefsClass *dc);
 static void sp_defs_init(SPDefs *defs);
 
 static void sp_defs_release(SPObject *object);
@@ -28,9 +28,10 @@ static void sp_defs_update(SPObject *object, SPCtx *ctx, guint flags);
 static void sp_defs_modified(SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_defs_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static SPObjectClass *parent_class;
+static SPObjectClass *parent_class;*/
+SPObjectClass * SPDefsClass::static_parent_class = 0;
 
-GType sp_defs_get_type(void)
+GType SPDefs::sp_defs_get_type(void)
 {
     static GType defs_type = 0;
 
@@ -39,7 +40,7 @@ GType sp_defs_get_type(void)
             sizeof(SPDefsClass),
             NULL,	/* base_init */
             NULL,	/* base_finalize */
-            (GClassInitFunc) sp_defs_class_init,
+            (GClassInitFunc) SPDefsClass::sp_defs_class_init,
             NULL,	/* class_finalize */
             NULL,	/* class_data */
             sizeof(SPDefs),
@@ -53,30 +54,30 @@ GType sp_defs_get_type(void)
     return defs_type;
 }
 
-static void sp_defs_class_init(SPDefsClass *dc)
+void SPDefsClass::sp_defs_class_init(SPDefsClass *dc)
 {
-    parent_class = (SPObjectClass *) g_type_class_ref(SP_TYPE_OBJECT);
+    static_parent_class = (SPObjectClass *) g_type_class_ref(SP_TYPE_OBJECT);
     SPObjectClass *sp_object_class = (SPObjectClass *) dc;
 
-    sp_object_class->release = sp_defs_release;
-    sp_object_class->update = sp_defs_update;
-    sp_object_class->modified = sp_defs_modified;
-    sp_object_class->write = sp_defs_write;
+    sp_object_class->release = SPDefs::sp_defs_release;
+    sp_object_class->update = SPDefs::sp_defs_update;
+    sp_object_class->modified = SPDefs::sp_defs_modified;
+    sp_object_class->write = SPDefs::sp_defs_write;
 }
 
-static void sp_defs_init(SPDefs */*defs*/)
+void SPDefs::sp_defs_init(SPDefs */*defs*/)
 {
 
 }
 
-static void sp_defs_release(SPObject *object)
+void SPDefs::sp_defs_release(SPObject *object)
 {
-    if (((SPObjectClass *) (parent_class))->release) {
-        ((SPObjectClass *) (parent_class))->release(object);
+    if (((SPObjectClass *) (SPDefsClass::static_parent_class))->release) {
+        ((SPObjectClass *) (SPDefsClass::static_parent_class))->release(object);
     }
 }
 
-static void sp_defs_update(SPObject *object, SPCtx *ctx, guint flags)
+void SPDefs::sp_defs_update(SPObject *object, SPCtx *ctx, guint flags)
 {
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         flags |= SP_OBJECT_PARENT_MODIFIED_FLAG;
@@ -95,7 +96,7 @@ static void sp_defs_update(SPObject *object, SPCtx *ctx, guint flags)
     }
 }
 
-static void sp_defs_modified(SPObject *object, guint flags)
+void SPDefs::sp_defs_modified(SPObject *object, guint flags)
 {
     if (flags & SP_OBJECT_MODIFIED_FLAG) {
         flags |= SP_OBJECT_PARENT_MODIFIED_FLAG;
@@ -121,7 +122,7 @@ static void sp_defs_modified(SPObject *object, guint flags)
     }
 }
 
-static Inkscape::XML::Node *sp_defs_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags)
+Inkscape::XML::Node * SPDefs::sp_defs_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags)
 {
     if (flags & SP_OBJECT_WRITE_BUILD) {
 
@@ -147,8 +148,8 @@ static Inkscape::XML::Node *sp_defs_write(SPObject *object, Inkscape::XML::Docum
         }
     }
 
-    if (((SPObjectClass *) (parent_class))->write) {
-        (* ((SPObjectClass *) (parent_class))->write)(object, xml_doc, repr, flags);
+    if (((SPObjectClass *) (SPDefsClass::static_parent_class))->write) {
+        (* ((SPObjectClass *) (SPDefsClass::static_parent_class))->write)(object, xml_doc, repr, flags);
     }
 
     return repr;
