@@ -16,7 +16,7 @@
 #include <omp.h>
 #include "preferences.h"
 // single-threaded operation if the number of pixels is below this threshold
-#define OPENMP_THRESHOLD 4096
+#define OPENMP_THRESHOLD 2048
 #endif
 
 #include <algorithm>

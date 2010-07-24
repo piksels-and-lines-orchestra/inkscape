@@ -173,6 +173,11 @@ cairo_surface_t *FilterSlot::_get_transformed_source_graphic()
 {
     Geom::Matrix trans = _units.get_matrix_display2pb();
 
+    if (trans.isIdentity()) {
+        cairo_surface_reference(_source_graphic);
+        return _source_graphic;
+    }
+
     cairo_surface_t *tsg = cairo_surface_create_similar(
         _source_graphic, cairo_surface_get_content(_source_graphic),
         _slot_area.x1 - _slot_area.x0, _slot_area.y1 - _slot_area.y0);
@@ -213,6 +218,11 @@ cairo_surface_t *FilterSlot::_get_transformed_background()
 cairo_surface_t *FilterSlot::get_result(int res)
 {
     Geom::Matrix trans = _units.get_matrix_pb2display();
+    if (trans.isIdentity()) {
+        cairo_surface_t *result = getcairo(res);
+        cairo_surface_reference(result);
+        return result;
+    }
 
     cairo_surface_t *r = cairo_surface_create_similar(_source_graphic,
         cairo_surface_get_content(_source_graphic),

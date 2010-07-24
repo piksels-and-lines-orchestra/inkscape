@@ -36,8 +36,68 @@ FilterPrimitive * FilterImage::create() {
 
 FilterImage::~FilterImage()
 {
-        if (feImageHref) g_free(feImageHref);
+    if (feImageHref)
+        g_free(feImageHref);
 }
+
+/*
+void FilterImage::render_cairo(FilterSlot &slot)
+{
+    if (!feImageHref)
+        return;
+
+    cairo_surface_t *input = slot.getcairo(_input);
+
+    if (from_element) {
+        if (!SVGElem) return;
+
+        // prep the document
+        // TODO: do not recreate the rendering tree every time
+        sp_document_ensure_up_to_date(document);
+        NRArena* arena = NRArena::create();
+        unsigned const key = sp_item_display_key_new(1);
+        NRArenaItem* ai = sp_item_invoke_show(SVGElem, arena, key, SP_ITEM_SHOW_DISPLAY);
+        if (!ai) {
+            g_warning("feImage renderer: error creating NRArenaItem for SVG Element");
+            nr_object_unref((NRObject *) arena);
+            return;
+        }
+
+        Geom::OptRect optarea = SVGElem->getBounds(Geom::identity());
+        if (!optarea) return;
+
+        Geom::Rect area = *optarea;
+        Geom::Matrix itrans = slot.get_units().get_matrix_display2pb();
+
+        NRRectL const &slot_area = slot.get_units().get_slot_area();
+        NRRectL rect;
+        rect.x0 = floor(area->left());
+        rect.x1 = ceil(area->right());
+        rect.y0 = floor(area->top());
+        rect.y1 = ceil(area->bottom());
+
+        cairo_surface_t *out = ink_cairo_surface_create_same_size(in, CAIRO_CONTENT_COLOR_ALPHA);
+        cairo_t *ct = cairo_create(out);
+        cairo_translate(ct, -slot_area.x0, -slot_area.y0);
+        ink_cairo_transform(ct, itrans);
+        cairo_translate(ct, rect.x0, rect.y0);
+
+        // Update to renderable state
+        NRGC gc(NULL);
+        Geom::Matrix t = Geom::identity();
+        nr_arena_item_set_transform(ai, &t);
+        gc.transform.setIdentity();
+        nr_arena_item_invoke_update( ai, NULL, &gc,
+                                             NR_ARENA_ITEM_STATE_ALL,
+                                             NR_ARENA_ITEM_STATE_NONE );
+
+        nr_arena_item_invoke_render(ct, ai, &rect, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE);
+
+        slot.set(_output, out);
+        cairo_surface_destroy(out);
+        return;
+    }
+}*/
 
 int FilterImage::render(FilterSlot &slot, FilterUnits const &units) {
     if (!feImageHref) return 0;
