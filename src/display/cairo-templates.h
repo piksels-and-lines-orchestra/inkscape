@@ -644,9 +644,11 @@ private:
 };*/
 
 // Some helpers for pixel manipulation
-
 G_GNUC_CONST inline gint32
 pxclamp(gint32 v, gint32 low, gint32 high) {
+    // NOTE: it is possible to write a "branchless" clamping operation.
+    // However, it will be slower than this function, because the code below
+    // is compiled to conditional moves.
     if (v < low) return low;
     if (v > high) return high;
     return v;

@@ -38,7 +38,8 @@ enum FilterTurbulenceType {
 
 struct StitchInfo;
 
-#define BSize 0x100
+//#define BSize 0x100
+class TurbulenceGenerator;
 
 class FilterTurbulence : public FilterPrimitive {
 public:
@@ -58,12 +59,16 @@ public:
     void set_updated(bool u);
 private:
 
+    TurbulenceGenerator *gen;
+
+    void turbulenceInit(long seed);
+/*
     long Turbulence_setup_seed(long lSeed);
     long TurbulenceRandom(long lSeed);
     void TurbulenceInit(long lSeed);
     double TurbulenceNoise2(int nColorChannel, double vec[2], StitchInfo *pStitchInfo);
     double turbulence(int nColorChannel, Geom::Point const &point);
-
+*/
     double XbaseFrequency, YbaseFrequency;
     int numOctaves;
     double seed;
@@ -74,14 +79,15 @@ private:
     NRPixBlock *pix;
     unsigned char *pix_data;
 
-    int uLatticeSelector[BSize + BSize + 2];
-    double fGradient[4][BSize + BSize + 2][2];
+    //int uLatticeSelector[BSize + BSize + 2];
+    //double fGradient[4][BSize + BSize + 2][2];
 
     double fTileWidth;
     double fTileHeight;
 
     double fTileX;
     double fTileY;
+
 };
 
 } /* namespace Filters */
