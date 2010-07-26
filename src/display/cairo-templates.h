@@ -358,7 +358,7 @@ struct SurfaceSynth {
         cairo_surface_flush(surface);
     }
 
-    guint32 pixelAt(int x, int y) {
+    guint32 pixelAt(int x, int y) const {
         if (_alpha) {
             unsigned char *px = _px + y*_stride + x;
             return *px << 24;
@@ -367,7 +367,7 @@ struct SurfaceSynth {
             return *reinterpret_cast<guint32*>(px);
         }
     }
-    guint32 alphaAt(int x, int y) {
+    guint32 alphaAt(int x, int y) const {
         if (_alpha) {
             unsigned char *px = _px + y*_stride + x;
             return *px;
@@ -379,7 +379,7 @@ struct SurfaceSynth {
     }
 
     // retrieve a pixel value with bilinear interpolation
-    guint32 pixelAt(double x, double y) {
+    guint32 pixelAt(double x, double y) const {
         if (_alpha) {
             return alphaAt(x, y) << 24;
         }
@@ -416,7 +416,7 @@ struct SurfaceSynth {
     }
 
     // retrieve an alpha value with bilinear interpolation
-    guint32 alphaAt(double x, double y) {
+    guint32 alphaAt(double x, double y) const {
         double xf = floor(x), yf = floor(y);
         int xi = xf, yi = yf;
         guint32 xif = round((x - xf) * 255), yif = round((y - yf) * 255);
@@ -441,7 +441,7 @@ struct SurfaceSynth {
     }
 
     // compute surface normal at given coordinates using 3x3 Sobel gradient filter
-    NR::Fvector surfaceNormalAt(int x, int y, double scale) {
+    NR::Fvector surfaceNormalAt(int x, int y, double scale) const {
         // Below there are some multiplies by zero. They will be optimized out.
         // Do not remove them, because they improve readability.
         // NOTE: fetching using alphaAt is slightly lazy.
