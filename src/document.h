@@ -96,7 +96,8 @@ struct SPDocument : public Inkscape::GC::Managed<>,
     SPDocumentPrivate *priv;
 
     /// Last action key
-    const gchar *actionkey;
+    Glib::ustring actionkey;
+
     /// Handler ID
     guint modified_id;
     
