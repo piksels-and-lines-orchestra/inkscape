@@ -13551,7 +13551,7 @@ msgstr "Îndepărtează textul de pe traseu"
 #: ../src/text-chemistry.cpp:269
 #: ../src/text-chemistry.cpp:290
 msgid "Select <b>text(s)</b> to remove kerns from."
-msgstr "Selectați <b>textul<b> din care să fie eliminat kerningul."
+msgstr "Selectați <b>textul</b> din care să fie eliminat kerningul."
 
 #: ../src/text-chemistry.cpp:293
 msgid "Remove manual kerns"
