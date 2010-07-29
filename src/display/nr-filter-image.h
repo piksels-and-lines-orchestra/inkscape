@@ -40,7 +40,6 @@ private:
     gchar *feImageHref;
     Glib::RefPtr<Gdk::Pixbuf> image;
     cairo_surface_t *image_surface;
-    //int width, height, rowstride;
     float feImageX,feImageY,feImageWidth,feImageHeight;
     bool broken_ref;
 };
