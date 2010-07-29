@@ -79,6 +79,7 @@ public:
 
     FilterUnits const &get_units() const { return _units; }
     NRRectL const &get_slot_area() const { return _slot_area; }
+    NRRectL const &get_sg_area() const { return *_source_graphic_area; }
 
 private:
     typedef std::map<int, cairo_surface_t *> SlotMap;

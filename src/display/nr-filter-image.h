@@ -27,8 +27,8 @@ public:
     static FilterPrimitive *create();
     virtual ~FilterImage();
 
-    virtual int render(FilterSlot &slot, FilterUnits const &units);
-    virtual FilterTraits get_input_traits();
+    virtual void render_cairo(FilterSlot &slot);
+    virtual bool can_handle_affine(Geom::Matrix const &);
     void set_document( SPDocument *document );
     void set_href(const gchar *href);
     void set_region(SVGLength x, SVGLength y, SVGLength width, SVGLength height);
@@ -38,11 +38,11 @@ public:
 private:
     SPDocument *document;
     gchar *feImageHref;
-    guint8* image_pixbuf;
     Glib::RefPtr<Gdk::Pixbuf> image;
-    int width, height, rowstride;
+    cairo_surface_t *image_surface;
+    //int width, height, rowstride;
     float feImageX,feImageY,feImageWidth,feImageHeight;
-    bool has_alpha;
+    bool broken_ref;
 };
 
 } /* namespace Filters */
