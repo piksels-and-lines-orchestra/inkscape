@@ -27,10 +27,7 @@ namespace Filters {
 
 class FilterSlot {
 public:
-    /** Creates a new FilterSlot object.
-     * Parameter specifies the surface which should be used
-     * for background accesses from filters.
-     */
+    /** Creates a new FilterSlot object. */
     FilterSlot(NRArenaItem *item, cairo_t *bgct, NRRectL const *bgarea,
         cairo_surface_t *graphic, NRRectL const *graphicarea, FilterUnits const &u);
     /** Destroys the FilterSlot object and all its contents */
@@ -42,8 +39,6 @@ public:
      * NR_FILTER_SOURCEGRAPHIC, NR_FILTER_SOURCEALPHA,
      * NR_FILTER_BACKGROUNDIMAGE, NR_FILTER_BACKGROUNDALPHA,
      * NR_FILTER_FILLPAINT, NR_FILTER_SOURCEPAINT.
-     * If the defined filter slot is not set before, this function
-     * returns NULL. Also, that filter slot is created in process.
      */
     cairo_surface_t *getcairo(int slot);
     NRPixBlock *get(int slot) { return NULL; }
@@ -51,10 +46,6 @@ public:
     /** Sets or re-sets the pixblock associated with given slot.
      * If there was a pixblock already assigned with this slot,
      * that pixblock is destroyed.
-     * Pixblocks passed to this function should be considered
-     * managed by this FilterSlot object.
-     * Pixblocks passed to this function should be reserved with
-     * c++ -style new-operator.
      */
     void set(int slot, cairo_surface_t *s);
 
@@ -104,10 +95,6 @@ private:
     cairo_surface_t *_get_fill_paint();
     cairo_surface_t *_get_stroke_paint();
 
-    /** Returns the table index of given slot. If that slot does not exist,
-     * it is created. Table index can be used to read the correct
-     * pixblock from _slot */
-    int _get_index(int slot);
     void _set_internal(int slot, cairo_surface_t *s);
 };
 

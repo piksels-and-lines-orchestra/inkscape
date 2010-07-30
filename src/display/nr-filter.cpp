@@ -269,9 +269,18 @@ void Filter::set_primitive_units(SPFilterUnits unit) {
 }
 
 void Filter::area_enlarge(NRRectL &bbox, NRArenaItem const *item) const {
+    NRRectL bbox_orig = bbox;
     for (int i = 0 ; i < _primitive_count ; i++) {
         if (_primitive[i]) _primitive[i]->area_enlarge(bbox, item->ctm);
     }
+
+    // HACK: due to some roundoff issue that I can't find at this time,
+    // some per-pixel filters show seams when rotated.
+    if (bbox_orig.x0 >= bbox.x0) bbox.x0 = bbox_orig.x0 - 1;
+    if (bbox_orig.y0 >= bbox.y0) bbox.y0 = bbox_orig.y0 - 1;
+    if (bbox_orig.x1 <= bbox.x1) bbox.x1 = bbox_orig.x1 + 1;
+    if (bbox_orig.y1 <= bbox.y1) bbox.y1 = bbox_orig.y1 + 1;
+
 /*
   TODO: something. See images at the bottom of filters.svg with medium-low
   filtering quality.

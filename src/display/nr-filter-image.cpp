@@ -47,15 +47,33 @@ void FilterImage::render_cairo(FilterSlot &slot)
 
     //cairo_surface_t *input = slot.getcairo(_input);
 
+    Geom::Matrix m = slot.get_units().get_matrix_user2filterunits().inverse();
+    Geom::Point bbox_00 = Geom::Point(0,0) * m;
+    Geom::Point bbox_w0 = Geom::Point(1,0) * m;
+    Geom::Point bbox_0h = Geom::Point(0,1) * m;
+    double bbox_width = Geom::distance(bbox_00, bbox_w0);
+    double bbox_height = Geom::distance(bbox_00, bbox_0h);
+    
+
+    // feImage is suppose to use the same parameters as a normal SVG image.
+    // If a width or height is set to zero, the image is not suppose to be displayed.
+    // This does not seem to be what Firefox or Opera does, nor does the W3C displacement
+    // filter test expect this behavior. If the width and/or height are zero, we use
+    // the width and height of the object bounding box.
+    if( feImageWidth  == 0 ) feImageWidth  = bbox_width;
+    if( feImageHeight == 0 ) feImageHeight = bbox_height;
+
     if (from_element) {
         if (!SVGElem) return;
 
-        return; //not ready yet
-/*
-        // prep the document
         // TODO: do not recreate the rendering tree every time
+        // TODO: the entire thing is a hack, we should give filter primitives an "update" method
+        //       like the one for NRArenaItems
         sp_document_ensure_up_to_date(document);
         NRArena* arena = NRArena::create();
+        Geom::OptRect optarea = SVGElem->getBounds(Geom::identity());
+        if (!optarea) return;
+
         unsigned const key = sp_item_display_key_new(1);
         NRArenaItem* ai = sp_item_invoke_show(SVGElem, arena, key, SP_ITEM_SHOW_DISPLAY);
         if (!ai) {
@@ -64,39 +82,42 @@ void FilterImage::render_cairo(FilterSlot &slot)
             return;
         }
 
-        Geom::OptRect optarea = SVGElem->getBounds(Geom::identity());
-        if (!optarea) return;
-
         Geom::Rect area = *optarea;
-        Geom::Matrix itrans = slot.get_units().get_matrix_display2pb();
+        Geom::Matrix pu2pb = slot.get_units().get_matrix_primitiveunits2pb();
 
-        NRRectL const &slot_area = slot.get_slot_area();
-        NRRectL rect;
-        rect.x0 = floor(area->left());
-        rect.x1 = ceil(area->right());
-        rect.y0 = floor(area->top());
-        rect.y1 = ceil(area->bottom());
+        double scaleX = feImageWidth / area.width();
+        double scaleY = feImageHeight / area.height();
 
-        cairo_surface_t *out = ink_cairo_surface_create_same_size(in, CAIRO_CONTENT_COLOR_ALPHA);
+        NRRectL const &sa = slot.get_slot_area();
+        cairo_surface_t *out = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+            sa.x1 - sa.x0, sa.y1 - sa.y0);
         cairo_t *ct = cairo_create(out);
-        cairo_translate(ct, -slot_area.x0, -slot_area.y0);
-        ink_cairo_transform(ct, itrans);
-        cairo_translate(ct, rect.x0, rect.y0);
+        cairo_translate(ct, -sa.x0, -sa.y0);
+        ink_cairo_transform(ct, pu2pb); // we are now in primitive units
+        cairo_translate(ct, feImageX, feImageY);
+        cairo_scale(ct, scaleX, scaleY);
+
+        NRRectL render_rect;
+        render_rect.x0 = floor(area.left());
+        render_rect.y0 = floor(area.top());
+        render_rect.x1 = ceil(area.right());
+        render_rect.y1 = ceil(area.bottom());
+        cairo_translate(ct, render_rect.x0, render_rect.y0);
 
         // Update to renderable state
         NRGC gc(NULL);
         Geom::Matrix t = Geom::identity();
         nr_arena_item_set_transform(ai, &t);
         gc.transform.setIdentity();
-        nr_arena_item_invoke_update( ai, NULL, &gc,
-                                             NR_ARENA_ITEM_STATE_ALL,
-                                             NR_ARENA_ITEM_STATE_NONE );
-
-        nr_arena_item_invoke_render(ct, ai, &rect, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE);
+        nr_arena_item_invoke_update(ai, NULL, &gc,
+                                    NR_ARENA_ITEM_STATE_ALL,
+                                    NR_ARENA_ITEM_STATE_NONE);
+        nr_arena_item_invoke_render(ct, ai, &render_rect, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE);
+        nr_object_unref((NRObject*) arena);
 
         slot.set(_output, out);
         cairo_surface_destroy(out);
-        return;*/
+        return;
     }
 
     if (!image && !broken_ref) {
@@ -119,18 +140,19 @@ void FilterImage::render_cairo(FilterSlot &slot)
             if ( !g_file_test( fullname, G_FILE_TEST_EXISTS ) ) {
                 // Should display Broken Image png.
                 g_warning("FilterImage::render: Can not find: %s", feImageHref  );
+                return;
             }
             image = Gdk::Pixbuf::create_from_file(fullname);
             if( fullname != feImageHref ) g_free( fullname );
         }
         catch (const Glib::FileError & e)
         {
-            g_warning("caught Glib::FileError in FilterImage::render %i", e.code() );
+            g_warning("caught Glib::FileError in FilterImage::render: %s", e.what().data() );
             return;
         }
         catch (const Gdk::PixbufError & e)
         {
-            g_warning("Gdk::PixbufError in FilterImage::render: %i", e.code() );
+            g_warning("Gdk::PixbufError in FilterImage::render: %s", e.what().data() );
             return;
         }
         if ( !image ) return;
@@ -163,18 +185,6 @@ void FilterImage::render_cairo(FilterSlot &slot)
     ink_cairo_transform(ct, slot.get_units().get_matrix_primitiveunits2pb());
     // now ct is in the coordinates of feImageX etc.
 
-    // Get the object bounding box in user coordinates. Image is placed with respect to box.
-    // Array values:  0: width; 3: height; 4: -x; 5: -y.
-    Geom::Matrix object_bbox = slot.get_units().get_matrix_user2filterunits();
-
-    // feImage is suppose to use the same parameters as a normal SVG image.
-    // If a width or height is set to zero, the image is not suppose to be displayed.
-    // This does not seem to be what Firefox or Opera does, nor does the W3C displacement
-    // filter test expect this behavior. If the width and/or height are zero, we use
-    // the width and height of the object bounding box.
-    if( feImageWidth  == 0 ) feImageWidth  = object_bbox[0];
-    if( feImageHeight == 0 ) feImageHeight = object_bbox[3];
-
     double scaleX = feImageWidth / image->get_width();
     double scaleY = feImageHeight / image->get_height();
 
@@ -200,6 +210,7 @@ void FilterImage::set_href(const gchar *href){
         cairo_surface_destroy(image_surface);
     }
     image.reset();
+    broken_ref = false;
 }
 
 void FilterImage::set_document(SPDocument *doc){
