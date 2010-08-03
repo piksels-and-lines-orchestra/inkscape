@@ -1028,6 +1028,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 {
     SPPattern *pat = SP_PATTERN (ps);
     Geom::Matrix ps2user;
+    Geom::Matrix vb2ps = Geom::identity();
     bool needs_opacity = (1.0 - opacity) >= 1e-3;
     bool visible = opacity >= 1e-3;
 
@@ -1039,19 +1040,16 @@ sp_pattern_create_pattern(SPPaintServer *ps,
         gdouble tmp_y = pattern_height (pat) / (pattern_viewBox(pat)->y1 - pattern_viewBox(pat)->y0);
 
         // FIXME: preserveAspectRatio must be taken into account here too!
-        Geom::Matrix vb2ps (tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
-
-        ps2user = vb2ps * pattern_patternTransform(pat);
-    } else {
-        /* No viewbox, have to parse units */
-        ps2user = pattern_patternTransform(pat);
-        if (pattern_patternContentUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
-            /* BBox to user coordinate system */
-            Geom::Matrix bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
-            ps2user *= bbox2user;
-        }
-        ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
+        vb2ps = Geom::Matrix(tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
     }
+
+    ps2user = pattern_patternTransform(pat);
+    if (!pat->viewBox_set && pattern_patternContentUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
+        /* BBox to user coordinate system */
+        Geom::Matrix bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        ps2user *= bbox2user;
+    }
+    ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
 
     /* Create arena */
     NRArena *arena = NRArena::create();
@@ -1110,7 +1108,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 
     // TODO: make sure there are no leaks.
     NRGC gc(NULL);
-    gc.transform = Geom::identity();
+    gc.transform = vb2ps;//Geom::identity();
     nr_arena_item_invoke_update (root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
     nr_arena_item_invoke_render (ct, root, &one_tile, NULL, 0);
     nr_object_unref(arena);
