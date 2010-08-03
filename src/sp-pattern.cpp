@@ -1067,7 +1067,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
                     // for each item in pattern, show it on our arena, add to the group,
                     // and connect to the release signal in case the item gets deleted
                     NRArenaItem *cai;
-                    cai = sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_REFERENCE_FLAGS);
+                    cai = sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_SHOW_DISPLAY);
                     nr_arena_item_append_child (root, cai);
                 }
             }
@@ -1109,15 +1109,11 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     }
 
     // TODO: make sure there are no leaks.
-    NRPixBlock pb;
-    nr_pixblock_setup (&pb, NR_PIXBLOCK_MODE_R8G8B8A8N, one_tile.x0, one_tile.y0,
-        one_tile.x1, one_tile.y1, TRUE);
     NRGC gc(NULL);
     gc.transform = Geom::identity();
     nr_arena_item_invoke_update (root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
-    nr_arena_item_invoke_render (ct, root, &one_tile, &pb, 0);
+    nr_arena_item_invoke_render (ct, root, &one_tile, NULL, 0);
     nr_object_unref(arena);
-    nr_pixblock_release(&pb);
 
     if (needs_opacity) {
         cairo_pop_group_to_source(ct); // pop raw pattern
@@ -1125,6 +1121,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     }
 
     cairo_pattern_t *cp = cairo_pattern_create_for_surface(temp);
+    cairo_destroy(ct);
     cairo_surface_destroy(temp);
 
     // Apply transformation to user space. Also compensate for oversampling.
