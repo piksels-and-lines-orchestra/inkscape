@@ -288,8 +288,17 @@ ink_cairo_set_source_color(cairo_t *ct, SPColor const &c, double opacity)
     cairo_set_source_rgba(ct, c.v.c[0], c.v.c[1], c.v.c[2], opacity);
 }
 
-static void
-ink_cairo_convert_matrix(cairo_matrix_t &cm, Geom::Matrix const &m)
+void ink_matrix_to_2geom(Geom::Matrix &m, cairo_matrix_t const &cm)
+{
+    m[0] = cm.xx;
+    m[2] = cm.xy;
+    m[4] = cm.x0;
+    m[1] = cm.yx;
+    m[3] = cm.yy;
+    m[5] = cm.y0;
+}
+
+void ink_matrix_to_cairo(cairo_matrix_t &cm, Geom::Matrix const &m)
 {
     cm.xx = m[0];
     cm.xy = m[2];
@@ -303,7 +312,7 @@ void
 ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m)
 {
     cairo_matrix_t cm;
-    ink_cairo_convert_matrix(cm, m);
+    ink_matrix_to_cairo(cm, m);
     cairo_transform(ct, &cm);
 }
 
@@ -311,7 +320,7 @@ void
 ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m)
 {
     cairo_matrix_t cm;
-    ink_cairo_convert_matrix(cm, m);
+    ink_matrix_to_cairo(cm, m);
     cairo_pattern_set_matrix(cp, &cm);
 }
 

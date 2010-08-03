@@ -39,6 +39,7 @@ static void nr_arena_image_finalize (NRObject *object);
 static unsigned int nr_arena_image_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
 static unsigned int nr_arena_image_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
 static NRArenaItem *nr_arena_image_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+static Geom::Rect nr_arena_image_rect (NRArenaImage *image);
 
 static NRArenaItemClass *parent_class;
 
@@ -80,12 +81,10 @@ static void
 nr_arena_image_init (NRArenaImage *image)
 {
     image->pixbuf = NULL;
-    image->x = image->y = 0.0;
-    image->width = 256.0;
-    image->height = 256.0;
-
-    image->grid2px.setIdentity();
-    image->px2grid.setIdentity();
+    image->ctm.setIdentity();
+    image->clipbox = Geom::Rect();
+    image->ox = image->oy = 0.0;
+    image->sx = image->sy = 1.0;
 
     image->style = 0;
     image->render_opacity = TRUE;
@@ -106,54 +105,24 @@ nr_arena_image_finalize (NRObject *object)
 static unsigned int
 nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned int /*state*/, unsigned int /*reset*/ )
 {
-    Geom::Matrix grid2px;
-
     // clear old bbox
     nr_arena_item_request_render(item);
 
     NRArenaImage *image = NR_ARENA_IMAGE (item);
 
     /* Copy affine */
-    grid2px = gc->transform.inverse();
-    double hscale, vscale; // todo: replace with Geom::Scale
-    if (image->pixbuf) {
-        hscale = gdk_pixbuf_get_width(image->pixbuf) / image->width;
-        vscale = gdk_pixbuf_get_height(image->pixbuf) / image->height;
-    } else {
-        hscale = 1.0;
-        vscale = 1.0;
-    }
-
-    image->grid2px[0] = grid2px[0] * hscale;
-    image->grid2px[2] = grid2px[2] * hscale;
-    image->grid2px[4] = grid2px[4] * hscale;
-    image->grid2px[1] = grid2px[1] * vscale;
-    image->grid2px[3] = grid2px[3] * vscale;
-    image->grid2px[5] = grid2px[5] * vscale;
-
-    image->grid2px[4] -= image->x * hscale;
-    image->grid2px[5] -= image->y * vscale;
+    image->ctm = gc->transform;
 
     /* Calculate bbox */
     if (image->pixbuf) {
         NRRect bbox;
 
-        bbox.x0 = image->x;
-        bbox.y0 = image->y;
-        bbox.x1 = image->x + image->width;
-        bbox.y1 = image->y + image->height;
+        Geom::Rect r = nr_arena_image_rect(image) * gc->transform;
 
-        image->c00 = (Geom::Point(bbox.x0, bbox.y0) * gc->transform);
-        image->c01 = (Geom::Point(bbox.x0, bbox.y1) * gc->transform);
-        image->c10 = (Geom::Point(bbox.x1, bbox.y0) * gc->transform);
-        image->c11 = (Geom::Point(bbox.x1, bbox.y1) * gc->transform);
-
-        nr_rect_d_matrix_transform (&bbox, &bbox, gc->transform);
-
-        item->bbox.x0 = static_cast<NR::ICoord>(floor(bbox.x0)); // Floor gives the coordinate in which the point resides
-        item->bbox.y0 = static_cast<NR::ICoord>(floor(bbox.y0));
-        item->bbox.x1 = static_cast<NR::ICoord>(ceil (bbox.x1)); // Ceil gives the first coordinate beyond the point
-        item->bbox.y1 = static_cast<NR::ICoord>(ceil (bbox.y1));
+        item->bbox.x0 = floor(r.left()); // Floor gives the coordinate in which the point resides
+        item->bbox.y0 = floor(r.top());
+        item->bbox.x1 = ceil(r.right()); // Ceil gives the first coordinate beyond the point
+        item->bbox.y1 = ceil(r.bottom());
     } else {
         item->bbox.x0 = (int) gc->transform[4];
         item->bbox.y0 = (int) gc->transform[5];
@@ -164,19 +133,12 @@ nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned 
     return NR_ARENA_ITEM_STATE_ALL;
 }
 
-#define FBITS 12
-#define b2i (image->grid2px)
-
 static unsigned int
 nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int /*flags*/ )
 {
     if (!ct)
         return item->state;
-#if 0
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    nr_arena_image_x_sample = prefs->getInt("/options/bitmapoversample/value", 1);
-    nr_arena_image_y_sample = nr_arena_image_x_sample;
-#endif
+
     bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     NRArenaImage *image = NR_ARENA_IMAGE (item);
@@ -188,13 +150,25 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         // of the pixbuf. Fix this in Cairo and/or GDK.
         cairo_save(ct);
         cairo_translate(ct, -area->x0, -area->y0);
+        ink_cairo_transform(ct, image->ctm);
+
+        cairo_new_path(ct);
+        cairo_rectangle(ct, image->clipbox.left(), image->clipbox.top(),
+            image->clipbox.width(), image->clipbox.height());
+        cairo_clip(ct);
+
+        cairo_translate(ct, image->ox, image->oy);
+        cairo_scale(ct, image->sx, image->sy);
+
         gdk_cairo_set_source_pixbuf(ct, image->pixbuf, 0, 0);
 
-        cairo_pattern_t *p = cairo_get_source(ct);
-        ink_cairo_pattern_set_matrix(p, image->grid2px);
+        cairo_matrix_t tt;
+        Geom::Matrix total;
+        cairo_get_matrix(ct, &tt);
+        ink_matrix_to_2geom(total, tt);
 
-        Geom::Matrix total = item->ctm * image->grid2px.inverse();
         if (total.expansionX() > 1.0 || total.expansionY() > 1.0) {
+            cairo_pattern_t *p = cairo_get_source(ct);
             cairo_pattern_set_filter(p, CAIRO_FILTER_NEAREST);
         }
 
@@ -202,6 +176,11 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_restore(ct);
 
     } else { // outline; draw a rect instead
+
+        cairo_save(ct);
+        cairo_translate(ct, -area->x0, -area->y0);
+        ink_cairo_transform(ct, image->ctm);
+
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         guint32 rgba = prefs->getInt("/options/wireframecolors/images", 0xff0000ff);
         ink_cairo_set_source_rgba32(ct, rgba);
@@ -209,11 +188,12 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_set_line_width(ct, 0.5);
         cairo_new_path(ct);
 
-        Geom::Point shift(area->x0, area->y0);
-        Geom::Point c00 = image->c00 - shift;
-        Geom::Point c01 = image->c01 - shift;
-        Geom::Point c11 = image->c11 - shift;
-        Geom::Point c10 = image->c10 - shift;
+        Geom::Rect r = nr_arena_image_rect (image);
+
+        Geom::Point c00 = r.corner(0);
+        Geom::Point c01 = r.corner(3);
+        Geom::Point c11 = r.corner(2);
+        Geom::Point c10 = r.corner(1);
 
         cairo_move_to (ct, c00[Geom::X], c00[Geom::Y]);
 
@@ -263,16 +243,22 @@ nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned in
     bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     if (outline) {
+        Geom::Rect r = nr_arena_image_rect (image);
+
+        Geom::Point c00 = r.corner(0);
+        Geom::Point c01 = r.corner(3);
+        Geom::Point c11 = r.corner(2);
+        Geom::Point c10 = r.corner(1);
 
         // frame
-        if (distance_to_segment (p, image->c00, image->c10) < delta) return item;
-        if (distance_to_segment (p, image->c10, image->c11) < delta) return item;
-        if (distance_to_segment (p, image->c11, image->c01) < delta) return item;
-        if (distance_to_segment (p, image->c01, image->c00) < delta) return item;
+        if (distance_to_segment (p, c00, c10) < delta) return item;
+        if (distance_to_segment (p, c10, c11) < delta) return item;
+        if (distance_to_segment (p, c11, c01) < delta) return item;
+        if (distance_to_segment (p, c01, c00) < delta) return item;
 
         // diagonals
-        if (distance_to_segment (p, image->c00, image->c11) < delta) return item;
-        if (distance_to_segment (p, image->c10, image->c01) < delta) return item;
+        if (distance_to_segment (p, c00, c11) < delta) return item;
+        if (distance_to_segment (p, c10, c01) < delta) return item;
 
         return NULL;
 
@@ -282,9 +268,17 @@ nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned in
         int const width = gdk_pixbuf_get_width(image->pixbuf);
         int const height = gdk_pixbuf_get_height(image->pixbuf);
         int const rowstride = gdk_pixbuf_get_rowstride(image->pixbuf);
-        Geom::Point tp = p * image->grid2px;
-        int const ix = (int)(tp[Geom::X]);
-        int const iy = (int)(tp[Geom::Y]);
+
+        Geom::Point tp = p * image->ctm.inverse();
+        Geom::Rect r = nr_arena_image_rect(image);
+
+        if (!r.contains(tp))
+            return NULL;
+
+        double vw = width * image->sx;
+        double vh = height * image->sy;
+        int ix = floor((tp[Geom::X] - image->ox) / vw * width);
+        int iy = floor((tp[Geom::Y] - image->oy) / vh * height);
 
         if ((ix < 0) || (iy < 0) || (ix >= width) || (iy >= height))
             return NULL;
@@ -293,6 +287,26 @@ nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned in
         // is the alpha not transparent?
         return (pix_ptr[3] > 0) ? item : NULL;
     }
+}
+
+Geom::Rect
+nr_arena_image_rect (NRArenaImage *image)
+{
+    Geom::Rect r = image->clipbox;
+
+    if (image->pixbuf) {
+        double pw = gdk_pixbuf_get_width(image->pixbuf);
+        double ph = gdk_pixbuf_get_height(image->pixbuf);
+        double vw = pw * image->sx;
+        double vh = ph * image->sy;
+        Geom::Point p(image->ox, image->oy);
+        Geom::Point wh(vw, vh);
+        Geom::Rect view(p, p+wh);
+        Geom::OptRect res = Geom::intersect(r, view);
+        r = res ? *res : r;
+    }
+
+    return r;
 }
 
 /* Utility */
@@ -316,15 +330,36 @@ nr_arena_image_set_pixbuf (NRArenaImage *image, GdkPixbuf *pb)
 }
 
 void
-nr_arena_image_set_geometry (NRArenaImage *image, double x, double y, double width, double height)
+nr_arena_image_set_clipbox (NRArenaImage *image, Geom::Rect const &clip)
 {
     nr_return_if_fail (image != NULL);
     nr_return_if_fail (NR_IS_ARENA_IMAGE (image));
 
-    image->x = x;
-    image->y = y;
-    image->width = width;
-    image->height = height;
+    image->clipbox = clip;
+
+    nr_arena_item_request_update (NR_ARENA_ITEM (image), NR_ARENA_ITEM_STATE_ALL, FALSE);
+}
+
+void
+nr_arena_image_set_origin (NRArenaImage *image, Geom::Point const &origin)
+{
+    nr_return_if_fail (image != NULL);
+    nr_return_if_fail (NR_IS_ARENA_IMAGE (image));
+
+    image->ox = origin[Geom::X];
+    image->oy = origin[Geom::Y];
+
+    nr_arena_item_request_update (NR_ARENA_ITEM (image), NR_ARENA_ITEM_STATE_ALL, FALSE);
+}
+
+void
+nr_arena_image_set_scale (NRArenaImage *image, double sx, double sy)
+{
+    nr_return_if_fail (image != NULL);
+    nr_return_if_fail (NR_IS_ARENA_IMAGE (image));
+
+    image->sx = sx;
+    image->sy = sy;
 
     nr_arena_item_request_update (NR_ARENA_ITEM (image), NR_ARENA_ITEM_STATE_ALL, FALSE);
 }
