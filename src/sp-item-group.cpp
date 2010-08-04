@@ -706,7 +706,7 @@ void CGroup::calculateBBox(NRRect *bbox, Geom::Matrix const &transform, unsigned
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM(o) && !SP_ITEM(o)->isHidden()) {
             SPItem *child = SP_ITEM(o);
-            Geom::Matrix const ct(to_2geom(child->transform) * transform);
+            Geom::Matrix const ct(child->transform * transform);
             sp_item_invoke_bbox_full(child, dummy_bbox, ct, flags, FALSE);
         }
         l = g_slist_remove (l, o);

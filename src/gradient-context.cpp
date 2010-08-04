@@ -47,7 +47,7 @@
 #include "sp-namedview.h"
 #include "rubberband.h"
 
-
+#include "libnr/nr-point-fns.h"
 
 static void sp_gradient_context_class_init(SPGradientContextClass *klass);
 static void sp_gradient_context_init(SPGradientContext *gr_context);

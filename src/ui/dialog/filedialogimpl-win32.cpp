@@ -28,15 +28,14 @@
 
 //Inkscape includes
 #include "inkscape.h"
-#include <dialogs/dialog-events.h>
-#include <extension/input.h>
-#include <extension/output.h>
-#include <extension/db.h>
+#include "dialogs/dialog-events.h"
+#include "extension/input.h"
+#include "extension/output.h"
+#include "extension/db.h"
 
-#include <libnr/nr-pixops.h>
-#include <libnr/nr-translate-scale-ops.h>
-#include <display/nr-arena-item.h>
-#include <display/nr-arena.h>
+#include "libnr/nr-pixops.h"
+#include "display/nr-arena-item.h"
+#include "display/nr-arena.h"
 #include "sp-item.h"
 #include "display/canvas-arena.h"
 

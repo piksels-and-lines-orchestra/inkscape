@@ -20,7 +20,6 @@
 #include <gtk/gtksignal.h>
 #include "sp-color-wheel.h"
 
-#include "libnr/nr-rotate-ops.h"
 #include <2geom/transforms.h>
 
 #define WHEEL_SIZE 96

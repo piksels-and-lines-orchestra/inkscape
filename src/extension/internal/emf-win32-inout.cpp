@@ -25,34 +25,16 @@
 # include "config.h"
 #endif
 
-//#include "inkscape.h"
 #include "sp-path.h"
 #include "style.h"
-//#include "color.h"
-//#include "display/curve.h"
-//#include "libnr/nr-point-matrix-ops.h"
-//#include "gtk/gtk.h"
 #include "print.h"
-//#include "glibmm/i18n.h"
-//#include "extension/extension.h"
 #include "extension/system.h"
 #include "extension/print.h"
 #include "extension/db.h"
 #include "extension/output.h"
-//#include "document.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
-
-//#include <stdio.h>
-//#include <string.h>
-
-//#include <vector>
-//#include <string>
-
-//#include "io/sys.h"
-
 #include "unit-constants.h"
-
 #include "clear-n_.h"
 
 #define WIN32_LEAN_AND_MEAN

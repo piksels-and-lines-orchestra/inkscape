@@ -605,7 +605,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
 
                                     // get bbox of the marker with that transform
                                     NRRect marker_bbox;
-                                    sp_item_invoke_bbox (marker_item, &marker_bbox, from_2geom(tr), true);
+                                    sp_item_invoke_bbox (marker_item, &marker_bbox, tr, true);
                                     // union it with the shape bbox
                                     nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                 }
@@ -633,7 +633,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
                                     }
                                     tr = marker_item->transform * marker->c2p * tr * transform;
                                     NRRect marker_bbox;
-                                    sp_item_invoke_bbox (marker_item, &marker_bbox, from_2geom(tr), true);
+                                    sp_item_invoke_bbox (marker_item, &marker_bbox, tr, true);
                                     nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                 }
                                 // MID position
@@ -660,7 +660,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
                                             }
                                             tr = marker_item->transform * marker->c2p * tr * transform;
                                             NRRect marker_bbox;
-                                            sp_item_invoke_bbox (marker_item, &marker_bbox, from_2geom(tr), true);
+                                            sp_item_invoke_bbox (marker_item, &marker_bbox, tr, true);
                                             nr_rect_d_union (&cbbox, &cbbox, &marker_bbox);
                                         }
 

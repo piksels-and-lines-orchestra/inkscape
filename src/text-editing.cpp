@@ -1112,7 +1112,7 @@ sp_te_adjust_tspan_letterspacing_screen(SPItem *text, Inkscape::Text::Layout::it
     gdouble const zoom = desktop->current_zoom();
     gdouble const zby = (by
                          / (zoom * (nb_let > 1 ? nb_let - 1 : 1))
-                         / to_2geom(sp_item_i2doc_affine(SP_ITEM(source_obj))).descrim());
+                         / sp_item_i2doc_affine(SP_ITEM(source_obj)).descrim());
     val += zby;
 
     if (start == end) {

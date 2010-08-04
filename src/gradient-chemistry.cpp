@@ -36,6 +36,7 @@
 #include "svg/css-ostringstream.h"
 #include "preferences.h"
 
+#include "libnr/nr-point-fns.h"
 
 // Terminology:
 //

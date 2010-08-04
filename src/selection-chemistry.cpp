@@ -1043,7 +1043,7 @@ take_style_from_item(SPItem *item)
     }
 
     // FIXME: also transform gradient/pattern fills, by forking? NO, this must be nondestructive
-    double ex = to_2geom(sp_item_i2doc_affine(item)).descrim();
+    double ex = sp_item_i2doc_affine(item).descrim();
     if (ex != 1.0) {
         css = sp_css_attr_scale(css, ex);
     }
@@ -2437,7 +2437,7 @@ sp_selection_tile(SPDesktop *desktop, bool apply)
     gchar const *pat_id = pattern_tile(repr_copies, bounds, doc,
                                        ( Geom::Matrix(Geom::Translate(desktop->dt2doc(Geom::Point(r->min()[Geom::X],
                                                                                             r->max()[Geom::Y]))))
-                                         * to_2geom(parent_transform.inverse()) ),
+                                         * parent_transform.inverse() ),
                                        parent_transform * move);
 
     // restore compensation setting
@@ -2447,8 +2447,8 @@ sp_selection_tile(SPDesktop *desktop, bool apply)
         Inkscape::XML::Node *rect = xml_doc->createElement("svg:rect");
         rect->setAttribute("style", g_strdup_printf("stroke:none;fill:url(#%s)", pat_id));
 
-        Geom::Point min = bounds.min() * to_2geom(parent_transform.inverse());
-        Geom::Point max = bounds.max() * to_2geom(parent_transform.inverse());
+        Geom::Point min = bounds.min() * parent_transform.inverse();
+        Geom::Point max = bounds.max() * parent_transform.inverse();
 
         sp_repr_set_svg_double(rect, "width", max[Geom::X] - min[Geom::X]);
         sp_repr_set_svg_double(rect, "height", max[Geom::Y] - min[Geom::Y]);
@@ -2513,7 +2513,7 @@ sp_selection_untile(SPDesktop *desktop)
 
         SPPattern *pattern = pattern_getroot(SP_PATTERN(server));
 
-        Geom::Matrix pat_transform = to_2geom(pattern_patternTransform(SP_PATTERN(server)));
+        Geom::Matrix pat_transform = pattern_patternTransform(SP_PATTERN(server));
         pat_transform *= item->transform;
 
         for (SPObject *child = sp_object_first_child(SP_OBJECT(pattern)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
@@ -2635,10 +2635,9 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
     desktop->setWaitingCursor();
 
     // Get the bounding box of the selection
-    NRRect bbox;
     sp_document_ensure_up_to_date(document);
-    selection->bounds(&bbox);
-    if (NR_RECT_DFLS_TEST_EMPTY(&bbox)) {
+    Geom::OptRect bbox = selection->bounds();
+    if (!bbox) {
         desktop->clearWaitingCursor();
         return; // exceptional situation, so not bother with a translatable error message, just quit quietly
     }
@@ -2691,7 +2690,7 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
         res = prefs_res;
     } else if (0 < prefs_min) {
         // If minsize is given, look up minimum bitmap size (default 250 pixels) and calculate resolution from it
-        res = PX_PER_IN * prefs_min / MIN((bbox.x1 - bbox.x0), (bbox.y1 - bbox.y0));
+        res = PX_PER_IN * prefs_min / MIN(bbox->width(), bbox->height());
     } else {
         float hint_xdpi = 0, hint_ydpi = 0;
         char const *hint_filename;
@@ -2712,8 +2711,8 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
     }
 
     // The width and height of the bitmap in pixels
-    unsigned width = (unsigned) floor((bbox.x1 - bbox.x0) * res / PX_PER_IN);
-    unsigned height =(unsigned) floor((bbox.y1 - bbox.y0) * res / PX_PER_IN);
+    unsigned width = (unsigned) floor(bbox->width() * res / PX_PER_IN);
+    unsigned height =(unsigned) floor(bbox->height() * res / PX_PER_IN);
 
     // Find out if we have to run an external filter
     gchar const *run = NULL;
@@ -2743,8 +2742,8 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
     Geom::Matrix eek(sp_item_i2d_affine(SP_ITEM(parent_object)));
     Geom::Matrix t;
 
-    double shift_x = bbox.x0;
-    double shift_y = bbox.y1;
+    double shift_x = bbox->min()[Geom::X];
+    double shift_y = bbox->max()[Geom::Y];
     if (res == PX_PER_IN) { // for default 90 dpi, snap it to pixel grid
         shift_x = round(shift_x);
         shift_y = -round(-shift_y); // this gets correct rounding despite coordinate inversion, remove the negations when the inversion is gone
@@ -2753,7 +2752,8 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
 
     // Do the export
     sp_export_png_file(document, filepath,
-                       bbox.x0, bbox.y0, bbox.x1, bbox.y1,
+                       bbox->min()[Geom::X], bbox->min()[Geom::Y],
+                       bbox->max()[Geom::X], bbox->max()[Geom::Y],
                        width, height, res, res,
                        (guint32) 0xffffff00,
                        NULL, NULL,
@@ -2779,8 +2779,8 @@ sp_selection_create_bitmap_copy(SPDesktop *desktop)
             sp_repr_set_svg_double(repr, "width", width);
             sp_repr_set_svg_double(repr, "height", height);
         } else {
-            sp_repr_set_svg_double(repr, "width", (bbox.x1 - bbox.x0));
-            sp_repr_set_svg_double(repr, "height", (bbox.y1 - bbox.y0));
+            sp_repr_set_svg_double(repr, "width", bbox->width());
+            sp_repr_set_svg_double(repr, "height", bbox->height());
         }
 
         // Write transform

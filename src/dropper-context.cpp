@@ -42,7 +42,6 @@
 
 #include "dropper-context.h"
 #include "message-context.h"
-//#include "libnr/nr-scale-translate-ops.h"
 
 static void sp_dropper_context_class_init(SPDropperContextClass *klass);
 static void sp_dropper_context_init(SPDropperContext *dc);

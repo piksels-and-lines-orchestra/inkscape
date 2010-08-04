@@ -1257,7 +1257,7 @@ sp_item_adjust_stroke (SPItem *item, gdouble ex)
 {
     SPStyle *style = SP_OBJECT_STYLE (item);
 
-    if (style && !style->stroke.isNone() && !NR_DF_TEST_CLOSE (ex, 1.0, NR_EPSILON)) {
+    if (style && !style->stroke.isNone() && !Geom::are_near(ex, 1.0, Geom::EPSILON)) {
 
         style->stroke_width.computed *= ex;
         style->stroke_width.set = TRUE;
