@@ -40,7 +40,6 @@
 #include "sp-textpath.h"
 #include "text-editing.h"
 #include "style.h"
-#include "libnr/nr-matrix-fns.h"
 #include "xml/repr.h"
 #include "document.h"
 

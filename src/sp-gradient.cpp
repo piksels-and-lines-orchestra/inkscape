@@ -23,9 +23,6 @@
 #include <cstring>
 #include <string>
 
-#include <libnr/nr-matrix-fns.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-matrix-scale-ops.h>
 #include <2geom/transforms.h>
 
 #include <sigc++/functors/ptr_fun.h>

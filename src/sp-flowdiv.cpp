@@ -7,7 +7,6 @@
 # include "config.h"
 #endif
 
-#include "libnr/nr-matrix-ops.h"
 #include "xml/repr.h"
 //#include "svg/svg.h"
 

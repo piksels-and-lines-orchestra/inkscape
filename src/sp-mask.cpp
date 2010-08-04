@@ -16,7 +16,6 @@
 
 #include "display/nr-arena.h"
 #include "display/nr-arena-group.h"
-#include "libnr/nr-matrix-ops.h"
 #include <xml/repr.h>
 
 #include "enums.h"

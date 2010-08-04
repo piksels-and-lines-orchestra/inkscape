@@ -38,8 +38,6 @@
 #include "message-context.h"
 #include "pixmaps/cursor-spray.xpm"
 #include <boost/optional.hpp>
-#include "libnr/nr-matrix-ops.h"
-#include "libnr/nr-scale-translate-ops.h"
 #include "xml/repr.h"
 #include "context-fns.h"
 #include "sp-item.h"

@@ -29,10 +29,6 @@
 
 #include "sp-text.h"
 #include "sp-tspan.h"
-#include <libnr/nr-matrix-fns.h>
-#include <libnr/nr-point-fns.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-rotate-ops.h>
 #include <2geom/transforms.h>
 #include "xml/repr.h"
 #include "svg/svg.h"

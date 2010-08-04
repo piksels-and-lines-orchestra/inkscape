@@ -24,8 +24,6 @@
 
 #include "display/nr-arena-group.h"
 #include "display/curve.h"
-#include "libnr/nr-matrix-ops.h"
-#include "libnr/nr-matrix-fns.h"
 #include "xml/repr.h"
 #include "svg/svg.h"
 #include "document.h"

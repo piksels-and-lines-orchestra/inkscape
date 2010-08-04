@@ -18,8 +18,6 @@
 
 #include <cstring>
 #include <string>
-#include <libnr/nr-matrix-ops.h>
-#include "libnr/nr-matrix-fns.h"
 #include <2geom/transforms.h>
 #include "macros.h"
 #include "svg/svg.h"
@@ -111,7 +109,7 @@ sp_pattern_init (SPPattern *pat)
 	pat->patternContentUnits = SP_PATTERN_UNITS_USERSPACEONUSE;
 	pat->patternContentUnits_set = FALSE;
 
-	pat->patternTransform = NR::identity();
+	pat->patternTransform = Geom::identity();
 	pat->patternTransform_set = FALSE;
 
 	pat->x.unset();
@@ -207,7 +205,7 @@ sp_pattern_set (SPObject *object, unsigned int key, const gchar *value)
 			pat->patternTransform = t;
 			pat->patternTransform_set = TRUE;
 		} else {
-			pat->patternTransform = NR::identity();
+			pat->patternTransform = Geom::identity();
 			pat->patternTransform_set = FALSE;
 		}
 		object->requestModified(SP_OBJECT_MODIFIED_FLAG);

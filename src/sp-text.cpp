@@ -26,7 +26,6 @@
 #endif
 
 #include <2geom/matrix.h>
-#include <libnr/nr-matrix-fns.h>
 #include <libnrtype/FontFactory.h>
 #include <libnrtype/font-instance.h>
 #include <libnrtype/font-style-to-pos.h>

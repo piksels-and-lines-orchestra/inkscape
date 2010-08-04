@@ -21,32 +21,23 @@
 #include <cstring>
 #include <algorithm>
 #include <string>
-#include <libnr/nr-matrix-fns.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-translate-matrix-ops.h>
-#include <libnr/nr-scale-translate-ops.h>
-#include <libnr/nr-convert2geom.h>
-#include <2geom/rect.h>
-//#define GDK_PIXBUF_ENABLE_BACKEND 1
-//#include <gdk-pixbuf/gdk-pixbuf-io.h>
-#include "display/nr-arena-image.h"
-#include <display/curve.h>
 #include <glib/gstdio.h>
+#include <2geom/rect.h>
+#include <glibmm/i18n.h>
 
+#include "display/nr-arena-image.h"
+#include "display/curve.h"
 //Added for preserveAspectRatio support -- EAF
 #include "enums.h"
 #include "attributes.h"
-
 #include "print.h"
 #include "brokenimage.xpm"
 #include "document.h"
 #include "sp-image.h"
 #include "sp-clippath.h"
-#include <glibmm/i18n.h>
 #include "xml/quote.h"
-#include <xml/repr.h>
+#include "xml/repr.h"
 #include "snap-candidate.h"
-#include "libnr/nr-matrix-fns.h"
 
 #include "io/sys.h"
 #if ENABLE_LCMS

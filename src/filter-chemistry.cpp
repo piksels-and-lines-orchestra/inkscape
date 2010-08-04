@@ -26,7 +26,6 @@
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
 #include "svg/css-ostringstream.h"
-#include "libnr/nr-matrix-fns.h"
 
 #include "xml/repr.h"
 

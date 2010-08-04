@@ -25,7 +25,6 @@
 #include "document-private.h"
 #include "sp-item.h"
 
-#include "libnr/nr-matrix-ops.h"
 #include <2geom/transforms.h>
 
 #include "sp-clippath.h"

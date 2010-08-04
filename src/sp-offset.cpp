@@ -37,7 +37,7 @@
 #include "sp-use-reference.h"
 #include "uri.h"
 
-#include <libnr/nr-matrix-fns.h>
+#include <2geom/matrix.h>
 #include <2geom/pathvector.h>
 
 #include "xml/repr.h"

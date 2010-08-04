@@ -19,7 +19,6 @@
 #include <string>
 #include <glibmm/i18n.h>
 
-#include "libnr/nr-matrix-fns.h"
 #include "xml/repr.h"
 #include "sp-rect.h"
 #include "sp-textpath.h"
@@ -150,7 +149,7 @@ text_put_on_path()
     Inkscape::Text::Layout::Alignment text_alignment = layout->paragraphAlignment(layout->begin());
 
     // remove transform from text, but recursively scale text's fontsize by the expansion
-    SP_TEXT(text)->_adjustFontsizeRecursive (text, NR::expansion(SP_ITEM(text)->transform));
+    SP_TEXT(text)->_adjustFontsizeRecursive (text, SP_ITEM(text)->transform.descrim());
     SP_OBJECT_REPR(text)->setAttribute("transform", NULL);
 
     // make a list of text children
@@ -316,7 +315,7 @@ text_flow_into_shape()
 
     if (SP_IS_TEXT(text)) {
       // remove transform from text, but recursively scale text's fontsize by the expansion
-      SP_TEXT(text)->_adjustFontsizeRecursive(text, NR::expansion(SP_ITEM(text)->transform));
+      SP_TEXT(text)->_adjustFontsizeRecursive(text, SP_ITEM(text)->transform.descrim());
       SP_OBJECT_REPR(text)->setAttribute("transform", NULL);
     }
 
@@ -432,10 +431,10 @@ text_unflow ()
         /* Set style */
         rtext->setAttribute("style", SP_OBJECT_REPR(flowtext)->attribute("style")); // fixme: transfer style attrs too; and from descendants
 
-        NRRect bbox;
-        sp_item_invoke_bbox(SP_ITEM(flowtext), &bbox, sp_item_i2doc_affine(SP_ITEM(flowtext)), TRUE);
-        Geom::Point xy(bbox.x0, bbox.y0);
-        if (xy[Geom::X] != 1e18 && xy[Geom::Y] != 1e18) {
+        Geom::OptRect bbox;
+        sp_item_invoke_bbox(SP_ITEM(flowtext), bbox, sp_item_i2doc_affine(SP_ITEM(flowtext)), TRUE);
+        if (bbox) {
+            Geom::Point xy = bbox->min();
             sp_repr_set_svg_double(rtext, "x", xy[Geom::X]);
             sp_repr_set_svg_double(rtext, "y", xy[Geom::Y]);
         }
