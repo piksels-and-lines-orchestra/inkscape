@@ -36,9 +36,6 @@ enum FilterTurbulenceType {
     TURBULENCE_ENDTYPE
 };
 
-struct StitchInfo;
-
-//#define BSize 0x100
 class TurbulenceGenerator;
 
 class FilterTurbulence : public FilterPrimitive {
@@ -48,8 +45,6 @@ public:
     virtual ~FilterTurbulence();
 
     virtual void render_cairo(FilterSlot &slot);
-    void update_pixbuffer(NR::IRect &area, FilterUnits const &units);
-    void render_area(NRPixBlock *pix, NR::IRect &full_area, FilterUnits const &units);
 
     void set_baseFrequency(int axis, double freq);
     void set_numOctaves(int num);
@@ -62,13 +57,7 @@ private:
     TurbulenceGenerator *gen;
 
     void turbulenceInit(long seed);
-/*
-    long Turbulence_setup_seed(long lSeed);
-    long TurbulenceRandom(long lSeed);
-    void TurbulenceInit(long lSeed);
-    double TurbulenceNoise2(int nColorChannel, double vec[2], StitchInfo *pStitchInfo);
-    double turbulence(int nColorChannel, Geom::Point const &point);
-*/
+
     double XbaseFrequency, YbaseFrequency;
     int numOctaves;
     double seed;
@@ -76,11 +65,7 @@ private:
     FilterTurbulenceType type;
     bool updated;
     NR::IRect updated_area;
-    NRPixBlock *pix;
     unsigned char *pix_data;
-
-    //int uLatticeSelector[BSize + BSize + 2];
-    //double fGradient[4][BSize + BSize + 2][2];
 
     double fTileWidth;
     double fTileHeight;

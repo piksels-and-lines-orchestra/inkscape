@@ -46,6 +46,7 @@
 #include "../verbs.h"
 #include "widgets/icon.h"
 #include "xml/repr.h"
+#include "libnr/nr-pixblock.h"
 
 #define MIN_ONSCREEN_DISTANCE 50
 

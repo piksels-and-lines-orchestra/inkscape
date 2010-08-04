@@ -457,6 +457,32 @@ ink_cairo_surface_get_height(cairo_surface_t *surface)
     return cairo_image_surface_get_height(surface);
 }
 
+cairo_pattern_t *
+ink_cairo_pattern_create_checkerboard()
+{
+    int const w = 8;
+    int const h = 8;
+
+    cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 2*w, 2*h);
+
+    cairo_t *ct = cairo_create(s);
+    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_rgb(ct, 0.75, 0.75, 0.75);
+    cairo_paint(ct);
+    cairo_set_source_rgb(ct, 0.5, 0.5, 0.5);
+    cairo_rectangle(ct, 0, 0, w, h);
+    cairo_rectangle(ct, w, h, w, h);
+    cairo_fill(ct);
+    cairo_destroy(ct);
+
+    cairo_pattern_t *p = cairo_pattern_create_for_surface(s);
+    cairo_pattern_set_extend(p, CAIRO_EXTEND_REPEAT);
+    cairo_pattern_set_filter(p, CAIRO_FILTER_NEAREST);
+
+    cairo_surface_destroy(s);
+    return p;
+}
+
 /**
  * @brief Convert pixel data from GdkPixbuf format to ARGB.
  * This will convert pixel data from GdkPixbuf format to Cairo's native pixel format.

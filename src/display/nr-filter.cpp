@@ -42,8 +42,6 @@
 
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
-#include "libnr/nr-pixblock.h"
-#include "libnr/nr-blit.h"
 #include <2geom/matrix.h>
 #include <2geom/rect.h>
 #include "svg/svg-length.h"
@@ -211,52 +209,6 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
     cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
     cairo_surface_destroy(result);
 
-    //slot.set_units(units);
-
-    /*cairo_surface_t *in = cairo_surface_create_similar(
-        cairo_get_target(ct), CAIRO_CONTENT_COLOR_ALPHA,
-        area->x1 - area->x0, area->y1 - area->y0);
-    cairo_t *inct = cairo_create(in);
-    cairo_translate(inct, -area->x0, -area->y0);
-    cairo_set_source_surface(inct, cairo_get_target(ct), 0, 0);
-    cairo_paint(inct);
-    slot.set(NR_FILTER_SOURCEGRAPHIC, in);
-    cairo_destroy(inct);
-    cairo_surface_destroy(in);*/
-
-    /*NRPixBlock *in = new NRPixBlock;
-    nr_pixblock_setup_fast(in, pb->mode, pb->area.x0, pb->area.y0,
-                           pb->area.x1, pb->area.y1, true);
-    if (in->size != NR_PIXBLOCK_SIZE_TINY && in->data.px == NULL) {
-        g_warning("Inkscape::Filters::Filter::render: failed to reserve temporary buffer");
-        return 0;
-    }
-    nr_blit_pixblock_pixblock(in, pb);
-    in->empty = FALSE;
-    slot.set(NR_FILTER_SOURCEGRAPHIC, in);*/
-
-    // Check that we are rendering a non-empty area
-    /*in = slot.get(NR_FILTER_SOURCEGRAPHIC);
-    if (in->area.x1 - in->area.x0 <= 0 || in->area.y1 - in->area.y0 <= 0) {
-        if (in->area.x1 - in->area.x0 < 0 || in->area.y1 - in->area.y0 < 0) {
-            g_warning("Inkscape::Filters::Filter::render: negative area! (%d, %d) (%d, %d)",
-                      in->area.x0, in->area.y0, in->area.x1, in->area.y1);
-        }
-        return 0;
-    }
-    in = NULL; // in is now handled by FilterSlot, we should not touch it
-    */
-
-    /*for (int i = 0 ; i < _primitive_count ; i++) {
-        _primitive[i]->render(slot, units);
-    }*/
-
-    //slot.get_final(_output_slot, ct, area);
-
-    // Take note of the amount of used image slots
-    // -> next time this filter is rendered, we can reserve enough slots
-    // immediately
-    //_slot_count = slot.get_slot_count();
     return 0;
 }
 
@@ -327,10 +279,10 @@ void Filter::bbox_enlarge(NRRectL &bbox) {
 
     Geom::Rect enlarged = filter_effect_area(tmp_bbox);
 
-    bbox.x0 = (NR::ICoord)enlarged.min()[X];
-    bbox.y0 = (NR::ICoord)enlarged.min()[Y];
-    bbox.x1 = (NR::ICoord)enlarged.max()[X];
-    bbox.y1 = (NR::ICoord)enlarged.max()[Y];
+    bbox.x0 = (NR::ICoord) floor(enlarged.min()[X]);
+    bbox.y0 = (NR::ICoord) floor(enlarged.min()[Y]);
+    bbox.x1 = (NR::ICoord) ceil(enlarged.max()[X]);
+    bbox.y1 = (NR::ICoord) ceil(enlarged.max()[Y]);
 }
 
 Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)

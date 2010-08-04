@@ -43,10 +43,6 @@
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
 
-//#include "libnr/nr-rect.h"
-//#include "libnr/nr-matrix.h"
-//#include "libnr/nr-pixblock.h"
-
 //#include <stdio.h>
 //#include <string.h>
 

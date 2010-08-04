@@ -28,6 +28,7 @@
 #include "document-private.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
+#include "libnr/nr-pixblock.h"
 
 #include "ui/cache/svg_preview_cache.h"
 

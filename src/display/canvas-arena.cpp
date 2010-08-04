@@ -14,7 +14,6 @@
 
 #include <gtk/gtksignal.h>
 
-#include "libnr/nr-blit.h"
 #include "display/display-forward.h"
 #include "display/sp-canvas-util.h"
 #include "helper/sp-marshal.h"
@@ -22,6 +21,7 @@
 #include "display/nr-arena-group.h"
 #include "display/canvas-arena.h"
 #include "display/cairo-utils.h"
+#include "libnr/nr-pixblock.h"
 
 enum {
     ARENA_EVENT,

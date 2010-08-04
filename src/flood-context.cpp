@@ -53,12 +53,7 @@
 #include "display/nr-arena-image.h"
 #include "display/canvas-arena.h"
 #include "libnr/nr-pixops.h"
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-ops.h"
-#include "libnr/nr-scale-translate-ops.h"
-#include "libnr/nr-translate-matrix-ops.h"
-#include "libnr/nr-translate-scale-ops.h"
-#include "libnr/nr-matrix-ops.h"
+#include "libnr/nr-pixblock.h"
 #include <2geom/pathvector.h>
 #include "sp-item.h"
 #include "sp-root.h"

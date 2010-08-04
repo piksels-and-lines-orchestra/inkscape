@@ -15,9 +15,8 @@
 
 #include <cairo.h>
 #include <2geom/matrix.h>
-#include <libnr/nr-rect-l.h>
-#include <libnr/nr-pixblock.h>
-#include <libnr/nr-object.h>
+#include "libnr/nr-rect-l.h"
+#include "libnr/nr-object.h"
 #include "gc-soft-ptr.h"
 #include "nr-arena-forward.h"
 

@@ -1,5 +1,5 @@
-#include "libnr/nr-point-matrix-ops.h"
 #include "livarot/path-description.h"
+#include <2geom/matrix.h>
 
 PathDescr *PathDescrMoveTo::clone() const
 {

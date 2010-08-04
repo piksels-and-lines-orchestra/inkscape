@@ -36,6 +36,7 @@
 #include "desktop-handles.h"
 #include "selection.h"
 #include "document.h"
+#include "libnr/nr-pixblock.h"
 
 #include "pixmaps/cursor-dropper.xpm"
 

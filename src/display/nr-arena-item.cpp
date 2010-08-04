@@ -19,8 +19,6 @@
 #include <string>
 #include <cairomm/cairomm.h>
 
-#include <libnr/nr-blit.h>
-#include <libnr/nr-pixops.h>
 #include "display/cairo-utils.h"
 #include "nr-arena.h"
 #include "nr-arena-item.h"
@@ -317,7 +315,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
    bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
     bool filter = (item->arena->rendermode != Inkscape::RENDERMODE_OUTLINE &&
                    item->arena->rendermode != Inkscape::RENDERMODE_NO_FILTERS);
-    bool print_colors = (item->arena->rendermode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW);
+    //bool print_colors = (item->arena->rendermode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW);
 
     nr_return_val_if_fail (item != NULL, NR_ARENA_ITEM_STATE_INVALID);
     nr_return_val_if_fail (NR_IS_ARENA_ITEM (item),
@@ -374,193 +372,6 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
         return item->state | NR_ARENA_ITEM_STATE_RENDER;
     }
-
-#if 0
-    NRPixBlock *dpb = pb;
-
-    /* Determine, whether we need temporary buffer */
-/*    if (item->clip || item->mask
-        || ((item->opacity != 255) && !item->render_opacity)
-        || (item->filter && filter) || item->background_new
-        || (item->parent && item->parent->background_pb))*/
-    if (0) {
-
-        /* Setup and render item buffer */
-        NRPixBlock ipb;
-        nr_pixblock_setup_fast (&ipb, NR_PIXBLOCK_MODE_R8G8B8A8P,
-                                carea.x0, carea.y0, carea.x1, carea.y1,
-                                TRUE);
-
-        //  if memory allocation failed, abort render
-        if (ipb.size != NR_PIXBLOCK_SIZE_TINY && ipb.data.px == NULL) {
-            nr_pixblock_release (&ipb);
-            return (item->state);
-        }
-
-        /* If background access is used, save the pixblock address.
-         * This address is set to NULL at the end of this block */
-        if (item->background_new ||
-            (item->parent && item->parent->background_pb)) {
-            item->background_pb = &ipb;
-        }
-
-        ipb.visible_area = pb->visible_area;
-        if (item->filter && filter) {
-              item->filter->area_enlarge (ipb.visible_area, item);
-        }
-
-        unsigned int state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, &carea, &ipb, flags);
-        if (state & NR_ARENA_ITEM_STATE_INVALID) {
-            /* Clean up and return error */
-            nr_pixblock_release (&ipb);
-            if (dpb != pb)
-                nr_pixblock_release (dpb);
-            item->state |= NR_ARENA_ITEM_STATE_INVALID;
-            return item->state;
-        }
-        ipb.empty = FALSE;
-
-        /* Run filtering, if a filter is set for this object */
-        if (item->filter && filter) {
-            item->filter->render (item, &ipb);
-        }
-
-        if (item->clip || item->mask) {
-            /* Setup mask pixblock */
-            NRPixBlock mpb;
-            nr_pixblock_setup_fast (&mpb, NR_PIXBLOCK_MODE_A8, carea.x0,
-                                    carea.y0, carea.x1, carea.y1, TRUE);
-
-            if (mpb.data.px != NULL) { // if memory allocation was successful
-
-                mpb.visible_area = pb->visible_area;
-                /* Do clip if needed */
-                if (item->clip) {
-                    state = nr_arena_item_invoke_clip (item->clip, &carea, &mpb);
-                    if (state & NR_ARENA_ITEM_STATE_INVALID) {
-                        /* Clean up and return error */
-                        nr_pixblock_release (&mpb);
-                        nr_pixblock_release (&ipb);
-                        if (dpb != pb)
-                            nr_pixblock_release (dpb);
-                        item->state |= NR_ARENA_ITEM_STATE_INVALID;
-                        return item->state;
-                    }
-                    mpb.empty = FALSE;
-                }
-                /* Do mask if needed */
-                if (item->mask) {
-                    NRPixBlock tpb;
-                    /* Set up yet another temporary pixblock */
-                    nr_pixblock_setup_fast (&tpb, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                                            carea.x0, carea.y0, carea.x1,
-                                            carea.y1, TRUE);
-
-                    if (tpb.data.px != NULL) { // if memory allocation was successful
-
-                        tpb.visible_area = pb->visible_area;
-                        unsigned int state = NR_ARENA_ITEM_VIRTUAL (item->mask, render) (ct, item->mask, &carea, &tpb, flags);
-                        if (state & NR_ARENA_ITEM_STATE_INVALID) {
-                            /* Clean up and return error */
-                            nr_pixblock_release (&tpb);
-                            nr_pixblock_release (&mpb);
-                            nr_pixblock_release (&ipb);
-                            if (dpb != pb)
-                                nr_pixblock_release (dpb);
-                            item->state |= NR_ARENA_ITEM_STATE_INVALID;
-                            return item->state;
-                        }
-                        /* Composite with clip */
-                        if (item->clip) {
-                            int x, y;
-                            for (y = carea.y0; y < carea.y1; y++) {
-                                unsigned char *s, *d;
-                                s = NR_PIXBLOCK_PX (&tpb) + (y -
-                                                             carea.y0) * tpb.rs;
-                                d = NR_PIXBLOCK_PX (&mpb) + (y -
-                                                             carea.y0) * mpb.rs;
-                                for (x = carea.x0; x < carea.x1; x++) {
-                                    unsigned int m;
-                                    m = NR_PREMUL_112 (s[0] + s[1] + s[2], s[3]);
-                                    d[0] =
-                                        FAST_DIV_ROUND < 3 * 255 * 255 >
-                                        (NR_PREMUL_123 (d[0], m));
-                                    s += 4;
-                                    d += 1;
-                                }
-                            }
-                        } else {
-                            int x, y;
-                            for (y = carea.y0; y < carea.y1; y++) {
-                                unsigned char *s, *d;
-                                s = NR_PIXBLOCK_PX (&tpb) + (y -
-                                                             carea.y0) * tpb.rs;
-                                d = NR_PIXBLOCK_PX (&mpb) + (y -
-                                                             carea.y0) * mpb.rs;
-                                for (x = carea.x0; x < carea.x1; x++) {
-                                    unsigned int m;
-                                    m = NR_PREMUL_112 (s[0] + s[1] + s[2], s[3]);
-                                    d[0] = FAST_DIV_ROUND < 3 * 255 > (m);
-                                    s += 4;
-                                    d += 1;
-                                }
-                            }
-                            mpb.empty = FALSE;
-                        }
-                    }
-                    nr_pixblock_release (&tpb);
-                }
-                /* Multiply with opacity if needed */
-                if ((item->opacity != 255) && !item->render_opacity
-                    ) {
-                    int x, y;
-                    unsigned int a;
-                    a = item->opacity;
-                    for (y = carea.y0; y < carea.y1; y++) {
-                        unsigned char *d;
-                        d = NR_PIXBLOCK_PX (&mpb) + (y - carea.y0) * mpb.rs;
-                        for (x = carea.x0; x < carea.x1; x++) {
-                            d[0] = NR_PREMUL_111 (d[0], a);
-                            d += 1;
-                        }
-                    }
-                }
-                /* Compose rendering pixblock int destination */
-                nr_blit_pixblock_pixblock_mask (dpb, &ipb, &mpb);
-            }
-            nr_pixblock_release (&mpb);
-        } else {
-            if (item->render_opacity) { // opacity was already rendered in, just copy to dpb here
-                nr_blit_pixblock_pixblock(dpb, &ipb);
-            } else { // copy while multiplying by opacity
-                nr_blit_pixblock_pixblock_alpha (dpb, &ipb, item->opacity);
-            }
-        }
-        nr_pixblock_release (&ipb);
-        dpb->empty = FALSE;
-        /* This pointer wouldn't be valid outside this block, so clear it */
-        item->background_pb = NULL;
-    } else {
-        /* Just render */
-        unsigned int state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, const_cast<NRRectL*>(area), dpb, flags);
-        if (state & NR_ARENA_ITEM_STATE_INVALID) {
-            /* Clean up and return error */
-            if (dpb != pb)
-                nr_pixblock_release (dpb);
-            item->state |= NR_ARENA_ITEM_STATE_INVALID;
-            return item->state;
-        }
-        dpb->empty = FALSE;
-    }
-
-    if (dpb != pb) {
-        /* Have to blit from cache */
-        nr_blit_pixblock_pixblock (pb, dpb);
-        nr_pixblock_release (dpb);
-        pb->empty = FALSE;
-        item->state |= NR_ARENA_ITEM_STATE_IMAGE;
-    }
-#endif
 
     using namespace Inkscape;
 
@@ -947,27 +758,7 @@ nr_arena_item_set_item_bbox (NRArenaItem *item, Geom::OptRect &bbox)
 NRPixBlock *
 nr_arena_item_get_background (NRArenaItem const *item, int depth)
 {
-    NRPixBlock *pb;
-    if (!item->background_pb)
-        return NULL;
-    if (item->background_new) {
-        pb = new NRPixBlock ();
-        nr_pixblock_setup_fast (pb, item->background_pb->mode,
-                                item->background_pb->area.x0,
-                                item->background_pb->area.y0,
-                                item->background_pb->area.x1,
-                                item->background_pb->area.y1, true);
-        if (pb->size != NR_PIXBLOCK_SIZE_TINY && pb->data.px == NULL) // allocation failed
-            return NULL;
-    } else if (item->parent) {
-        pb = nr_arena_item_get_background (item->parent, depth + 1);
-    } else
-        return NULL;
-
-    if (depth > 0)
-        nr_blit_pixblock_pixblock (pb, item->background_pb);
-
-    return pb;
+    return NULL;
 }
 
 /* Helpers */

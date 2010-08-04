@@ -24,7 +24,6 @@
 #include "display/nr-filter-skeleton.h"
 #include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"
-#include "libnr/nr-pixblock.h"
 
 namespace Inkscape {
 namespace Filters {

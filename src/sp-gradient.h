@@ -18,7 +18,7 @@
  */
 
 #include <gdk/gdktypes.h>
-#include "libnr/nr-matrix.h"
+#include <2geom/matrix.h>
 #include "sp-paint-server.h"
 #include "sp-gradient-spread.h"
 #include "sp-gradient-units.h"
@@ -96,11 +96,7 @@ struct SPGradient : public SPPaintServer {
     /** Composed vector */
     SPGradientVector vector;
 
-    /** Rendered color array (4 * 1024 bytes) */
-    guchar *color;
-
     sigc::connection modified_connection;
-
 
     SPStop* getFirstStop();
     int getStopCount() const;

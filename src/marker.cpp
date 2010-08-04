@@ -18,12 +18,6 @@
 #include <string>
 #include "config.h"
 
-
-#include "libnr/nr-matrix-fns.h"
-#include "libnr/nr-matrix-ops.h"
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-matrix-ops.h"
-#include "libnr/nr-translate-matrix-ops.h"
 #include "libnr/nr-convert2geom.h"
 #include <2geom/matrix.h>
 #include "svg/svg.h"

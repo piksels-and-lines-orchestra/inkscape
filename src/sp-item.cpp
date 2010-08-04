@@ -58,11 +58,6 @@
 #include "sp-title.h"
 #include "sp-desc.h"
 
-#include "libnr/nr-matrix-fns.h"
-#include "libnr/nr-matrix-scale-ops.h"
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-translate-ops.h"
-#include "libnr/nr-translate-scale-ops.h"
 #include "libnr/nr-convert2geom.h"
 #include "util/find-last-if.h"
 #include "util/reverse-list.h"

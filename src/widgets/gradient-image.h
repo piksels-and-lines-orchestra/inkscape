@@ -14,7 +14,6 @@
  */
 
 #include <gtk/gtkwidget.h>
-#include "../libnr/nr-matrix.h"
 class SPGradient;
 
 #include <glib.h>
@@ -30,7 +29,6 @@ class SPGradient;
 struct SPGradientImage {
 	GtkWidget widget;
 	SPGradient *gradient;
-	guchar *px;
 
 	sigc::connection release_connection;
 	sigc::connection modified_connection;

@@ -10,16 +10,11 @@ ink_common_sources +=	\
 	libnr/nr-compose.cpp	\
 	libnr/nr-compose.h	\
 	libnr/nr-convert2geom.h	\
-	libnr/nr-convex-hull.h	\
 	libnr/nr-coord.h	\
 	libnr/nr-dim2.h	\
 	libnr/nr-forward.h	\
-	libnr/nr-gradient.cpp	\
-	libnr/nr-gradient.h	\
 	libnr/nr-i-coord.h	\
 	libnr/nr-macros.h	\
-	libnr/nr-matrix-div.cpp	\
-	libnr/nr-matrix-div.h	\
 	libnr/nr-matrix-fns.cpp	\
 	libnr/nr-matrix-fns.h	\
 	libnr/nr-matrix-ops.h	\
@@ -33,12 +28,8 @@ ink_common_sources +=	\
 	libnr/nr-object.cpp	\
 	libnr/nr-object.h	\
 	libnr/nr-path-code.h	\
-	libnr/nr-pixblock-line.cpp	\
-	libnr/nr-pixblock-line.h	\
 	libnr/nr-pixblock-pattern.cpp	\
 	libnr/nr-pixblock-pattern.h	\
-	libnr/nr-pixblock-pixel.cpp	\
-	libnr/nr-pixblock-pixel.h	\
 	libnr/nr-pixblock.cpp	\
 	libnr/nr-pixblock.h	\
 	libnr/nr-pixops.h	\

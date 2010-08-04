@@ -22,6 +22,7 @@
 #include <string>
 
 #include <2geom/forward.h>
+#include <2geom/matrix.h>
 
 #include "style.h"
 

@@ -16,7 +16,6 @@
 
 #include <map>
 #include <cairo.h>
-#include "libnr/nr-pixblock.h"
 #include "display/nr-filter-types.h"
 #include "display/nr-filter-units.h"
 
@@ -41,15 +40,12 @@ public:
      * NR_FILTER_FILLPAINT, NR_FILTER_SOURCEPAINT.
      */
     cairo_surface_t *getcairo(int slot);
-    NRPixBlock *get(int slot) { return NULL; }
 
     /** Sets or re-sets the pixblock associated with given slot.
      * If there was a pixblock already assigned with this slot,
      * that pixblock is destroyed.
      */
     void set(int slot, cairo_surface_t *s);
-
-    void set(int, NRPixBlock*){}
 
     cairo_surface_t *get_result(int slot_nr);
 

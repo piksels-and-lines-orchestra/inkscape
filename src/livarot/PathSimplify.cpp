@@ -7,7 +7,6 @@
  */
 
 #include <glib/gmem.h>
-#include <libnr/nr-point-matrix-ops.h>
 #include "livarot/Path.h"
 #include "livarot/path-description.h"
 

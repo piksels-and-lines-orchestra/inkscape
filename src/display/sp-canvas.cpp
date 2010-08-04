@@ -20,8 +20,6 @@
 # include "config.h"
 #endif
 
-#include <libnr/nr-pixblock.h>
-
 #include <gtk/gtkmain.h>
 #include <gtk/gtksignal.h>
 #include <gtk/gtkversion.h>
@@ -33,7 +31,6 @@
 #include <display/sp-canvas.h>
 #include "display-forward.h"
 #include <2geom/matrix.h>
-#include <libnr/nr-convex-hull.h>
 #include "preferences.h"
 #include "inkscape.h"
 #include "sodipodi-ctrlrect.h"
@@ -41,7 +38,6 @@
 #include "color-profile-fns.h"
 #endif // ENABLE_LCMS
 #include "display/rendermode.h"
-#include "libnr/nr-blit.h"
 #include "display/cairo-utils.h"
 #include "debug/gdk-event-latency-tracker.h"
 #include "desktop.h"
@@ -1758,6 +1754,7 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
     }
 #endif
 
+
     // output to X
     cairo_destroy(buf.ct);
 
@@ -1775,12 +1772,6 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
     //cairo_destroy (buf.ct);
     //cairo_surface_finish (cst);
     //cairo_surface_destroy (cst);
-
-    if (canvas->rendermode != Inkscape::RENDERMODE_OUTLINE) {
-        nr_pixelstore_256K_free (buf.buf);
-    } else {
-        nr_pixelstore_1M_free (buf.buf);
-    }
 }
 
 struct PaintRectSetup {

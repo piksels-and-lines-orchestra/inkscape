@@ -18,7 +18,7 @@
 
 #include "interface.h"
 #include "libnr/nr-pixops.h"
-#include "libnr/nr-translate-scale-ops.h"
+#include "libnr/nr-pixblock.h"
 #include <2geom/rect.h>
 #include <glib/gmessages.h>
 #include <png.h>
@@ -346,13 +346,8 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     cairo_paint(ct);
     cairo_set_operator(ct, CAIRO_OPERATOR_OVER);
 
-    NRPixBlock pb;
-    nr_pixblock_setup_extern(&pb, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                             bbox.x0, bbox.y0, bbox.x1, bbox.y1,
-                             ebp->px, 4 * ebp->width, FALSE, FALSE);
-
     /* Render */
-    nr_arena_item_invoke_render(ct, ebp->root, &bbox, &pb, 0);
+    nr_arena_item_invoke_render(ct, ebp->root, &bbox, NULL, 0);
 
     cairo_destroy(ct);
     cairo_surface_destroy(s);
@@ -366,8 +361,6 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     for (int r = 0; r < num_rows; r++) {
         rows[r] = px + r * stride;
     }
-
-    nr_pixblock_release(&pb);
 
     return num_rows;
 }

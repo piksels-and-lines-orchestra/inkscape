@@ -21,8 +21,6 @@
 #include <list>
 #include <sigc++/sigc++.h>
 
-//#include "libnr/nr-rect.h"
-#include "libnr/nr-convex-hull.h"
 #include "forward.h"
 #include "gc-managed.h"
 #include "gc-finalized.h"

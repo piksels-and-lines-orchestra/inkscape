@@ -23,9 +23,6 @@ class SPGradient;
 /** Forces vector to be built, if not present (i.e. changed) */
 void sp_gradient_ensure_vector(SPGradient *gradient);
 
-/** Ensures that color array is populated */
-void sp_gradient_ensure_colors(SPGradient *gradient);
-
 void sp_gradient_set_units(SPGradient *gr, SPGradientUnits units);
 void sp_gradient_set_spread(SPGradient *gr, SPGradientSpread spread);
 
@@ -35,8 +32,7 @@ SPGradientSpread sp_gradient_get_spread (SPGradient *gradient);
 void sp_gradient_repr_write_vector(SPGradient *gr);
 void sp_gradient_repr_clear_vector(SPGradient *gr);
 
-void sp_gradient_render_vector_block_rgba(SPGradient *gr, guchar *px, gint w, gint h, gint rs, gint pos, gint span, bool horizontal);
-void sp_gradient_render_vector_block_rgb(SPGradient *gr, guchar *px, gint w, gint h, gint rs, gint pos, gint span, bool horizontal);
+cairo_pattern_t *sp_gradient_create_preview_pattern(SPGradient *gradient, double width);
 
 /** Transforms to/from gradient position space in given environment */
 Geom::Matrix sp_gradient_get_g2d_matrix(SPGradient const *gr, Geom::Matrix const &ctm,

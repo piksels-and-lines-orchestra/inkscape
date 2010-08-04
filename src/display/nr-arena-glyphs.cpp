@@ -16,7 +16,6 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
-#include "libnr/nr-blit.h"
 #include "libnr/nr-convert2geom.h"
 #include <2geom/matrix.h>
 #include "style.h"

@@ -1024,15 +1024,8 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
                     CAIRO_FORMAT_ARGB32, psize, psize, stride);
                 cairo_t *ct = cairo_create(s);
 
-                NRPixBlock B;
-                nr_pixblock_setup_extern( &B, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                                          ua.x0, ua.y0, ua.x1, ua.y1,
-                                          px + stride * (ua.y0 - area.y0) +
-                                          4 * (ua.x0 - area.x0),
-                                          stride, FALSE, FALSE );
-                nr_arena_item_invoke_render(ct, root, &ua, &B,
+                nr_arena_item_invoke_render(ct, root, &ua, NULL,
                                              NR_ARENA_ITEM_RENDER_NO_CACHE );
-                nr_pixblock_release(&B);
                 cairo_destroy(ct);
                 cairo_surface_destroy(s);
 

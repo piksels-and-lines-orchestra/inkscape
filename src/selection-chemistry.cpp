@@ -52,10 +52,6 @@ SPCycleType SP_CYCLING = SP_CYCLE_FOCUS;
 #include "sp-conn-end.h"
 #include "dropper-context.h"
 #include <glibmm/i18n.h>
-#include "libnr/nr-matrix-rotate-ops.h"
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-ops.h"
-#include <libnr/nr-matrix-ops.h>
 #include <2geom/transforms.h>
 #include "xml/repr.h"
 #include "xml/rebase-hrefs.h"

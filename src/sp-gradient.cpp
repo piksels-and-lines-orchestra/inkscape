@@ -32,8 +32,6 @@
 #include <sigc++/adaptors/bind.h>
 
 #include "display/cairo-utils.h"
-#include "libnr/nr-gradient.h"
-#include "libnr/nr-pixops.h"
 #include "svg/svg.h"
 #include "svg/svg-color.h"
 #include "svg/css-ostringstream.h"
@@ -390,8 +388,6 @@ sp_gradient_init(SPGradient *gr)
     gr->vector.built = false;
     gr->vector.stops.clear();
 
-    gr->color = NULL;
-
     new (&gr->modified_connection) sigc::connection();
 }
 
@@ -445,11 +441,6 @@ sp_gradient_release(SPObject *object)
         gradient->ref->detach();
         delete gradient->ref;
         gradient->ref = NULL;
-    }
-
-    if (gradient->color) {
-        g_free(gradient->color);
-        gradient->color = NULL;
     }
 
     gradient->modified_connection.~connection();
@@ -616,7 +607,7 @@ sp_gradient_modified(SPObject *object, guint flags)
     }
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
-        sp_gradient_ensure_colors(gr);
+        sp_gradient_ensure_vector(gr);
     }
 
     if (flags & SP_OBJECT_MODIFIED_FLAG) flags |= SP_OBJECT_PARENT_MODIFIED_FLAG;
@@ -966,12 +957,6 @@ sp_gradient_invalidate_vector(SPGradient *gr)
 {
     bool ret = false;
 
-    if (gr->color != NULL) {
-        g_free(gr->color);
-        gr->color = NULL;
-        ret = true;
-    }
-
     if (gr->vector.built) {
         gr->vector.built = false;
         gr->vector.stops.clear();
@@ -1084,279 +1069,6 @@ sp_gradient_rebuild_vector(SPGradient *gr)
     gr->vector.built = true;
 }
 
-/**
- * The gradient's color array is newly created and set up from vector.
- */
-void
-sp_gradient_ensure_colors(SPGradient *gr)
-{
-    if (!gr->vector.built) {
-        sp_gradient_rebuild_vector(gr);
-    }
-    g_return_if_fail(!gr->vector.stops.empty());
-
-    /// \todo Where is the memory freed?
-    if (!gr->color) {
-        gr->color = g_new(guchar, 4 * NCOLORS);
-    }
-
-    // This assumes that gr->vector is a zero-order B-spline (box function) approximation of the "true" gradient.
-    // This means that the "true" gradient must be prefiltered using a zero order B-spline and then sampled.
-    // Furthermore, the first element corresponds to offset="0" and the last element to offset="1".
-
-    double remainder[4] = {0,0,0,0};
-    double remainder_for_end[4] = {0,0,0,0}; // Used at the end
-    switch(gr->spread) {
-    case SP_GRADIENT_SPREAD_PAD:
-        remainder[0] = 0.5*gr->vector.stops[0].color.v.c[0]; // Half of the first cell uses the color of the first stop
-        remainder[1] = 0.5*gr->vector.stops[0].color.v.c[1];
-        remainder[2] = 0.5*gr->vector.stops[0].color.v.c[2];
-        remainder[3] = 0.5*gr->vector.stops[0].opacity;
-        remainder_for_end[0] = 0.5*gr->vector.stops[gr->vector.stops.size() - 1].color.v.c[0]; // Half of the first cell uses the color of the last stop
-        remainder_for_end[1] = 0.5*gr->vector.stops[gr->vector.stops.size() - 1].color.v.c[1];
-        remainder_for_end[2] = 0.5*gr->vector.stops[gr->vector.stops.size() - 1].color.v.c[2];
-        remainder_for_end[3] = 0.5*gr->vector.stops[gr->vector.stops.size() - 1].opacity;
-        break;
-    case SP_GRADIENT_SPREAD_REFLECT:
-    case SP_GRADIENT_SPREAD_REPEAT:
-        // These two are handled differently, see below.
-        break;
-    default:
-        g_error("Spread type not supported!");
-    };
-    for (unsigned int i = 0; i < gr->vector.stops.size() - 1; i++) {
-        double r0 = gr->vector.stops[i].color.v.c[0];
-        double g0 = gr->vector.stops[i].color.v.c[1];
-        double b0 = gr->vector.stops[i].color.v.c[2];
-        double a0 = gr->vector.stops[i].opacity;
-        double r1 = gr->vector.stops[i+1].color.v.c[0];
-        double g1 = gr->vector.stops[i+1].color.v.c[1];
-        double b1 = gr->vector.stops[i+1].color.v.c[2];
-        double a1 = gr->vector.stops[i+1].opacity;
-        double o0 = gr->vector.stops[i].offset * (NCOLORS-1);
-        double o1 = gr->vector.stops[i + 1].offset * (NCOLORS-1);
-        unsigned int ob = (unsigned int) floor(o0+.5); // These are the first and last element that might be affected by this interval.
-        unsigned int oe = (unsigned int) floor(o1+.5); // These need to be computed the same to ensure that ob will be covered by the next interval if oe==ob
-
-        if (oe == ob) {
-            // Simple case, this interval starts and stops within one cell
-            // The contribution of this interval is:
-            //    (o1-o0)*(c(o0)+c(o1))/2
-            //  = (o1-o0)*(c0+c1)/2
-            double dt = 0.5*(o1-o0);
-            remainder[0] += dt*(r0 + r1);
-            remainder[1] += dt*(g0 + g1);
-            remainder[2] += dt*(b0 + b1);
-            remainder[3] += dt*(a0 + a1);
-        } else {
-            // First compute colors for the cells which are fully covered by the current interval.
-            // The prefiltered values are equal to the midpoint of each cell here.
-            //  f = (j-o0)/(o1-o0)
-            //    = j*(1/(o1-o0)) - o0/(o1-o0)
-            double f = (ob-o0) / (o1-o0);
-            double df = 1. / (o1-o0);
-            for (unsigned int j = ob+1; j < oe; j++) {
-                f += df;
-                gr->color[4 * j + 0] = (unsigned char) floor(255*(r0 + f*(r1-r0)) + .5);
-                gr->color[4 * j + 1] = (unsigned char) floor(255*(g0 + f*(g1-g0)) + .5);
-                gr->color[4 * j + 2] = (unsigned char) floor(255*(b0 + f*(b1-b0)) + .5);
-                gr->color[4 * j + 3] = (unsigned char) floor(255*(a0 + f*(a1-a0)) + .5);
-            }
-
-            // Now handle the beginning
-            // The contribution of the last point is already in remainder.
-            // The contribution of this point is:
-            //    (ob+.5-o0)*(c(o0)+c(ob+.5))/2
-            //  = (ob+.5-o0)*c((o0+ob+.5)/2)
-            //  = (ob+.5-o0)*(c0+((o0+ob+.5)/2-o0)*df*(c1-c0))
-            //  = (ob+.5-o0)*(c0+(ob+.5-o0)*df*(c1-c0)/2)
-            double dt = ob+.5-o0;
-            f = 0.5*dt*df;
-            if (ob==0 && gr->spread==SP_GRADIENT_SPREAD_REFLECT) {
-                // The first half of the first cell is just a mirror image of the second half, so simply multiply it by 2.
-                gr->color[4 * ob + 0] = (unsigned char) floor(2*255*(remainder[0] + dt*(r0 + f*(r1-r0))) + .5);
-                gr->color[4 * ob + 1] = (unsigned char) floor(2*255*(remainder[1] + dt*(g0 + f*(g1-g0))) + .5);
-                gr->color[4 * ob + 2] = (unsigned char) floor(2*255*(remainder[2] + dt*(b0 + f*(b1-b0))) + .5);
-                gr->color[4 * ob + 3] = (unsigned char) floor(2*255*(remainder[3] + dt*(a0 + f*(a1-a0))) + .5);
-            } else if (ob==0 && gr->spread==SP_GRADIENT_SPREAD_REPEAT) {
-                // The first cell is the same as the last cell, so save whatever is in the second half here and deal with the rest later.
-                remainder_for_end[0] = remainder[0] + dt*(r0 + f*(r1-r0));
-                remainder_for_end[1] = remainder[1] + dt*(g0 + f*(g1-g0));
-                remainder_for_end[2] = remainder[2] + dt*(b0 + f*(b1-b0));
-                remainder_for_end[3] = remainder[3] + dt*(a0 + f*(a1-a0));
-            } else {
-                // The first half of the cell was already in remainder.
-                gr->color[4 * ob + 0] = (unsigned char) floor(255*(remainder[0] + dt*(r0 + f*(r1-r0))) + .5);
-                gr->color[4 * ob + 1] = (unsigned char) floor(255*(remainder[1] + dt*(g0 + f*(g1-g0))) + .5);
-                gr->color[4 * ob + 2] = (unsigned char) floor(255*(remainder[2] + dt*(b0 + f*(b1-b0))) + .5);
-                gr->color[4 * ob + 3] = (unsigned char) floor(255*(remainder[3] + dt*(a0 + f*(a1-a0))) + .5);
-            }
-
-            // Now handle the end, which should end up in remainder
-            // The contribution of this point is:
-            //    (o1-oe+.5)*(c(o1)+c(oe-.5))/2
-            //  = (o1-oe+.5)*c((o1+oe-.5)/2)
-            //  = (o1-oe+.5)*(c0+((o1+oe-.5)/2-o0)*df*(c1-c0))
-            dt = o1-oe+.5;
-            f = (0.5*(o1+oe-.5)-o0)*df;
-            remainder[0] = dt*(r0 + f*(r1-r0));
-            remainder[1] = dt*(g0 + f*(g1-g0));
-            remainder[2] = dt*(b0 + f*(b1-b0));
-            remainder[3] = dt*(a0 + f*(a1-a0));
-        }
-    }
-    switch(gr->spread) {
-    case SP_GRADIENT_SPREAD_PAD:
-        gr->color[4 * (NCOLORS-1) + 0] = (unsigned char) floor(255*(remainder[0]+remainder_for_end[0]) + .5);
-        gr->color[4 * (NCOLORS-1) + 1] = (unsigned char) floor(255*(remainder[1]+remainder_for_end[1]) + .5);
-        gr->color[4 * (NCOLORS-1) + 2] = (unsigned char) floor(255*(remainder[2]+remainder_for_end[2]) + .5);
-        gr->color[4 * (NCOLORS-1) + 3] = (unsigned char) floor(255*(remainder[3]+remainder_for_end[3]) + .5);
-        break;
-    case SP_GRADIENT_SPREAD_REFLECT:
-        // The second half is the same as the first half, so multiply by 2.
-        gr->color[4 * (NCOLORS-1) + 0] = (unsigned char) floor(2*255*remainder[0] + .5);
-        gr->color[4 * (NCOLORS-1) + 1] = (unsigned char) floor(2*255*remainder[1] + .5);
-        gr->color[4 * (NCOLORS-1) + 2] = (unsigned char) floor(2*255*remainder[2] + .5);
-        gr->color[4 * (NCOLORS-1) + 3] = (unsigned char) floor(2*255*remainder[3] + .5);
-        break;
-    case SP_GRADIENT_SPREAD_REPEAT:
-        // The second half is the same as the second half of the first cell (which was saved in remainder_for_end).
-        gr->color[0] = gr->color[4 * (NCOLORS-1) + 0] = (unsigned char) floor(255*(remainder[0]+remainder_for_end[0]) + .5);
-        gr->color[1] = gr->color[4 * (NCOLORS-1) + 1] = (unsigned char) floor(255*(remainder[1]+remainder_for_end[1]) + .5);
-        gr->color[2] = gr->color[4 * (NCOLORS-1) + 2] = (unsigned char) floor(255*(remainder[2]+remainder_for_end[2]) + .5);
-        gr->color[3] = gr->color[4 * (NCOLORS-1) + 3] = (unsigned char) floor(255*(remainder[3]+remainder_for_end[3]) + .5);
-        break;
-    }
-}
-
-/**
- * Renders gradient vector to buffer as line.
- *
- * RGB buffer background should be set up beforehand.
- *
- * @param len,width,height,rowstride Buffer parameters (1 or 2 dimensional).
- * @param span Full integer width of requested gradient.
- * @param pos Buffer starting position in span.
- */
-static void
-sp_gradient_render_vector_line_rgba(SPGradient *const gradient, guchar *buf,
-                                    gint const len, gint const pos, gint const span)
-{
-    g_return_if_fail(gradient != NULL);
-    g_return_if_fail(SP_IS_GRADIENT(gradient));
-    g_return_if_fail(buf != NULL);
-    g_return_if_fail(len > 0);
-    g_return_if_fail(pos >= 0);
-    g_return_if_fail(pos + len <= span);
-    g_return_if_fail(span > 0);
-
-    if (!gradient->color) {
-        sp_gradient_ensure_colors(gradient);
-    }
-
-    gint idx = (pos * 1024 << 8) / span;
-    gint didx = (1024 << 8) / span;
-
-    for (gint x = 0; x < len; x++) {
-        /// \todo Can this be done with 4 byte copies?
-        *buf++ = gradient->color[4 * (idx >> 8)];
-        *buf++ = gradient->color[4 * (idx >> 8) + 1];
-        *buf++ = gradient->color[4 * (idx >> 8) + 2];
-        *buf++ = gradient->color[4 * (idx >> 8) + 3];
-        idx += didx;
-    }
-}
-
-/**
- * Render rectangular RGBA area from gradient vector.
- */
-void
-sp_gradient_render_vector_block_rgba(SPGradient *const gradient, guchar *buf,
-                                     gint const width, gint const height, gint const rowstride,
-                                     gint const pos, gint const span, bool const horizontal)
-{
-    g_return_if_fail(gradient != NULL);
-    g_return_if_fail(SP_IS_GRADIENT(gradient));
-    g_return_if_fail(buf != NULL);
-    g_return_if_fail(width > 0);
-    g_return_if_fail(height > 0);
-    g_return_if_fail(pos >= 0);
-    g_return_if_fail((horizontal && (pos + width <= span)) || (!horizontal && (pos + height <= span)));
-    g_return_if_fail(span > 0);
-
-    if (horizontal) {
-        sp_gradient_render_vector_line_rgba(gradient, buf, width, pos, span);
-        for (gint y = 1; y < height; y++) {
-            memcpy(buf + y * rowstride, buf, 4 * width);
-        }
-    } else {
-        guchar *tmp = (guchar *)alloca(4 * height);
-        sp_gradient_render_vector_line_rgba(gradient, tmp, height, pos, span);
-        for (gint y = 0; y < height; y++) {
-            guchar *b = buf + y * rowstride;
-            for (gint x = 0; x < width; x++) {
-                *b++ = tmp[0];
-                *b++ = tmp[1];
-                *b++ = tmp[2];
-                *b++ = tmp[3];
-            }
-            tmp += 4;
-        }
-    }
-}
-
-/**
- * Render rectangular RGB area from gradient vector.
- */
-void
-sp_gradient_render_vector_block_rgb(SPGradient *gradient, guchar *buf,
-                                    gint const width, gint const height, gint const /*rowstride*/,
-                                    gint const pos, gint const span, bool const horizontal)
-{
-    g_return_if_fail(gradient != NULL);
-    g_return_if_fail(SP_IS_GRADIENT(gradient));
-    g_return_if_fail(buf != NULL);
-    g_return_if_fail(width > 0);
-    g_return_if_fail(height > 0);
-    g_return_if_fail(pos >= 0);
-    g_return_if_fail((horizontal && (pos + width <= span)) || (!horizontal && (pos + height <= span)));
-    g_return_if_fail(span > 0);
-
-    if (horizontal) {
-        guchar *tmp = (guchar*)alloca(4 * width);
-        sp_gradient_render_vector_line_rgba(gradient, tmp, width, pos, span);
-        for (gint y = 0; y < height; y++) {
-            guchar *t = tmp;
-            for (gint x = 0; x < width; x++) {
-                gint a = t[3];
-                gint fc = (t[0] - buf[0]) * a;
-                buf[0] = buf[0] + ((fc + (fc >> 8) + 0x80) >> 8);
-                fc = (t[1] - buf[1]) * a;
-                buf[1] = buf[1] + ((fc + (fc >> 8) + 0x80) >> 8);
-                fc = (t[2] - buf[2]) * a;
-                buf[2] = buf[2] + ((fc + (fc >> 8) + 0x80) >> 8);
-                buf += 3;
-                t += 4;
-            }
-        }
-    } else {
-        guchar *tmp = (guchar*)alloca(4 * height);
-        sp_gradient_render_vector_line_rgba(gradient, tmp, height, pos, span);
-        for (gint y = 0; y < height; y++) {
-            guchar *t = tmp + 4 * y;
-            for (gint x = 0; x < width; x++) {
-                gint a = t[3];
-                gint fc = (t[0] - buf[0]) * a;
-                buf[0] = buf[0] + ((fc + (fc >> 8) + 0x80) >> 8);
-                fc = (t[1] - buf[1]) * a;
-                buf[1] = buf[1] + ((fc + (fc >> 8) + 0x80) >> 8);
-                fc = (t[2] - buf[2]) * a;
-                buf[2] = buf[2] + ((fc + (fc >> 8) + 0x80) >> 8);
-            }
-        }
-    }
-}
-
 Geom::Matrix
 sp_gradient_get_g2d_matrix(SPGradient const *gr, Geom::Matrix const &ctm, Geom::Rect const &bbox)
 {
@@ -1401,16 +1113,6 @@ sp_gradient_set_gs2d_matrix(SPGradient *gr, Geom::Matrix const &ctm,
  * Linear Gradient
  */
 
-class SPLGPainter;
-
-/// A context with linear gradient, painter, and gradient renderer.
-struct SPLGPainter {
-    SPPainter painter;
-    SPLinearGradient *lg;
-
-    NRLGradientRenderer lgr;
-};
-
 static void sp_lineargradient_class_init(SPLinearGradientClass *klass);
 static void sp_lineargradient_init(SPLinearGradient *lg);
 
@@ -1420,14 +1122,7 @@ static void sp_lineargradient_build(SPObject *object,
 static void sp_lineargradient_set(SPObject *object, unsigned key, gchar const *value);
 static Inkscape::XML::Node *sp_lineargradient_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr,
                                                     guint flags);
-
-static SPPainter *sp_lineargradient_painter_new(SPPaintServer *ps,
-                                                Geom::Matrix const &full_transform,
-                                                Geom::Matrix const &parent_transform,
-                                                NRRect const *bbox);
-static void sp_lineargradient_painter_free(SPPaintServer *ps, SPPainter *painter);
 static cairo_pattern_t *sp_lineargradient_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
-static void sp_lg_fill(SPPainter *painter, NRPixBlock *pb);
 
 static SPGradientClass *lg_parent_class;
 
@@ -1468,8 +1163,6 @@ static void sp_lineargradient_class_init(SPLinearGradientClass *klass)
     sp_object_class->set = sp_lineargradient_set;
     sp_object_class->write = sp_lineargradient_write;
 
-    ps_class->painter_new = sp_lineargradient_painter_new;
-    ps_class->painter_free = sp_lineargradient_painter_free;
     ps_class->pattern_new = sp_lineargradient_create_pattern;
 }
 
@@ -1560,85 +1253,6 @@ sp_lineargradient_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inks
 }
 
 /**
- * Create linear gradient context.
- *
- * Basically we have to deal with transformations
- *
- * 1) color2norm - maps point in (0,NCOLORS) vector to (0,1) vector
- * 2) norm2pos - maps (0,1) vector to x1,y1 - x2,y2
- * 2) gradientTransform
- * 3) bbox2user
- * 4) ctm == userspace to pixel grid
- *
- * See also (*) in sp-pattern about why we may need parent_transform.
- *
- * \todo (point 1 above) fixme: I do not know how to deal with start > 0
- * and end < 1.
- */
-static SPPainter *
-sp_lineargradient_painter_new(SPPaintServer *ps,
-                              Geom::Matrix const &full_transform,
-                              Geom::Matrix const &/*parent_transform*/,
-                              NRRect const *bbox)
-{
-    SPLinearGradient *lg = SP_LINEARGRADIENT(ps);
-    SPGradient *gr = SP_GRADIENT(ps);
-
-    if (!gr->color) sp_gradient_ensure_colors(gr);
-
-    SPLGPainter *lgp = g_new(SPLGPainter, 1);
-
-    lgp->painter.type = SP_PAINTER_IND;
-    lgp->painter.fill = sp_lg_fill;
-
-    lgp->lg = lg;
-
-    /** \todo
-     * Technically speaking, we map NCOLORS on line [start,end] onto line
-     * [0,1].  I almost think we should fill color array start and end in
-     * that case. The alternative would be to leave these just empty garbage
-     * or something similar. Originally I had 1023.9999 here - not sure
-     * whether we have really to cut out ceil int (Lauris).
-     */
-    Geom::Matrix color2norm(Geom::identity());
-    Geom::Matrix color2px;
-    if (gr->units == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
-        Geom::Matrix norm2pos(Geom::identity());
-
-        /* BBox to user coordinate system */
-        Geom::Matrix bbox2user(bbox->x1 - bbox->x0, 0, 0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
-
-        Geom::Matrix color2pos = color2norm * norm2pos;
-        Geom::Matrix color2tpos = color2pos * gr->gradientTransform;
-        Geom::Matrix color2user = color2tpos * bbox2user;
-        color2px = color2user * full_transform;
-
-    } else {
-        /* Problem: What to do, if we have mixed lengths and percentages? */
-        /* Currently we do ignore percentages at all, but that is not good (lauris) */
-
-        Geom::Matrix norm2pos(Geom::identity());
-        Geom::Matrix color2pos = color2norm * norm2pos;
-        Geom::Matrix color2tpos = color2pos * gr->gradientTransform;
-        color2px = color2tpos * full_transform;
-
-    }
-    // TODO: remove color2px_nr after converting to 2geom
-    NR::Matrix color2px_nr = from_2geom(color2px);
-    nr_lgradient_renderer_setup(&lgp->lgr, gr->color, sp_gradient_get_spread(gr), &color2px_nr,
-                                lg->x1.computed, lg->y1.computed,
-                                lg->x2.computed, lg->y2.computed);
-
-    return (SPPainter *) lgp;
-}
-
-static void
-sp_lineargradient_painter_free(SPPaintServer */*ps*/, SPPainter *painter)
-{
-    g_free(painter);
-}
-
-/**
  * Directly set properties of linear gradient and request modified.
  */
 void
@@ -1658,34 +1272,9 @@ sp_lineargradient_set_position(SPLinearGradient *lg,
     SP_OBJECT(lg)->requestModified(SP_OBJECT_MODIFIED_FLAG);
 }
 
-/**
- * Callback when linear gradient object is rendered.
- */
-static void
-sp_lg_fill(SPPainter *painter, NRPixBlock *pb)
-{
-    SPLGPainter *lgp = (SPLGPainter *) painter;
-
-    if (lgp->lg->color == NULL) {
-        sp_gradient_ensure_colors (lgp->lg);
-        lgp->lgr.vector = lgp->lg->color;
-    }
-
-    nr_render((NRRenderer *) &lgp->lgr, pb, NULL);
-}
-
 /*
  * Radial Gradient
  */
-
-class SPRGPainter;
-
-/// A context with radial gradient, painter, and gradient renderer.
-struct SPRGPainter {
-    SPPainter painter;
-    SPRadialGradient *rg;
-    NRRGradientRenderer rgr;
-};
 
 static void sp_radialgradient_class_init(SPRadialGradientClass *klass);
 static void sp_radialgradient_init(SPRadialGradient *rg);
@@ -1696,15 +1285,7 @@ static void sp_radialgradient_build(SPObject *object,
 static void sp_radialgradient_set(SPObject *object, unsigned key, gchar const *value);
 static Inkscape::XML::Node *sp_radialgradient_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr,
                                                     guint flags);
-
-static SPPainter *sp_radialgradient_painter_new(SPPaintServer *ps,
-                                                Geom::Matrix const &full_transform,
-                                                Geom::Matrix const &parent_transform,
-                                                NRRect const *bbox);
-static void sp_radialgradient_painter_free(SPPaintServer *ps, SPPainter *painter);
 static cairo_pattern_t *sp_radialgradient_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
-
-static void sp_rg_fill(SPPainter *painter, NRPixBlock *pb);
 
 static SPGradientClass *rg_parent_class;
 
@@ -1745,8 +1326,6 @@ static void sp_radialgradient_class_init(SPRadialGradientClass *klass)
     sp_object_class->set = sp_radialgradient_set;
     sp_object_class->write = sp_radialgradient_write;
 
-    ps_class->painter_new = sp_radialgradient_painter_new;
-    ps_class->painter_free = sp_radialgradient_painter_free;
     ps_class->pattern_new = sp_radialgradient_create_pattern;
 }
 
@@ -1858,67 +1437,6 @@ sp_radialgradient_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inks
 }
 
 /**
- * Create radial gradient context.
- */
-static SPPainter *
-sp_radialgradient_painter_new(SPPaintServer *ps,
-                              Geom::Matrix const &full_transform,
-                              Geom::Matrix const &/*parent_transform*/,
-                              NRRect const *bbox)
-{
-    SPRadialGradient *rg = SP_RADIALGRADIENT(ps);
-    SPGradient *gr = SP_GRADIENT(ps);
-
-    if (!gr->color) sp_gradient_ensure_colors(gr);
-
-    SPRGPainter *rgp = g_new(SPRGPainter, 1);
-
-    rgp->painter.type = SP_PAINTER_IND;
-    rgp->painter.fill = sp_rg_fill;
-
-    rgp->rg = rg;
-
-    Geom::Matrix gs2px;
-
-    if (gr->units == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
-        /** \todo
-         * fixme: We may try to normalize here too, look at
-         * linearGradient (Lauris)
-         */
-
-        /* BBox to user coordinate system */
-        Geom::Matrix bbox2user(bbox->x1 - bbox->x0, 0, 0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
-
-        Geom::Matrix gs2user = gr->gradientTransform * bbox2user;
-
-        gs2px = gs2user * full_transform;
-    } else {
-        /** \todo
-         * Problem: What to do, if we have mixed lengths and percentages?
-         * Currently we do ignore percentages at all, but that is not
-         * good (lauris)
-         */
-
-        gs2px = gr->gradientTransform * full_transform;
-    }
-    // TODO: remove gs2px_nr after converting to 2geom
-    NR::Matrix gs2px_nr = from_2geom(gs2px);
-    nr_rgradient_renderer_setup(&rgp->rgr, gr->color, sp_gradient_get_spread(gr),
-                                &gs2px_nr,
-                                rg->cx.computed, rg->cy.computed,
-                                rg->fx.computed, rg->fy.computed,
-                                rg->r.computed);
-
-    return (SPPainter *) rgp;
-}
-
-static void
-sp_radialgradient_painter_free(SPPaintServer */*ps*/, SPPainter *painter)
-{
-    g_free(painter);
-}
-
-/**
  * Directly set properties of radial gradient and request modified.
  */
 void
@@ -1936,22 +1454,6 @@ sp_radialgradient_set_position(SPRadialGradient *rg,
     rg->r.set(SVGLength::NONE, r, r);
 
     SP_OBJECT(rg)->requestModified(SP_OBJECT_MODIFIED_FLAG);
-}
-
-/**
- * Callback when radial gradient object is rendered.
- */
-static void
-sp_rg_fill(SPPainter *painter, NRPixBlock *pb)
-{
-    SPRGPainter *rgp = (SPRGPainter *) painter;
-
-    if (rgp->rg->color == NULL) {
-        sp_gradient_ensure_colors (rgp->rg);
-        rgp->rgr.vector = rgp->rg->color;
-    }
-
-    nr_render((NRRenderer *) &rgp->rgr, pb, NULL);
 }
 
 /* CAIRO RENDERING STUFF */
@@ -2003,7 +1505,7 @@ sp_radialgradient_create_pattern(SPPaintServer *ps,
     SPRadialGradient *rg = SP_RADIALGRADIENT(ps);
     SPGradient *gr = SP_GRADIENT(ps);
 
-    if (!gr->color) sp_gradient_ensure_colors(gr);
+    sp_gradient_ensure_vector(gr);
 
     cairo_pattern_t *cp = cairo_pattern_create_radial(
         rg->fx.computed, rg->fy.computed, 0,
@@ -2023,7 +1525,7 @@ sp_lineargradient_create_pattern(SPPaintServer *ps,
     SPLinearGradient *lg = SP_LINEARGRADIENT(ps);
     SPGradient *gr = SP_GRADIENT(ps);
 
-    if (!gr->color) sp_gradient_ensure_colors(gr);
+    sp_gradient_ensure_vector(gr);
 
     cairo_pattern_t *cp = cairo_pattern_create_linear(
         lg->x1.computed, lg->y1.computed,
@@ -2032,6 +1534,23 @@ sp_lineargradient_create_pattern(SPPaintServer *ps,
     sp_gradient_pattern_common_setup(cp, gr, bbox, opacity);
 
     return cp;
+}
+
+cairo_pattern_t *
+sp_gradient_create_preview_pattern(SPGradient *gr, double width)
+{
+    sp_gradient_ensure_vector(gr);
+
+    cairo_pattern_t *pat = cairo_pattern_create_linear(0, 0, width, 0);
+
+    for (std::vector<SPGradientStop>::iterator i = gr->vector.stops.begin();
+         i != gr->vector.stops.end(); ++i)
+    {
+        cairo_pattern_add_color_stop_rgba(pat, i->offset,
+            i->color.v.c[0], i->color.v.c[1], i->color.v.c[2], i->opacity);
+    }
+
+    return pat;
 }
 
 /*

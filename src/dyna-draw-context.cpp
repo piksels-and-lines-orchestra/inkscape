@@ -62,6 +62,7 @@
 #include "display/canvas-bpath.h"
 #include "display/canvas-arena.h"
 #include "livarot/Shape.h"
+#include "libnr/nr-pixblock.h"
 
 #include "dyna-draw-context.h"
 

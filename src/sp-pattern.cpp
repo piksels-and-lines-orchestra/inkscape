@@ -39,44 +39,18 @@
  * Pattern
  */
 
-class SPPatPainter;
-
-struct SPPatPainter {
-	SPPainter painter;
-	SPPattern *pat;
-
-	Geom::Matrix ps2px;
-	Geom::Matrix px2ps;
-	Geom::Matrix pcs2px;
-
-	NRArena *arena;
-	unsigned int dkey;
-	NRArenaItem *root;
-	
-	bool         use_cached_tile;
-	Geom::Matrix     ca2pa;
-	Geom::Matrix     pa2ca;
-	NRRectL      cached_bbox;
-	NRPixBlock   cached_tile;
-
-  std::map<SPObject *, sigc::connection> *_release_connections;
-};
-
 static void sp_pattern_class_init (SPPatternClass *klass);
 static void sp_pattern_init (SPPattern *gr);
 
 static void sp_pattern_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *repr);
 static void sp_pattern_release (SPObject *object);
 static void sp_pattern_set (SPObject *object, unsigned int key, const gchar *value);
-static void sp_pattern_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref);
 static void sp_pattern_update (SPObject *object, SPCtx *ctx, unsigned int flags);
 static void sp_pattern_modified (SPObject *object, unsigned int flags);
 
 static void pattern_ref_changed(SPObject *old_ref, SPObject *ref, SPPattern *pat);
 static void pattern_ref_modified (SPObject *ref, guint flags, SPPattern *pattern);
 
-static SPPainter *sp_pattern_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, Geom::Matrix const &parent_transform, const NRRect *bbox);
-static void sp_pattern_painter_free (SPPaintServer *ps, SPPainter *painter);
 static cairo_pattern_t *sp_pattern_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 static SPPaintServerClass * pattern_parent_class;
@@ -117,14 +91,11 @@ sp_pattern_class_init (SPPatternClass *klass)
 	sp_object_class->build = sp_pattern_build;
 	sp_object_class->release = sp_pattern_release;
 	sp_object_class->set = sp_pattern_set;
-	sp_object_class->child_added = sp_pattern_child_added;
 	sp_object_class->update = sp_pattern_update;
 	sp_object_class->modified = sp_pattern_modified;
 
 	// do we need _write? seems to work without it
 
-	ps_class->painter_new = sp_pattern_painter_new;
-	ps_class->painter_free = sp_pattern_painter_free;
     ps_class->pattern_new = sp_pattern_create_pattern;
 }
 
@@ -315,34 +286,6 @@ sp_pattern_set (SPObject *object, unsigned int key, const gchar *value)
 		if (((SPObjectClass *) pattern_parent_class)->set)
 			((SPObjectClass *) pattern_parent_class)->set (object, key, value);
 		break;
-	}
-}
-
-static void
-sp_pattern_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
-{
-	SPPattern *pat = SP_PATTERN (object);
-
-	if (((SPObjectClass *) (pattern_parent_class))->child_added)
-		(* ((SPObjectClass *) (pattern_parent_class))->child_added) (object, child, ref);
-
-	SPObject *ochild = sp_object_get_child_by_repr(object, child);
-	if (SP_IS_ITEM (ochild)) {
-
-		SPPaintServer *ps = SP_PAINT_SERVER (pat);
-		unsigned position = sp_item_pos_in_parent(SP_ITEM(ochild));
-
-		for (SPPainter *p = ps->painters; p != NULL; p = p->next) {
-
-			SPPatPainter *pp = (SPPatPainter *) p;
-			NRArenaItem *ai = sp_item_invoke_show (SP_ITEM (ochild), pp->arena, pp->dkey, SP_ITEM_REFERENCE_FLAGS);
-
-			if (ai) {
-				nr_arena_item_add_child (pp->root, ai, NULL);
-				nr_arena_item_set_order (ai, position);
-				nr_arena_item_unref (ai);
-			}
-		}
 	}
 }
 
@@ -632,394 +575,6 @@ bool pattern_hasItemChildren (SPPattern *pat)
 	return false;
 }
 
-
-
-/* Painter */
-
-static void sp_pat_fill (SPPainter *painter, NRPixBlock *pb);
-
-// item in this pattern is about to be deleted, hide it on our arena and disconnect
-void
-sp_pattern_painter_release (SPObject *obj, SPPatPainter *painter)
-{
-	std::map<SPObject *, sigc::connection>::iterator iter = painter->_release_connections->find(obj);
-	if (iter != painter->_release_connections->end()) {
-		iter->second.disconnect();
-    painter->_release_connections->erase(obj);
-	}
-
-	sp_item_invoke_hide(SP_ITEM(obj), painter->dkey);
-}
-
-/**
-Creates a painter (i.e. the thing that does actual filling at the given zoom).
-See (*) below for why the parent_transform may be necessary.
-*/
-static SPPainter *
-sp_pattern_painter_new (SPPaintServer *ps, Geom::Matrix const &full_transform, Geom::Matrix const &/*parent_transform*/, const NRRect *bbox)
-{
-	SPPattern *pat = SP_PATTERN (ps);
-	SPPatPainter *pp = g_new (SPPatPainter, 1);
-
-	pp->painter.type = SP_PAINTER_IND;
-	pp->painter.fill = sp_pat_fill;
-
-	pp->pat = pat;
-
-	if (pattern_patternUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
-		/* BBox to user coordinate system */
-		Geom::Matrix bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
-
-		// the final patternTransform, taking into account bbox
-		Geom::Matrix const ps2user(pattern_patternTransform(pat) * bbox2user);
-
-		// see (*) comment below
-		pp->ps2px = ps2user * full_transform;
-	} else {
-		/* Problem: What to do, if we have mixed lengths and percentages? */
-		/* Currently we do ignore percentages at all, but that is not good (lauris) */
-
-		/* fixme: We may try to normalize here too, look at linearGradient (Lauris) */
-
-		// (*) The spec says, "This additional transformation matrix [patternTransform] is
-		// post-multiplied to (i.e., inserted to the right of) any previously defined
-		// transformations, including the implicit transformation necessary to convert from
-		// object bounding box units to user space." To me, this means that the order should be:
-		// item_transform * patternTransform * parent_transform
-		// However both Batik and Adobe plugin use:
-		// patternTransform * item_transform * parent_transform
-		// So here I comply with the majority opinion, but leave my interpretation commented out below.
-		// (To get item_transform, I subtract parent from full.)
-
-		//pp->ps2px = (full_transform / parent_transform) * pattern_patternTransform(pat) * parent_transform;
-		pp->ps2px = pattern_patternTransform(pat) * full_transform;
-	}
-
-	pp->px2ps = pp->ps2px.inverse();
-
-	if (pat->viewBox_set) {
-		gdouble tmp_x = pattern_width (pat) / (pattern_viewBox(pat)->x1 - pattern_viewBox(pat)->x0);
-		gdouble tmp_y = pattern_height (pat) / (pattern_viewBox(pat)->y1 - pattern_viewBox(pat)->y0);
-
-		// FIXME: preserveAspectRatio must be taken into account here too!
-		Geom::Matrix vb2ps (tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
-
-		Geom::Matrix vb2us = vb2ps * pattern_patternTransform(pat);
-
-		// see (*)
-		pp->pcs2px = vb2us * full_transform;
-	} else {
-		/* No viewbox, have to parse units */
-		if (pattern_patternContentUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
-			/* BBox to user coordinate system */
-			Geom::Matrix bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
-
-			Geom::Matrix pcs2user = pattern_patternTransform(pat) * bbox2user;
-
-			// see (*)
-			pp->pcs2px = pcs2user * full_transform;
-		} else {
-			// see (*)
-			//pcs2px = (full_transform / parent_transform) * pattern_patternTransform(pat) * parent_transform;
-			pp->pcs2px = pattern_patternTransform(pat) * full_transform;
-		}
-
-		pp->pcs2px = Geom::Translate (pattern_x (pat), pattern_y (pat)) * pp->pcs2px;
-	}
-
-	/* Create arena */
-	pp->arena = NRArena::create();
-
-	pp->dkey = sp_item_display_key_new (1);
-
-	/* Create group */
-	pp->root = NRArenaGroup::create(pp->arena);
-
-	/* Show items */
-	pp->_release_connections = new std::map<SPObject *, sigc::connection>;
-	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-		if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
-			for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
-				if (SP_IS_ITEM (child)) {
-					// for each item in pattern,
-					NRArenaItem *cai;
-					// show it on our arena,
-					cai = sp_item_invoke_show (SP_ITEM (child), pp->arena, pp->dkey, SP_ITEM_REFERENCE_FLAGS);
-					// add to the group,
-					nr_arena_item_append_child (pp->root, cai);
-					// and connect to the release signal in case the item gets deleted
-					pp->_release_connections->insert(std::make_pair(child, child->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_pattern_painter_release), pp))));
-				}
-			}
-			break; // do not go further up the chain if children are found
-		}
-	}
-
-	{
-		NRRect    one_tile,tr_tile;
-		one_tile.x0=pattern_x(pp->pat);
-		one_tile.y0=pattern_y(pp->pat);
-		one_tile.x1=one_tile.x0+pattern_width (pp->pat);
-		one_tile.y1=one_tile.y0+pattern_height (pp->pat);
-		// TODO: remove ps2px_nr after converting to 2geom
-		NR::Matrix ps2px_nr = from_2geom(pp->ps2px);
-		nr_rect_d_matrix_transform (&tr_tile, &one_tile, &ps2px_nr);
-		int       tr_width=(int)ceil(1.3*(tr_tile.x1-tr_tile.x0));
-		int       tr_height=(int)ceil(1.3*(tr_tile.y1-tr_tile.y0));
-//		if ( tr_width < 10000 && tr_height < 10000 && tr_width*tr_height < 1000000 ) {
-		pp->use_cached_tile=false;//true;
-			if ( tr_width > 1000 ) tr_width=1000;
-			if ( tr_height > 1000 ) tr_height=1000;
-			pp->cached_bbox.x0=0;
-			pp->cached_bbox.y0=0;
-			pp->cached_bbox.x1=tr_width;
-			pp->cached_bbox.y1=tr_height;
-
-			if (pp->use_cached_tile) {
-				nr_pixblock_setup (&pp->cached_tile,NR_PIXBLOCK_MODE_R8G8B8A8N, pp->cached_bbox.x0, pp->cached_bbox.y0, pp->cached_bbox.x1, pp->cached_bbox.y1,TRUE);
-			}
-
-			pp->pa2ca[0]=((double)tr_width)/(one_tile.x1-one_tile.x0);
-			pp->pa2ca[1]=0;
-			pp->pa2ca[2]=0;
-			pp->pa2ca[3]=((double)tr_height)/(one_tile.y1-one_tile.y0);
-			pp->pa2ca[4]=-one_tile.x0*pp->pa2ca[0];
-			pp->pa2ca[5]=-one_tile.y0*pp->pa2ca[1];
-			pp->ca2pa[0]=(one_tile.x1-one_tile.x0)/((double)tr_width);
-			pp->ca2pa[1]=0;
-			pp->ca2pa[2]=0;
-			pp->ca2pa[3]=(one_tile.y1-one_tile.y0)/((double)tr_height);
-			pp->ca2pa[4]=one_tile.x0;
-			pp->ca2pa[5]=one_tile.y0;
-//		} else {
-//			pp->use_cached_tile=false;
-//		}
-	}
-	
-	NRGC gc(NULL);
-	if ( pp->use_cached_tile ) {
-		gc.transform=pp->pa2ca;
-	} else {
-		gc.transform = pp->pcs2px;
-	}
-	nr_arena_item_invoke_update (pp->root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
-	if ( pp->use_cached_tile ) {
-		nr_arena_item_invoke_render (NULL, pp->root, &pp->cached_bbox, &pp->cached_tile, 0);
-	} else {
-		// nothing to do now
-	}
-	
-	return (SPPainter *) pp;
-}
-
-
-static void
-sp_pattern_painter_free (SPPaintServer */*ps*/, SPPainter *painter)
-{
-	SPPatPainter *pp = (SPPatPainter *) painter;
-	// free our arena
-  if (pp->arena) {
-      ((NRObject *) pp->arena)->unreference();
-      pp->arena = NULL;
-  }
-
-	// disconnect all connections
-  std::map<SPObject *, sigc::connection>::iterator iter;
-  for (iter = pp->_release_connections->begin() ; iter!=pp->_release_connections->end() ; iter++) {
-	  iter->second.disconnect();
-	}
-	pp->_release_connections->clear();
-  delete pp->_release_connections;
-
-	if ( pp->use_cached_tile ) nr_pixblock_release(&pp->cached_tile);
-	g_free (pp);
-}
-
-void
-get_cached_tile_pixel(SPPatPainter* pp,double x,double y,unsigned char &r,unsigned char &g,unsigned char &b,unsigned char &a)
-{
-	int    ca_h=(int)floor(x);
-	int    ca_v=(int)floor(y);
-	int    r_x=(int)floor(16*(x-floor(x)));
-	int    r_y=(int)floor(16*(y-floor(y)));
-	unsigned int    tl_m=(16-r_x)*(16-r_y);
-	unsigned int    bl_m=(16-r_x)*r_y;
-	unsigned int    tr_m=r_x*(16-r_y);
-	unsigned int    br_m=r_x*r_y;
-	int    cb_h=ca_h+1;
-	int    cb_v=ca_v+1;
-	if ( cb_h >= pp->cached_bbox.x1 ) cb_h=0;
-	if ( cb_v >= pp->cached_bbox.y1 ) cb_v=0;
-	
-	unsigned char* tlx=NR_PIXBLOCK_PX(&pp->cached_tile)+(ca_v*pp->cached_tile.rs)+4*ca_h;
-	unsigned char* trx=NR_PIXBLOCK_PX(&pp->cached_tile)+(ca_v*pp->cached_tile.rs)+4*cb_h;
-	unsigned char* blx=NR_PIXBLOCK_PX(&pp->cached_tile)+(cb_v*pp->cached_tile.rs)+4*ca_h;
-	unsigned char* brx=NR_PIXBLOCK_PX(&pp->cached_tile)+(cb_v*pp->cached_tile.rs)+4*cb_h;
-	
-	unsigned int tl_c=tlx[0];
-	unsigned int tr_c=trx[0];
-	unsigned int bl_c=blx[0];
-	unsigned int br_c=brx[0];
-	unsigned int f_c=(tl_m*tl_c+tr_m*tr_c+bl_m*bl_c+br_m*br_c)>>8;
-	r=f_c;
-	tl_c=tlx[1];
-	tr_c=trx[1];
-	bl_c=blx[1];
-	br_c=brx[1];
-	f_c=(tl_m*tl_c+tr_m*tr_c+bl_m*bl_c+br_m*br_c)>>8;
-	g=f_c;
-	tl_c=tlx[2];
-	tr_c=trx[2];
-	bl_c=blx[2];
-	br_c=brx[2];
-	f_c=(tl_m*tl_c+tr_m*tr_c+bl_m*bl_c+br_m*br_c)>>8;
-	b=f_c;
-	tl_c=tlx[3];
-	tr_c=trx[3];
-	bl_c=blx[3];
-	br_c=brx[3];
-	f_c=(tl_m*tl_c+tr_m*tr_c+bl_m*bl_c+br_m*br_c)>>8;
-	a=f_c;
-}
-
-static void
-sp_pat_fill (SPPainter *painter, NRPixBlock *pb)
-{
-	SPPatPainter *pp;
-	NRRect ba, psa;
-	NRRectL area;
-	double x, y;
-
-	pp = (SPPatPainter *) painter;
-
-	if (pattern_width (pp->pat) < NR_EPSILON) return;
-	if (pattern_height (pp->pat) < NR_EPSILON) return;
-
-	/* Find buffer area in gradient space */
-	/* fixme: This is suboptimal (Lauris) */
-
-	if ( pp->use_cached_tile ) {
-		double   pat_w=pattern_width (pp->pat);
-		double   pat_h=pattern_height (pp->pat);
-		if ( pb->mode == NR_PIXBLOCK_MODE_R8G8B8A8N || pb->mode == NR_PIXBLOCK_MODE_R8G8B8A8P ) { // same thing because it's filling an empty pixblock
-			unsigned char*  lpx=NR_PIXBLOCK_PX(pb);
-			double          px_y=pb->area.y0;
-			for (int j=pb->area.y0;j<pb->area.y1;j++) {
-				unsigned char* cpx=lpx;
-				double         px_x = pb->area.x0;
-				
-				double ps_x=pp->px2ps[0]*px_x+pp->px2ps[2]*px_y+pp->px2ps[4];
-				double ps_y=pp->px2ps[1]*px_x+pp->px2ps[3]*px_y+pp->px2ps[5];
-				for (int i=pb->area.x0;i<pb->area.x1;i++) {
-					while ( ps_x > pat_w ) ps_x-=pat_w;
-					while ( ps_x < 0 ) ps_x+=pat_w;
-					while ( ps_y > pat_h ) ps_y-=pat_h;
-					while ( ps_y < 0 ) ps_y+=pat_h;
-					double ca_x=pp->pa2ca[0]*ps_x+pp->pa2ca[2]*ps_y+pp->pa2ca[4];
-					double ca_y=pp->pa2ca[1]*ps_x+pp->pa2ca[3]*ps_y+pp->pa2ca[5];
-					unsigned char n_a,n_r,n_g,n_b;
-					get_cached_tile_pixel(pp,ca_x,ca_y,n_r,n_g,n_b,n_a);
-					cpx[0]=n_r;
-					cpx[1]=n_g;
-					cpx[2]=n_b;
-					cpx[3]=n_a;
-					
-					px_x+=1.0;
-					ps_x+=pp->px2ps[0];
-					ps_y+=pp->px2ps[1];
-					cpx+=4;
-				}
-				px_y+=1.0;
-				lpx+=pb->rs;
-			}
-		} else if ( pb->mode == NR_PIXBLOCK_MODE_R8G8B8 ) {
-			unsigned char*  lpx=NR_PIXBLOCK_PX(pb);
-			double          px_y=pb->area.y0;
-			for (int j=pb->area.y0;j<pb->area.y1;j++) {
-				unsigned char* cpx=lpx;
-				double         px_x = pb->area.x0;
-				
-				double ps_x=pp->px2ps[0]*px_x+pp->px2ps[2]*px_y+pp->px2ps[4];
-				double ps_y=pp->px2ps[1]*px_x+pp->px2ps[3]*px_y+pp->px2ps[5];
-				for (int i=pb->area.x0;i<pb->area.x1;i++) {
-					while ( ps_x > pat_w ) ps_x-=pat_w;
-					while ( ps_x < 0 ) ps_x+=pat_w;
-					while ( ps_y > pat_h ) ps_y-=pat_h;
-					while ( ps_y < 0 ) ps_y+=pat_h;
-					double ca_x=pp->pa2ca[0]*ps_x+pp->pa2ca[2]*ps_y+pp->pa2ca[4];
-					double ca_y=pp->pa2ca[1]*ps_x+pp->pa2ca[3]*ps_y+pp->pa2ca[5];
-					unsigned char n_a,n_r,n_g,n_b;
-					get_cached_tile_pixel(pp,ca_x,ca_y,n_r,n_g,n_b,n_a);
-					cpx[0]=n_r;
-					cpx[1]=n_g;
-					cpx[2]=n_b;
-					
-					px_x+=1.0;
-					ps_x+=pp->px2ps[0];
-					ps_y+=pp->px2ps[1];
-					cpx+=4;
-				}
-				px_y+=1.0;
-				lpx+=pb->rs;
-			}
-		}
-	} else {
-		ba.x0 = pb->area.x0;
-		ba.y0 = pb->area.y0;
-		ba.x1 = pb->area.x1;
-		ba.y1 = pb->area.y1;
-		
-        // Trying to solve this bug: https://bugs.launchpad.net/inkscape/+bug/167416
-        // Bail out if the transformation matrix has extreme values. If we bail out
-        // however, then something (which was meaningless anyway) won't be rendered, 
-        // which is better than getting stuck in a virtually infinite loop
-        if (fabs(pp->px2ps[0]) < 1e6 && 
-            fabs(pp->px2ps[3]) < 1e6 &&
-            fabs(pp->px2ps[4]) < 1e6 &&
-            fabs(pp->px2ps[5]) < 1e6) 
-        {
-	    // TODO: remove px2ps_nr after converting to 2geom
-	    NR::Matrix px2ps_nr = from_2geom(pp->px2ps);
-            nr_rect_d_matrix_transform (&psa, &ba, &px2ps_nr);
-    		
-    		psa.x0 = floor ((psa.x0 - pattern_x (pp->pat)) / pattern_width (pp->pat)) -1;
-    		psa.y0 = floor ((psa.y0 - pattern_y (pp->pat)) / pattern_height (pp->pat)) -1;
-    		psa.x1 = ceil ((psa.x1 - pattern_x (pp->pat)) / pattern_width (pp->pat)) +1;
-    		psa.y1 = ceil ((psa.y1 - pattern_y (pp->pat)) / pattern_height (pp->pat)) +1;
-    		
-            // If psa is too wide or tall, then something must be wrong! This is due to
-            // nr_rect_d_matrix_transform (&psa, &ba, &pp->px2ps) using a weird transformation matrix pp->px2ps.
-            g_assert(std::abs(psa.x1 - psa.x0) < 1e6);
-            g_assert(std::abs(psa.y1 - psa.y0) < 1e6);
-            
-            for (y = psa.y0; y < psa.y1; y++) {
-    			for (x = psa.x0; x < psa.x1; x++) {
-    				NRPixBlock ppb;
-    				double psx, psy;
-    				
-    				psx = x * pattern_width (pp->pat);
-    				psy = y * pattern_height (pp->pat);
-    				
-    				area.x0 = (gint32)(pb->area.x0 - (pp->ps2px[0] * psx + pp->ps2px[2] * psy));
-    				area.y0 = (gint32)(pb->area.y0 - (pp->ps2px[1] * psx + pp->ps2px[3] * psy));
-    				area.x1 = area.x0 + pb->area.x1 - pb->area.x0;
-    				area.y1 = area.y0 + pb->area.y1 - pb->area.y0;
-    				
-    				// We do not update here anymore
-    
-    				// Set up buffer
-    				// fixme: (Lauris)
-    				nr_pixblock_setup_extern (&ppb, pb->mode, area.x0, area.y0, area.x1, area.y1, NR_PIXBLOCK_PX (pb), pb->rs, FALSE, FALSE);
-    				
-    				nr_arena_item_invoke_render (NULL, pp->root, &area, &ppb, 0);
-    				
-    				nr_pixblock_release (&ppb);
-    			}
-    		}
-     } 
-	}
-}
-
 static cairo_pattern_t *
 sp_pattern_create_pattern(SPPaintServer *ps,
                           cairo_t *base_ct,
@@ -1108,7 +663,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 
     // TODO: make sure there are no leaks.
     NRGC gc(NULL);
-    gc.transform = vb2ps;//Geom::identity();
+    gc.transform = vb2ps;
     nr_arena_item_invoke_update (root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
     nr_arena_item_invoke_render (ct, root, &one_tile, NULL, 0);
     nr_object_unref(arena);

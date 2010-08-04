@@ -16,10 +16,6 @@
 # include "config.h"
 #endif
 
-#include <libnr/nr-matrix-fns.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-matrix-translate-ops.h>
-#include <libnr/nr-scale-matrix-ops.h>
 #include <2geom/rect.h>
 #include <2geom/transforms.h>
 #include <2geom/pathvector.h>
@@ -270,7 +266,7 @@ sp_shape_update (SPObject *object, SPCtx *ctx, unsigned int flags)
         style = SP_OBJECT_STYLE (object);
         if (style->stroke_width.unit == SP_CSS_UNIT_PERCENT) {
             SPItemCtx *ictx = (SPItemCtx *) ctx;
-            double const aw = 1.0 / NR::expansion(ictx->i2vp);
+            double const aw = 1.0 / ictx->i2vp.descrim();
             style->stroke_width.computed = style->stroke_width.value * aw;
             for (SPItemView *v = ((SPItem *) (shape))->display; v != NULL; v = v->next) {
                 nr_arena_shape_set_style ((NRArenaShape *) v->arenaitem, style);

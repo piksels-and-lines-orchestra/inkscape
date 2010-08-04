@@ -12,9 +12,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <libnr/nr-compose-transform.h>
 #include <2geom/transforms.h>
-#include <libnr/nr-blit.h>
 #include "../preferences.h"
 #include "nr-arena-image.h"
 #include "style.h"
