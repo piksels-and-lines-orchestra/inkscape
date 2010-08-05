@@ -24,7 +24,6 @@
 #include "libnr/nr-rect.h"
 #include "libnrtype/font-glyph.h"
 #include "libnrtype/font-instance.h"
-#include "libnrtype/RasterFont.h"
 #include "livarot/Path.h"
 #include "util/unordered-containers.h"
 
@@ -43,8 +42,6 @@ struct font_style_hash : public std::unary_function<font_style, size_t> {
 struct font_style_equal : public std::binary_function<font_style, font_style, bool> {
     bool operator()(font_style const &a, font_style const &b) const;
 };
-
-typedef INK_UNORDERED_MAP<font_style, raster_font*, font_style_hash, font_style_equal> StyleMap;
 
 static const double STROKE_WIDTH_THREASHOLD = 0.01;
 
@@ -182,7 +179,6 @@ font_instance::font_instance(void) :
     nbGlyph(0),
     maxGlyph(0),
     glyphs(0),
-    loadedPtr(new StyleMap()),
     theFace(0)
 {
     //printf("font instance born\n");
@@ -190,12 +186,6 @@ font_instance::font_instance(void) :
 
 font_instance::~font_instance(void)
 {
-    if ( loadedPtr ) {
-        StyleMap* tmp = static_cast<StyleMap*>(loadedPtr);
-        delete tmp;
-        loadedPtr = 0;
-    }
-
     if ( daddy ) {
         daddy->UnrefFace(this);
         daddy = 0;
@@ -792,72 +782,6 @@ double font_instance::Advance(int glyph_id,bool vertical)
     }
     return 0;
 }
-
-
-raster_font* font_instance::RasterFont(const Geom::Matrix &trs, double stroke_width, bool vertical, JoinType stroke_join, ButtType stroke_cap, float /*miter_limit*/)
-{
-    font_style  nStyle;
-    nStyle.transform=trs;
-    nStyle.vertical=vertical;
-    nStyle.stroke_width=stroke_width;
-    nStyle.stroke_cap=stroke_cap;
-    nStyle.stroke_join=stroke_join;
-    nStyle.nbDash=0;
-    nStyle.dash_offset=0;
-    nStyle.dashes=NULL;
-    return RasterFont(nStyle);
-}
-
-raster_font* font_instance::RasterFont(const font_style &inStyle)
-{
-    raster_font  *res=NULL;
-    double *savDashes=NULL;
-    font_style nStyle=inStyle;
-    // for some evil reason font_style doesn't have a copy ctor, so the
-    // stuff that should be done there is done here instead (because the
-    // raster_font ctor copies nStyle).
-    if ( (nStyle.stroke_width > 0) && (nStyle.nbDash > 0) && nStyle.dashes ) {
-        savDashes=nStyle.dashes;
-        nStyle.dashes=(double*)malloc(nStyle.nbDash*sizeof(double));
-        memcpy(nStyle.dashes,savDashes,nStyle.nbDash*sizeof(double));
-    }
-    StyleMap& loadedStyles = *static_cast<StyleMap*>(loadedPtr);
-    if ( loadedStyles.find(nStyle) == loadedStyles.end() ) {
-        raster_font *nR = new raster_font(nStyle);
-        nR->Ref();
-        nR->daddy=this;
-        loadedStyles[nStyle]=nR;
-        res=nR;
-        if ( res ) {
-            Ref();
-        }
-    } else {
-        res=loadedStyles[nStyle];
-        res->Ref();
-        if ( nStyle.dashes ) {
-            free(nStyle.dashes); // since they're not taken by a new rasterfont
-        }
-    }
-    nStyle.dashes=savDashes;
-    return res;
-}
-
-void font_instance::RemoveRasterFont(raster_font* who)
-{
-    if ( who ) {
-        StyleMap& loadedStyles = *static_cast<StyleMap*>(loadedPtr);
-        if ( loadedStyles.find(who->style) == loadedStyles.end() ) {
-            //g_print("RemoveRasterFont failed \n");
-            // not found
-        } else {
-            loadedStyles.erase(loadedStyles.find(who->style));
-            //g_print("RemoveRasterFont\n");
-            Unref();
-        }
-    }
-}
-
-
 
 /*
  Local Variables:

@@ -71,7 +71,6 @@ ink_common_sources += \
 	display/nr-filter-morphology.h	\
 	display/nr-filter-offset.cpp	\
 	display/nr-filter-offset.h	\
-	display/nr-filter-pixops.h	\
 	display/nr-filter-primitive.cpp \
 	display/nr-filter-primitive.h   \
 	display/nr-filter-slot.cpp      \

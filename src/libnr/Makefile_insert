@@ -2,11 +2,6 @@
 
 ink_common_sources +=	\
 	libnr/in-svg-plane.h	\
-	libnr/nr-blit.cpp	\
-	libnr/nr-blit.h	\
-	libnr/nr-compose-reference.h	\
-	libnr/nr-compose.cpp	\
-	libnr/nr-compose.h	\
 	libnr/nr-convert2geom.h	\
 	libnr/nr-coord.h	\
 	libnr/nr-dim2.h	\
@@ -30,27 +25,15 @@ ink_common_sources +=	\
 	libnr/nr-rect.cpp	\
 	libnr/nr-rect.h	\
 	libnr/nr-rect-ops.h	\
-	libnr/nr-render.h	\
 	libnr/nr-types.cpp	\
 	libnr/nr-types.h	\
 	libnr/nr-values.cpp	\
-	libnr/nr-values.h	\
-	$(libnr_mmx_sources)
-
-# Ancient performance test (?)
-# Won't work anymore.
-#libnr_testnr_SOURCES =	\
-#	libnr/testnr.cpp
-
-#libnr_testnr_LDADD =	\
-#	libnr/libnr.a	\
-#	-lglib-2.0
+	libnr/nr-values.h
 
 # ######################
 # ### CxxTest stuff ####
 # ######################
 CXXTEST_TESTSUITES += \
 	$(srcdir)/libnr/in-svg-plane-test.h	\
-	$(srcdir)/libnr/nr-compose-test.h	\
 	$(srcdir)/libnr/nr-point-fns-test.h	\
 	$(srcdir)/libnr/nr-types-test.h

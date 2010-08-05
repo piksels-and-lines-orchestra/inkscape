@@ -67,15 +67,6 @@ public:
                                 // for generating slanted cursors for oblique fonts
     Geom::OptRect             BBox(int glyph_id);
 
-    // creates a rasterfont for the given style
-    raster_font*         RasterFont(Geom::Matrix const &trs, double stroke_width,
-                                    bool vertical = false, JoinType stroke_join = join_straight,
-                                    ButtType stroke_cap = butt_straight, float miter_limit = 4.0);
-    // the dashes array in iStyle is copied
-    raster_font*         RasterFont(font_style const &iStyle);
-    // private use: tells the font_instance that the raster_font 'who' has died
-    void                 RemoveRasterFont(raster_font *who);
-
     // attribute queries
     unsigned             Name(gchar *str, unsigned size);
     unsigned             PSName(gchar *str, unsigned size);
@@ -84,9 +75,6 @@ public:
 
 private:
     void                 FreeTheFace();
-
-    // hashmap to get the raster_font for a given style
-    void*                loadedPtr;
 
 #ifdef USE_PANGO_WIN32
     HFONT                 theFace;
