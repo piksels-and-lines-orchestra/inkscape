@@ -377,9 +377,9 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
         }
 
         // Now let's reduce this to a single closest snappoint
-        Geom::Coord dsp    = _snap_points.size()                 == 1 ? Geom::L2((_snap_points.at(0)).getPoint() - p) : NR_HUGE;
-        Geom::Coord dbbp   = _bbox_points.size()                 == 1 ? Geom::L2((_bbox_points.at(0)).getPoint() - p) : NR_HUGE;
-        Geom::Coord dbbpft = _bbox_points_for_translating.size() == 1 ? Geom::L2((_bbox_points_for_translating.at(0)).getPoint() - p) : NR_HUGE;
+        Geom::Coord dsp    = _snap_points.size()                 == 1 ? Geom::L2((_snap_points.at(0)).getPoint() - p) : Geom::infinity();
+        Geom::Coord dbbp   = _bbox_points.size()                 == 1 ? Geom::L2((_bbox_points.at(0)).getPoint() - p) : Geom::infinity();
+        Geom::Coord dbbpft = _bbox_points_for_translating.size() == 1 ? Geom::L2((_bbox_points_for_translating.at(0)).getPoint() - p) : Geom::infinity();
 
         if (translating) {
             _bbox_points.clear();
@@ -1216,7 +1216,7 @@ gboolean Inkscape::SelTrans::skewRequest(SPSelTransHandle const &handle, Geom::P
 
         if (sn.getSnapped()) {
             // We snapped something, so change the skew to reflect it
-            Geom::Coord const sd = sn.getSnapped() ? sn.getTransformation()[0] : NR_HUGE;
+            Geom::Coord const sd = sn.getSnapped() ? sn.getTransformation()[0] : Geom::infinity();
              _desktop->snapindicator->set_new_snaptarget(sn);
             skew[dim_a] = sd;
         } else {
@@ -1630,8 +1630,8 @@ void Inkscape::SelTrans::_keepClosestPointOnly(std::vector<Inkscape::SnapCandida
 {
     if (points.size() < 2) return;
 
-    Inkscape::SnapCandidatePoint closest_point = Inkscape::SnapCandidatePoint(Geom::Point(NR_HUGE, NR_HUGE), SNAPSOURCE_UNDEFINED, SNAPTARGET_UNDEFINED);
-    Geom::Coord closest_dist = NR_HUGE;
+    Inkscape::SnapCandidatePoint closest_point = Inkscape::SnapCandidatePoint(Geom::Point(Geom::infinity(), Geom::infinity()), SNAPSOURCE_UNDEFINED, SNAPTARGET_UNDEFINED);
+    Geom::Coord closest_dist = Geom::infinity();
 
     for(std::vector<Inkscape::SnapCandidatePoint>::const_iterator i = points.begin(); i != points.end(); i++) {
         Geom::Coord dist = Geom::L2((*i).getPoint() - reference);

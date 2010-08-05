@@ -480,7 +480,7 @@ void spdc_endpoint_snap_rotation(SPEventContext const *const ec, Geom::Point &p,
 
     /* mirrored by fabs, so this corresponds to 15 degrees */
     Geom::Point best; /* best solution */
-    double bn = NR_HUGE; /* best normal */
+    double bn = Geom::infinity(); /* best normal */
     double bdot = 0;
     Geom::Point v = Geom::Point(0, 1);
     double const r00 = cos(M_PI / snaps), r01 = sin(M_PI / snaps);

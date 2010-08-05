@@ -773,8 +773,8 @@ sp_item_invoke_bbox_full(SPItem const *item, Geom::OptRect &bbox, Geom::Matrix c
     // TODO: replace NRRect by Geom::Rect, for all SPItemClasses, and for SP_CLIPPATH
 
     NRRect temp_bbox;
-    temp_bbox.x0 = temp_bbox.y0 = NR_HUGE;
-    temp_bbox.x1 = temp_bbox.y1 = -NR_HUGE;
+    temp_bbox.x0 = temp_bbox.y0 = Geom::infinity();
+    temp_bbox.x1 = temp_bbox.y1 = -Geom::infinity();
 
     // call the subclass method
     if (((SPItemClass *) G_OBJECT_GET_CLASS(item))->bbox) {
@@ -846,7 +846,7 @@ sp_item_invoke_bbox_full(SPItem const *item, Geom::OptRect &bbox, Geom::Matrix c
 
     if (temp_bbox.x0 > temp_bbox.x1 || temp_bbox.y0 > temp_bbox.y1) {
         // Either the bbox hasn't been touched by the SPItemClass' bbox method
-        // (it still has its initial values, see above: x0 = y0 = NR_HUGE and x1 = y1 = -NR_HUGE)
+        // (it still has its initial values, see above: x0 = y0 = Geom::infinity() and x1 = y1 = -Geom::infinity())
         // or it has explicitely been set to be like this (e.g. in sp_shape_bbox)
 
         // When x0 > x1 or y0 > y1, the bbox is considered to be "nothing", although it has not been

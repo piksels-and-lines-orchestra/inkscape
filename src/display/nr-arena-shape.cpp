@@ -446,7 +446,7 @@ nr_arena_shape_pick(NRArenaItem *item, Geom::Point p, double delta, unsigned int
         width = 0;
     }
 
-    double dist = NR_HUGE;
+    double dist = Geom::infinity();
     int wind = 0;
     bool needfill = (shape->nrstyle.fill.type != NRStyle::PAINT_NONE 
              && shape->nrstyle.fill.opacity > 1e-3 && !outline);

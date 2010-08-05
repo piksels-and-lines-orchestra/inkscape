@@ -13,10 +13,8 @@ ink_common_sources +=	\
 	libnr/nr-forward.h	\
 	libnr/nr-i-coord.h	\
 	libnr/nr-macros.h	\
-	libnr/nr-maybe.h	\
 	libnr/nr-object.cpp	\
 	libnr/nr-object.h	\
-	libnr/nr-path-code.h	\
 	libnr/nr-pixblock-pattern.cpp	\
 	libnr/nr-pixblock-pattern.h	\
 	libnr/nr-pixblock.cpp	\

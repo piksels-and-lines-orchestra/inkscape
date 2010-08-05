@@ -195,12 +195,12 @@ sp_canvas_bpath_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_
     if ( !cbp->curve  || 
          ((cbp->stroke_rgba & 0xff) == 0 && (cbp->fill_rgba & 0xff) == 0 ) || 
          cbp->curve->get_segment_count() < 1)
-        return NR_HUGE;
+        return Geom::infinity();
 
     double width = 0.5;
     Geom::Rect viewbox = item->canvas->getViewbox();
     viewbox.expandBy (width);
-    double dist = NR_HUGE;
+    double dist = Geom::infinity();
     pathv_matrix_point_bbox_wind_distance(cbp->curve->get_pathvector(), cbp->affine, p, NULL, NULL, &dist, 0.5, &viewbox);
 
     if (dist <= 1.0) {

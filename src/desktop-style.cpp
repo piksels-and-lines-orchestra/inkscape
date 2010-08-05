@@ -406,7 +406,7 @@ gdouble
 stroke_average_width (GSList const *objects)
 {
     if (g_slist_length ((GSList *) objects) == 0)
-        return NR_HUGE;
+        return Geom::infinity();
 
     gdouble avgwidth = 0.0;
     bool notstroked = true;
@@ -431,7 +431,7 @@ stroke_average_width (GSList const *objects)
     }
 
     if (notstroked)
-        return NR_HUGE;
+        return Geom::infinity();
 
     return avgwidth / (g_slist_length ((GSList *) objects) - n_notstroked);
 }

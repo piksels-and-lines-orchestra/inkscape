@@ -318,7 +318,7 @@ sp_canvas_item_invoke_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **a
     if (SP_CANVAS_ITEM_GET_CLASS (item)->point)
         return SP_CANVAS_ITEM_GET_CLASS (item)->point (item, p, actual_item);
 
-    return NR_HUGE;
+    return Geom::infinity();
 }
 
 /**
