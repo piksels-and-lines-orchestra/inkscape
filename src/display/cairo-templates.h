@@ -24,6 +24,7 @@ static const int OPENMP_THRESHOLD = 2048;
 #include <glib.h>
 #include <math.h>
 #include "display/nr-3dutils.h"
+#include "display/cairo-utils.h"
 
 /**
  * @brief Blend two surfaces using the supplied functor.
@@ -199,6 +200,30 @@ void ink_cairo_surface_filter(cairo_surface_t *in, cairo_surface_t *out, Filter 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int num_threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
     #endif
+
+    // this is provided just in case, to avoid problems with strict aliasing rules
+    if (in == out) {
+        if (bppin == 4) {
+            #if HAVE_OPENMP
+            #pragma omp parallel for if(limit > OPENMP_THRESHOLD) num_threads(num_threads)
+            #endif
+            for (int i = 0; i < limit; ++i) {
+                *(in_data + i) = filter(*(in_data + i));
+            }
+        } else {
+            #if HAVE_OPENMP
+            #pragma omp parallel for if(limit > OPENMP_THRESHOLD) num_threads(num_threads)
+            #endif
+            for (int i = 0; i < limit; ++i) {
+                guint8 *in_p = reinterpret_cast<guint8*>(in_data) + i;
+                guint32 in_px = *in_p; in_px <<= 24;
+                guint32 out_px = filter(in_px);
+                *in_p = out_px >> 24;
+            }
+        }
+        cairo_surface_mark_dirty(out);
+        return;
+    }
 
     if (bppin == 4) {
         if (bppout == 4) {
@@ -660,6 +685,22 @@ pxclamp(gint32 v, gint32 low, gint32 high) {
 
 #define ASSEMBLE_ARGB32(px,a,r,g,b) \
     guint32 px = (a << 24) | (r << 16) | (g << 8) | b;
+
+// this is also used for masks, so it resides in this header
+struct ColorMatrixLuminanceToAlpha {
+    guint32 operator()(guint32 in) {
+        // original computation in double: r*0.2125 + g*0.7154 + b*0.0721
+        EXTRACT_ARGB32(in, a, r, g, b)
+        // unpremultiply color values
+        if (a != 0) {
+            r = unpremul_alpha(r, a);
+            g = unpremul_alpha(g, a);
+            b = unpremul_alpha(b, a);
+        }
+        guint32 ao = r*54 + g*182 + b*18;
+        return ((ao + 127) / 255) << 24;
+    }
+};
 
 #endif
 /*

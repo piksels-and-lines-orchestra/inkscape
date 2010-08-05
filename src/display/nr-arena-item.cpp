@@ -20,6 +20,7 @@
 #include <cairomm/cairomm.h>
 
 #include "display/cairo-utils.h"
+#include "display/cairo-templates.h"
 #include "nr-arena.h"
 #include "nr-arena-item.h"
 #include "gc-core.h"
@@ -433,7 +434,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     // render mask on the intermediate context and store it
     if (item->mask) {
-        maskgroup.push_with_content(CAIRO_CONTENT_ALPHA);
+        maskgroup.push_with_content(CAIRO_CONTENT_COLOR_ALPHA);
         // handle opacity of a masked object by composing it with the mask
         // this uses 1/4 the memory of composing it with full rendering
         if (needs_opacity) {
@@ -449,11 +450,12 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
             cct.paint_with_alpha(opacity);
         }
         mask = maskgroup.popmm();
+        // convert luminance to alpha
+        cairo_pattern_t *p = mask->cobj();
+        cairo_surface_t *s;
+        cairo_pattern_get_surface(p, &s);
+        ink_cairo_surface_filter(s, s, ColorMatrixLuminanceToAlpha());
     }
-
-    /*if (mask) {
-        drawgroup.push();
-    }*/
 
     // render the object (possibly to the intermediate surface)
     state = NR_ARENA_ITEM_VIRTUAL (item, render) (this_ct, item, this_area, pb, flags);
