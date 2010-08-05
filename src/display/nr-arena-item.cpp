@@ -106,6 +106,11 @@ nr_arena_item_private_finalize (NRObject *object)
     item->px = NULL;
     item->transform = NULL;
 
+    if (item->clip)
+        nr_arena_item_detach(item, item->clip);
+    if (item->mask)
+        nr_arena_item_detach(item, item->mask);
+
     ((NRObjectClass *) (parent_class))->finalize (object);
 }
 

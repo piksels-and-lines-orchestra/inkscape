@@ -93,9 +93,10 @@ nr_arena_image_finalize (NRObject *object)
 {
     NRArenaImage *image = NR_ARENA_IMAGE (object);
 
-    image->px = NULL;
     if (image->pixbuf != NULL)
         g_object_unref(image->pixbuf);
+    if (image->style)
+        sp_style_unref(image->style);
 
     ((NRObjectClass *) parent_class)->finalize (object);
 }

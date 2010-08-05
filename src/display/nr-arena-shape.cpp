@@ -121,6 +121,7 @@ nr_arena_shape_finalize(NRObject *object)
     if (shape->path) cairo_path_destroy(shape->path);
     if (shape->style) sp_style_unref(shape->style);
     if (shape->curve) shape->curve->unref();
+    shape->last_pick = NULL;
 
     ((NRObjectClass *) shape_parent_class)->finalize(object);
 }

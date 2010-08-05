@@ -174,9 +174,7 @@ public:
     virtual ~Filter();
 
 private:
-    int _primitive_count;
-    int _primitive_table_size;
-
+    std::vector<FilterPrimitive*> _primitive;
     /** Amount of image slots used, when this filter was rendered last time */
     int _slot_count;
 
@@ -198,10 +196,7 @@ private:
     SPFilterUnits _filter_units;
     SPFilterUnits _primitive_units;
 
-    FilterPrimitive ** _primitive;
-
     void _create_constructor_table();
-    void _enlarge_primitive_table();
     void _common_init();
     int _resolution_limit(FilterQuality const quality) const;
     std::pair<double,double> _filter_resolution(Geom::Rect const &area,

@@ -113,6 +113,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
                                     NR_ARENA_ITEM_STATE_ALL,
                                     NR_ARENA_ITEM_STATE_NONE);
         nr_arena_item_invoke_render(ct, ai, &render_rect, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE);
+        sp_item_invoke_hide(SVGElem, key);
         nr_object_unref((NRObject*) arena);
 
         slot.set(_output, out);

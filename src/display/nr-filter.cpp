@@ -79,23 +79,12 @@ static Geom::OptRect get_item_bbox(NRArenaItem const *item) {
 
 Filter::Filter()
 {
-    _primitive_count = 0;
-    _primitive_table_size = 1;
-    _primitive = new FilterPrimitive*[1];
-    _primitive[0] = NULL;
-    //_primitive_count = 1;
-    //_primitive[0] = new FilterGaussian;
     _common_init();
 }
 
 Filter::Filter(int n)
 {
-    _primitive_count = 0;
-    _primitive_table_size = (n > 0) ? n : 1;    // we guarantee there is at least 1(one) filter slot
-    _primitive = new FilterPrimitive*[_primitive_table_size];
-    for ( int i = 0 ; i < _primitive_table_size ; i++ ) {
-        _primitive[i] = NULL;
-    }
+    if (n > 0) _primitive.reserve(n);
     _common_init();
 }
 
@@ -124,13 +113,12 @@ void Filter::_common_init() {
 Filter::~Filter()
 {
     clear_primitives();
-    delete[] _primitive;
 }
 
 
 int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea, cairo_t *graphic, NRRectL const *area)
 {
-    if (!_primitive[0]) {
+    if (_primitive.empty()) {
         // when no primitives are defined, clear source graphic
         cairo_set_source_rgba(graphic, 0,0,0,0);
         cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
@@ -186,7 +174,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
 
     units.set_paraller(false);
     Geom::Matrix pbtrans = units.get_matrix_display2pb();
-    for (int i = 0 ; i < _primitive_count ; i++) {
+    for (unsigned i = 0 ; i < _primitive.size() ; i++) {
         if (!_primitive[i]->can_handle_affine(pbtrans)) {
             units.set_paraller(true);
             break;
@@ -197,7 +185,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
     slot.set_quality(filterquality);
     slot.set_blurquality(blurquality);
 
-    for (int i = 0 ; i < _primitive_count ; i++) {
+    for (unsigned i = 0 ; i < _primitive.size() ; i++) {
         _primitive[i]->render_cairo(slot);
     }
 
@@ -220,7 +208,7 @@ void Filter::set_primitive_units(SPFilterUnits unit) {
 }
 
 void Filter::area_enlarge(NRRectL &bbox, NRArenaItem const *item) const {
-    for (int i = 0 ; i < _primitive_count ; i++) {
+    for (unsigned i = 0 ; i < _primitive.size() ; i++) {
         if (_primitive[i]) _primitive[i]->area_enlarge(bbox, item->ctm);
     }
 
@@ -356,27 +344,6 @@ void Filter::_create_constructor_table()
     created = true;
 }
 
-/** Helper method for enlarging table of filter primitives. When new
- * primitives are added, but we have no space for them, this function
- * makes some more space.
- */
-void Filter::_enlarge_primitive_table() {
-    FilterPrimitive **new_tbl = new FilterPrimitive*[_primitive_table_size * 2];
-    for (int i = 0 ; i < _primitive_count ; i++) {
-        new_tbl[i] = _primitive[i];
-    }
-    _primitive_table_size *= 2;
-    for (int i = _primitive_count ; i < _primitive_table_size ; i++) {
-        new_tbl[i] = NULL;
-    }
-    if(_primitive != NULL) {
-        delete[] _primitive;
-    } else {
-        g_warning("oh oh");
-    }
-    _primitive = new_tbl;
-}
-
 int Filter::add_primitive(FilterPrimitiveType type)
 {
     _create_constructor_table();
@@ -387,14 +354,8 @@ int Filter::add_primitive(FilterPrimitiveType type)
     if (!_constructor[type]) return -1;
     FilterPrimitive *created = _constructor[type]();
 
-    // If there is no space for new filter primitive, enlarge the table
-    if (_primitive_count >= _primitive_table_size) {
-        _enlarge_primitive_table();
-    }
-
-    _primitive[_primitive_count] = created;
-    int handle = _primitive_count;
-    _primitive_count++;
+    int handle = _primitive.size();
+    _primitive.push_back(created);
     return handle;
 }
 
@@ -404,8 +365,7 @@ int Filter::replace_primitive(int target, FilterPrimitiveType type)
 
     // Check that target is valid primitive inside this filter
     if (target < 0) return -1;
-    if (target >= _primitive_count) return -1;
-    if (!_primitive[target]) return -1;
+    if (static_cast<unsigned>(target) >= _primitive.size()) return -1;
 
     // Check that we can create a new filter of specified type
     if (type < 0 || type >= NR_FILTER_ENDPRIMITIVETYPE)
@@ -413,27 +373,22 @@ int Filter::replace_primitive(int target, FilterPrimitiveType type)
     if (!_constructor[type]) return -1;
     FilterPrimitive *created = _constructor[type]();
 
-    // If there is no space for new filter primitive, enlarge the table
-    if (_primitive_count >= _primitive_table_size) {
-        _enlarge_primitive_table();
-    }
-
     delete _primitive[target];
     _primitive[target] = created;
     return target;
 }
 
 FilterPrimitive *Filter::get_primitive(int handle) {
-    if (handle < 0 || handle >= _primitive_count) return NULL;
+    if (handle < 0 || handle >= static_cast<int>(_primitive.size())) return NULL;
     return _primitive[handle];
 }
 
 void Filter::clear_primitives()
 {
-    for (int i = 0 ; i < _primitive_count ; i++) {
-        if (_primitive[i]) delete _primitive[i];
+    for (unsigned i = 0 ; i < _primitive.size() ; i++) {
+        delete _primitive[i];
     }
-    _primitive_count = 0;
+    _primitive.clear();
 }
 
 void Filter::set_x(SVGLength const &length)

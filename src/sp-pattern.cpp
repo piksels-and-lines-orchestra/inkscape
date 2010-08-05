@@ -610,9 +610,11 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     NRArenaGroup *root = NRArenaGroup::create(arena);
 
     /* Show items */
+    SPPattern *shown = NULL;
     for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
         // find the first one with item children
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) {
+            shown = pat_i;
             for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
                 if (SP_IS_ITEM (child)) {
                     // for each item in pattern, show it on our arena, add to the group,
@@ -664,6 +666,12 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     gc.transform = vb2ps;
     nr_arena_item_invoke_update (root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
     nr_arena_item_invoke_render (ct, root, &one_tile, NULL, 0);
+    for (SPObject *child = sp_object_first_child(SP_OBJECT(shown)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        if (SP_IS_ITEM (child)) {
+            sp_item_invoke_hide(SP_ITEM (child), dkey);
+        }
+    }
+    nr_object_unref(root);
     nr_object_unref(arena);
 
     if (needs_opacity) {

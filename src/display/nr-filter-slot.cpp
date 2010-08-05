@@ -121,9 +121,6 @@ cairo_surface_t *FilterSlot::getcairo(int slot_nr)
         s = _slots.find(slot_nr);
     }
     return s->second;
-
-    //assert(slot_nr == NR_FILTER_SLOT_NOT_SET ||_slot_number[index] == slot_nr);
-    //return _slot[index];
 }
 
 cairo_surface_t *FilterSlot::_get_transformed_source_graphic()
