@@ -123,6 +123,7 @@ ShowUninstDetails hide
 !insertmacro INKLANGFILE French
 !insertmacro INKLANGFILE Galician
 !insertmacro INKLANGFILE German
+!insertmacro INKLANGFILE Indonesian
 !insertmacro INKLANGFILE Italian
 !insertmacro INKLANGFILE Japanese
 !insertmacro INKLANGFILE Polish
@@ -133,6 +134,7 @@ ShowUninstDetails hide
 !insertmacro INKLANGFILE Spanish
 !insertmacro INKLANGFILE SimpChinese
 !insertmacro INKLANGFILE TradChinese
+!insertmacro INKLANGFILE Ukrainian
 !verbose pop
 
 ReserveFile inkscape.nsi.uninstall
@@ -518,10 +520,11 @@ SectionGroup "$(Languages)" SecLanguages ; Languages sections {{{
   !insertmacro Language SpanishMexico     es_MX
   !insertmacro Language Estonian          et
   !insertmacro Language Basque            eu
+  !insertmacro Language Farsi             fa
   !insertmacro Language French            fr
   !insertmacro Language Finnish           fi
   !insertmacro Language Irish             ga
-  !insertmacro Language Gallegan          gl
+  !insertmacro Language Galician          gl
   !insertmacro Language Hebrew            he
   !insertmacro Language Croatian          hr
   !insertmacro Language Hungarian         hu
@@ -550,12 +553,13 @@ SectionGroup "$(Languages)" SecLanguages ; Languages sections {{{
   !insertmacro Language Serbian           sr
   !insertmacro Language SerbianLatin      sr@latin
   !insertmacro Language Swedish           sv
+  !insertmacro Language Telugu            te_IN
   !insertmacro Language Thai              th
   !insertmacro Language Turkish           tr
   !insertmacro Language Ukrainian         uk
   !insertmacro Language Vietnamese        vi
-  !insertmacro Language ChineseSimplified zh_CN
-  !insertmacro Language ChineseTaiwan     zh_TW
+  !insertmacro Language SimpChinese       zh_CN
+  !insertmacro Language TradChinese       zh_TW
   ; }}}
 SectionGroupEnd ; SecLanguages }}}
 
@@ -645,10 +649,12 @@ Function .onInit ; initialise the installer {{{2
   !insertmacro LanguageAutoSelect Breton        1150
   !insertmacro LanguageAutoSelect Catalan       1027
   !insertmacro LanguageAutoSelect Czech         1029
+  !insertmacro LanguageAutoSelect Dutch         1043
   !insertmacro LanguageAutoSelect Finnish       1035
   !insertmacro LanguageAutoSelect French        1036
-  !insertmacro LanguageAutoSelect Gallegan      1110 ; Galician, but section is called Gallegan
+  !insertmacro LanguageAutoSelect Galician      1110
   !insertmacro LanguageAutoSelect German        1031
+  !insertmacro LanguageAutoSelect Indonesian    1057
   !insertmacro LanguageAutoSelect Italian       1040
   !insertmacro LanguageAutoSelect Japanese      1041
   !insertmacro LanguageAutoSelect Polish        1045
@@ -657,7 +663,9 @@ Function .onInit ; initialise the installer {{{2
   !insertmacro LanguageAutoSelect Slovak        1051
   !insertmacro LanguageAutoSelect Slovenian     1060
   !insertmacro LanguageAutoSelect Spanish       1034
-  !insertmacro LanguageAutoSelect ChineseTaiwan 1028 ; TradChinese, but section is called ChineseTaiwan
+  !insertmacro LanguageAutoSelect SimpChinese   2052
+  !insertmacro LanguageAutoSelect TradChinese   1028
+  !insertmacro LanguageAutoSelect Ukrainian     1058
   ; End of language detection }}}
 
   !insertmacro UNINSTALL.LOG_PREPARE_INSTALL ; prepare advanced uninstallation log script
@@ -770,10 +778,11 @@ Function .onInit ; initialise the installer {{{2
   !insertmacro Parameter es_MX          ${SecSpanishMexico}
   !insertmacro Parameter et             ${SecEstonian}
   !insertmacro Parameter eu             ${SecBasque}
+  !insertmacro Parameter fa             ${SecFarsi}
   !insertmacro Parameter fi             ${SecFinnish}
   !insertmacro Parameter fr             ${SecFrench}
   !insertmacro Parameter ga             ${SecIrish}
-  !insertmacro Parameter gl             ${SecGallegan}
+  !insertmacro Parameter gl             ${SecGalician}
   !insertmacro Parameter he             ${SecHebrew}
   !insertmacro Parameter hr             ${SecCroatian}
   !insertmacro Parameter hu             ${SecHungarian}
@@ -802,12 +811,13 @@ Function .onInit ; initialise the installer {{{2
   !insertmacro Parameter sr             ${SecSerbian}
   !insertmacro Parameter sr@latin       ${SecSerbianLatin}
   !insertmacro Parameter sv             ${SecSwedish}
+  !insertmacro Parameter te_IN          ${SecTelugu}
   !insertmacro Parameter th             ${SecThai}
   !insertmacro Parameter tr             ${SecTurkish}
   !insertmacro Parameter uk             ${SecUkrainian}
   !insertmacro Parameter vi             ${SecVietnamese}
-  !insertmacro Parameter zh_CN          ${SecChineseSimplified}
-  !insertmacro Parameter zh_TW          ${SecChineseTaiwan}
+  !insertmacro Parameter zh_CN          ${SecSimpChinese}
+  !insertmacro Parameter zh_TW          ${SecTradChinese}
 
   ClearErrors
   ${GetOptions} $CMDARGS /? $1

@@ -144,8 +144,6 @@ struct SPILength {
 
 #define SP_STYLE_FILL_SERVER(s) (((SPStyle *) (s))->getFillPaintServer())
 #define SP_STYLE_STROKE_SERVER(s) (((SPStyle *) (s))->getStrokePaintServer())
-#define SP_OBJECT_STYLE_FILL_SERVER(o) (SP_OBJECT (o)->style->getFillPaintServer())
-#define SP_OBJECT_STYLE_STROKE_SERVER(o) (SP_OBJECT (o)->style->getStrokePaintServer())
 
 class SVGICCColor;
 
@@ -161,6 +159,7 @@ struct SPIPaint {
          SPColor color;
     } value;
 
+    SPIPaint();
 
     bool isSet() const { return true; /* set || colorSet*/}
     bool isSameType( SPIPaint const & other ) const {return (isPaintserver() == other.isPaintserver()) && (colorSet == other.colorSet) && (currentcolor == other.currentcolor);}
@@ -176,6 +175,15 @@ struct SPIPaint {
     void setColor( float r, float g, float b ) {value.color.set( r, g, b ); colorSet = true;}
     void setColor( guint32 val ) {value.color.set( val ); colorSet = true;}
     void setColor( SPColor const& color ) {value.color = color; colorSet = true;}
+
+    void read( gchar const *str, SPStyle &tyle, SPDocument *document = 0);
+
+    // Win32 is a temp work-around until the emf extension is fixed:
+#ifndef WIN32
+private:
+    SPIPaint(SPIPaint const&);
+    SPIPaint &operator=(SPIPaint const &);
+#endif // WIN32
 };
 
 /// Filter type internal to SPStyle

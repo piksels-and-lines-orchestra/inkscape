@@ -20,15 +20,12 @@
 #include "xml/node.h"
 
 static void sp_paint_server_class_init(SPPaintServerClass *psc);
-static void sp_paint_server_init(SPPaintServer *ps);
-
-static void sp_paint_server_release(SPObject *object);
 
 static cairo_pattern_t *sp_paint_server_create_dummy_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 static SPObjectClass *parent_class;
 
-GType sp_paint_server_get_type (void)
+GType SPPaintServer::get_type(void)
 {
     static GType type = 0;
     if (!type) {
@@ -41,7 +38,7 @@ GType sp_paint_server_get_type (void)
             NULL,       /* class_data */
             sizeof(SPPaintServer),
             16, /* n_preallocs */
-            (GInstanceInitFunc) sp_paint_server_init,
+            (GInstanceInitFunc) SPPaintServer::init,
             NULL,       /* value_table */
         };
         type = g_type_register_static(SP_TYPE_OBJECT, "SPPaintServer", &info, (GTypeFlags) 0);
@@ -51,21 +48,13 @@ GType sp_paint_server_get_type (void)
 
 static void sp_paint_server_class_init(SPPaintServerClass *psc)
 {
-    SPObjectClass *sp_object_class = (SPObjectClass *) psc;
-    sp_object_class->release = sp_paint_server_release;
     psc->pattern_new = sp_paint_server_create_dummy_pattern;
+
     parent_class = (SPObjectClass *) g_type_class_ref(SP_TYPE_OBJECT);
 }
 
-static void sp_paint_server_init(SPPaintServer *ps)
+void SPPaintServer::init(SPPaintServer *ps)
 {
-}
-
-static void sp_paint_server_release(SPObject *object)
-{
-    if (((SPObjectClass *) parent_class)->release) {
-        ((SPObjectClass *) parent_class)->release(object);
-    }
 }
 
 cairo_pattern_t *sp_paint_server_create_pattern(SPPaintServer *ps,
@@ -100,29 +89,16 @@ sp_paint_server_create_dummy_pattern(SPPaintServer */*ps*/,
 
 bool SPPaintServer::isSwatch() const
 {
-    bool swatch = false;
-    if (SP_IS_GRADIENT(this)) {
-        SPGradient *grad = SP_GRADIENT(this);
-        if ( SP_GRADIENT_HAS_STOPS(grad) ) {
-            gchar const * attr = repr->attribute("osb:paint");
-            if (attr && !strcmp(attr, "solid")) {
-                swatch = true;
-            }
-        }
-    }
     return swatch;
 }
 
 bool SPPaintServer::isSolid() const
 {
     bool solid = false;
-    if (SP_IS_GRADIENT(this)) {
+    if (swatch && SP_IS_GRADIENT(this)) {
         SPGradient *grad = SP_GRADIENT(this);
-        if ( SP_GRADIENT_HAS_STOPS(grad) && (grad->getStopCount() == 0) ) {
-            gchar const * attr = repr->attribute("osb:paint");
-            if (attr && !strcmp(attr, "solid")) {
-                solid = true;
-            }
+        if ( grad->hasStops() && (grad->getStopCount() == 0) ) {
+            solid = true;
         }
     }
     return solid;

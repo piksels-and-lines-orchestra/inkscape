@@ -61,13 +61,16 @@ private:
     SPDesktop *desktop;
     SPDocument *document;
     Glib::Timer *timer;
+    Glib::Timer *renderTimer;
     bool pending;
+    gdouble minDelay;
 
     Gtk::Tooltips   tips;
 
     Gtk::VBox       iconBox;
     Gtk::HPaned     splitter;
 
+    Glib::ustring targetId;
     int hot;
     int numEntries;
     int* sizes;

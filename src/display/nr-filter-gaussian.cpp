@@ -551,7 +551,8 @@ void FilterGaussian::render_cairo(FilterSlot &slot)
     }
 
 #if HAVE_OPENMP
-    int threads = Inkscape::Preferences::get()->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    int threads = prefs->getIntLimited("/options/threading/numthreads", omp_get_num_procs(), 1, 256);
 #else
     int threads = 1;
 #endif

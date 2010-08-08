@@ -538,8 +538,8 @@ void SPPaintSelector::pushAttrsToGradient( SPGradient *gr ) const
     SPGradientUnits units = SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX;
     SPGradientSpread spread = SP_GRADIENT_SPREAD_PAD;
     getGradientProperties( units, spread );
-    sp_gradient_set_units(gr, units);
-    sp_gradient_set_spread(gr, spread);
+    gr->setUnits(units);
+    gr->setSpread(spread);
     SP_OBJECT(gr)->updateRepr();
 }
 
@@ -1082,11 +1082,10 @@ static void sp_paint_selector_set_mode_swatch(SPPaintSelector *psel, SPPaintSele
     SwatchSelector *swatchsel = 0;
 
     if (psel->mode == SPPaintSelector::MODE_SWATCH){
-        /* Already have pattern menu */
         swatchsel = static_cast<SwatchSelector*>(g_object_get_data(G_OBJECT(psel->selector), "swatch-selector"));
     } else {
         sp_paint_selector_clear_frame(psel);
-        /* Create new gradient selector */
+        // Create new gradient selector
         SwatchSelector *swatchsel = new SwatchSelector();
         swatchsel->show();
 
@@ -1102,6 +1101,7 @@ static void sp_paint_selector_set_mode_swatch(SPPaintSelector *psel, SPPaintSele
 
         gtk_frame_set_label(GTK_FRAME(psel->frame), _("Swatch fill"));
     }
+
 #ifdef SP_PS_VERBOSE
     g_print("Swatch req\n");
 #endif

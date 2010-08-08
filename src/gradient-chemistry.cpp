@@ -37,6 +37,7 @@
 #include "preferences.h"
 
 #include "libnr/nr-point-fns.h"
+#define noSP_GR_VERBOSE
 
 // Terminology:
 //
@@ -49,9 +50,11 @@
 
 static void sp_gradient_repr_set_link(Inkscape::XML::Node *repr, SPGradient *gr);
 
-SPGradient *
-sp_gradient_ensure_vector_normalized(SPGradient *gr)
+SPGradient *sp_gradient_ensure_vector_normalized(SPGradient *gr)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_ensure_vector_normalized(%p)", gr);
+#endif
     g_return_val_if_fail(gr != NULL, NULL);
     g_return_val_if_fail(SP_IS_GRADIENT(gr), NULL);
 
@@ -64,9 +67,9 @@ sp_gradient_ensure_vector_normalized(SPGradient *gr)
     }
 
     /* First make sure we have vector directly defined (i.e. gr has its own stops) */
-    if (!gr->has_stops) {
+    if ( !gr->hasStops() ) {
         /* We do not have stops ourselves, so flatten stops as well */
-        sp_gradient_ensure_vector(gr);
+        gr->ensureVector();
         g_assert(gr->vector.built);
         // this adds stops from gr->vector as children to gr
         sp_gradient_repr_write_vector (gr);
@@ -88,13 +91,16 @@ sp_gradient_ensure_vector_normalized(SPGradient *gr)
  * Creates new private gradient for the given vector
  */
 
-static SPGradient *
-sp_gradient_get_private_normalized(SPDocument *document, SPGradient *vector, SPGradientType type)
+static SPGradient *sp_gradient_get_private_normalized(SPDocument *document, SPGradient *vector, SPGradientType type)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_get_private_normalized(%p, %p, %d)", document, vector, type);
+#endif
+
     g_return_val_if_fail(document != NULL, NULL);
     g_return_val_if_fail(vector != NULL, NULL);
     g_return_val_if_fail(SP_IS_GRADIENT(vector), NULL);
-    g_return_val_if_fail(SP_GRADIENT_HAS_STOPS(vector), NULL);
+    g_return_val_if_fail(vector->hasStops(), NULL);
 
     SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
 
@@ -128,8 +134,7 @@ sp_gradient_get_private_normalized(SPDocument *document, SPGradient *vector, SPG
 /**
 Count how many times gr is used by the styles of o and its descendants
 */
-guint
-count_gradient_hrefs(SPObject *o, SPGradient *gr)
+guint count_gradient_hrefs(SPObject *o, SPGradient *gr)
 {
     if (!o)
         return 1;
@@ -164,18 +169,21 @@ count_gradient_hrefs(SPObject *o, SPGradient *gr)
 /**
  * If gr has other users, create a new private; also check if gr links to vector, relink if not
  */
-SPGradient *
-sp_gradient_fork_private_if_necessary(SPGradient *gr, SPGradient *vector,
-                                      SPGradientType type, SPObject *o)
+SPGradient *sp_gradient_fork_private_if_necessary(SPGradient *gr, SPGradient *vector,
+                                                  SPGradientType type, SPObject *o)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_fork_private_if_necessary(%p, %p, %d, %p)", gr, vector, type, o);
+#endif
     g_return_val_if_fail(gr != NULL, NULL);
     g_return_val_if_fail(SP_IS_GRADIENT(gr), NULL);
 
     // Orphaned gradient, no vector with stops at the end of the line; this used to be an assert
     // but i think we should not abort on this - maybe just write a validity warning into some sort
     // of log
-    if (!vector || !SP_GRADIENT_HAS_STOPS(vector))
+    if ( !vector || !vector->hasStops() ) {
         return (gr);
+    }
 
     // user is the object that uses this gradient; normally it's item but for tspans, we
     // check its ancestor text so that tspans don't get different gradients from their
@@ -199,7 +207,7 @@ sp_gradient_fork_private_if_necessary(SPGradient *gr, SPGradient *vector,
     SPDocument *doc = SP_OBJECT_DOCUMENT(gr);
     SPObject *defs = SP_DOCUMENT_DEFS(doc);
 
-    if ((gr->has_stops) ||
+    if ((gr->hasStops()) ||
         (gr->state != SP_GRADIENT_STATE_UNKNOWN) ||
         (SP_OBJECT_PARENT(gr) != SP_OBJECT(defs)) ||
         (SP_OBJECT_HREFCOUNT(gr) > 1)) {
@@ -233,9 +241,11 @@ sp_gradient_fork_private_if_necessary(SPGradient *gr, SPGradient *vector,
     }
 }
 
-SPGradient *
-sp_gradient_fork_vector_if_necessary (SPGradient *gr)
+SPGradient *sp_gradient_fork_vector_if_necessary(SPGradient *gr)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_fork_vector_if_necessary(%p)", gr);
+#endif
     // Some people actually prefer their gradient vectors to be shared...
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     if (!prefs->getBool("/options/forkgradientvectors/value", true))
@@ -258,9 +268,11 @@ sp_gradient_fork_vector_if_necessary (SPGradient *gr)
 /**
  *  Obtain the vector from the gradient. A forked vector will be created and linked to this gradient if another gradient uses it.
  */
-SPGradient *
-sp_gradient_get_forked_vector_if_necessary(SPGradient *gradient, bool force_vector)
+SPGradient *sp_gradient_get_forked_vector_if_necessary(SPGradient *gradient, bool force_vector)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_get_forked_vector_if_necessary(%p, %d)", gradient, force_vector);
+#endif
     SPGradient *vector = gradient->getVector(force_vector);
     vector = sp_gradient_fork_vector_if_necessary (vector);
     if ( gradient != vector && gradient->ref->getObject() != vector ) {
@@ -275,9 +287,11 @@ sp_gradient_get_forked_vector_if_necessary(SPGradient *gradient, bool force_vect
  * instead. No forking or reapplying is done because this is only called for newly created privates.
  * @return The new gradient.
  */
-SPGradient *
-sp_gradient_reset_to_userspace (SPGradient *gr, SPItem *item)
+SPGradient *sp_gradient_reset_to_userspace(SPGradient *gr, SPItem *item)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_reset_to_userspace(%p, %p)", gr, item);
+#endif
     Inkscape::XML::Node *repr = SP_OBJECT_REPR(gr);
 
     // calculate the bbox of the item
@@ -327,16 +341,22 @@ sp_gradient_reset_to_userspace (SPGradient *gr, SPItem *item)
  * Convert an item's gradient to userspace if necessary, also fork it if necessary.
  * @return The new gradient.
  */
-SPGradient *
-sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar const *property)
+SPGradient *sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar const *property)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_convert_to_userspace(%p, %p, \"%s\")", gr, item, property);
+#endif
     g_return_val_if_fail(SP_IS_GRADIENT(gr), NULL);
+
+    if ( gr && gr->isSolid() ) {
+        return gr;
+    }
 
     // First, fork it if it is shared
     gr = sp_gradient_fork_private_if_necessary(gr, gr->getVector(),
                                                SP_IS_RADIALGRADIENT(gr) ? SP_GRADIENT_TYPE_RADIAL : SP_GRADIENT_TYPE_LINEAR, SP_OBJECT(item));
 
-    if (gr->units == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
+    if (gr->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
 
         Inkscape::XML::Node *repr = SP_OBJECT_REPR(gr);
 
@@ -439,9 +459,11 @@ sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar const *prop
     return gr;
 }
 
-void
-sp_gradient_transform_multiply(SPGradient *gradient, Geom::Matrix postmul, bool set)
+void sp_gradient_transform_multiply(SPGradient *gradient, Geom::Matrix postmul, bool set)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_transform_multiply(%p, , %d)", gradient, set);
+#endif
     if (set) {
         gradient->gradientTransform = postmul;
     } else {
@@ -454,24 +476,23 @@ sp_gradient_transform_multiply(SPGradient *gradient, Geom::Matrix postmul, bool 
     g_free(c);
 }
 
-SPGradient *
-sp_item_gradient (SPItem *item, bool fill_or_stroke)
+SPGradient *sp_item_gradient(SPItem *item, bool fill_or_stroke)
 {
-    SPStyle *style = SP_OBJECT_STYLE (item);
-    SPGradient *gradient = NULL;
+    SPStyle *style = item->style;
+    SPGradient *gradient = 0;
 
     if (fill_or_stroke) {
         if (style && (style->fill.isPaintserver())) {
-            SPObject *server = SP_OBJECT_STYLE_FILL_SERVER(item);
-            if (SP_IS_GRADIENT (server)) {
-                gradient = SP_GRADIENT (server);
+            SPPaintServer *server = item->style->getFillPaintServer();
+            if ( SP_IS_GRADIENT(server) ) {
+                gradient = SP_GRADIENT(server);
             }
         }
     } else {
         if (style && (style->stroke.isPaintserver())) {
-            SPObject *server = SP_OBJECT_STYLE_STROKE_SERVER(item);
-            if (SP_IS_GRADIENT (server)) {
-                gradient = SP_GRADIENT (server);
+            SPPaintServer *server = item->style->getStrokePaintServer();
+            if ( SP_IS_GRADIENT(server) ) {
+                gradient = SP_GRADIENT(server);
             }
         }
     }
@@ -479,7 +500,7 @@ sp_item_gradient (SPItem *item, bool fill_or_stroke)
    return gradient;
 }
 
-SPStop* sp_last_stop(SPGradient *gradient)
+SPStop *sp_last_stop(SPGradient *gradient)
 {
     for (SPStop *stop = gradient->getFirstStop(); stop != NULL; stop = stop->getNextStop()) {
         if (stop->getNextStop() == NULL)
@@ -488,8 +509,7 @@ SPStop* sp_last_stop(SPGradient *gradient)
     return NULL;
 }
 
-SPStop*
-sp_get_stop_i(SPGradient *gradient, guint stop_i)
+SPStop *sp_get_stop_i(SPGradient *gradient, guint stop_i)
 {
     SPStop *stop = gradient->getFirstStop();
 
@@ -509,20 +529,22 @@ sp_get_stop_i(SPGradient *gradient, guint stop_i)
     return stop;
 }
 
-guint32
-average_color (guint32 c1, guint32 c2, gdouble p)
+guint32 average_color(guint32 c1, guint32 c2, gdouble p)
 {
     guint32 r = (guint32) (SP_RGBA32_R_U (c1) * (1 - p) + SP_RGBA32_R_U (c2) * p);
     guint32 g = (guint32) (SP_RGBA32_G_U (c1) * (1 - p) + SP_RGBA32_G_U (c2) * p);
     guint32 b = (guint32) (SP_RGBA32_B_U (c1) * (1 - p) + SP_RGBA32_B_U (c2) * p);
     guint32 a = (guint32) (SP_RGBA32_A_U (c1) * (1 - p) + SP_RGBA32_A_U (c2) * p);
 
-    return SP_RGBA32_U_COMPOSE (r, g, b, a);
+    return SP_RGBA32_U_COMPOSE(r, g, b, a);
 }
 
-SPStop *
-sp_vector_add_stop (SPGradient *vector, SPStop* prev_stop, SPStop* next_stop, gfloat offset)
+SPStop *sp_vector_add_stop(SPGradient *vector, SPStop* prev_stop, SPStop* next_stop, gfloat offset)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_vector_add_stop(%p, %p, %p, %f)", vector, prev_stop, next_stop, offset);
+#endif
+
     Inkscape::XML::Node *new_stop_repr = NULL;
     new_stop_repr = SP_OBJECT_REPR(prev_stop)->duplicate(SP_OBJECT_REPR(vector)->document());
     SP_OBJECT_REPR(vector)->addChild(new_stop_repr, SP_OBJECT_REPR(prev_stop));
@@ -544,8 +566,7 @@ sp_vector_add_stop (SPGradient *vector, SPStop* prev_stop, SPStop* next_stop, gf
     return newstop;
 }
 
-void
-sp_item_gradient_edit_stop (SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
+void sp_item_gradient_edit_stop(SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
 {
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
@@ -585,8 +606,7 @@ sp_item_gradient_edit_stop (SPItem *item, guint point_type, guint point_i, bool 
     }
 }
 
-guint32
-sp_item_gradient_stop_query_style (SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
+guint32 sp_item_gradient_stop_query_style(SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
 {
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
@@ -638,9 +658,11 @@ sp_item_gradient_stop_query_style (SPItem *item, guint point_type, guint point_i
     return 0;
 }
 
-void
-sp_item_gradient_stop_set_style (SPItem *item, guint point_type, guint point_i, bool fill_or_stroke, SPCSSAttr *stop)
+void sp_item_gradient_stop_set_style(SPItem *item, guint point_type, guint point_i, bool fill_or_stroke, SPCSSAttr *stop)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_item_gradient_stop_set_style(%p, %d, %d, %d, %p)", item, point_type, point_i, fill_or_stroke, stop);
+#endif
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
     if (!gradient || !SP_IS_GRADIENT(gradient))
@@ -695,9 +717,11 @@ sp_item_gradient_stop_set_style (SPItem *item, guint point_type, guint point_i, 
     }
 }
 
-void
-sp_item_gradient_reverse_vector (SPItem *item, bool fill_or_stroke)
+void sp_item_gradient_reverse_vector(SPItem *item, bool fill_or_stroke)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_item_gradient_reverse_vector(%p, %d)", item, fill_or_stroke);
+#endif
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
     if (!gradient || !SP_IS_GRADIENT(gradient))
         return;
@@ -753,9 +777,11 @@ sp_item_gradient_reverse_vector (SPItem *item, bool fill_or_stroke)
 Set the position of point point_type of the gradient applied to item (either fill_or_stroke) to
 p_w (in desktop coordinates). Write_repr if you want the change to become permanent.
 */
-void
-sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom::Point p_w, bool fill_or_stroke, bool write_repr, bool scale)
+void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, Geom::Point p_w, bool fill_or_stroke, bool write_repr, bool scale)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_item_gradient_set_coords(%p, %d, %d, ...)", item, point_type, point_i );
+#endif
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
     if (!gradient || !SP_IS_GRADIENT(gradient))
@@ -814,7 +840,7 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                 // using X-coordinates only to determine the offset, assuming p has been snapped to the vector from begin to end.
                 double offset = get_offset_between_points (p, Geom::Point(lg->x1.computed, lg->y1.computed), Geom::Point(lg->x2.computed, lg->y2.computed));
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (lg, false);
-                sp_gradient_ensure_vector(lg);
+                lg->ensureVector();
                 lg->vector.stops.at(point_i).offset = offset;
                 SPStop* stopi = sp_get_stop_i(vector, point_i);
                 stopi->offset = offset;
@@ -908,7 +934,7 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                  Geom::Point end   = Geom::Point (rg->cx.computed + rg->r.computed, rg->cy.computed);
                 double offset = get_offset_between_points (p, start, end);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (rg, false);
-                sp_gradient_ensure_vector(rg);
+                rg->ensureVector();
                 rg->vector.stops.at(point_i).offset = offset;
                 SPStop* stopi = sp_get_stop_i(vector, point_i);
                 stopi->offset = offset;
@@ -924,7 +950,7 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
                 Geom::Point end   = Geom::Point (rg->cx.computed, rg->cy.computed - rg->r.computed);
                 double offset = get_offset_between_points (p, start, end);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary(rg, false);
-                sp_gradient_ensure_vector(rg);
+                rg->ensureVector();
                 rg->vector.stops.at(point_i).offset = offset;
                 SPStop* stopi = sp_get_stop_i(vector, point_i);
                 stopi->offset = offset;
@@ -950,8 +976,7 @@ sp_item_gradient_set_coords (SPItem *item, guint point_type, guint point_i, Geom
     }
 }
 
-SPGradient *
-sp_item_gradient_get_vector (SPItem *item, bool fill_or_stroke)
+SPGradient *sp_item_gradient_get_vector(SPItem *item, bool fill_or_stroke)
 {
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
@@ -961,14 +986,15 @@ sp_item_gradient_get_vector (SPItem *item, bool fill_or_stroke)
     return NULL;
 }
 
-SPGradientSpread
-sp_item_gradient_get_spread (SPItem *item, bool fill_or_stroke)
+SPGradientSpread sp_item_gradient_get_spread(SPItem *item, bool fill_or_stroke)
 {
+    SPGradientSpread spread = SP_GRADIENT_SPREAD_PAD;
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
-    if (gradient)
-        return sp_gradient_get_spread (gradient);
-    return SP_GRADIENT_SPREAD_PAD;
+    if (gradient) {
+        spread = gradient->fetchSpread();
+    }
+    return spread;
 }
 
 
@@ -977,9 +1003,11 @@ Returns the position of point point_type of the gradient applied to item (either
 in desktop coordinates.
 */
 
-Geom::Point
-sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
+Geom::Point sp_item_gradient_get_coords(SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_item_gradient_get_coords(%p, %d, %d, %d)", item, point_type, point_i, fill_or_stroke);
+#endif
     SPGradient *gradient = sp_item_gradient (item, fill_or_stroke);
 
     Geom::Point p (0, 0);
@@ -1033,7 +1061,7 @@ sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool
         }
     }
 
-    if (SP_GRADIENT(gradient)->units == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
+    if (SP_GRADIENT(gradient)->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
         sp_document_ensure_up_to_date(SP_OBJECT_DOCUMENT(item));
         Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
         if (bbox) {
@@ -1053,9 +1081,11 @@ sp_item_gradient_get_coords (SPItem *item, guint point_type, guint point_i, bool
  * gr has to be a normalized vector.
  */
 
-SPGradient *
-sp_item_set_gradient(SPItem *item, SPGradient *gr, SPGradientType type, bool is_fill)
+SPGradient *sp_item_set_gradient(SPItem *item, SPGradient *gr, SPGradientType type, bool is_fill)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_item_set_gradient(%p, %p, %d, %d)", item, gr, type, is_fill);
+#endif
     g_return_val_if_fail(item != NULL, NULL);
     g_return_val_if_fail(SP_IS_ITEM(item), NULL);
     g_return_val_if_fail(gr != NULL, NULL);
@@ -1124,6 +1154,9 @@ sp_item_set_gradient(SPItem *item, SPGradient *gr, SPGradientType type, bool is_
 
 static void sp_gradient_repr_set_link(Inkscape::XML::Node *repr, SPGradient *link)
 {
+#ifdef SP_GR_VERBOSE
+    g_message("sp_gradient_repr_set_link(%p, %p)", repr, link);
+#endif
     g_return_if_fail(repr != NULL);
     if (link) {
         g_return_if_fail(SP_IS_GRADIENT(link));
@@ -1138,59 +1171,54 @@ static void sp_gradient_repr_set_link(Inkscape::XML::Node *repr, SPGradient *lin
     }
 }
 
+
+static void addStop( Inkscape::XML::Node *parent, Glib::ustring const &color, gint opacity, gchar const *offset )
+{
+#ifdef SP_GR_VERBOSE
+    g_message("addStop(%p, %s, %d, %s)", parent, color.c_str(), opacity, offset);
+#endif
+    Inkscape::XML::Node *stop = parent->document()->createElement("svg:stop");
+    {
+        gchar *tmp = g_strdup_printf( "stop-color:%s;stop-opacity:%d;", color.c_str(), opacity );
+        stop->setAttribute( "style", tmp );
+        g_free(tmp);
+    }
+
+    stop->setAttribute( "offset", offset );
+
+    parent->appendChild(stop);
+    Inkscape::GC::release(stop);
+}
+
 /*
  * Get default normalized gradient vector of document, create if there is none
  */
-
-SPGradient *
-sp_document_default_gradient_vector(SPDocument *document, guint32 color)
+SPGradient *sp_document_default_gradient_vector( SPDocument *document, SPColor const &color, bool singleStop )
 {
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
-    Inkscape::XML::Document *xml_doc = sp_document_repr_doc(document);
+    SPDefs *defs = static_cast<SPDefs *>(SP_DOCUMENT_DEFS(document));
+    Inkscape::XML::Document *xml_doc = document->rdoc;
 
     Inkscape::XML::Node *repr = xml_doc->createElement("svg:linearGradient");
 
-    repr->setAttribute("inkscape:collect", "always");
-    // set here, but removed when it's edited in the gradient editor
-    // to further reduce clutter, we could
-    // (1) here, search gradients by color and return what is found without duplication
-    // (2) in fill & stroke, show only one copy of each gradient in list
-
-    Inkscape::XML::Node *stop = xml_doc->createElement("svg:stop");
-
-    gchar b[64];
-    sp_svg_write_color(b, sizeof(b), color);
-
-    {
-        gchar *t = g_strdup_printf("stop-color:%s;stop-opacity:1;", b);
-        stop->setAttribute("style", t);
-        g_free(t);
+    if ( !singleStop ) {
+        repr->setAttribute("inkscape:collect", "always");
+        // set here, but removed when it's edited in the gradient editor
+        // to further reduce clutter, we could
+        // (1) here, search gradients by color and return what is found without duplication
+        // (2) in fill & stroke, show only one copy of each gradient in list
     }
 
-    stop->setAttribute("offset", "0");
-
-    repr->appendChild(stop);
-    Inkscape::GC::release(stop);
-
-    stop = xml_doc->createElement("svg:stop");
-
-    {
-        gchar *t = g_strdup_printf("stop-color:%s;stop-opacity:0;", b);
-        stop->setAttribute("style", t);
-        g_free(t);
+    Glib::ustring colorStr = color.toString();
+    addStop( repr, colorStr, 1, "0" );
+    if ( !singleStop ) {
+        addStop( repr, colorStr, 0, "1" );
     }
-
-    stop->setAttribute("offset", "1");
-
-    repr->appendChild(stop);
-    Inkscape::GC::release(stop);
 
     SP_OBJECT_REPR(defs)->addChild(repr, NULL);
     Inkscape::GC::release(repr);
 
     /* fixme: This does not look like nice */
-    SPGradient *gr;
-    gr = (SPGradient *) document->getObjectByRepr(repr);
+    SPGradient *gr = static_cast<SPGradient *>(document->getObjectByRepr(repr));
     g_assert(gr != NULL);
     g_assert(SP_IS_GRADIENT(gr));
     /* fixme: Maybe add extra sanity check here */
@@ -1203,13 +1231,12 @@ sp_document_default_gradient_vector(SPDocument *document, guint32 color)
 Return the preferred vector for \a o, made from (in order of preference) its current vector,
 current fill or stroke color, or from desktop style if \a o is NULL or doesn't have style.
 */
-SPGradient *
-sp_gradient_vector_for_object(SPDocument *const doc, SPDesktop *const desktop,
-                              SPObject *const o, bool const is_fill)
+SPGradient *sp_gradient_vector_for_object( SPDocument *const doc, SPDesktop *const desktop,
+                                           SPObject *const o, bool const is_fill, bool singleStop )
 {
-    guint32 rgba = 0;
+    SPColor color;
     if (o == NULL || SP_OBJECT_STYLE(o) == NULL) {
-        rgba = sp_desktop_get_color(desktop, is_fill);
+        color = sp_desktop_get_color(desktop, is_fill);
     } else {
         // take the color of the object
         SPStyle const &style = *SP_OBJECT_STYLE(o);
@@ -1217,21 +1244,21 @@ sp_gradient_vector_for_object(SPDocument *const doc, SPDesktop *const desktop,
                                   ? style.fill
                                   : style.stroke );
         if (paint.isPaintserver()) {
-            SPObject *server = is_fill? SP_OBJECT_STYLE_FILL_SERVER(o) : SP_OBJECT_STYLE_STROKE_SERVER(o);
-            if (SP_IS_GRADIENT (server)) {
+            SPObject *server = is_fill? o->style->getFillPaintServer() : o->style->getStrokePaintServer();
+            if ( SP_IS_GRADIENT(server) ) {
                 return SP_GRADIENT(server)->getVector(true);
             } else {
-                rgba = sp_desktop_get_color(desktop, is_fill);
+                color = sp_desktop_get_color(desktop, is_fill);
             }
         } else if (paint.isColor()) {
-            rgba = paint.value.color.toRGBA32( 0xff );
+            color = paint.value.color;
         } else {
             // if o doesn't use flat color, then take current color of the desktop.
-            rgba = sp_desktop_get_color(desktop, is_fill);
+            color = sp_desktop_get_color(desktop, is_fill);
         }
     }
 
-    return sp_document_default_gradient_vector(doc, rgba);
+    return sp_document_default_gradient_vector( doc, color, singleStop );
 }
 
 

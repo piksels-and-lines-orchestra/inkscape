@@ -16,6 +16,7 @@ tutorial_DATA = \
     potrace-fr.png \
     potrace-hu.png \
     potrace-ja.png \
+    potrace-nl.png \
     potrace.png \
     potrace-pl.png \
     potrace-pt_BR.png \
@@ -59,6 +60,7 @@ tutorial_DATA = \
     tutorial-basic.fa.svg \
     tutorial-basic.fr.svg \
     tutorial-basic.hu.svg \
+    tutorial-basic.id.svg \
     tutorial-basic.it.svg \
     tutorial-basic.ja.svg \
     tutorial-basic.nl.svg \
@@ -113,6 +115,7 @@ tutorial_DATA = \
     tutorial-interpolate.hu.svg \
     tutorial-interpolate.ja.svg \
     tutorial-interpolate.pl.svg \
+    tutorial-interpolate.sk.svg \
     tutorial-interpolate.sl.svg \
     tutorial-interpolate.vi.svg \
     tutorial-interpolate.zh_TW.svg \
@@ -126,6 +129,7 @@ tutorial_DATA = \
     tutorial-shapes.fa.svg \
     tutorial-shapes.fr.svg \
     tutorial-shapes.hu.svg \
+    tutorial-shapes.id.svg \
     tutorial-shapes.it.svg \
     tutorial-shapes.ja.svg \
     tutorial-shapes.nl.svg \
@@ -165,6 +169,7 @@ tutorial_DATA = \
     tutorial-tracing.fr.svg \
     tutorial-tracing.hu.svg \
     tutorial-tracing.ja.svg \
+    tutorial-tracing.nl.svg \
     tutorial-tracing.pl.svg \
     tutorial-tracing.pt_BR.svg \
     tutorial-tracing.ru.svg \

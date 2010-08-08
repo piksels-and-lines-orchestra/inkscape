@@ -16,6 +16,7 @@ Graphics_DATA = $(Graphics_in_files:.desktop.in=.desktop)
 ##	cp $(srcdir)/AUTHORS $(distdir)
 ##	cp $(srcdir)/NEWS $(distdir)
 
+DISTCHECK_CONFIGURE_FLAGS = --enable-localinstall
 
 man_MANS = inkscape.1 \
 		inkview.1
@@ -161,6 +162,7 @@ EXTRA_DIST = \
 	packaging/win32/languages/French.nsh	\
 	packaging/win32/languages/Galician.nsh	\
 	packaging/win32/languages/German.nsh	\
+	packaging/win32/languages/Indonesian.nsh \
 	packaging/win32/languages/Italian.nsh	\
 	packaging/win32/languages/Japanese.nsh	\
 	packaging/win32/languages/Polish.nsh	\
@@ -171,6 +173,7 @@ EXTRA_DIST = \
 	packaging/win32/languages/Spanish.nsh	\
 	packaging/win32/languages/SimpChinese.nsh	\
 	packaging/win32/languages/TradChinese.nsh	\
+	packaging/win32/languages/Ukrainian.nsh	\
 	packaging/win32/header.bmp	\
 	packaging/win32/header.svg	\
 	packaging/win32/AdvUninstLog.nsh	\

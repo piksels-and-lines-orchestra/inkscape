@@ -34,7 +34,7 @@ public:
   void constrainedSnap(SnappedConstraints &sc,
                           Inkscape::SnapCandidatePoint const &p,
                           Geom::OptRect const &bbox_to_snap,
-                          ConstraintLine const &c,
+                          SnapConstraint const &c,
                           std::vector<SPItem const *> const *it) const;
 
 protected:

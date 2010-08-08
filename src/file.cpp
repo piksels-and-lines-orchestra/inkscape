@@ -68,6 +68,10 @@
 # include <libgnomevfs/gnome-vfs.h>
 #endif
 
+#ifdef WITH_DBUS
+#include "extension/dbus/dbus-init.h"
+#endif
+
 //#ifdef WITH_INKBOARD
 //#include "jabber_whiteboard/session-manager.h"
 //#endif
@@ -135,6 +139,11 @@ sp_file_new(const Glib::ustring &templ)
         sp_namedview_window_from_document(dt);
         sp_namedview_update_layers_from_document(dt);
     }
+
+#ifdef WITH_DBUS
+    Inkscape::Extension::Dbus::dbus_init_desktop_interface(dt);
+#endif
+
     return dt;
 }
 

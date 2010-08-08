@@ -1,13 +1,15 @@
 #!/usr/bin/env python 
 '''
 Copyright (C) 2005,2007,2008 Aaron Spike, aaron@ekips.org
-Copyright (C) 2008 Alvin Penner, penner@vaxxine.com
+Copyright (C) 2008,2010 Alvin Penner, penner@vaxxine.com
 
 - template dxf_outlines.dxf added Feb 2008 by Alvin Penner
 - ROBO-Master output option added Aug 2008
 - ROBO-Master multispline output added Sept 2008
 - LWPOLYLINE output modification added Dec 2008
 - toggle between LINE/LWPOLYLINE added Jan 2010
+- support for transform elements added July 2010
+- support for layers added July 2010
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,7 +25,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 '''
-import inkex, simplepath, simplestyle, cubicsuperpath, coloreffect, dxf_templates, math
+import inkex, simplestyle, simpletransform, cubicsuperpath, coloreffect, dxf_templates, math
 import gettext
 _ = gettext.gettext
 
@@ -59,6 +61,8 @@ class MyEffect(inkex.Effect):
         self.OptionParser.add_option("--inputhelp", action="store", type="string", dest="inputhelp")
         self.dxf = []
         self.handle = 255                       # handle for DXF ENTITY
+        self.layers = ['0']
+        self.layer = '0'                        # mandatory layer
         self.csp_old = [[0.0,0.0]]*4            # previous spline
         self.d = array([0], float)              # knot vector
         self.poly = [[0.0,0.0]]                 # LWPOLYLINE data
@@ -68,7 +72,7 @@ class MyEffect(inkex.Effect):
         self.dxf.append(str)
     def dxf_line(self,csp):
         self.handle += 1
-        self.dxf_add("  0\nLINE\n  5\n%x\n100\nAcDbEntity\n  8\n0\n 62\n%d\n100\nAcDbLine\n" % (self.handle, self.color))
+        self.dxf_add("  0\nLINE\n  5\n%x\n100\nAcDbEntity\n  8\n%s\n 62\n%d\n100\nAcDbLine\n" % (self.handle, self.layer, self.color))
         self.dxf_add(" 10\n%f\n 20\n%f\n 30\n0.0\n 11\n%f\n 21\n%f\n 31\n0.0\n" % (csp[0][0],csp[0][1],csp[1][0],csp[1][1]))
     def LWPOLY_line(self,csp):
         if (abs(csp[0][0] - self.poly[-1][0]) > .0001
@@ -76,19 +80,20 @@ class MyEffect(inkex.Effect):
             self.LWPOLY_output()                            # terminate current polyline
             self.poly = [csp[0]]                            # initiallize new polyline
             self.color_LWPOLY = self.color
+            self.layer_LWPOLY = self.layer
         self.poly.append(csp[1])
     def LWPOLY_output(self):
         if len(self.poly) == 1:
             return
         self.handle += 1
-        self.dxf_add("  0\nLWPOLYLINE\n  5\n%x\n100\nAcDbEntity\n  8\n0\n 62\n%d\n100\nAcDbPolyline\n 90\n%d\n 70\n0\n" % (self.handle, self.color_LWPOLY, len(self.poly)))
+        self.dxf_add("  0\nLWPOLYLINE\n  5\n%x\n100\nAcDbEntity\n  8\n%s\n 62\n%d\n100\nAcDbPolyline\n 90\n%d\n 70\n0\n" % (self.handle, self.layer_LWPOLY, self.color_LWPOLY, len(self.poly)))
         for i in range(len(self.poly)):
             self.dxf_add(" 10\n%f\n 20\n%f\n 30\n0.0\n" % (self.poly[i][0],self.poly[i][1]))
     def dxf_spline(self,csp):
         knots = 8
         ctrls = 4
         self.handle += 1
-        self.dxf_add("  0\nSPLINE\n  5\n%x\n100\nAcDbEntity\n  8\n0\n 62\n%d\n100\nAcDbSpline\n" % (self.handle, self.color))
+        self.dxf_add("  0\nSPLINE\n  5\n%x\n100\nAcDbEntity\n  8\n%s\n 62\n%d\n100\nAcDbSpline\n" % (self.handle, self.layer, self.color))
         self.dxf_add(" 70\n8\n 71\n3\n 72\n%d\n 73\n%d\n 74\n0\n" % (knots, ctrls))
         for i in range(2):
             for j in range(4):
@@ -105,6 +110,7 @@ class MyEffect(inkex.Effect):
             self.yfit = array([csp[0][1]], float)
             self.d = array([0], float)
             self.color_ROBO = self.color
+            self.layer_ROBO = self.layer
         self.xfit = concatenate((self.xfit, zeros((3))))    # append to current spline
         self.yfit = concatenate((self.yfit, zeros((3))))
         self.d = concatenate((self.d, zeros((3))))
@@ -138,7 +144,7 @@ class MyEffect(inkex.Effect):
         xctrl = solve(solmatrix, self.xfit)
         yctrl = solve(solmatrix, self.yfit)
         self.handle += 1
-        self.dxf_add("  0\nSPLINE\n  5\n%x\n100\nAcDbEntity\n  8\n0\n 62\n%d\n100\nAcDbSpline\n" % (self.handle, self.color_ROBO))
+        self.dxf_add("  0\nSPLINE\n  5\n%x\n100\nAcDbEntity\n  8\n%s\n 62\n%d\n100\nAcDbSpline\n" % (self.handle, self.layer_ROBO, self.color_ROBO))
         self.dxf_add(" 70\n0\n 71\n3\n 72\n%d\n 73\n%d\n 74\n%d\n" % (knots, ctrls, fits))
         for i in range(knots):
             self.dxf_add(" 40\n%f\n" % self.d[i-3])
@@ -147,47 +153,78 @@ class MyEffect(inkex.Effect):
         for i in range(fits):
             self.dxf_add(" 11\n%f\n 21\n%f\n 31\n0.0\n" % (self.xfit[i],self.yfit[i]))
 
+    def process_path(self, node, mat):
+        rgb = (0,0,0)
+        style = node.get('style')
+        if style:
+            style = simplestyle.parseStyle(style)
+            if style.has_key('stroke'):
+                if style['stroke'] and style['stroke'] != 'none':
+                    rgb = simplestyle.parseColor(style['stroke'])
+        hsl = coloreffect.ColorEffect.rgb_to_hsl(coloreffect.ColorEffect(),rgb[0]/255.0,rgb[1]/255.0,rgb[2]/255.0)
+        self.color = 7                                  # default is black
+        if hsl[2]:
+            self.color = 1 + (int(6*hsl[0] + 0.5) % 6)  # use 6 hues
+        d = node.get('d')
+        if d:
+            p = cubicsuperpath.parsePath(d)
+            trans = node.get('transform')
+            if trans:
+                mat = simpletransform.composeTransform(mat, simpletransform.parseTransform(trans))
+            simpletransform.applyTransformToPath(mat, p)
+            for sub in p:
+                for i in range(len(sub)-1):
+                    s = sub[i]
+                    e = sub[i+1]
+                    if s[1] == s[2] and e[0] == e[1]:
+                        if (self.options.POLY == 'true'):
+                            self.LWPOLY_line([s[1],e[1]])
+                        else:
+                            self.dxf_line([s[1],e[1]])
+                    elif (self.options.ROBO == 'true'):
+                        self.ROBO_spline([s[1],s[2],e[0],e[1]])
+                    else:
+                        self.dxf_spline([s[1],s[2],e[0],e[1]])
+
+    def process_group(self, group):
+        if group.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
+            layer = group.get(inkex.addNS('label', 'inkscape'))
+            layer = layer.replace(' ', '_')
+            if layer in self.layers:
+                self.layer = layer
+        trans = group.get('transform')
+        if trans:
+            self.groupmat.append(simpletransform.composeTransform(self.groupmat[-1], simpletransform.parseTransform(trans)))
+        for node in group:
+            if node.tag == inkex.addNS('path','svg'):
+                self.process_path(node, self.groupmat[-1])
+            if node.tag == inkex.addNS('g','svg'):
+                self.process_group(node)
+        if trans:
+            self.groupmat.pop()
+
     def effect(self):
         #References:   Minimum Requirements for Creating a DXF File of a 3D Model By Paul Bourke
         #              NURB Curves: A Guide for the Uninitiated By Philip J. Schneider
         #              The NURBS Book By Les Piegl and Wayne Tiller (Springer, 1995)
         self.dxf_add("999\nDXF created by Inkscape\n")
         self.dxf_add(dxf_templates.r14_header)
+        for node in self.document.getroot().xpath('//svg:g', namespaces=inkex.NSS):
+            if node.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
+                layer = node.get(inkex.addNS('label', 'inkscape'))
+                layer = layer.replace(' ', '_')
+                if layer and not layer in self.layers:
+                    self.layers.append(layer)
+        self.dxf_add("  2\nLAYER\n  5\n2\n100\nAcDbSymbolTable\n 70\n%s\n" % len(self.layers))
+        for i in range(len(self.layers)):
+            self.dxf_add("  0\nLAYER\n  5\n%x\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n  2\n%s\n 70\n0\n  6\nCONTINUOUS\n" % (i + 80, self.layers[i]))
+        self.dxf_add(dxf_templates.r14_style)
 
         scale = 25.4/90.0
         h = inkex.unittouu(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
-        path = '//svg:path'
-        for node in self.document.getroot().xpath(path, namespaces=inkex.NSS):
-            rgb = (0,0,0)
-            style = node.get('style')
-            if style:
-                style = simplestyle.parseStyle(style)
-                if style.has_key('stroke'):
-                    if style['stroke'] and style['stroke'] != 'none':
-                        rgb = simplestyle.parseColor(style['stroke'])
-            hsl = coloreffect.ColorEffect.rgb_to_hsl(coloreffect.ColorEffect(),rgb[0]/255.0,rgb[1]/255.0,rgb[2]/255.0)
-            self.color = 7                                  # default is black
-            if hsl[2]:
-                self.color = 1 + (int(6*hsl[0] + 0.5) % 6)  # use 6 hues
-            d = node.get('d')
-            sim = simplepath.parsePath(d)
-            if len(sim):
-                simplepath.scalePath(sim,scale,-scale)
-                simplepath.translatePath(sim,0,h*scale)            
-                p = cubicsuperpath.CubicSuperPath(sim)
-                for sub in p:
-                    for i in range(len(sub)-1):
-                        s = sub[i]
-                        e = sub[i+1]
-                        if s[1] == s[2] and e[0] == e[1]:
-                            if (self.options.POLY == 'true'):
-                                self.LWPOLY_line([s[1],e[1]])
-                            else:
-                                self.dxf_line([s[1],e[1]])
-                        elif (self.options.ROBO == 'true'):
-                            self.ROBO_spline([s[1],s[2],e[0],e[1]])
-                        else:
-                            self.dxf_spline([s[1],s[2],e[0],e[1]])
+        self.groupmat = [[[scale, 0.0, 0.0], [0.0, -scale, h*scale]]]
+        doc = self.document.getroot()
+        self.process_group(doc)
         if self.options.ROBO == 'true':
             self.ROBO_output()
         if self.options.POLY == 'true':

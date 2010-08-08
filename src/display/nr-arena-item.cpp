@@ -331,8 +331,11 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
     if (!ct) return item->state;
 
 #ifdef NR_ARENA_ITEM_VERBOSE
-    printf ("Invoke render %p: %d %d - %d %d\n", item, area->x0, area->y0,
-            area->x1, area->y1);
+    g_message ("Invoke render %p on %p: %d %d - %d %d, %d %d - %d %d", item, pb,
+            area->x0, area->y0,
+            area->x1, area->y1,
+            item->drawbox.x0, item->drawbox.y0,
+            item->drawbox.x1, item->drawbox.y1);
 #endif
 
     /* If we are invisible, just return successfully */
@@ -487,6 +490,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
             cairo_pattern_set_matrix(cmask, &m);
             cairo_mask(ct, cmask);
             // opacity of masked objects is handled by premultiplying the mask
+
         } else {
             // opacity of non-masked objects must be rendered explicitly
             if (needs_opacity) {
@@ -763,7 +767,7 @@ nr_arena_item_set_item_bbox (NRArenaItem *item, Geom::OptRect &bbox)
 
 /** Returns a background image for use with filter effects. */
 NRPixBlock *
-nr_arena_item_get_background (NRArenaItem const *item, int depth)
+nr_arena_item_get_background (NRArenaItem const *item)
 {
     return NULL;
 }

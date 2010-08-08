@@ -19,6 +19,7 @@
 
 #include <gdk/gdktypes.h>
 #include <2geom/matrix.h>
+#include <glibmm/ustring.h>
 #include "sp-paint-server.h"
 #include "sp-gradient-spread.h"
 #include "sp-gradient-units.h"
@@ -29,13 +30,11 @@
 struct SPGradientReference;
 
 
-#define SP_TYPE_GRADIENT (sp_gradient_get_type())
+#define SP_TYPE_GRADIENT (SPGradient::getType())
 #define SP_GRADIENT(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), SP_TYPE_GRADIENT, SPGradient))
 #define SP_GRADIENT_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), SP_TYPE_GRADIENT, SPGradientClass))
 #define SP_IS_GRADIENT(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), SP_TYPE_GRADIENT))
 #define SP_IS_GRADIENT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), SP_TYPE_GRADIENT))
-
-GType sp_gradient_get_type();
 
 typedef enum {
     SP_GRADIENT_TYPE_UNKNOWN,
@@ -78,28 +77,43 @@ struct SPGradient : public SPPaintServer {
     /** State in Inkscape gradient system */
     guint state : 2;
 
+private:
     /** gradientUnits attribute */
     SPGradientUnits units;
     guint units_set : 1;
+public:
 
     /** gradientTransform attribute */
     Geom::Matrix gradientTransform;
     guint gradientTransform_set : 1;
 
+private:
     /** spreadMethod attribute */
     SPGradientSpread spread;
     guint spread_set : 1;
 
     /** Gradient stops */
     guint has_stops : 1;
+public:
 
     /** Composed vector */
     SPGradientVector vector;
 
     sigc::connection modified_connection;
 
+    bool hasStops() const;
+
     SPStop* getFirstStop();
     int getStopCount() const;
+
+
+    bool isUnitsSet() const;
+    SPGradientUnits getUnits() const;
+    void setUnits(SPGradientUnits units);
+
+
+    bool isSpreadSet() const;
+    SPGradientSpread getSpread() const;
 
 /**
  * Returns private vector of given gradient (the gradient at the end of the href chain which has
@@ -109,6 +123,32 @@ struct SPGradient : public SPPaintServer {
  * \pre There exists a gradient in the chain that has stops.
  */
     SPGradient *getVector(bool force_private = false);
+
+    static GType getType();
+
+    /** Forces vector to be built, if not present (i.e. changed) */
+    void ensureVector();
+
+    /** Ensures that color array is populated */
+    void ensureColors();
+
+    /**
+     * Set spread property of gradient and emit modified.
+     */
+    void setSpread(SPGradientSpread spread);
+
+    SPGradientSpread fetchSpread();
+    SPGradientUnits fetchUnits();
+
+    void setSwatch(bool swatch = true);
+
+private:
+    bool invalidateVector();
+    void rebuildVector();
+
+    friend class SPGradientImpl;
+    friend class SPLGPainter;
+    friend class SPRGPainter;
 };
 
 /**

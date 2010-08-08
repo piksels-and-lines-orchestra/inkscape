@@ -266,13 +266,11 @@ void Handle::dragged(Geom::Point &new_pos, GdkEventMotion *event)
 
         Node *node_away = (this == &_parent->_front ? _parent->_prev() : _parent->_next());
         if (_parent->type() == NODE_SMOOTH && Node::_is_line_segment(_parent, node_away)) {
-            Inkscape::Snapper::ConstraintLine cl(_parent->position(),
+            Inkscape::Snapper::SnapConstraint cl(_parent->position(),
                 _parent->position() - node_away->position());
             Inkscape::SnappedPoint p;
             p = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos, SNAPSOURCE_NODE_HANDLE), cl);
-            if (p.getSnapped()) {
-                p.getPoint(new_pos);
-            }
+            new_pos = p.getPoint();
         } else {
             sm.freeSnapReturnByRef(new_pos, SNAPSOURCE_NODE_HANDLE);
         }
@@ -945,7 +943,7 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
     // For a note on how snapping is implemented in Inkscape, see snap.h.
     SnapManager &sm = _desktop->namedview->snap_manager;
     bool snap = sm.someSnapperMightSnap();
-    std::vector<Inkscape::SnapCandidatePoint> unselected;
+    Inkscape::SnappedPoint sp;
     if (snap) {
         /* setup
          * TODO We are doing this every time a snap happens. It should once be done only once
@@ -955,6 +953,7 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
          * TODO Snapping to unselected segments of selected paths doesn't work yet. */
 
         // Build the list of unselected nodes.
+        std::vector<Inkscape::SnapCandidatePoint> unselected;
         typedef ControlPointSelection::Set Set;
         Set &nodes = _selection.allPoints();
         for (Set::iterator i = nodes.begin(); i != nodes.end(); ++i) {
@@ -964,17 +963,22 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
                 unselected.push_back(p);
             }
         }
-        sm.setupIgnoreSelection(_desktop, false, &unselected);
+        sm.setupIgnoreSelection(_desktop, true, &unselected);
     }
 
     if (held_control(*event)) {
         Geom::Point origin = _last_drag_origin();
-        Inkscape::SnappedPoint fp, bp;
+        std::vector<Inkscape::Snapper::SnapConstraint> constraints;
         if (held_alt(*event)) {
             // with Ctrl+Alt, constrain to handle lines
-            // project the new position onto a handle line that is closer
-            boost::optional<Geom::Point> front_point, back_point;
-            boost::optional<Inkscape::Snapper::ConstraintLine> line_front, line_back;
+            // project the new position onto a handle line that is closer;
+            // also snap to perpendiculars of handle lines
+
+            Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+            int snaps = prefs->getIntLimited("/options/rotationsnapsperpi/value", 12, 1, 1000);
+            double min_angle = M_PI / snaps;
+
+            boost::optional<Geom::Point> front_point, back_point, fperp_point, bperp_point;
             if (_front.isDegenerate()) {
                 if (_is_line_segment(this, _next()))
                     front_point = _next()->position() - origin;
@@ -987,72 +991,40 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
             } else {
                 back_point = _back.relativePos();
             }
-            if (front_point)
-                line_front = Inkscape::Snapper::ConstraintLine(origin, *front_point);
-            if (back_point)
-                line_back = Inkscape::Snapper::ConstraintLine(origin, *back_point);
+            if (front_point) {
+                constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, *front_point));
+                fperp_point = Geom::rot90(*front_point);
+            }
+            if (back_point) {
+                constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, *back_point));
+                bperp_point = Geom::rot90(*back_point);
+            }
+            // perpendiculars only snap when they are further than snap increment away
+            // from the second handle constraint
+            if (fperp_point && (!back_point ||
+                (fabs(Geom::angle_between(*fperp_point, *back_point)) > min_angle &&
+                 fabs(Geom::angle_between(*fperp_point, *back_point)) < M_PI - min_angle)))
+            {
+                constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, *fperp_point));
+            }
+            if (bperp_point && (!front_point ||
+                (fabs(Geom::angle_between(*bperp_point, *front_point)) > min_angle &&
+                 fabs(Geom::angle_between(*bperp_point, *front_point)) < M_PI - min_angle)))
+            {
+                constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, *bperp_point));
+            }
 
-            // TODO: combine the snap and non-snap branches by modifying snap.h / snap.cpp
-            if (snap) {
-                if (line_front) {
-                    fp = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos,
-                        _snapSourceType()), *line_front);
-                }
-                if (line_back) {
-                    bp = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos,
-                        _snapSourceType()), *line_back);
-                }
-            }
-            if (fp.getSnapped() || bp.getSnapped()) {
-                if (fp.isOtherSnapBetter(bp, false)) {
-                    fp = bp;
-                }
-                fp.getPoint(new_pos);
-                _desktop->snapindicator->set_new_snaptarget(fp);
-            } else {
-                boost::optional<Geom::Point> pos;
-                if (line_front) {
-                    pos = line_front->projection(new_pos);
-                }
-                if (line_back) {
-                    Geom::Point pos2 = line_back->projection(new_pos);
-                    if (!pos || (pos && Geom::distance(new_pos, *pos) > Geom::distance(new_pos, pos2)))
-                        pos = pos2;
-                }
-                if (pos) {
-                    new_pos = *pos;
-                } else {
-                    new_pos = origin;
-                }
-            }
+            sp = sm.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), constraints);
         } else {
             // with Ctrl, constrain to axes
-            // TODO combine the two branches
-            if (snap) {
-                Inkscape::Snapper::ConstraintLine line_x(origin, Geom::Point(1, 0));
-                Inkscape::Snapper::ConstraintLine line_y(origin, Geom::Point(0, 1));
-                fp = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), line_x);
-                bp = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), line_y);
-            }
-            if (fp.getSnapped() || bp.getSnapped()) {
-                if (fp.isOtherSnapBetter(bp, false)) {
-                    fp = bp;
-                }
-                fp.getPoint(new_pos);
-                _desktop->snapindicator->set_new_snaptarget(fp);
-            } else {
-                Geom::Point origin = _last_drag_origin();
-                Geom::Point delta = new_pos - origin;
-                Geom::Dim2 d = (fabs(delta[Geom::X]) < fabs(delta[Geom::Y])) ? Geom::X : Geom::Y;
-                new_pos[d] = origin[d];
-            }
+            constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, Geom::Point(1, 0)));
+            constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, Geom::Point(0, 1)));
+            sp = sm.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), constraints);
         }
+        new_pos = sp.getPoint();
     } else if (snap) {
-        Inkscape::SnappedPoint p = sm.freeSnap(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()));
-        if (p.getSnapped()) {
-            p.getPoint(new_pos);
-            _desktop->snapindicator->set_new_snaptarget(p);
-        }
+        sp = sm.freeSnap(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()));
+        new_pos = sp.getPoint();
     }
 
     SelectableControlPoint::dragged(new_pos, event);

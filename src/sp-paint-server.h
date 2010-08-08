@@ -22,15 +22,24 @@
 struct NRPixBlock;
 struct NRRect;
 
-#define SP_TYPE_PAINT_SERVER (sp_paint_server_get_type ())
+#define SP_TYPE_PAINT_SERVER (SPPaintServer::get_type())
 #define SP_PAINT_SERVER(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_PAINT_SERVER, SPPaintServer))
 #define SP_PAINT_SERVER_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), SP_TYPE_PAINT_SERVER, SPPaintServerClass))
 #define SP_IS_PAINT_SERVER(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_PAINT_SERVER))
 #define SP_IS_PAINT_SERVER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), SP_TYPE_PAINT_SERVER))
 
 struct SPPaintServer : public SPObject {
+protected:
+    bool swatch;
+public:
+
+    static GType get_type(void);
+
     bool isSwatch() const;
     bool isSolid() const;
+
+private:
+    static void init(SPPaintServer *ps);
 };
 
 struct SPPaintServerClass {
@@ -38,8 +47,6 @@ struct SPPaintServerClass {
     /** Get SPPaint instance. */
     cairo_pattern_t *(*pattern_new)(SPPaintServer *ps, cairo_t *ct, const NRRect *bbox, double opacity);
 };
-
-GType sp_paint_server_get_type (void);
 
 cairo_pattern_t *sp_paint_server_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 

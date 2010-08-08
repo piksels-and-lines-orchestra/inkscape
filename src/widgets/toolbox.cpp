@@ -992,7 +992,8 @@ static GtkWidget* toolboxNewCommon( GtkWidget* tb, BarId id, GtkPositionType han
     gtk_widget_set_sensitive(tb, FALSE);
 
     GtkWidget *hb = 0;
-    if ( UXManager::getInstance()->isFloatWindowProblem() ) {
+    gboolean forceFloatAllowed = Inkscape::Preferences::get()->getBool("/options/workarounds/floatallowed", false);
+    if ( UXManager::getInstance()->isFloatWindowProblem() && !forceFloatAllowed ) {
         hb = gtk_event_box_new(); // A simple, neutral container.
     } else {
         hb = gtk_handle_box_new();
@@ -6860,7 +6861,7 @@ static void sp_text_wordspacing_value_changed( GtkAdjustment *adj, GObject *tbl 
     // Set css word-spacing
     SPCSSAttr *css = sp_repr_css_attr_new ();
     Inkscape::CSSOStringStream osfs;
-    osfs << adj->value;
+    osfs << adj->value << "px"; // For now always use px
     sp_repr_css_set_property (css, "word-spacing", osfs.str().c_str());
 
     // Apply word-spacing to selected objects.
@@ -6899,7 +6900,7 @@ static void sp_text_letterspacing_value_changed( GtkAdjustment *adj, GObject *tb
     // Set css letter-spacing
     SPCSSAttr *css = sp_repr_css_attr_new ();
     Inkscape::CSSOStringStream osfs;
-    osfs << adj->value;
+    osfs << adj->value << "px";  // For now always use px
     sp_repr_css_set_property (css, "letter-spacing", osfs.str().c_str());
 
     // Apply letter-spacing to selected objects.

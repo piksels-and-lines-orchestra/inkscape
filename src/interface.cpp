@@ -904,7 +904,7 @@ void addTaskMenuItems(GtkMenu *menu, Inkscape::UI::View::View *view)
     gchar const* data[] = {
         _("Default"), _("Default interface setup"),
         _("Custom"), _("Set the custom task"),
-        _("Wide"), _("Setup for widescreen work."),
+        _("Wide"), _("Setup for widescreen work"),
         0, 0
     };
 
@@ -1367,7 +1367,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                         for (const GSList *item = gradients; item; item = item->next) {
                             SPGradient* grad = SP_GRADIENT(item->data);
                             if ( color.descr == grad->getId() ) {
-                                if ( grad->has_stops ) {
+                                if ( grad->hasStops() ) {
                                     matches = grad;
                                     break;
                                 }

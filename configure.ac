@@ -7,7 +7,7 @@ AC_PREREQ(2.53)
 # `dpkg --compare-versions'.  (ii) We don't always know what the next
 # version is going to be called until about the time we release it
 # (whereas we always know what the previous version was called).
-AC_INIT(inkscape, 0.47+devel)
+AC_INIT(inkscape, 0.48+devel)
 
 AC_CANONICAL_HOST
 AC_CONFIG_SRCDIR([src/main.cpp])
@@ -30,6 +30,7 @@ AM_PROG_CC_STDC
 AM_PROG_AS
 AC_PROG_RANLIB
 AC_PROG_INTLTOOL(0.22)
+AC_PROG_LIBTOOL
 AC_HEADER_STDC
 INK_BZR_SNAPSHOT_BUILD
 
@@ -171,7 +172,7 @@ GETTEXT_PACKAGE="AC_PACKAGE_NAME"
 AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[Translation domain used])
 dnl Add the languages which your application supports here.
-ALL_LINGUAS="am ar az be bg bn br ca ca@valencia cs da de dz el en_AU en_CA en_GB en_US@piglatin eo es_MX es et eu fa fi fr ga gl he hr hu hy id it ja km ko lt mk mn nb ne nl nn pa pl pt_BR pt ro ru rw sk sl sq sr@latin sr sv th tr uk vi zh_CN zh_TW"
+ALL_LINGUAS="am ar az be bg bn br ca ca@valencia cs da de dz el en_AU en_CA en_GB en_US@piglatin eo es_MX es et eu fa fi fr ga gl he hr hu hy id it ja km ko lt mk mn nb ne nl nn pa pl pt_BR pt ro ru rw sk sl sq sr@latin sr sv te_IN th tr uk vi zh_CN zh_TW"
 AM_GLIB_GNU_GETTEXT
 
 AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
@@ -688,6 +689,39 @@ AC_SUBST(LIBWPG_LIBS)
 AC_SUBST(LIBWPG_CFLAGS)
 
 dnl ******************************
+dnl Support doing a local install
+dnl   (mostly for distcheck)
+dnl ******************************
+
+with_localinstall="no"
+AC_ARG_ENABLE(localinstall, AS_HELP_STRING([--enable-localinstall], [install system files in the local path (for distcheck)]), with_localinstall=$enableval, with_localinstall=no)
+
+dnl ******************************
+dnl Check for dbus functionality
+dnl ******************************
+
+AC_ARG_ENABLE(dbusapi,
+       [  --enable-dbusapi       compile with support for DBus interface],
+       enable_dbusapi=$enableval,enable_dbusapi=yes)
+
+with_dbus="no"
+if test "x$dbusapi" = "xyes"; then
+	PKG_CHECK_MODULES(DBUS, dbus-glib-1, with_dbus=yes, with_dbus=no)
+	if test "x$with_dbus" = "xyes"; then
+		if test "x$with_localinstall" = "xyes"; then
+			DBUSSERVICEDIR="${datadir}/dbus-1/services/"
+		else
+			DBUSSERVICEDIR=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`
+		fi
+		AC_SUBST(DBUSSERVICEDIR)
+		AC_DEFINE(WITH_DBUS,1,[Build in dbus])
+	fi
+fi
+AC_SUBST(DBUS_LIBS)
+AC_SUBST(DBUS_CFLAGS)
+AM_CONDITIONAL(WITH_DBUS, test "x$with_dbus" = "xyes")
+
+dnl ******************************
 dnl Check for ImageMagick Magick++ 
 dnl ******************************
 
@@ -746,10 +780,9 @@ if test "x$cairo_pdf" = "xyes"; then
 fi
 
 dnl Shouldn't we test for libpng and libz?
+INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz -lX11 -lxml2"
 if test "x$openmp_ok" = "xyes"; then
-	INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz -lgomp"
-else
-	INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz"
+	INKSCAPE_LIBS="$INKSCAPE_LIBS -lgomp"
 fi
 
 AC_CHECK_HEADER(popt.h,
@@ -941,6 +974,7 @@ src/extension/implementation/makefile
 src/extension/internal/makefile
 src/extension/makefile
 src/extension/script/makefile
+src/extension/dbus/wrapper/inkdbus.pc
 src/filters/makefile
 src/helper/makefile
 src/io/makefile
@@ -1026,7 +1060,9 @@ Configuration:
         Internal Python:          ${with_python}
         Internal Perl:            ${with_perl}
         Enable LittleCms:         ${enable_lcms}
+        Enable DBUS               ${with_dbus} 
         Enable Poppler-Cairo:     ${enable_poppler_cairo}
         ImageMagick Magick++:     ${magick_ok}
         Libwpg:                   ${with_libwpg}
+        Doing Local Install:      ${with_localinstall}
 "

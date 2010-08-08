@@ -711,7 +711,7 @@ assert_empty_path(PEMF_CALLBACK_DATA d, const char * /*fun*/)
 
 
 static int CALLBACK
-myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD *lpEMFR, int /*nObj*/, LPARAM lpData)
+myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *lpEMFR, int /*nObj*/, LPARAM lpData)
 {
     PEMF_CALLBACK_DATA d;
     SVGOStringStream tmp_outsvg;
@@ -2331,7 +2331,8 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
                 d.pDesc[lstrlen(d.pDesc)] = '#';
         }
 
-        EnumEnhMetaFile(NULL, hemf, myEnhMetaFileProc, (LPVOID) &d, NULL);
+        // This ugly reinterpret_cast is to prevent old versions of gcc from whining about a mismatch in the const-ness of the arguments
+        EnumEnhMetaFile(NULL, hemf, reinterpret_cast<ENHMFENUMPROC>(myEnhMetaFileProc), (LPVOID) &d, NULL);
         DeleteEnhMetaFile(hemf);
     }
     else {

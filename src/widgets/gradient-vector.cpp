@@ -174,6 +174,10 @@ GtkWidget *sp_gradient_vector_selector_new(SPDocument *doc, SPGradient *gr)
 
 void sp_gradient_vector_selector_set_gradient(SPGradientVectorSelector *gvs, SPDocument *doc, SPGradient *gr)
 {
+//     g_message("sp_gradient_vector_selector_set_gradient(%p, %p, %p) [%s] %d %d", gvs, doc, gr,
+//               (gr ? gr->getId():"N/A"),
+//               (gr ? gr->isSwatch() : -1),
+//               (gr ? gr->isSolid() : -1));
     static gboolean suppress = FALSE;
 
     g_return_if_fail(gvs != NULL);
@@ -181,7 +185,7 @@ void sp_gradient_vector_selector_set_gradient(SPGradientVectorSelector *gvs, SPD
     g_return_if_fail(!gr || (doc != NULL));
     g_return_if_fail(!gr || SP_IS_GRADIENT(gr));
     g_return_if_fail(!gr || (SP_OBJECT_DOCUMENT(gr) == doc));
-    g_return_if_fail(!gr || SP_GRADIENT_HAS_STOPS(gr));
+    g_return_if_fail(!gr || gr->hasStops());
 
     if (doc != gvs->doc) {
         /* Disconnect signals */
@@ -252,7 +256,7 @@ static void sp_gvs_rebuild_gui_full(SPGradientVectorSelector *gvs)
         const GSList *gradients = sp_document_get_resource_list(SP_OBJECT_DOCUMENT(gvs->gr), "gradient");
         for (const GSList *curr = gradients; curr; curr = curr->next) {
             SPGradient* grad = SP_GRADIENT(curr->data);
-            if (SP_GRADIENT_HAS_STOPS(grad) && (grad->isSwatch() == gvs->swatched)) {
+            if ( grad->hasStops() && (grad->isSwatch() == gvs->swatched) ) {
                 gl = g_slist_prepend(gl, curr->data);
             }
         }
@@ -337,6 +341,7 @@ static void sp_gvs_gradient_activate(GtkMenuItem *mi, SPGradientVectorSelector *
     /* Hmmm - probably we can just re-set it as menuitem data (Lauris) */
 
     //g_print("SPGradientVectorSelector: gradient %s activated\n", SP_OBJECT_ID(gr));
+    //g_message("Setting to gradient %p   swatch:%d   solid:%d", gr, gr->isSwatch(), gr->isSolid());
 
     norm = sp_gradient_ensure_vector_normalized(gr);
     if (norm != gr) {
@@ -474,11 +479,8 @@ static void verify_grad(SPGradient *gradient)
     xml_doc = SP_OBJECT_REPR(gradient)->document();
 
     if (i < 1) {
-        gchar c[64];
-        sp_svg_write_color(c, sizeof(c), 0x00000000);
-
         Inkscape::CSSOStringStream os;
-        os << "stop-color:" << c << ";stop-opacity:" << 1.0 << ";";
+        os << "stop-color: #000000;stop-opacity:" << 1.0 << ";";
 
         Inkscape::XML::Node *child;
 
@@ -535,7 +537,7 @@ static void update_stop_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_
     GtkWidget *m = gtk_menu_new();
     gtk_widget_show(m);
     GSList *sl = NULL;
-    if (gradient->has_stops) {
+    if ( gradient->hasStops() ) {
         for ( SPObject *ochild = sp_object_first_child(SP_OBJECT(gradient)) ; ochild != NULL ; ochild = SP_OBJECT_NEXT(ochild) ) {
             if (SP_IS_STOP(ochild)) {
                 sl = g_slist_append(sl, ochild);
@@ -550,11 +552,9 @@ static void update_stop_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_
     } else {
 
         for (; sl != NULL; sl = sl->next){
-            SPStop *stop;
-            GtkWidget *i;
             if (SP_IS_STOP(sl->data)){
-                stop = SP_STOP(sl->data);
-                i = gtk_menu_item_new();
+                SPStop *stop = SP_STOP(sl->data);
+                GtkWidget *i = gtk_menu_item_new();
                 gtk_widget_show(i);
                 g_object_set_data(G_OBJECT(i), "stop", stop);
                 GtkWidget *hb = gtk_hbox_new(FALSE, 4);
@@ -600,11 +600,8 @@ static void sp_grad_edit_select(GtkOptionMenu *mnu, GtkWidget *tbl)
     blocked = TRUE;
 
     SPColorSelector *csel = (SPColorSelector*)g_object_get_data(G_OBJECT(tbl), "cselector");
-    guint32 const c = sp_stop_get_rgba32(stop);
-    csel->base->setAlpha(SP_RGBA32_A_F(c));
-    SPColor color( SP_RGBA32_R_F(c), SP_RGBA32_G_F(c), SP_RGBA32_B_F(c) );
     // set its color, from the stored array
-    csel->base->setColor( color );
+    csel->base->setColorAlpha( stop->getEffectiveColor(), stop->opacity );
     GtkWidget *offspin = GTK_WIDGET(g_object_get_data(G_OBJECT(tbl), "offspn"));
     GtkWidget *offslide =GTK_WIDGET(g_object_get_data(G_OBJECT(tbl), "offslide"));
 
@@ -1017,19 +1014,15 @@ static void sp_gradient_vector_widget_load_gradient(GtkWidget *widget, SPGradien
     if (gradient) {
         gtk_widget_set_sensitive(widget, TRUE);
 
-        sp_gradient_ensure_vector(gradient);
+        gradient->ensureVector();
 
         GtkOptionMenu *mnu = static_cast<GtkOptionMenu *>(g_object_get_data(G_OBJECT(widget), "stopmenu"));
         SPStop *stop = SP_STOP(g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop"));
-        guint32 const c = sp_stop_get_rgba32(stop);
 
-        /// get the color selector
+        // get the color selector
         SPColorSelector *csel = SP_COLOR_SELECTOR(g_object_get_data(G_OBJECT(widget), "cselector"));
-        // set alpha
-        csel->base->setAlpha(SP_RGBA32_A_F(c));
-        SPColor color( SP_RGBA32_R_F(c), SP_RGBA32_G_F(c), SP_RGBA32_B_F(c) );
-        // set color
-        csel->base->setColor( color );
+
+        csel->base->setColorAlpha( stop->getEffectiveColor(), stop->opacity );
 
         /* Fill preview */
         GtkWidget *w = static_cast<GtkWidget *>(g_object_get_data(G_OBJECT(widget), "preview"));
@@ -1140,7 +1133,7 @@ static void sp_gradient_vector_color_dragged(SPColorSelector *csel, GtkObject *o
         sp_gradient_vector_widget_load_gradient(GTK_WIDGET(object), ngr);
     }
 
-    sp_gradient_ensure_vector(ngr);
+    ngr->ensureVector();
 
     GtkOptionMenu *mnu = static_cast<GtkOptionMenu *>(g_object_get_data(G_OBJECT(object), "stopmenu"));
     SPStop *stop = SP_STOP(g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop"));
@@ -1154,10 +1147,6 @@ static void sp_gradient_vector_color_dragged(SPColorSelector *csel, GtkObject *o
 
 static void sp_gradient_vector_color_changed(SPColorSelector *csel, GtkObject *object)
 {
-    SPColor color;
-    float alpha;
-    guint32 rgb;
-
     if (blocked) {
         return;
     }
@@ -1175,7 +1164,7 @@ static void sp_gradient_vector_color_changed(SPColorSelector *csel, GtkObject *o
         sp_gradient_vector_widget_load_gradient(GTK_WIDGET(object), ngr);
     }
 
-    sp_gradient_ensure_vector(ngr);
+    ngr->ensureVector();
 
     /* Set start parameters */
     /* We rely on normalized vector, i.e. stops HAVE to exist */
@@ -1185,14 +1174,13 @@ static void sp_gradient_vector_color_changed(SPColorSelector *csel, GtkObject *o
     SPStop *stop = SP_STOP(g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop"));
 
     csel = static_cast<SPColorSelector*>(g_object_get_data(G_OBJECT(object), "cselector"));
+    SPColor color;
+    float alpha = 0;
     csel->base->getColorAlpha( color, alpha );
-    rgb = color.toRGBA32( 0x00 );
 
     sp_repr_set_css_double(SP_OBJECT_REPR(stop), "offset", stop->offset);
     Inkscape::CSSOStringStream os;
-    gchar c[64];
-    sp_svg_write_color(c, sizeof(c), rgb);
-    os << "stop-color:" << c << ";stop-opacity:" << static_cast<gdouble>(alpha) <<";";
+    os << "stop-color:" << color.toString() << ";stop-opacity:" << static_cast<gdouble>(alpha) <<";";
     SP_OBJECT_REPR(stop)->setAttribute("style", os.str().c_str());
     // g_snprintf(c, 256, "stop-color:#%06x;stop-opacity:%g;", rgb >> 8, static_cast<gdouble>(alpha));
     //SP_OBJECT_REPR(stop)->setAttribute("style", c);

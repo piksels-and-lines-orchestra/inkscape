@@ -38,6 +38,7 @@
 #include "helper/sp-marshal.h"
 #include "xml/node-event-vector.h"
 #include "attributes.h"
+#include "color-profile-fns.h"
 #include "document.h"
 #include "style.h"
 #include "sp-object-repr.h"
@@ -539,29 +540,33 @@ SPObject::setLabel(gchar const *label) {
 
 
 /** Queues the object for orphan collection */
-void
-SPObject::requestOrphanCollection() {
+void SPObject::requestOrphanCollection() {
     g_return_if_fail(document != NULL);
 
     // do not remove style or script elements (Bug #276244)
-    if (SP_IS_STYLE_ELEM(this))
-        return;
-    if (SP_IS_SCRIPT(this))
-        return;
+    if (SP_IS_STYLE_ELEM(this)) {
+        // leave it
+    } else if (SP_IS_SCRIPT(this)) {
+        // leave it
+    } else if (SP_IS_PAINT_SERVER(this) && static_cast<SPPaintServer*>(this)->isSwatch() ) {
+        // leave it
+    } else if (IS_COLORPROFILE(this)) {
+        // leave it
+    } else {
+        document->queueForOrphanCollection(this);
 
-    document->queueForOrphanCollection(this);
+        /** \todo
+         * This is a temporary hack added to make fill&stroke rebuild its
+         * gradient list when the defs are vacuumed.  gradient-vector.cpp
+         * listens to the modified signal on defs, and now we give it that
+         * signal.  Mental says that this should be made automatic by
+         * merging SPObjectGroup with SPObject; SPObjectGroup would issue
+         * this signal automatically. Or maybe just derive SPDefs from
+         * SPObjectGroup?
+         */
 
-    /** \todo
-     * This is a temporary hack added to make fill&stroke rebuild its
-     * gradient list when the defs are vacuumed.  gradient-vector.cpp
-     * listens to the modified signal on defs, and now we give it that
-     * signal.  Mental says that this should be made automatic by
-     * merging SPObjectGroup with SPObject; SPObjectGroup would issue
-     * this signal automatically. Or maybe just derive SPDefs from
-     * SPObjectGroup?
-     */
-
-    this->requestModified(SP_OBJECT_CHILD_MODIFIED_FLAG);
+        this->requestModified(SP_OBJECT_CHILD_MODIFIED_FLAG);
+    }
 }
 
 /** Sends the delete signal to all children of this object recursively */

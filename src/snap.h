@@ -67,10 +67,11 @@ class SnapManager
 {
 public:
     enum Transformation {
-        TRANSLATION,
+        TRANSLATE,
         SCALE,
         STRETCH,
-        SKEW
+        SKEW,
+        ROTATE
     };
 
     SnapManager(SPNamedView const *v);
@@ -91,10 +92,18 @@ public:
                std::vector<SPItem const *> &items_to_ignore,
                std::vector<Inkscape::SnapCandidatePoint> *unselected_nodes = NULL,
                SPGuide *guide_to_ignore = NULL);
+
     void setupIgnoreSelection(SPDesktop const *desktop,
                               bool snapindicator = true,
                               std::vector<Inkscape::SnapCandidatePoint> *unselected_nodes = NULL,
                               SPGuide *guide_to_ignore = NULL);
+
+    // If we're dragging a rotation center, then setRotationCenterSource() stores the parent item
+    // of this rotation center; this reference is used to make sure that we do not snap a rotation
+    // center to itself
+    // NOTE: Must be called after calling setup(), not before!
+    void setRotationCenterSource(SPItem *item) {_rotation_center_source_item = item;}
+    SPItem* getRotationCenterSource() {return _rotation_center_source_item;}
 
     // freeSnapReturnByRef() is preferred over freeSnap(), because it only returns a
     // point if snapping has occurred (by overwriting p); otherwise p is untouched
@@ -113,23 +122,27 @@ public:
     // point, by overwriting p, if snapping has occurred; otherwise p is untouched
     void constrainedSnapReturnByRef(Geom::Point &p,
                                     Inkscape::SnapSourceType const source_type,
-                                    Inkscape::Snapper::ConstraintLine const &constraint,
+                                    Inkscape::Snapper::SnapConstraint const &constraint,
                                     Geom::OptRect const &bbox_to_snap = Geom::OptRect()) const;
 
     Inkscape::SnappedPoint constrainedSnap(Inkscape::SnapCandidatePoint const &p,
-                                           Inkscape::Snapper::ConstraintLine const &constraint,
+                                           Inkscape::Snapper::SnapConstraint const &constraint,
                                            Geom::OptRect const &bbox_to_snap = Geom::OptRect()) const;
+
+    Inkscape::SnappedPoint multipleConstrainedSnaps(Inkscape::SnapCandidatePoint const &p,
+                                                        std::vector<Inkscape::Snapper::SnapConstraint> const &constraints,
+                                                        Geom::OptRect const &bbox_to_snap = Geom::OptRect()) const;
 
     void guideFreeSnap(Geom::Point &p, Geom::Point const &guide_normal, SPGuideDragType drag_type) const;
     void guideConstrainedSnap(Geom::Point &p, SPGuide const &guideline) const;
 
-    Inkscape::SnappedPoint freeSnapTranslation(std::vector<Inkscape::SnapCandidatePoint> const &p,
+    Inkscape::SnappedPoint freeSnapTranslate(std::vector<Inkscape::SnapCandidatePoint> const &p,
                                                Geom::Point const &pointer,
                                                Geom::Point const &tr) const;
 
-    Inkscape::SnappedPoint constrainedSnapTranslation(std::vector<Inkscape::SnapCandidatePoint> const &p,
+    Inkscape::SnappedPoint constrainedSnapTranslate(std::vector<Inkscape::SnapCandidatePoint> const &p,
                                                       Geom::Point const &pointer,
-                                                      Inkscape::Snapper::ConstraintLine const &constraint,
+                                                      Inkscape::Snapper::SnapConstraint const &constraint,
                                                       Geom::Point const &tr) const;
 
     Inkscape::SnappedPoint freeSnapScale(std::vector<Inkscape::SnapCandidatePoint> const &p,
@@ -151,10 +164,15 @@ public:
 
     Inkscape::SnappedPoint constrainedSnapSkew(std::vector<Inkscape::SnapCandidatePoint> const &p,
                                                Geom::Point const &pointer,
-                                               Inkscape::Snapper::ConstraintLine const &constraint,
+                                               Inkscape::Snapper::SnapConstraint const &constraint,
                                                Geom::Point const &s, // s[0] = skew factor, s[1] = scale factor
                                                Geom::Point const &o,
                                                Geom::Dim2 d) const;
+
+    Inkscape::SnappedPoint constrainedSnapRotate(std::vector<Inkscape::SnapCandidatePoint> const &p,
+                                                    Geom::Point const &pointer,
+                                                    Geom::Coord const &angle,
+                                                    Geom::Point const &o) const;
 
     Inkscape::GuideSnapper guide;      ///< guide snapper
     Inkscape::ObjectSnapper object;    ///< snapper to other objects
@@ -177,18 +195,16 @@ protected:
 
 private:
     std::vector<SPItem const *> _items_to_ignore; ///< Items that should not be snapped to, for example the items that are currently being dragged. Set using the setup() method
+    SPItem *_rotation_center_source_item; // to avoid snapping a rotation center to itself
     SPGuide *_guide_to_ignore; ///< A guide that should not be snapped to, e.g. the guide that is currently being dragged
     SPDesktop const *_desktop;
     bool _snapindicator; ///< When true, an indicator will be drawn at the position that was being snapped to
     std::vector<Inkscape::SnapCandidatePoint> *_unselected_nodes; ///< Nodes of the path that is currently being edited and which have not been selected and which will therefore be stationary. Only these nodes will be considered for snapping to. Of each unselected node both the position (Geom::Point) and the type (Inkscape::SnapTargetType) will be stored
-    //TODO: Make _unselected_nodes type safe; in the line above int is used for Inkscape::SnapTargetType, but if I remember
-    //correctly then in other cases the int is being used for Inkscape::SnapSourceType, or for both. How to make
-    //this type safe?
 
     Inkscape::SnappedPoint _snapTransformed(std::vector<Inkscape::SnapCandidatePoint> const &points,
                                             Geom::Point const &pointer,
                                             bool constrained,
-                                            Inkscape::Snapper::ConstraintLine const &constraint,
+                                            Inkscape::Snapper::SnapConstraint const &constraint,
                                             Transformation transformation_type,
                                             Geom::Point const &transformation,
                                             Geom::Point const &origin,
