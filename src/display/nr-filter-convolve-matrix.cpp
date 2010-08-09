@@ -31,163 +31,73 @@ FilterPrimitive * FilterConvolveMatrix::create() {
 FilterConvolveMatrix::~FilterConvolveMatrix()
 {}
 
-template<bool PRESERVE_ALPHA, bool X_LOWER, bool X_UPPER, bool Y_LOWER, bool Y_UPPER>
-static inline void convolve2D_XY(unsigned int const x, unsigned int const y, guint32 *const out_data, guint32 const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const bias) {
-    double result_R = 0;
-    double result_G = 0;
-    double result_B = 0;
-    double result_A = 0;
+enum PreserveAlphaMode {
+    PRESERVE_ALPHA,
+    NO_PRESERVE_ALPHA
+};
 
-    unsigned int iBegin = Y_LOWER ? targetY-y : 0; // Note that to prevent signed/unsigned problems this requires that y<=targetY (which is true)
-    unsigned int iEnd   = Y_UPPER ? height+targetY-y : orderY; // And this requires that y<=height+targetY (which is trivially true), in addition it should be true that height+targetY-y<=orderY (or equivalently y>=height+targetY-orderY, which is true)
-    unsigned int jBegin = X_LOWER ? targetX-x : 0;
-    unsigned int jEnd   = X_UPPER ? width+targetX-x : orderX;
-
-    for (unsigned int i=iBegin; i<iEnd; i++){
-        for (unsigned int j=jBegin; j<jEnd; j++){
-            unsigned int index = x - targetX + j + width*(y - targetY + i);
-            unsigned int kernel_index = orderX-j-1 + orderX*(orderY-i-1);
-            guint32 px = in_data[index];
-            EXTRACT_ARGB32(px, a,r,g,b)
-
-            double k = kernel[kernel_index];
-            result_R += r * k;
-            result_G += g * k;
-            result_B += b * k;
-            result_A += a * k;
-        }
-    }
-
-    unsigned int const out_index = x + width*y;
-    guint32 ao;
-    if (PRESERVE_ALPHA) {
-        ao = (in_data[out_index] & 0xff000000) >> 24;
-    } else {
-        ao = CLAMP_D_TO_U8(result_A + 255*bias);
-    }
-
-    guint32 ro = CLAMP_D_TO_U8_ALPHA(result_R + ao*bias, ao); // CLAMP includes rounding!
-    guint32 go = CLAMP_D_TO_U8_ALPHA(result_G + ao*bias, ao);
-    guint32 bo = CLAMP_D_TO_U8_ALPHA(result_B + ao*bias, ao);
-
-    ASSEMBLE_ARGB32(result, ao,ro,go,bo)
-
-    out_data[out_index] = result;
-}
-
-template<bool PRESERVE_ALPHA, bool Y_LOWER, bool Y_UPPER>
-static inline void convolve2D_Y(unsigned int const y, guint32 *const out_data, guint32 const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const bias) {
-    // See convolve2D below for rationale.
-
-    unsigned int const lowerEnd = std::min(targetX,width);
-    unsigned int const upperBegin = width - std::min<unsigned int>(width,orderX - 1u - targetX);
-    unsigned int const midXBegin = std::min(lowerEnd,upperBegin);
-    unsigned int const midXEnd = std::max(lowerEnd,upperBegin);
-
-    for (unsigned int x=0; x<midXBegin; x++) {
-        convolve2D_XY<PRESERVE_ALPHA,true,false,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-    }
-    if (lowerEnd==upperBegin) {
-        // Do nothing, empty mid section
-    } else if (lowerEnd<upperBegin) {
-        // In the middle no bounds have to be adjusted
-        for (unsigned int x=midXBegin; x<midXEnd; x++) {
-            convolve2D_XY<PRESERVE_ALPHA,false,false,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-        }
-    } else {
-        // In the middle both bounds have to be adjusted
-        for (unsigned int x=midXBegin; x<midXEnd; x++) {
-            convolve2D_XY<PRESERVE_ALPHA,true,true,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-        }
-    }
-    for (unsigned int x=midXEnd; x<width; x++) {
-        convolve2D_XY<PRESERVE_ALPHA,false,true,Y_LOWER,Y_UPPER>(x, y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-    }
-}
-
-template<bool PRESERVE_ALPHA>
-static void convolve2D(guint32 *const out_data, guint32 const *const in_data, unsigned int const width, unsigned int const height, double const *const kernel, unsigned int const orderX, unsigned int const orderY, unsigned int const targetX, unsigned int const targetY, double const _bias) {
-    double const bias = _bias;
-
-    // For the middle section it should hold that (for all i such that 0<=i<orderY):
-    //   0 <= y - targetY + i < height
-    //   targetY <= y && y < height + targetY - orderY + 1
-    // In other words, for y<targetY i's lower bound needs to be adjusted and for y>=height+targetY-orderY+1 i's upper bound needs to be adjusted.
-
-    unsigned int const lowerEnd = std::min(targetY,height);
-    unsigned int const upperBegin = height - std::min<unsigned int>(height,orderY - 1u - targetY);
-    unsigned int const midYBegin = std::min(lowerEnd,upperBegin);
-    unsigned int const midYEnd = std::max(lowerEnd,upperBegin);
-
-    for (unsigned int y=0; y<midYBegin; y++) {
-        convolve2D_Y<PRESERVE_ALPHA,true,false>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-    }
-    if (lowerEnd==upperBegin) {
-        // Do nothing, empty mid section
-    } else if (lowerEnd<upperBegin) {
-        // In the middle no bounds have to be adjusted
-        for (unsigned int y=midYBegin; y<midYEnd; y++) {
-            convolve2D_Y<PRESERVE_ALPHA,false,false>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-        }
-    } else {
-        // In the middle both bounds have to be adjusted
-        for (unsigned int y=midYBegin; y<midYEnd; y++) {
-            convolve2D_Y<PRESERVE_ALPHA,true,true>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-        }
-    }
-    for (unsigned int y=midYEnd; y<height; y++) {
-        convolve2D_Y<PRESERVE_ALPHA,false,true>(y, out_data, in_data, width, height, kernel, orderX, orderY, targetX, targetY, bias);
-    }
-}
-
-/*
-struct ConvolveMatrix {
-    ConvolveMatrix(guint32 *px, int yskip, int targetX, int targetY, int orderX, int orderY,
-            double divisor, double bias, PixelAccessor::EdgeMode emode,
-            std::vector<double> const &kernel)
-        : _kernel(kernel.size())
-//        , _in(in, emode)
-        , _tx(targetX), _ty(targetY)
-        , _oX(orderX), _oY(orderY)
-        , _yskip(yskip)
+template <PreserveAlphaMode preserve_alpha>
+struct ConvolveMatrix : public SurfaceSynth {
+    ConvolveMatrix(cairo_surface_t *s, int targetX, int targetY, int orderX, int orderY,
+            double divisor, double bias, std::vector<double> const &kernel)
+        : SurfaceSynth(s)
+        , _kernel(kernel.size())
+        , _targetX(targetX)
+        , _targetY(targetY)
+        , _orderX(orderX)
+        , _orderY(orderY)
         , _bias(bias)
     {
-        for (unsigned i = 0; i < kernel.size(); ++i) {
+        for (unsigned i = 0; i < _kernel.size(); ++i) {
             _kernel[i] = kernel[i] / divisor;
         }
+        // the matrix is given rotated 180 degrees
+        // which corresponds to reverse element order
+        std::reverse(_kernel.begin(), _kernel.end());
     }
 
-    guint32 operator()(int x, int y) {
-        int start_x = x - _tX;
-        int start_y = y - _tY;
+    guint32 operator()(int x, int y) const {
+        int startx = std::max(0, x - _targetX);
+        int starty = std::max(0, y - _targetY);
+        int endx = std::min(_w, startx + _orderX);
+        int endy = std::min(_h, starty + _orderY);
+        int limitx = endx - startx;
+        int limity = endy - starty;
+        double suma = 0.0, sumr = 0.0, sumg = 0.0, sumb = 0.0;
 
-        double ro = 0, go = 0, bo = 0, ao = 0;
+        for (int i = 0; i < limity; ++i) {
+            for (int j = 0; j < limitx; ++j) {
+                guint32 px = pixelAt(startx + j, starty + i);
+                double coeff = _kernel[i * _orderX + j];
+                EXTRACT_ARGB32(px, a,r,g,b)
 
-        for (int i = 0; i < _oY; ++i) {
-            for (int j = 0; j < _oX; ++j) {
-                guint32 in = pixelAt(start_x + j, start_y + i);
-                EXTRACT_ARGB(in, a,r,g,b)
-
-                unsigned kidx = i*_oY + j;
-                double k = kernel[]
-
-                ro += r * 
+                sumr += r * coeff;
+                sumg += g * coeff;
+                sumb += b * coeff;
+                if (preserve_alpha == NO_PRESERVE_ALPHA) {
+                    suma += a * coeff;
+                }
             }
         }
-        
+        if (preserve_alpha == PRESERVE_ALPHA) {
+            suma = alphaAt(x, y);
+        } else {
+            suma += _bias * 255;
+        }
+
+        guint32 ao = pxclamp(round(suma), 0, 255);
+        guint32 ro = pxclamp(round(sumr + ao * _bias), 0, ao);
+        guint32 go = pxclamp(round(sumg + ao * _bias), 0, ao);
+        guint32 bo = pxclamp(round(sumb + ao * _bias), 0, ao);
+        ASSEMBLE_ARGB32(pxout, ao,ro,go,bo);
+        return pxout;
     }
 
 private:
-    inline guint32 pixelAt(int x, int y) {
-        return *(_px + y * _yskip + x);
-    }
-
     std::vector<double> _kernel;
-    guint32 *_px;
-    // PixelAccessor _in;
+    int _targetX, _targetY, _orderX, _orderY;
     double _bias;
-    int _tX, _tY, _oX, _oY, _yskip;
-}; */
+};
 
 void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
 {
@@ -205,7 +115,7 @@ void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
         return;
     }
     if (kernelMatrix.size()!=(unsigned int)(orderX*orderY)) {
-        g_warning("kernelMatrix does not have orderX*orderY elements!");
+        //g_warning("kernelMatrix does not have orderX*orderY elements!");
         return;
     }
 
@@ -228,24 +138,28 @@ void FilterConvolveMatrix::render_cairo(FilterSlot &slot)
         edge_warning = true;
     }
 
-    guint32 *in_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(input));
-    guint32 *out_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(out));
+    //guint32 *in_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(input));
+    //guint32 *out_data = reinterpret_cast<guint32*>(cairo_image_surface_get_data(out));
 
-    int width = cairo_image_surface_get_width(input);
-    int height = cairo_image_surface_get_height(input);
+    //int width = cairo_image_surface_get_width(input);
+    //int height = cairo_image_surface_get_height(input);
 
     // Set up predivided kernel matrix
-    std::vector<double> kernel(kernelMatrix);
+    /*std::vector<double> kernel(kernelMatrix);
     for(size_t i=0; i<kernel.size(); i++) {
         kernel[i] /= divisor; // The code that creates this object makes sure that divisor != 0
-    }
+    }*/
 
     if (preserveAlpha) {
-        convolve2D<true>(out_data, in_data, width, height, &kernel.front(), orderX, orderY,
-            targetX, targetY, bias);
+        //convolve2D<true>(out_data, in_data, width, height, &kernel.front(), orderX, orderY,
+        //    targetX, targetY, bias);
+        ink_cairo_surface_synthesize(out, ConvolveMatrix<PRESERVE_ALPHA>(input,
+            targetX, targetY, orderX, orderY, divisor, bias, kernelMatrix));
     } else {
-        convolve2D<false>(out_data, in_data, width, height, &kernel.front(), orderX, orderY,
-            targetX, targetY, bias);
+        //convolve2D<false>(out_data, in_data, width, height, &kernel.front(), orderX, orderY,
+        //    targetX, targetY, bias);
+        ink_cairo_surface_synthesize(out, ConvolveMatrix<NO_PRESERVE_ALPHA>(input,
+            targetX, targetY, orderX, orderY, divisor, bias, kernelMatrix));
     }
 
     slot.set(_output, out);
