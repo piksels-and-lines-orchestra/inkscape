@@ -102,6 +102,7 @@ void convert_pixels_pixbuf_to_argb32(guchar *data, int w, int h, int rs);
 void convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int rs);
 void convert_pixbuf_normal_to_argb32(GdkPixbuf *);
 void convert_pixbuf_argb32_to_normal(GdkPixbuf *);
+cairo_surface_t *ink_cairo_surface_create_for_argb32_pixbuf(GdkPixbuf *pb);
 
 G_GNUC_CONST inline guint32
 premul_alpha(guint32 color, guint32 alpha)

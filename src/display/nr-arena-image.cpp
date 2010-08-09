@@ -93,8 +93,10 @@ nr_arena_image_finalize (NRObject *object)
 {
     NRArenaImage *image = NR_ARENA_IMAGE (object);
 
-    if (image->pixbuf != NULL)
+    if (image->pixbuf != NULL) {
         g_object_unref(image->pixbuf);
+        cairo_surface_destroy(image->surface);
+    }
     if (image->style)
         sp_style_unref(image->style);
 
@@ -159,7 +161,7 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_translate(ct, image->ox, image->oy);
         cairo_scale(ct, image->sx, image->sy);
 
-        gdk_cairo_set_source_pixbuf(ct, image->pixbuf, 0, 0);
+        cairo_set_source_surface(ct, image->surface, 0, 0);
 
         cairo_matrix_t tt;
         Geom::Matrix total;
@@ -311,7 +313,7 @@ nr_arena_image_rect (NRArenaImage *image)
 /* Utility */
 
 void
-nr_arena_image_set_pixbuf (NRArenaImage *image, GdkPixbuf *pb)
+nr_arena_image_set_argb32_pixbuf (NRArenaImage *image, GdkPixbuf *pb)
 {
     nr_return_if_fail (image != NULL);
     nr_return_if_fail (NR_IS_ARENA_IMAGE (image));
@@ -322,8 +324,10 @@ nr_arena_image_set_pixbuf (NRArenaImage *image, GdkPixbuf *pb)
     }
     if (image->pixbuf != NULL) {
         g_object_unref(image->pixbuf);
+        cairo_surface_destroy(image->surface);
     }
     image->pixbuf = pb;
+    image->surface = pb ? ink_cairo_surface_create_for_argb32_pixbuf(pb) : NULL;
 
     nr_arena_item_request_update (NR_ARENA_ITEM (image), NR_ARENA_ITEM_STATE_ALL, FALSE);
 }

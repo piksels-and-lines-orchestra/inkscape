@@ -26,6 +26,7 @@
 #include <glibmm/i18n.h>
 
 #include "display/nr-arena-image.h"
+#include "display/cairo-utils.h"
 #include "display/curve.h"
 //Added for preserveAspectRatio support -- EAF
 #include "enums.h"
@@ -908,6 +909,8 @@ sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
                 }
 #endif // ENABLE_LCMS
                 image->pixbuf = pixbuf;
+                // convert to premultiplied native-endian ARGB for display with Cairo
+                convert_pixbuf_normal_to_argb32(image->pixbuf);
             }
         }
     }
@@ -1077,11 +1080,14 @@ sp_image_print (SPItem *item, SPPrintContext *ctx)
     SPImage *image = SP_IMAGE(item);
 
     if (image->pixbuf && (image->width.computed > 0.0) && (image->height.computed > 0.0) ) {
-        guchar *px = gdk_pixbuf_get_pixels(image->pixbuf);
-        int w = gdk_pixbuf_get_width(image->pixbuf);
-        int h = gdk_pixbuf_get_height(image->pixbuf);
-        int rs = gdk_pixbuf_get_rowstride(image->pixbuf);
-        int pixskip = gdk_pixbuf_get_n_channels(image->pixbuf) * gdk_pixbuf_get_bits_per_sample(image->pixbuf) / 8;
+        GdkPixbuf *pb = gdk_pixbuf_copy(image->pixbuf);
+        convert_pixbuf_argb32_to_normal(pb);
+
+        guchar *px = gdk_pixbuf_get_pixels(pb);
+        int w = gdk_pixbuf_get_width(pb);
+        int h = gdk_pixbuf_get_height(pb);
+        int rs = gdk_pixbuf_get_rowstride(pb);
+        int pixskip = gdk_pixbuf_get_n_channels(pb) * gdk_pixbuf_get_bits_per_sample(pb) / 8;
 
         if (image->aspect_align == SP_ASPECT_NONE) {
             Geom::Matrix t;
@@ -1262,7 +1268,7 @@ static void
 sp_image_update_arenaitem (SPImage *image, NRArenaImage *ai)
 {
     nr_arena_image_set_style(ai, SP_OBJECT_STYLE(SP_OBJECT(image)));
-    nr_arena_image_set_pixbuf(ai, image->pixbuf);
+    nr_arena_image_set_argb32_pixbuf(ai, image->pixbuf);
     nr_arena_image_set_origin(ai, Geom::Point(image->ox, image->oy));
     nr_arena_image_set_scale(ai, image->sx, image->sy);
     nr_arena_image_set_clipbox(ai, image->clipbox);

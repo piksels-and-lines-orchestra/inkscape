@@ -327,6 +327,14 @@ ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m)
 void
 ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double y)
 {
+    cairo_surface_t *pbs = ink_cairo_surface_create_for_argb32_pixbuf(pb);
+    cairo_set_source_surface(ct, pbs, x, y);
+    cairo_surface_destroy(pbs);
+}
+
+cairo_surface_t *
+ink_cairo_surface_create_for_argb32_pixbuf(GdkPixbuf *pb)
+{
     guchar *data = gdk_pixbuf_get_pixels(pb);
     int w = gdk_pixbuf_get_width(pb);
     int h = gdk_pixbuf_get_height(pb);
@@ -334,8 +342,7 @@ ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double 
 
     cairo_surface_t *pbs = cairo_image_surface_create_for_data(
         data, CAIRO_FORMAT_ARGB32, w, h, stride);
-    cairo_set_source_surface(ct, pbs, x, y);
-    cairo_surface_destroy(pbs);
+    return pbs;
 }
 
 /** @brief Create an exact copy of a surface.

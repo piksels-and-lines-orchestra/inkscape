@@ -26,6 +26,7 @@ NRType nr_arena_image_get_type (void);
 
 struct NRArenaImage : public NRArenaItem {
     GdkPixbuf *pixbuf;
+    cairo_surface_t *surface;
 
     Geom::Matrix ctm;
     Geom::Rect clipbox;
@@ -45,7 +46,7 @@ struct NRArenaImageClass {
     NRArenaItemClass parent_class;
 };
 
-void nr_arena_image_set_pixbuf (NRArenaImage *image, GdkPixbuf *pb);
+void nr_arena_image_set_argb32_pixbuf (NRArenaImage *image, GdkPixbuf *pb);
 void nr_arena_image_set_style (NRArenaImage *image, SPStyle *style);
 void nr_arena_image_set_clipbox (NRArenaImage *image, Geom::Rect const &clip);
 void nr_arena_image_set_origin (NRArenaImage *image, Geom::Point const &origin);
