@@ -135,6 +135,21 @@ private:
     gint32 _v[9];
 };
 
+struct ColorMatrixLuminanceToAlpha {
+    guint32 operator()(guint32 in) {
+        // original computation in double: r*0.2125 + g*0.7154 + b*0.0721
+        EXTRACT_ARGB32(in, a, r, g, b)
+        // unpremultiply color values
+        if (a != 0) {
+            r = unpremul_alpha(r, a);
+            g = unpremul_alpha(g, a);
+            b = unpremul_alpha(b, a);
+        }
+        guint32 ao = r*54 + g*182 + b*18;
+        return ((ao + 127) / 255) << 24;
+    }
+};
+
 void FilterColorMatrix::render_cairo(FilterSlot &slot)
 {
     cairo_surface_t *input = slot.getcairo(_input);
