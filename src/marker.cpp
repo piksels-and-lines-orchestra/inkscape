@@ -614,6 +614,13 @@ sp_marker_show_instance ( SPMarker *marker, NRArenaItem *parent,
                           unsigned int key, unsigned int pos,
                           Geom::Matrix const &base, float linewidth)
 {
+    // do not show marker if linewidth == 0 and markerUnits == strokeWidth
+    // otherwise Cairo will fail to render anything on the tile
+    // that contains the "degenerate" marker
+    if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH && linewidth == 0) {
+        return NULL;
+    }
+
     for (SPMarkerView *v = marker->views; v != NULL; v = v->next) {
         if (v->key == key) {
             if (pos >= v->items.size()) {

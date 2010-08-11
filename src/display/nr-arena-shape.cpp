@@ -370,6 +370,7 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         // to render svg:pattern
         has_fill   = shape->nrstyle.prepareFill(ct, &shape->paintbox);
         has_stroke = shape->nrstyle.prepareStroke(ct, &shape->paintbox);
+        has_stroke &= (shape->nrstyle.stroke_width != 0);
 
         if (has_fill || has_stroke) {
             // TODO: remove segments outside of bbox when no dashes present
@@ -387,7 +388,7 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
         cairo_restore(ct);
     }
 
-    /* Render markers into parent buffer */
+    // marker rendering
     for (NRArenaItem *child = shape->markers; child != NULL; child = child->next) {
         unsigned int ret = nr_arena_item_invoke_render(ct, child, area, pb, flags);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) return ret;
