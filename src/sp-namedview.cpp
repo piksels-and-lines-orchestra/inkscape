@@ -726,6 +726,12 @@ void SPNamedView::show(SPDesktop *desktop)
 
 #define MIN_ONSCREEN_DISTANCE 50
 
+void SPNamedView::writeNewGrid(SPDocument *document,int gridtype)
+{
+	g_assert(this->getRepr() != NULL);
+	Inkscape::CanvasGrid::writeNewGridToRepr(this->getRepr(),document,static_cast<Inkscape::GridType>(gridtype));
+}
+
 /*
  * Restores window geometry from the document settings or defaults in prefs
  */
@@ -772,6 +778,17 @@ void sp_namedview_window_from_document(SPDesktop *desktop)
         g_list_free(desktop->zooms_past);
         desktop->zooms_past = NULL;
     }
+}
+
+bool SPNamedView::getSnapGlobal() const
+{
+	return this->snap_manager.snapprefs.getSnapEnabledGlobally();
+}
+
+void SPNamedView::setSnapGlobal(bool v)
+{
+	g_assert(this->getRepr() != NULL);
+	sp_repr_set_boolean(this->getRepr(), "inkscape:snap-global", v);
 }
 
 void sp_namedview_update_layers_from_document (SPDesktop *desktop)
@@ -983,6 +1000,48 @@ SPNamedView *sp_document_namedview(SPDocument *document, const gchar *id)
 
     return (SPNamedView *) nv;
 }
+
+void SPNamedView::setGuides(bool v)
+{
+	g_assert(this->getRepr() != NULL);
+	sp_repr_set_boolean(this->getRepr(), "showguides", v);
+	sp_repr_set_boolean(this->getRepr(), "inkscape:guide-bbox", v);
+
+}
+
+/**
+ * Gets page fitting margin information from the namedview node in the XML.
+ * \param nv_repr reference to this document's namedview
+ * \param key the same key used by the RegisteredScalarUnit in
+ *        ui/widget/page-sizer.cpp
+ * \param margin_units units for the margin
+ * \param return_units units to return the result in
+ * \param width width in px (for percentage margins)
+ * \param height height in px (for percentage margins)
+ * \param use_width true if the this key is left or right margins, false
+ *        otherwise.  Used for percentage margins.
+ * \return the margin size in px, else 0.0 if anything is invalid.
+ */
+double SPNamedView::getMarginLength(gchar const * const key,
+                             SPUnit const * const margin_units,
+                             SPUnit const * const return_units,
+                             double const width,
+                             double const height,
+                             bool const use_width)
+{
+    double value;
+	if(!this->storeAsDouble(key,&value)) {
+        return 0.0;
+    }
+    if (margin_units == &sp_unit_get_by_id (SP_UNIT_PERCENT)) {
+        return (use_width)? width * value : height * value; 
+    }
+    if (!sp_convert_distance (&value, margin_units, return_units)) {
+        return 0.0;
+    }
+    return value;
+}
+
 
 /**
  * Returns namedview's default metric.

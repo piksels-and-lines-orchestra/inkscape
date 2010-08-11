@@ -103,7 +103,7 @@ sp_desktop_apply_css_recursive(SPObject *o, SPCSSAttr *css, bool skip_lines)
               || SP_IS_FLOWDIV(o)
               || SP_IS_FLOWPARA(o)
               || SP_IS_TEXTPATH(o))
-          && !SP_OBJECT_REPR(o)->attribute("style"))
+          && /*!SP_OBJECT_REPR(o)->attribute("style")*/ !o->getAttribute("style"))
         &&
         !(SP_IS_FLOWREGION(o) ||
           SP_IS_FLOWREGIONEXCLUDE(o) ||
@@ -129,7 +129,8 @@ sp_desktop_apply_css_recursive(SPObject *o, SPCSSAttr *css, bool skip_lines)
             }
         }
 
-        sp_repr_css_change(SP_OBJECT_REPR(o), css_set, "style");
+        //sp_repr_css_change(SP_OBJECT_REPR(o), css_set, "style");
+		o->changeCSS(css_set,"style");
 
         sp_repr_css_attr_unref(css_set);
     }

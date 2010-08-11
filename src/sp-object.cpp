@@ -503,6 +503,18 @@ SPObject::appendChildRepr(Inkscape::XML::Node *repr) {
     }
 }
 
+void SPObject::setCSS(SPCSSAttr *css, gchar const *attr)
+{
+	g_assert(this->getRepr() != NULL);
+	sp_repr_css_set(this->getRepr(), css, attr);
+}
+
+void SPObject::changeCSS(SPCSSAttr *css, gchar const *attr)
+{
+	g_assert(this->getRepr() != NULL);
+	sp_repr_css_change(this->getRepr(), css, attr);
+}
+
 /**
  * Retrieves the children as a GSList object, optionally ref'ing the children
  * in the process, if add_ref is specified.
@@ -1522,6 +1534,12 @@ SPObject::removeAttribute(gchar const *key, SPException *ex)
     /// \todo fixme: Exception if object is NULL? */
 	//XML Tree being used here.
     getRepr()->setAttribute(key, NULL, false);
+}
+
+bool SPObject::storeAsDouble( gchar const *key, double *val ) const
+{
+	g_assert(this->getRepr()!= NULL);
+	return sp_repr_get_double(((Inkscape::XML::Node *)(this->getRepr())),key,val);
 }
 
 /* Helper */

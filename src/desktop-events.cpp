@@ -75,7 +75,7 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
     int wx, wy;
 
     SPDesktop *desktop = dtw->desktop;
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(desktop->namedview);
+    //Inkscape::XML::Node *repr = SP_OBJECT_REPR(desktop->namedview);
 
     gdk_window_get_pointer(GTK_WIDGET(dtw->canvas)->window, &wx, &wy, NULL);
     Geom::Point const event_win(wx, wy);
@@ -92,8 +92,10 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
                 Geom::Point const event_dt(desktop->w2d(event_w));
 
                 // explicitly show guidelines; if I draw a guide, I want them on
-                sp_repr_set_boolean(repr, "showguides", TRUE);
-                sp_repr_set_boolean(repr, "inkscape:guide-bbox", TRUE);
+                /*sp_repr_set_boolean(repr, "showguides", TRUE);
+                sp_repr_set_boolean(repr, "inkscape:guide-bbox", TRUE);*/
+
+				desktop->namedview->setGuides(true);
 
                 // calculate the normal of the guidelines when dragged from the edges of rulers.
                 Geom::Point normal_bl_to_tr(-1.,1.); //bottomleft to topright
@@ -183,7 +185,8 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
                     Inkscape::XML::Node *repr = xml_doc->createElement("sodipodi:guide");
                     sp_repr_set_point(repr, "orientation", normal);
                     sp_repr_set_point(repr, "position", from_2geom(event_dt));
-                    SP_OBJECT_REPR(desktop->namedview)->appendChild(repr);
+                    //SP_OBJECT_REPR(desktop->namedview)->appendChild(repr);
+					desktop->namedview->appendChild(repr);
                     Inkscape::GC::release(repr);
                     SPDocumentUndo::done(sp_desktop_document(desktop), SP_VERB_NONE,
                                      _("Create guide"));

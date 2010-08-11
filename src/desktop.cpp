@@ -970,10 +970,12 @@ void SPDesktop::applyCurrentOrToolStyle(SPObject *obj, Glib::ustring const &tool
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     if (prefs->getBool(tool_path + "/usecurrent") && css_current) {
-        sp_repr_css_set(obj->getRepr(), css_current, "style");
+        //sp_repr_css_set(obj->getRepr(), css_current, "style");
+		obj->setCSS(css_current,"style");
     } else {
         SPCSSAttr *css = prefs->getInheritedStyle(tool_path + "/style");
-        sp_repr_css_set(obj->getRepr(), css, "style");
+        //sp_repr_css_set(obj->getRepr(), css, "style");
+		obj->setCSS(css,"style");
         sp_repr_css_attr_unref(css);
     }
     if (css_current) {
@@ -1432,8 +1434,9 @@ void SPDesktop::toggleGrids()
         }
     } else {
         //there is no grid present at the moment. add a rectangular grid and make it visible
-        Inkscape::XML::Node *repr = SP_OBJECT_REPR(namedview);
-        Inkscape::CanvasGrid::writeNewGridToRepr(repr, sp_desktop_document(this), Inkscape::GRID_RECTANGULAR);
+        //Inkscape::XML::Node *repr = SP_OBJECT_REPR(namedview);
+        //Inkscape::CanvasGrid::writeNewGridToRepr(repr, sp_desktop_document(this), Inkscape::GRID_RECTANGULAR);
+		namedview->writeNewGrid(sp_desktop_document(this), Inkscape::GRID_RECTANGULAR);
         showGrids(true);
     }
 }
@@ -1451,9 +1454,11 @@ void SPDesktop::showGrids(bool show, bool dirty_document)
 
 void SPDesktop::toggleSnapGlobal()
 {
-    bool v = namedview->snap_manager.snapprefs.getSnapEnabledGlobally();
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(namedview);
-    sp_repr_set_boolean(repr, "inkscape:snap-global", !v);
+    //bool v = namedview->snap_manager.snapprefs.getSnapEnabledGlobally();
+    //Inkscape::XML::Node *repr = SP_OBJECT_REPR(namedview);
+    //sp_repr_set_boolean(repr, "inkscape:snap-global", !v);
+	bool v=namedview->getSnapGlobal();
+	namedview->setSnapGlobal(!v);
 }
 
 //----------------------------------------------------------------------

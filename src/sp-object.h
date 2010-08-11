@@ -70,6 +70,7 @@ class SPObjectClass;
 #include "forward.h"
 #include "version.h"
 #include "util/forward-pointer-iterator.h"
+#include "desktop-style.h"
 
 namespace Inkscape {
 namespace XML {
@@ -540,6 +541,9 @@ public:
 	void removeAttribute(gchar const *key, SPException *ex=0);
 	gchar const *getStyleProperty(gchar const *key, gchar const *def) const;
 	SPObject *prev();
+	void setCSS(SPCSSAttr *css, gchar const *attr);
+	void changeCSS(SPCSSAttr *css, gchar const *attr);
+	bool storeAsDouble( gchar const *key, double *val ) const;
 
 private:
     // Private member functions used in the definitions of setTitle(),

@@ -627,18 +627,21 @@ Geom::Point SPDocument::getDimensions()
  *        otherwise.  Used for percentage margins.
  * \return the margin size in px, else 0.0 if anything is invalid.
  */
-static double getMarginLength(Inkscape::XML::Node * const nv_repr,
-                             gchar const * const key,
+//static double getMarginLength(/*Inkscape::XML::Node * const nv_repr*/
+/*                             gchar const * const key,
                              SPUnit const * const margin_units,
                              SPUnit const * const return_units,
                              double const width,
                              double const height,
-                             bool const use_width)
-{
-    double value;
-    if (!sp_repr_get_double (nv_repr, key, &value)) {
+                             bool const use_width)*/
+//{
+  //  double value;
+    /*if (!sp_repr_get_double (nv_repr, key, &value)) {
         return 0.0;
-    }
+    }*/
+/*	if(!this->storeAsDouble(key,&value)) {
+		return 0.0;
+	}
     if (margin_units == &sp_unit_get_by_id (SP_UNIT_PERCENT)) {
         return (use_width)? width * value : height * value; 
     }
@@ -646,7 +649,7 @@ static double getMarginLength(Inkscape::XML::Node * const nv_repr,
         return 0.0;
     }
     return value;
-}
+}*/
 
 /**
  * Given a Geom::Rect that may, for example, correspond to the bbox of an object,
@@ -674,9 +677,10 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
     SPNamedView *nv = sp_document_namedview(this, 0);
     
     if (with_margins && nv) {
-        Inkscape::XML::Node *nv_repr = SP_OBJECT_REPR (nv);
-        if (nv_repr != NULL) {
-            gchar const * const units_abbr = nv_repr->attribute("units");
+        //Inkscape::XML::Node *nv_repr = SP_OBJECT_REPR (nv);
+        if (nv != NULL) {
+            //gchar const * const units_abbr = nv_repr->attribute("units");
+            gchar const * const units_abbr = nv->getAttribute("units");
             SPUnit const *margin_units = NULL;
             if (units_abbr != NULL) {
                 margin_units = sp_unit_get_by_abbreviation(units_abbr);
@@ -684,6 +688,7 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
             if (margin_units == NULL) {
                 margin_units = &px;
             }
+			/*
             margin_top = getMarginLength(nv_repr, "fit-margin-top",
                                          margin_units, &px, w, h, false);
             margin_left = getMarginLength(nv_repr, "fit-margin-left",
@@ -691,7 +696,13 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
             margin_right = getMarginLength(nv_repr, "fit-margin-right",
                                            margin_units, &px, w, h, true);
             margin_bottom = getMarginLength(nv_repr, "fit-margin-bottom",
-                                            margin_units, &px, w, h, false);
+                                            margin_units, &px, w, h, false);*/
+			margin_top = nv->getMarginLength("fit-margin-top",margin_units, &px, w, h, false);
+			margin_top = nv->getMarginLength("fit-margin-left",margin_units, &px, w, h, true);
+			margin_top = nv->getMarginLength("fit-margin-right",margin_units, &px, w, h, true);
+			margin_top = nv->getMarginLength("fit-margin-bottom",margin_units, &px, w, h, false);
+
+
         }
     }
     
