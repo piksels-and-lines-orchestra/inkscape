@@ -401,7 +401,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     bool needs_intermediate_rendering = false;
     bool &nir = needs_intermediate_rendering;
-    bool needs_opacity = (item->opacity != 255);
+    bool needs_opacity = (item->opacity != 255 && !item->render_opacity);
 
     // this item needs an intermediate rendering if:
     nir |= (item->mask != NULL); // 1. it has a mask
@@ -453,7 +453,6 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
     if (item->mask) {
         maskgroup.push_with_content(CAIRO_CONTENT_COLOR_ALPHA);
         // handle opacity of a masked object by composing it with the mask
-        // this uses 1/4 the memory of composing it with full rendering
         if (needs_opacity) {
             maskopacitygroup.push();
         }
