@@ -103,7 +103,7 @@ struct SpecularPointLight : public SpecularLight {
 
     guint32 operator()(int x, int y) {
         NR::Fvector light, halfway;
-        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        _light.light_vector(light, _x0 + x, _y0 + y, _scale * alphaAt(x, y)/255.0);
         NR::normalized_sum(halfway, light, NR::EYE_VECTOR);
         return specularLighting(x, y, halfway, _light_components);
     }
@@ -125,7 +125,7 @@ struct SpecularSpotLight : public SpecularLight {
 
     guint32 operator()(int x, int y) {
         NR::Fvector light, halfway, light_components;
-        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        _light.light_vector(light, _x0 + x, _y0 + y, _scale * alphaAt(x, y)/255.0);
         _light.light_components(light_components, light);
         NR::normalized_sum(halfway, light, NR::EYE_VECTOR);
         return specularLighting(x, y, halfway, light_components);

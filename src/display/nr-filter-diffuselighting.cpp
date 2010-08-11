@@ -94,7 +94,7 @@ struct DiffusePointLight : public DiffuseLight {
 
     guint32 operator()(int x, int y) {
         NR::Fvector light;
-        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        _light.light_vector(light, _x0 + x, _y0 + y, _scale * alphaAt(x, y)/255.0);
         return diffuseLighting(x, y, light, _light_components);
     }
 private:
@@ -114,7 +114,7 @@ struct DiffuseSpotLight : public DiffuseLight {
 
     guint32 operator()(int x, int y) {
         NR::Fvector light, light_components;
-        _light.light_vector(light, _x0 + x, _y0 + y, alphaAt(x, y)/255.0);
+        _light.light_vector(light, _x0 + x, _y0 + y, _scale * alphaAt(x, y)/255.0);
         _light.light_components(light_components, light);
         return diffuseLighting(x, y, light, light_components);
     }
