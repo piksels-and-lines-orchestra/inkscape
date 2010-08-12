@@ -1751,7 +1751,7 @@ struct Forward {
     static Iterator next(Iterator i) { return SP_OBJECT_NEXT(i); }
 };
 
-struct ReverseSelect {
+struct ListReverse {
     typedef GSList *Iterator;
 
     static Iterator children(SPObject *o) {
@@ -1830,7 +1830,7 @@ sp_selection_item_prev(SPDesktop *desktop)
         root = desktop->currentRoot();
     }
 
-    SPItem *item=next_item_from_list<ReverseSelect>(desktop, selection->itemList(), root, SP_CYCLING == SP_CYCLE_VISIBLE, inlayer, onlyvisible, onlysensitive);
+    SPItem *item=next_item_from_list<ListReverse>(desktop, selection->itemList(), root, SP_CYCLING == SP_CYCLE_VISIBLE, inlayer, onlyvisible, onlysensitive);
 
     if (item) {
         selection->set(item, PREFS_SELECTION_LAYER_RECURSIVE == inlayer);
