@@ -313,16 +313,12 @@ nr_arena_item_invoke_update (NRArenaItem *item, NRRectL *area, NRGC *gc,
 
 struct MaskLuminanceToAlpha {
     guint32 operator()(guint32 in) {
-        // original computation in double: r*0.2125 + g*0.7154 + b*0.0721
         EXTRACT_ARGB32(in, a, r, g, b)
-        // unpremultiply color values
-        if (a != 0) {
-            r = unpremul_alpha(r, a);
-            g = unpremul_alpha(g, a);
-            b = unpremul_alpha(b, a);
-        }
+        // the operation of unpremul -> luminance-to-alpha -> multiply by alpha
+        // is equivalent to luminance-to-alpha on premultiplied color values
+        // original computation in double: r*0.2125 + g*0.7154 + b*0.0721
         guint32 ao = r*54 + g*182 + b*18;
-        return premul_alpha((ao + 127) / 255, a) << 24;
+        return ((ao + 127) / 255) << 24;
     }
 };
 
