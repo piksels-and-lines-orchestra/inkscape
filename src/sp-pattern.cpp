@@ -588,6 +588,35 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     if (!visible)
         return NULL;
 
+    /* Show items */
+    SPPattern *shown = NULL;
+    for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
+        // find the first one with item children
+        if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) {
+            shown = pat_i;
+            break; // do not go further up the chain if children are found
+        }
+    }
+
+    if (!shown) {
+        return cairo_pattern_create_rgba(0,0,0,0);
+    }
+
+    /* Create arena */
+    NRArena *arena = NRArena::create();
+    unsigned int dkey = sp_item_display_key_new (1);
+    NRArenaGroup *root = NRArenaGroup::create(arena);
+
+    for (SPObject *child = sp_object_first_child(SP_OBJECT(shown)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+        if (SP_IS_ITEM (child)) {
+            // for each item in pattern, show it on our arena, add to the group,
+            // and connect to the release signal in case the item gets deleted
+            NRArenaItem *cai;
+            cai = sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_SHOW_DISPLAY);
+            nr_arena_item_append_child (root, cai);
+        }
+    }
+
     if (pat->viewBox_set) {
         gdouble tmp_x = pattern_width (pat) / (pattern_viewBox(pat)->x1 - pattern_viewBox(pat)->x0);
         gdouble tmp_y = pattern_height (pat) / (pattern_viewBox(pat)->y1 - pattern_viewBox(pat)->y0);
@@ -603,30 +632,6 @@ sp_pattern_create_pattern(SPPaintServer *ps,
         ps2user *= bbox2user;
     }
     ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
-
-    /* Create arena */
-    NRArena *arena = NRArena::create();
-    unsigned int dkey = sp_item_display_key_new (1);
-    NRArenaGroup *root = NRArenaGroup::create(arena);
-
-    /* Show items */
-    SPPattern *shown = NULL;
-    for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-        // find the first one with item children
-        if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) {
-            shown = pat_i;
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
-                if (SP_IS_ITEM (child)) {
-                    // for each item in pattern, show it on our arena, add to the group,
-                    // and connect to the release signal in case the item gets deleted
-                    NRArenaItem *cai;
-                    cai = sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_SHOW_DISPLAY);
-                    nr_arena_item_append_child (root, cai);
-                }
-            }
-            break; // do not go further up the chain if children are found
-        }
-    }
 
     double x = pattern_x(pat);
     double y = pattern_y(pat);
