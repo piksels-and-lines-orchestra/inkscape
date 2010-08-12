@@ -648,14 +648,13 @@ void FilterGaussian::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
     area.y1 += area_max;
 }
 
-bool FilterGaussian::can_handle_affine(Geom::Matrix const &m)
+bool FilterGaussian::can_handle_affine(Geom::Matrix const &)
 {
-    if (Geom::are_near(_deviation_x, _deviation_y)) {
-        // TODO after 2Geom sync, change this to m.preservesAngles()
-        return Geom::are_near(m[0], m[3]) && Geom::are_near(m[1], -m[2]);
-    } else {
-        return false;
-    }
+    // Previously we tried to be smart and return true for rotations.
+    // However, the transform passed here is NOT the total transform
+    // from filter user space to screen.
+    // TODO: fix this, or replace can_handle_affine() with isotropic().
+    return false;
 }
 
 void FilterGaussian::set_deviation(double deviation)

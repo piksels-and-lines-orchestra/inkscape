@@ -59,24 +59,6 @@ namespace Filters {
 using Geom::X;
 using Geom::Y;
 
-static Geom::OptRect get_item_bbox(NRArenaItem const *item) {
-    Geom::Rect item_bbox;
-    if (item->item_bbox) {
-        item_bbox = *(item->item_bbox);
-    } else {
-        // Bounding box might not exist, so create a dummy one.
-        Geom::Point zero(0, 0);
-        item_bbox = Geom::Rect(zero, zero);
-    }
-    if (item_bbox.min()[X] > item_bbox.max()[X]
-        || item_bbox.min()[Y] > item_bbox.max()[Y])
-    {
-        // In case of negative-size bbox, return an empty OptRect
-        return Geom::OptRect();
-    }
-    return Geom::OptRect(item_bbox);
-}
-
 Filter::Filter()
 {
     _common_init();
@@ -134,19 +116,18 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
 
     Geom::Rect item_bbox;
     {
-        Geom::OptRect maybe_bbox = get_item_bbox(item);
+        Geom::OptRect maybe_bbox = item->item_bbox;
         if (maybe_bbox.isEmpty()) {
             // Code below needs a bounding box
             return 1;
         }
         item_bbox = *maybe_bbox;
     }
-
-    Geom::Rect filter_area = filter_effect_area(item_bbox);
     if (item_bbox.hasZeroArea()) {
         // It's no use to try and filter an empty object.
         return 1;
     }
+    Geom::Rect filter_area = filter_effect_area(item_bbox);
 
     FilterUnits units(_filter_units, _primitive_units);
     units.set_ctm(trans);
@@ -225,7 +206,7 @@ void Filter::area_enlarge(NRRectL &bbox, NRArenaItem const *item) const {
     }
 
     Geom::Rect item_bbox;
-    Geom::OptRect maybe_bbox = get_item_bbox(item);
+    Geom::OptRect maybe_bbox = item->item_bbox;
     if (maybe_bbox.isEmpty()) {
         // Code below needs a bounding box
         return;
@@ -245,30 +226,29 @@ void Filter::area_enlarge(NRRectL &bbox, NRArenaItem const *item) const {
 */
 }
 
-void Filter::bbox_enlarge(NRRectL &bbox) {
+void Filter::compute_drawbox(NRArenaItem const *item, NRRectL &item_bbox) {
     // Modifying empty bounding boxes confuses rest of the renderer, so
     // let's not do that.
-    if (bbox.x0 > bbox.x1 || bbox.y0 > bbox.y1) return;
+    if (item_bbox.x0 > item_bbox.x1 || item_bbox.y0 > item_bbox.y1) return;
 
-    /* TODO: this is wrong. Should use bounding box in user coordinates
-     * and find its extents in display coordinates. */
-    Geom::Point min(bbox.x0, bbox.y0);
-    Geom::Point max(bbox.x1, bbox.y1);
+    Geom::Point min(item_bbox.x0, item_bbox.y0);
+    Geom::Point max(item_bbox.x1, item_bbox.y1);
     Geom::Rect tmp_bbox(min, max);
 
     Geom::Rect enlarged = filter_effect_area(tmp_bbox);
+    enlarged = enlarged * item->ctm;
 
-    bbox.x0 = (NR::ICoord) floor(enlarged.min()[X]);
-    bbox.y0 = (NR::ICoord) floor(enlarged.min()[Y]);
-    bbox.x1 = (NR::ICoord) ceil(enlarged.max()[X]);
-    bbox.y1 = (NR::ICoord) ceil(enlarged.max()[Y]);
+    item_bbox.x0 = (NR::ICoord) floor(enlarged.min()[X]);
+    item_bbox.y0 = (NR::ICoord) floor(enlarged.min()[Y]);
+    item_bbox.x1 = (NR::ICoord) ceil(enlarged.max()[X]);
+    item_bbox.y1 = (NR::ICoord) ceil(enlarged.max()[Y]);
 }
 
 Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
 {
     Geom::Point minp, maxp;
-    double len_x = bbox.max()[X] - bbox.min()[X];
-    double len_y = bbox.max()[Y] - bbox.min()[Y];
+    double len_x = bbox.width();
+    double len_y = bbox.height();
     /* TODO: fetch somehow the object ex and em lengths */
     _region_x.update(12, 6, len_x);
     _region_y.update(12, 6, len_y);

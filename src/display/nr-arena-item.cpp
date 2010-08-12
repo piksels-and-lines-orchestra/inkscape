@@ -265,12 +265,15 @@ nr_arena_item_invoke_update (NRArenaItem *item, NRRectL *area, NRGC *gc,
     if (item->state & NR_ARENA_ITEM_STATE_INVALID)
         return item->state;
 
-    // get a copy of bbox
-    memcpy(&item->drawbox, &item->bbox, sizeof(item->bbox));
-
     /* Enlarge the drawbox to contain filter effects */
-    if (item->filter && filter) {
-        item->filter->bbox_enlarge (item->drawbox);
+    if (item->filter && filter && item->item_bbox) {
+        item->drawbox.x0 = item->item_bbox->min()[Geom::X];
+        item->drawbox.y0 = item->item_bbox->min()[Geom::Y];
+        item->drawbox.x1 = item->item_bbox->max()[Geom::X];
+        item->drawbox.y1 = item->item_bbox->max()[Geom::Y];
+        item->filter->compute_drawbox (item, item->drawbox);
+    } else {
+        memcpy(&item->drawbox, &item->bbox, sizeof(item->bbox));
     }
     // fixme: to fix the display glitches, in outline mode bbox must be a combination of 
     // full item bbox and its clip and mask (after we have the API to get these)
@@ -568,7 +571,8 @@ nr_arena_item_invoke_pick (NRArenaItem *item, Geom::Point p, double delta,
 
     if (((x + delta) >= item->bbox.x0) &&
         ((x - delta) < item->bbox.x1) &&
-        ((y + delta) >= item->bbox.y0) && ((y - delta) < item->bbox.y1)) {
+        ((y + delta) >= item->bbox.y0) && ((y - delta) < item->bbox.y1))
+    {
         if (((NRArenaItemClass *) NR_OBJECT_GET_CLASS (item))->pick)
             return ((NRArenaItemClass *) NR_OBJECT_GET_CLASS (item))->
                 pick (item, p, delta, sticky);

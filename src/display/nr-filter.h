@@ -151,10 +151,11 @@ public:
      */
     void area_enlarge(NRRectL &area, NRArenaItem const *item) const;
     /**
-     * Given an object bounding box, this function enlarges it so that
-     * it contains the filter effect area.
+     * Given an item bounding box (in user coords), this function enlarges it
+     * to contain the filter effects region and transforms it to screen
+     * coordinates
      */
-    void bbox_enlarge(NRRectL &bbox);
+    void compute_drawbox(NRArenaItem const *item, NRRectL &item_bbox);
     /**
      * Returns the filter effects area in user coordinate system.
      * The given bounding box should be a bounding box as specified in
