@@ -38,15 +38,11 @@ enum MorphologyOp {
 
 namespace {
 
-template <MorphologyOp oper> guint32 extreme(guint32 a, guint32 b);
-template <> guint32 extreme<ERODE>(guint32 a, guint32 b) { return std::min(a, b); }
-template <> guint32 extreme<DILATE>(guint32 a, guint32 b) { return std::max(a, b); }
-
 /* This performs one "half" of the morphology operation by calculating 
  * the componentwise extreme in the specified axis with the given radius.
  * Performing the operation one axis at a time gives us a MASSIVE performance boost
- * at large morphology radii. We can do this, because the morphology operation
- * is separable just like Gaussian blur. */
+ * at large morphology radii. Extreme of row extremes is equal to the extreme
+ * of components, so this doesn't change the result. */
 template <MorphologyOp OP, Geom::Dim2 axis>
 struct Morphology : public SurfaceSynth {
     Morphology(cairo_surface_t *in, double xradius)
@@ -72,36 +68,37 @@ struct Morphology : public SurfaceSynth {
             ao = (OP == DILATE ? 0 : 0xff000000);
             for (int i = start; i < end; ++i) {
                 guint32 px = (axis == Geom::X ? pixelAt(i, y) : pixelAt(x, i));
-                ao = extreme<OP>(ao, px & 0xff000000);
+                if (OP == DILATE) {
+                    if (px > ao) ao = px;
+                } else {
+                    if (px < ao) ao = px;
+                }
             }
             return ao;
         } else {
             for (int i = start; i < end; ++i) {
                 guint32 px = (axis == Geom::X ? pixelAt(i, y) : pixelAt(x, i));
                 EXTRACT_ARGB32(px, a,r,g,b);
-                if (a) {
-                    r = unpremul_alpha(r, a);
-                    g = unpremul_alpha(g, a);
-                    b = unpremul_alpha(b, a);
 
-                    ao = extreme<OP>(ao, a);
-                    ro = extreme<OP>(ro, r);
-                    go = extreme<OP>(go, g);
-                    bo = extreme<OP>(bo, b);
+                // this will be compiled to conditional moves;
+                // the operator comparison will be evaluated at compile time.
+                // therefore there will be no branching in this loop
+                if (OP == DILATE) {
+                    if (a > ao) ao = a;
+                    if (r > ro) ro = r;
+                    if (g > go) go = g;
+                    if (b > bo) bo = b;
                 } else {
-                    if (OP == DILATE) {
-                        continue; // zero pixel will not affect the maximum
-                    } else {
-                        // zero pixel is guaranteed to be the minimum
-                        ao = 0; ro = 0; go = 0; bo = 0;
-                        break;
-                    }
+                    if (a < ao) ao = a;
+                    if (r < ro) ro = r;
+                    if (g < go) go = g;
+                    if (b < bo) bo = b;
                 }
+
+                // TODO: verify whether this check gives any speedup.
+                if (OP == ERODE && a == 0) break;
             }
 
-            ro = premul_alpha(ro, ao);
-            go = premul_alpha(go, ao);
-            bo = premul_alpha(bo, ao);
             ASSEMBLE_ARGB32(pxout, ao,ro,go,bo)
             return pxout;
         }
@@ -115,6 +112,14 @@ private:
 void FilterMorphology::render_cairo(FilterSlot &slot)
 {
     cairo_surface_t *input = slot.getcairo(_input);
+
+    if (xradius == 0.0 || yradius == 0.0) {
+        // output is transparent black
+        cairo_surface_t *out = ink_cairo_surface_create_identical(input);
+        slot.set(_output, out);
+        cairo_surface_destroy(out);
+        return;
+    }
 
     Geom::Matrix p2pb = slot.get_units().get_matrix_primitiveunits2pb();
     double xr = xradius * p2pb.expansionX();
@@ -144,8 +149,8 @@ void FilterMorphology::render_cairo(FilterSlot &slot)
 
 void FilterMorphology::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
 {
-    int const enlarge_x = (int)std::ceil(this->xradius * (std::fabs(trans[0]) + std::fabs(trans[1])));
-    int const enlarge_y = (int)std::ceil(this->yradius * (std::fabs(trans[2]) + std::fabs(trans[3])));
+    int enlarge_x = ceil(xradius * trans.expansionX());
+    int enlarge_y = ceil(yradius * trans.expansionY());
 
     area.x0 -= enlarge_x;
     area.x1 += enlarge_x;
