@@ -55,9 +55,6 @@ public:
 
     // nota: all coordinates returned by these functions are on a [0..1] scale; you need to multiply
     // by the fontsize to get the real sizes
-    Path*                Outline(int glyph_id, Path *copyInto=NULL);
-    // queries the outline of the glyph (in livarot Path form), and copies it into copyInto instead
-    // of allocating a new Path if copyInto != NULL
     Geom::PathVector*    PathVector(int glyph_id);
                          // returns the 2geom-type pathvector for this glyph. no refcounting needed, it's deallocated when the font_instance dies
     double               Advance(int glyph_id, bool vertical);
