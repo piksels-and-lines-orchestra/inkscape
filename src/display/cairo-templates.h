@@ -676,16 +676,6 @@ pxclamp(gint32 v, gint32 low, gint32 high) {
     return v;
 }
 
-#define EXTRACT_ARGB32(px,a,r,g,b) \
-    guint32 a, r, g, b; \
-    a = (px & 0xff000000) >> 24; \
-    r = (px & 0x00ff0000) >> 16; \
-    g = (px & 0x0000ff00) >> 8;  \
-    b = (px & 0x000000ff);
-
-#define ASSEMBLE_ARGB32(px,a,r,g,b) \
-    guint32 px = (a << 24) | (r << 16) | (g << 8) | b;
-
 #endif
 /*
   Local Variables:

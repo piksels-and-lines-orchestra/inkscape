@@ -21,7 +21,7 @@
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "dialog-events.h"
-#include "display/cairo-templates.h"
+#include "display/cairo-utils.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
 #include "document.h"
