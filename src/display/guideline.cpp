@@ -106,6 +106,8 @@ static void sp_guideline_render(SPCanvasItem *item, SPCanvasBuf *buf)
     cairo_save(buf->ct);
     cairo_translate(buf->ct, -buf->rect.x0, -buf->rect.y0);
     ink_cairo_set_source_rgba32(buf->ct, gl->rgba);
+    cairo_set_line_width(buf->ct, 1);
+    cairo_set_line_cap(buf->ct, CAIRO_LINE_CAP_SQUARE);
 
     if (gl->is_vertical()) {
         int position = (int) Inkscape::round(gl->point_on_line[Geom::X]);
@@ -255,7 +257,7 @@ static void
 sp_guideline_drawline (SPCanvasBuf *buf, gint x0, gint y0, gint x1, gint y1, guint32 /*rgba*/)
 {
     cairo_move_to(buf->ct, x0 + 0.5, y0 + 0.5);
-    cairo_line_to(buf->ct, x1 - 0.5, y1 - 0.5);
+    cairo_line_to(buf->ct, x1 + 0.5, y1 + 0.5);
     cairo_stroke(buf->ct);
 }
 
