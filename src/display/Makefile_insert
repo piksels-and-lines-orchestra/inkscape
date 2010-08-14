@@ -89,10 +89,6 @@ ink_common_sources += \
 	display/nr-light.cpp			\
 	display/nr-light.h				\
 	display/nr-light-types.h	\
-	display/nr-plain-stuff.cpp	\
-	display/nr-plain-stuff.h	\
-	display/nr-plain-stuff-gdk.cpp	\
-	display/nr-plain-stuff-gdk.h	\
 	display/nr-style.cpp	\
 	display/nr-style.h	\
 	display/nr-svgfonts.cpp		\

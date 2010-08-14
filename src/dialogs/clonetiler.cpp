@@ -901,44 +901,16 @@ clonetiler_trace_pick (Geom::Rect box)
     /* Find visible area */
     int width = ibox.x1 - ibox.x0;
     int height = ibox.y1 - ibox.y0;
+    double R = 0, G = 0, B = 0, A = 0;
 
     cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cairo_t *ct = cairo_create(s);
-
     /* Render */
     nr_arena_item_invoke_render(ct, trace_root, &ibox, NULL,
                                  NR_ARENA_ITEM_RENDER_NO_CACHE );
-    cairo_surface_flush(s);
     cairo_destroy(ct);
-
-    double R = 0, G = 0, B = 0, A = 0;
-    double count = 0;
-
-    /* TODO convert this to OpenMP somehow */
-    unsigned char *data = cairo_image_surface_get_data(s);
-    int stride = cairo_image_surface_get_stride(s);
-    for (int y=0; y < height; ++y, data += stride) {
-        for (int x=0; x < width; ++x) {
-            guint32 px = *reinterpret_cast<guint32*>(data + 4*x);
-            EXTRACT_ARGB32(px, a,r,g,b)
-            count += 1.0;
-            R += r / 255.0;
-            G += g / 255.0;
-            B += b / 255.0;
-            A += a / 255.0;
-        }
-    }
+    ink_cairo_surface_average_color(s, R, G, B, A);
     cairo_surface_destroy(s);
-
-    R = R / A;
-    G = G / A;
-    B = B / A;
-    A = A / count;
-
-    R = CLAMP (R, 0.0, 1.0);
-    G = CLAMP (G, 0.0, 1.0);
-    B = CLAMP (B, 0.0, 1.0);
-    A = CLAMP (A, 0.0, 1.0);
 
     return SP_RGBA32_F_COMPOSE (R, G, B, A);
 }

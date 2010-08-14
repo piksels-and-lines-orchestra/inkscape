@@ -21,7 +21,6 @@
 #include "display/nr-arena-group.h"
 #include "display/canvas-arena.h"
 #include "display/cairo-utils.h"
-#include "libnr/nr-pixblock.h"
 
 enum {
     ARENA_EVENT,
@@ -358,22 +357,14 @@ sp_canvas_arena_set_sticky (SPCanvasArena *ca, gboolean sticky)
 }
 
 void
-sp_canvas_arena_render_pixblock (SPCanvasArena *ca, NRPixBlock *pb)
+sp_canvas_arena_render_surface (SPCanvasArena *ca, cairo_surface_t *surface, NRRectL const &r)
 {
-    NRRectL area;
-
     g_return_if_fail (ca != NULL);
     g_return_if_fail (SP_IS_CANVAS_ARENA (ca));
 
-    /* fixme: */
-    pb->empty = FALSE;
-
-    area.x0 = pb->area.x0;
-    area.y0 = pb->area.y0;
-    area.x1 = pb->area.x1;
-    area.y1 = pb->area.y1;
-
-    nr_arena_item_invoke_render (NULL, ca->root, &area, pb, 0);
+    cairo_t *ct = cairo_create(surface);
+    nr_arena_item_invoke_render (ct, ca->root, &r, NULL, 0);
+    cairo_destroy(ct);
 }
 
 

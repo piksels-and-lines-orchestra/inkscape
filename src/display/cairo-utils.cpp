@@ -464,11 +464,76 @@ ink_cairo_surface_get_height(cairo_surface_t *surface)
     return cairo_image_surface_get_height(surface);
 }
 
+static int ink_cairo_surface_average_color_internal(cairo_surface_t *surface, double &rf, double &gf, double &bf, double &af)
+{
+    rf = gf = bf = af = 0.0;
+    cairo_surface_flush(surface);
+    int width = cairo_image_surface_get_width(surface);
+    int height = cairo_image_surface_get_height(surface);
+    int stride = cairo_image_surface_get_stride(surface);
+    unsigned char *data = cairo_image_surface_get_data(surface);
+
+    /* TODO convert this to OpenMP somehow */
+    for (int y = 0; y < height; ++y, data += stride) {
+        for (int x = 0; x < width; ++x) {
+            guint32 px = *reinterpret_cast<guint32*>(data + 4*x);
+            EXTRACT_ARGB32(px, a,r,g,b)
+            rf += r / 255.0;
+            gf += g / 255.0;
+            bf += b / 255.0;
+            af += a / 255.0;
+        }
+    }
+    return width * height;
+}
+
+guint32 ink_cairo_surface_average_color(cairo_surface_t *surface)
+{
+    double rf,gf,bf,af;
+    ink_cairo_surface_average_color_premul(surface, rf,gf,bf,af);
+    guint32 r = round(rf * 255);
+    guint32 g = round(gf * 255);
+    guint32 b = round(bf * 255);
+    guint32 a = round(af * 255);
+    ASSEMBLE_ARGB32(px, a,r,g,b);
+    return px;
+}
+
+void ink_cairo_surface_average_color(cairo_surface_t *surface, double &r, double &g, double &b, double &a)
+{
+    int count = ink_cairo_surface_average_color_internal(surface, r,g,b,a);
+
+    r /= a;
+    g /= a;
+    b /= a;
+    a /= count;
+
+    r = CLAMP(r, 0.0, 1.0);
+    g = CLAMP(g, 0.0, 1.0);
+    b = CLAMP(b, 0.0, 1.0);
+    a = CLAMP(a, 0.0, 1.0);
+}
+
+void ink_cairo_surface_average_color_premul(cairo_surface_t *surface, double &r, double &g, double &b, double &a)
+{
+    int count = ink_cairo_surface_average_color_internal(surface, r,g,b,a);
+
+    r /= count;
+    g /= count;
+    b /= count;
+    a /= count;
+
+    r = CLAMP(r, 0.0, 1.0);
+    g = CLAMP(g, 0.0, 1.0);
+    b = CLAMP(b, 0.0, 1.0);
+    a = CLAMP(a, 0.0, 1.0);
+}
+
 cairo_pattern_t *
 ink_cairo_pattern_create_checkerboard()
 {
-    int const w = 8;
-    int const h = 8;
+    int const w = 6;
+    int const h = 6;
 
     cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 2*w, 2*h);
 

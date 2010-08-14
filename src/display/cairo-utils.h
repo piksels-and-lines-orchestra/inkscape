@@ -95,6 +95,9 @@ cairo_surface_t *ink_cairo_surface_create_output(cairo_surface_t *image, cairo_s
 void ink_cairo_surface_blit(cairo_surface_t *src, cairo_surface_t *dest);
 int ink_cairo_surface_get_width(cairo_surface_t *surface);
 int ink_cairo_surface_get_height(cairo_surface_t *surface);
+guint32 ink_cairo_surface_average_color(cairo_surface_t *surface);
+void ink_cairo_surface_average_color(cairo_surface_t *surface, double &r, double &g, double &b, double &a);
+void ink_cairo_surface_average_color_premul(cairo_surface_t *surface, double &r, double &g, double &b, double &a);
 
 cairo_pattern_t *ink_cairo_pattern_create_checkerboard();
 

@@ -10,11 +10,6 @@ ink_common_sources +=	\
 	libnr/nr-macros.h	\
 	libnr/nr-object.cpp	\
 	libnr/nr-object.h	\
-	libnr/nr-pixblock-pattern.cpp	\
-	libnr/nr-pixblock-pattern.h	\
-	libnr/nr-pixblock.cpp	\
-	libnr/nr-pixblock.h	\
-	libnr/nr-pixops.h	\
 	libnr/nr-point-fns.cpp	\
 	libnr/nr-point-fns.h	\
 	libnr/nr-point-l.h	\

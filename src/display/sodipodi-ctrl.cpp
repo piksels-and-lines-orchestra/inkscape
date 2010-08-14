@@ -12,7 +12,6 @@
 #include "sp-canvas-util.h"
 #include "display-forward.h"
 #include "sodipodi-ctrl.h"
-#include "libnr/nr-pixops.h"
 #include "display/cairo-utils.h"
 
 enum {

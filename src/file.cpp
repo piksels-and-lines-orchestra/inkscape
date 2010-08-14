@@ -29,7 +29,6 @@
 #include <gtk/gtk.h>
 #include <glib/gmem.h>
 #include <glibmm/i18n.h>
-#include <libnr/nr-pixops.h>
 
 #include "application/application.h"
 #include "application/editor.h"

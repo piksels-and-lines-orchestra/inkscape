@@ -23,7 +23,6 @@
 #include "document.h"
 #include "helper/units.h"
 #include "inkscape.h"
-#include "libnr/nr-pixops.h"
 #include "preferences.h"
 #include "sp-namedview.h"
 #include "sp-object.h"

@@ -17,8 +17,6 @@
 #endif
 
 #include "interface.h"
-#include "libnr/nr-pixops.h"
-#include "libnr/nr-pixblock.h"
 #include <2geom/rect.h>
 #include <glib/gmessages.h>
 #include <png.h>
@@ -479,15 +477,12 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
     ebp.status = status;
     ebp.data   = data;
 
-    bool write_status;
-    if ((width < 256) || ((width * height) < 32768)) {
-        ebp.px = nr_pixelstore_64K_new(FALSE, 0);
-        ebp.sheight = 65536 / (4 * width);
-        write_status = sp_png_write_rgba_striped(doc, filename, width, height, xdpi, ydpi, sp_export_get_rows, &ebp);
-        nr_pixelstore_64K_free(ebp.px);
-    } else {
-        ebp.sheight = 64;
-        ebp.px = g_try_new(guchar, 4 * ebp.sheight * width);
+    bool write_status = false;;
+
+    ebp.sheight = 64;
+    ebp.px = g_try_new(guchar, 4 * ebp.sheight * width);
+
+    if (ebp.px) {
         write_status = sp_png_write_rgba_striped(doc, filename, width, height, xdpi, ydpi, sp_export_get_rows, &ebp);
         g_free(ebp.px);
     }

@@ -12,7 +12,6 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <libnr/nr-pixblock-pattern.h>
 #include "macros.h"
 #include "display/cairo-utils.h"
 #include "gradient-image.h"
