@@ -633,34 +633,39 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     }
     ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
 
-    double x = pattern_x(pat);
-    double y = pattern_y(pat);
-    double w = pattern_width(pat);
-    double h = pattern_height(pat);
+    Geom::Point p(pattern_x(pat), pattern_y(pat));
+    Geom::Point pd(pattern_width(pat), pattern_height(pat));
+    Geom::Rect pattern_tile(p, p + pd);
+
+    if (pattern_patternUnits(pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
+        // interpret x, y, width, height in relation to bbox
+        Geom::Matrix bbox2user(bbox->x1 - bbox->x0, 0,0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        pattern_tile = pattern_tile * bbox2user;
+    }
 
     cairo_matrix_t cm;
     cairo_get_matrix(base_ct, &cm);
     Geom::Matrix full(cm.xx, cm.yx, cm.xy, cm.yy, 0, 0);
 
     // oversample the pattern slightly
-    // TODO: find optimum value. Maybe sqrt(2)?
-    Geom::Point c(Geom::Point(w, h)*ps2user.descrim()*full.descrim()*1.2);
+    // TODO: find optimum value
+    Geom::Point c(pattern_tile.dimensions()*ps2user.descrim()*full.descrim()*1.2);
     c[Geom::X] = ceil(c[Geom::X]);
     c[Geom::Y] = ceil(c[Geom::Y]);
-    Geom::Matrix t = Geom::Scale(c[Geom::X]/w, c[Geom::Y]/h);
+    Geom::Matrix t = Geom::Scale(c) * Geom::Scale(pattern_tile.dimensions()).inverse();
 
     NRRectL one_tile;
-    one_tile.x0 = (int) floor(x);
-    one_tile.y0 = (int) floor(y);
-    one_tile.x1 = (int) ceil(x+w);
-    one_tile.y1 = (int) ceil(y+h);
+    one_tile.x0 = (int) floor(pattern_tile[Geom::X].min());
+    one_tile.y0 = (int) floor(pattern_tile[Geom::Y].min());
+    one_tile.x1 = (int) ceil(pattern_tile[Geom::X].max());
+    one_tile.y1 = (int) ceil(pattern_tile[Geom::Y].max());
 
     cairo_surface_t *target = cairo_get_target(base_ct);
     cairo_surface_t *temp = cairo_surface_create_similar(target, CAIRO_CONTENT_COLOR_ALPHA,
         c[Geom::X], c[Geom::Y]);
     cairo_t *ct = cairo_create(temp);
+    // scale into a coord system where the surface w,h are equal to tile w,h
     ink_cairo_transform(ct, t);
-    cairo_translate(ct, -x, -y);
 
     // render pattern.
     if (needs_opacity) {
