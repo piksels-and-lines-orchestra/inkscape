@@ -209,8 +209,10 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
     area.y1 = buf->rect.y1;
 
     sp_canvas_prepare_buffer(buf);
-
+    cairo_save(buf->ct);
+    cairo_translate(buf->ct, -area.x0, -area.y0);
     nr_arena_item_invoke_render (buf->ct, arena->root, &area, NULL, 0);
+    cairo_restore(buf->ct);
 }
 
 static double
@@ -363,6 +365,7 @@ sp_canvas_arena_render_surface (SPCanvasArena *ca, cairo_surface_t *surface, NRR
     g_return_if_fail (SP_IS_CANVAS_ARENA (ca));
 
     cairo_t *ct = cairo_create(surface);
+    cairo_translate(ct, -r.x0, -r.y0);
     nr_arena_item_invoke_render (ct, ca->root, &r, NULL, 0);
     cairo_destroy(ct);
 }

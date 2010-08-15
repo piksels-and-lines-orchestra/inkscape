@@ -150,7 +150,6 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         // FIXME: at the moment gdk_cairo_set_source_pixbuf creates an ARGB copy
         // of the pixbuf. Fix this in Cairo and/or GDK.
         cairo_save(ct);
-        cairo_translate(ct, -area->x0, -area->y0);
         ink_cairo_transform(ct, image->ctm);
 
         cairo_new_path(ct);

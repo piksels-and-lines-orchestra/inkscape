@@ -414,6 +414,7 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
             cairo_get_target(ct), CAIRO_CONTENT_COLOR_ALPHA,
             carea.x1 - carea.x0, carea.y1 - carea.y0);
         this_ct = cairo_create(intermediate);
+        cairo_translate(this_ct, -carea.x0, -carea.y0);
         this_area = &carea;
         cairo_surface_destroy(intermediate); // the surface will be held in memory by this_ct
     } else {
@@ -487,15 +488,9 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     if (needs_intermediate_rendering) {
         cairo_surface_t *intermediate = cairo_get_target(this_ct);
-        cairo_set_source_surface(ct, intermediate, carea.x0 - area->x0, carea.y0 - area->y0);
+        cairo_set_source_surface(ct, intermediate, carea.x0, carea.y0);
         if (mask) {
-            // bring mask into the coordinate system of ct
-            cairo_pattern_t *cmask = mask->cobj();
-            cairo_matrix_t m;
-            cairo_pattern_get_matrix(cmask, &m);
-            cairo_matrix_translate(&m, area->x0 - carea.x0, area->y0 - carea.y0);
-            cairo_pattern_set_matrix(cmask, &m);
-            cairo_mask(ct, cmask);
+            cairo_mask(ct, mask->cobj());
             // opacity of masked objects is handled by premultiplying the mask
 
         } else {

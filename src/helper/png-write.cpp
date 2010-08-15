@@ -339,6 +339,8 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     cairo_surface_t *s = cairo_image_surface_create_for_data(
         px, CAIRO_FORMAT_ARGB32, ebp->width, num_rows, stride);
     cairo_t *ct = cairo_create(s);
+    cairo_translate(ct, -bbox.x0, -bbox.y0);
+
     ink_cairo_set_source_rgba32(ct, ebp->background);
     cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
     cairo_paint(ct);

@@ -660,6 +660,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
         c[Geom::X], c[Geom::Y]);
     cairo_t *ct = cairo_create(temp);
     ink_cairo_transform(ct, t);
+    cairo_translate(ct, -x, -y);
 
     // render pattern.
     if (needs_opacity) {

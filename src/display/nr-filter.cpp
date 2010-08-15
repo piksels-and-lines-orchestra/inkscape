@@ -171,7 +171,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
     }
 
     cairo_surface_t *result = slot.get_result(_output_slot);
-    cairo_set_source_surface(graphic, result, 0, 0);
+    cairo_set_source_surface(graphic, result, area->x0, area->y0);
     cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
     cairo_paint(graphic);
     cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);

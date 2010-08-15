@@ -905,6 +905,7 @@ clonetiler_trace_pick (Geom::Rect box)
 
     cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cairo_t *ct = cairo_create(s);
+    cairo_translate(ct, -ibox.x0, -ibox.y0);
     /* Render */
     nr_arena_item_invoke_render(ct, trace_root, &ibox, NULL,
                                  NR_ARENA_ITEM_RENDER_NO_CACHE );

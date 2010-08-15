@@ -830,6 +830,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     cairo_surface_t *s = cairo_image_surface_create_for_data(
         px, CAIRO_FORMAT_ARGB32, width, height, stride);
     cairo_t *ct = cairo_create(s);
+    // cairo_translate not necessary here - surface origin is at 0,0
 
     SPNamedView *nv = sp_desktop_namedview(desktop);
     guint32 bgcolor = nv->pagecolor;

@@ -1023,6 +1023,7 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
                 cairo_surface_t *s = cairo_image_surface_create_for_data(px,
                     CAIRO_FORMAT_ARGB32, psize, psize, stride);
                 cairo_t *ct = cairo_create(s);
+                cairo_translate(ct, -ua.x0, -ua.y0);
 
                 nr_arena_item_invoke_render(ct, root, &ua, NULL,
                                              NR_ARENA_ITEM_RENDER_NO_CACHE );

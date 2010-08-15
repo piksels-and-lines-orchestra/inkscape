@@ -298,9 +298,7 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
     if (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE) {
 
         guint32 rgba = item->arena->outlinecolor;
-        // FIXME: we use RGBA buffers but cairo writes BGRA (on i386), so we must cheat
-        // by setting color channels in the "wrong" order
-        cairo_set_source_rgba(ct, SP_RGBA32_B_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_R_F(rgba), SP_RGBA32_A_F(rgba));
+        ink_cairo_set_source_rgba32(ct, rgba);
         cairo_set_tolerance(ct, 1.25); // low quality, but good enough for outline mode
 
         NRRect temp(area->x0, area->y0, area->x1, area->y1);
@@ -310,10 +308,11 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
             NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
 
             Geom::PathVector const * pathv = g->font->PathVector(g->glyph);
+            Geom::Matrix transform = g->g_transform * group->ctm;
 
             cairo_new_path(ct);
-            Geom::Matrix transform = g->g_transform * group->ctm;
-            feed_pathvector_to_cairo (ct, *pathv, transform, area_2geom, false, 0);
+            ink_cairo_transform(ct, transform);
+            feed_pathvector_to_cairo (ct, *pathv);
             cairo_fill(ct);
         }
 
@@ -324,7 +323,6 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
     bool has_stroke, has_fill;
 
     cairo_save(ct);
-    cairo_translate(ct, -area->x0, -area->y0);
     ink_cairo_transform(ct, ggroup->ctm);
 
     has_fill   = ggroup->nrstyle.prepareFill(ct, &ggroup->paintbox);

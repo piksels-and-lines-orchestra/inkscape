@@ -68,6 +68,7 @@ GdkPixbuf* render_pixbuf(NRArenaItem* root, double scale_factor, const Geom::Rec
     cairo_surface_t *s = cairo_image_surface_create(
         CAIRO_FORMAT_ARGB32, psize, psize);
     cairo_t *ct = cairo_create(s);
+    cairo_translate(ct, -area.x0, -area.y0);
 
     nr_arena_item_invoke_render(ct, root, &area, NULL,
                                  NR_ARENA_ITEM_RENDER_NO_CACHE );
