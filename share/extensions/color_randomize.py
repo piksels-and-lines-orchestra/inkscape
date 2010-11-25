@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import coloreffect,random,inkex
 
 class C(coloreffect.ColorEffect):
@@ -15,6 +16,10 @@ class C(coloreffect.ColorEffect):
             action="store", type="inkbool", 
             dest="lightness", default=True,
             help="randomize lightness")
+        self.OptionParser.add_option("--tab",
+            action="store", type="string",
+            dest="tab",
+            help="The selected UI-tab when OK was pressed")
 
     def colmod(self,r,g,b):
         hsl = self.rgb_to_hsl(r/255.0, g/255.0, b/255.0)
@@ -31,4 +36,4 @@ c = C()
 c.affect()
 
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

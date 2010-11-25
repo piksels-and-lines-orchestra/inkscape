@@ -10,6 +10,7 @@
 
 #include <map>
 #include <set>
+#include <list>
 #include <glib/gprintf.h>
 #include <glibmm/i18n.h>
 #include <gtkmm/alignment.h>
@@ -331,12 +332,14 @@ namespace Dialog {
 class DeviceModelColumns : public Gtk::TreeModel::ColumnRecord
 {
 public:
+    Gtk::TreeModelColumn<bool>                         toggler;
+    Gtk::TreeModelColumn<Glib::ustring>                expander;
     Gtk::TreeModelColumn<Glib::ustring>                description;
-    Gtk::TreeModelColumn< Glib::RefPtr<Gdk::Pixbuf> >  thumbnail;
+    Gtk::TreeModelColumn<Glib::RefPtr<Gdk::Pixbuf> >   thumbnail;
     Gtk::TreeModelColumn<Glib::RefPtr<InputDevice const> > device;
     Gtk::TreeModelColumn<Gdk::InputMode>               mode;
 
-    DeviceModelColumns() { add(description); add(thumbnail); add(device); add(mode); }
+    DeviceModelColumns() { add(toggler), add(expander), add(description); add(thumbnail); add(device); add(mode); }
 };
 
 static std::map<Gdk::InputMode, Glib::ustring> &getModeToString()
@@ -389,6 +392,9 @@ private:
 
         static void commitCellModeChange(Glib::ustring const &path, Glib::ustring const &newText, Glib::RefPtr<Gtk::TreeStore> store);
         static void setModeCellString(Gtk::CellRenderer *rndr, Gtk::TreeIter const &iter);
+
+        static void commitCellStateChange(Glib::ustring const &path, Glib::RefPtr<Gtk::TreeStore> store);
+        static void setCellStateToggle(Gtk::CellRenderer *rndr, Gtk::TreeIter const &iter);
 
         void saveSettings();
         void useExtToggled();
@@ -720,6 +726,44 @@ InputDialogImpl::InputDialogImpl() :
     show_all_children();
 }
 
+class TabletTmp {
+public:
+    TabletTmp() {}
+
+    Glib::ustring name;
+    std::list<Glib::RefPtr<InputDevice const> > devices;
+};
+
+static Glib::ustring getCommon( std::list<Glib::ustring> const &names )
+{
+    Glib::ustring result;
+
+    if ( !names.empty() ) {
+        size_t pos = 0;
+        bool match = true;
+        while ( match ) {
+            if ( names.begin()->length() > pos ) {
+                gunichar ch = (*names.begin())[pos];
+                for ( std::list<Glib::ustring>::const_iterator it = names.begin(); it != names.end(); ++it ) {
+                    if ( (pos >= it->length())
+                         || ((*it)[pos] != ch) ) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    result += ch;
+                    pos++;
+                }
+            } else {
+                match = false;
+            }
+        }
+    }
+
+    return result;
+}
+
 void InputDialogImpl::setupTree( Glib::RefPtr<Gtk::TreeStore> store, Gtk::TreeIter &tablet )
 {
     std::list<Glib::RefPtr<InputDevice const> > devList = Inkscape::DeviceManager::getManager().getDevices();
@@ -727,46 +771,97 @@ void InputDialogImpl::setupTree( Glib::RefPtr<Gtk::TreeStore> store, Gtk::TreeIt
         Gtk::TreeModel::Row row = *(store->append());
         row[getCols().description] = _("Hardware");
 
-        tablet = store->append(row.children());
-        Gtk::TreeModel::Row childrow = *tablet;
-        childrow[getCols().description] = _("Tablet");
-        childrow[getCols().thumbnail] = getPix(PIX_TABLET);
+        // Let's make some tablets!!!
+        std::list<TabletTmp> tablets;
+        std::set<Glib::ustring> consumed;
 
+        // Phase 1 - figure out which tablets are present
         for ( std::list<Glib::RefPtr<InputDevice const> >::iterator it = devList.begin(); it != devList.end(); ++it ) {
             Glib::RefPtr<InputDevice const> dev = *it;
             if ( dev ) {
-//                 g_message("device: name[%s] source[0x%x] mode[0x%x] cursor[%s] axis count[%d] key count[%d]", dev->getName().c_str(), dev->getSource(), dev->getMode(),
-//                           dev->hasCursor() ? "Yes":"no", dev->getNumAxes(), dev->getNumKeys());
-
-//                 if ( dev->getSource() != Gdk::SOURCE_MOUSE ) {
-                if ( dev ) {
-                    Gtk::TreeModel::Row deviceRow = *(store->append(childrow.children()));
-                    deviceRow[getCols().description] = dev->getName();
-                    deviceRow[getCols().device] = dev;
-                    deviceRow[getCols().mode] = dev->getMode();
-                    switch ( dev->getSource() ) {
-                        case GDK_SOURCE_MOUSE:
-                            deviceRow[getCols().thumbnail] = getPix(PIX_CORE);
-                            break;
-                        case GDK_SOURCE_PEN:
-                            if (deviceRow[getCols().description] == _("pad")) {
-                                deviceRow[getCols().thumbnail] = getPix(PIX_SIDEBUTTONS);
-                            } else {
-                                deviceRow[getCols().thumbnail] = getPix(PIX_TIP);
-                            }
-                            break;
-                        case GDK_SOURCE_CURSOR:
-                            deviceRow[getCols().thumbnail] = getPix(PIX_MOUSE);
-                            break;
-                        case GDK_SOURCE_ERASER:
-                            deviceRow[getCols().thumbnail] = getPix(PIX_ERASER);
-                            break;
-                        default:
-                            ; // nothing
+                if ( dev->getSource() != Gdk::SOURCE_MOUSE ) {
+                    consumed.insert( dev->getId() );
+                    if ( tablets.empty() ) {
+                        TabletTmp tmp;
+                        tablets.push_back(tmp);
                     }
+                    tablets.back().devices.push_back(dev);
                 }
             } else {
                 g_warning("Null device in list");
+            }
+        }
+
+        // Phase 2 - build a UI for the present devices
+        for ( std::list<TabletTmp>::iterator it = tablets.begin(); it != tablets.end(); ++it ) {
+            tablet = store->append(row.children());
+            Gtk::TreeModel::Row childrow = *tablet;
+            if ( it->name.empty() ) {
+                // Check to see if we can derive one
+                std::list<Glib::ustring> names;
+                for ( std::list<Glib::RefPtr<InputDevice const> >::iterator it2 = it->devices.begin(); it2 != it->devices.end(); ++it2 ) {
+                    names.push_back( (*it2)->getName() );
+                }
+                Glib::ustring common = getCommon(names);
+                if ( !common.empty() ) {
+                    it->name = common;
+                }
+            }
+            childrow[getCols().description] = it->name.empty() ? _("Tablet") : it->name ;
+            childrow[getCols().thumbnail] = getPix(PIX_TABLET);
+
+            // Check if there is an eraser we can link to a pen
+            for ( std::list<Glib::RefPtr<InputDevice const> >::iterator it2 = it->devices.begin(); it2 != it->devices.end(); ++it2 ) {
+                Glib::RefPtr<InputDevice const> dev = *it2;
+                if ( dev->getSource() == Gdk::SOURCE_PEN ) {
+                    for ( std::list<Glib::RefPtr<InputDevice const> >::iterator it3 = it->devices.begin(); it3 != it->devices.end(); ++it3 ) {
+                        Glib::RefPtr<InputDevice const> dev2 = *it3;
+                        if ( dev2->getSource() == Gdk::SOURCE_ERASER ) {
+                            DeviceManager::getManager().setLinkedTo(dev->getId(), dev2->getId());                            
+                            break; // only check the first eraser... for now
+                        }
+                        break; // only check the first pen... for now
+                    }
+                }
+            }
+
+            for ( std::list<Glib::RefPtr<InputDevice const> >::iterator it2 = it->devices.begin(); it2 != it->devices.end(); ++it2 ) {
+                Glib::RefPtr<InputDevice const> dev = *it2;
+                Gtk::TreeModel::Row deviceRow = *(store->append(childrow.children()));
+                deviceRow[getCols().description] = dev->getName();
+                deviceRow[getCols().device] = dev;
+                deviceRow[getCols().mode] = dev->getMode();
+                switch ( dev->getSource() ) {
+                    case GDK_SOURCE_MOUSE:
+                        deviceRow[getCols().thumbnail] = getPix(PIX_CORE);
+                        break;
+                    case GDK_SOURCE_PEN:
+                        if (deviceRow[getCols().description] == _("pad")) {
+                            deviceRow[getCols().thumbnail] = getPix(PIX_SIDEBUTTONS);
+                        } else {
+                            deviceRow[getCols().thumbnail] = getPix(PIX_TIP);
+                        }
+                        break;
+                    case GDK_SOURCE_CURSOR:
+                        deviceRow[getCols().thumbnail] = getPix(PIX_MOUSE);
+                        break;
+                    case GDK_SOURCE_ERASER:
+                        deviceRow[getCols().thumbnail] = getPix(PIX_ERASER);
+                        break;
+                    default:
+                        ; // nothing
+                }
+            }
+        }
+
+        for ( std::list<Glib::RefPtr<InputDevice const> >::iterator it = devList.begin(); it != devList.end(); ++it ) {
+            Glib::RefPtr<InputDevice const> dev = *it;
+            if ( dev && (consumed.find( dev->getId() ) == consumed.end()) ) {
+                Gtk::TreeModel::Row deviceRow = *(store->append(row.children()));
+                deviceRow[getCols().description] = dev->getName();
+                deviceRow[getCols().device] = dev;
+                deviceRow[getCols().mode] = dev->getMode();
+                deviceRow[getCols().thumbnail] = getPix(PIX_CORE);
             }
         }
     } else {
@@ -806,24 +901,39 @@ InputDialogImpl::ConfPanel::ConfPanel() :
     row = *(poppers->append());
     row[foo.one] = getModeToString()[Gdk::MODE_WINDOW];
 
-    Gtk::CellRendererCombo *rendr = new Gtk::CellRendererCombo();
-    rendr->property_model().set_value(poppers);
-    rendr->property_text_column().set_value(0);
-    rendr->property_has_entry() = false;
-
     //Add the TreeView's view columns:
+    {
+        Gtk::CellRendererToggle *rendr = new Gtk::CellRendererToggle();
+        Gtk::TreeViewColumn *col = new Gtk::TreeViewColumn("xx", *rendr);
+        if (col) {
+            tree.append_column(*col);
+            col->set_cell_data_func(*rendr, sigc::ptr_fun(setCellStateToggle));
+            rendr->signal_toggled().connect(sigc::bind(sigc::ptr_fun(commitCellStateChange), store));
+        }
+    }
+
+    int expPos = tree.append_column("", getCols().expander);
+
     tree.append_column("I", getCols().thumbnail);
     tree.append_column("Bar", getCols().description);
-    Gtk::TreeViewColumn *col = new Gtk::TreeViewColumn("X", *rendr);
-    if (col) {
-        tree.append_column(*col);
-        col->set_cell_data_func(*rendr, sigc::ptr_fun(setModeCellString));
-        rendr->signal_edited().connect(sigc::bind(sigc::ptr_fun(commitCellModeChange), store));
-        rendr->property_editable() = true;
+
+    {
+        Gtk::CellRendererCombo *rendr = new Gtk::CellRendererCombo();
+        rendr->property_model().set_value(poppers);
+        rendr->property_text_column().set_value(0);
+        rendr->property_has_entry() = false;
+        Gtk::TreeViewColumn *col = new Gtk::TreeViewColumn("X", *rendr);
+        if (col) {
+            tree.append_column(*col);
+            col->set_cell_data_func(*rendr, sigc::ptr_fun(setModeCellString));
+            rendr->signal_edited().connect(sigc::bind(sigc::ptr_fun(commitCellModeChange), store));
+            rendr->property_editable() = true;
+        }
     }
 
     tree.set_enable_tree_lines();
     tree.set_headers_visible(false);
+    tree.set_expander_column( *tree.get_column(expPos - 1) );
 
     setupTree( store, tabletIter );
 
@@ -870,6 +980,38 @@ void InputDialogImpl::ConfPanel::commitCellModeChange(Glib::ustring const &path,
         if (dev && (getStringToMode().find(newText) != getStringToMode().end())) {
             Gdk::InputMode mode = getStringToMode()[newText];
             Inkscape::DeviceManager::getManager().setMode( dev->getId(), mode );
+        }
+    }
+}
+
+void InputDialogImpl::ConfPanel::setCellStateToggle(Gtk::CellRenderer *rndr, Gtk::TreeIter const &iter)
+{
+    if (iter) {
+        Gtk::CellRendererToggle *toggle = dynamic_cast<Gtk::CellRendererToggle *>(rndr);
+        if (toggle) {
+            Glib::RefPtr<InputDevice const> dev = (*iter)[getCols().device];
+            if (dev) {
+                Gdk::InputMode mode = (*iter)[getCols().mode];
+                toggle->set_active(mode != Gdk::MODE_DISABLED);
+            } else {
+                toggle->set_active(false);
+            }
+        }
+    }
+}
+
+void InputDialogImpl::ConfPanel::commitCellStateChange(Glib::ustring const &path, Glib::RefPtr<Gtk::TreeStore> store)
+{
+    Gtk::TreeIter iter = store->get_iter(path);
+    if (iter) {
+        Glib::RefPtr<InputDevice const> dev = (*iter)[getCols().device];
+        if (dev) {
+            Gdk::InputMode mode = (*iter)[getCols().mode];
+            if (mode == Gdk::MODE_DISABLED) {
+                Inkscape::DeviceManager::getManager().setMode( dev->getId(), Gdk::MODE_SCREEN );
+            } else {
+                Inkscape::DeviceManager::getManager().setMode( dev->getId(), Gdk::MODE_DISABLED );
+            }
         }
     }
 }
@@ -1468,4 +1610,4 @@ bool InputDialogImpl::eventSnoop(GdkEvent* event)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

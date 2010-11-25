@@ -46,6 +46,7 @@ sp_object_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu)
 
 #include "sp-anchor.h"
 #include "sp-image.h"
+#include "sp-text.h"
 
 #include "document.h"
 #include "desktop-handles.h"
@@ -53,6 +54,8 @@ sp_object_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu)
 #include "selection-chemistry.h"
 #include "dialogs/item-properties.h"
 #include "dialogs/object-attributes.h"
+#include "dialogs/text-edit.h"
+#include "dialogs/spellcheck.h"
 
 #include "sp-path.h"
 #include "sp-clippath.h"
@@ -64,6 +67,7 @@ static void sp_group_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu);
 static void sp_anchor_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu);
 static void sp_image_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu);
 static void sp_shape_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu);
+static void sp_text_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu);
 
 static void
 sp_object_type_menu(GType type, SPObject *object, SPDesktop *desktop, GtkMenu *menu)
@@ -77,6 +81,7 @@ sp_object_type_menu(GType type, SPObject *object, SPDesktop *desktop, GtkMenu *m
         g_hash_table_insert(t2m, GUINT_TO_POINTER(SP_TYPE_ANCHOR), (void*)sp_anchor_menu);
         g_hash_table_insert(t2m, GUINT_TO_POINTER(SP_TYPE_IMAGE), (void*)sp_image_menu);
         g_hash_table_insert(t2m, GUINT_TO_POINTER(SP_TYPE_SHAPE), (void*)sp_shape_menu);
+        g_hash_table_insert(t2m, GUINT_TO_POINTER(SP_TYPE_TEXT), (void*)sp_text_menu);
     }
     handler = (void (*)(SPObject*, SPDesktop*, GtkMenu*))g_hash_table_lookup(t2m, GUINT_TO_POINTER(type));
     if (handler) handler(object, desktop, menu);
@@ -102,7 +107,7 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     item = (SPItem *) object;
 
     /* Item dialog */
-    w = gtk_menu_item_new_with_mnemonic(_("Object _Properties"));
+    w = gtk_menu_item_new_with_mnemonic(_("_Object Properties..."));
     gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
     gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_item_properties), item);
     gtk_widget_show(w);
@@ -151,7 +156,7 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     gtk_widget_show(w);
     gtk_menu_append(GTK_MENU(m), w);
     /* Set Clip */
-    w = gtk_menu_item_new_with_mnemonic(_("Set Clip"));
+    w = gtk_menu_item_new_with_mnemonic(_("Set _Clip"));
     gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
     gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_set_clip), item);
     if ((item && item->mask_ref && item->mask_ref->getObject()) || (item->clip_ref && item->clip_ref->getObject())) {
@@ -162,7 +167,7 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     gtk_widget_show(w);
     gtk_menu_append(GTK_MENU(m), w);
     /* Release Clip */
-    w = gtk_menu_item_new_with_mnemonic(_("Release Clip"));
+    w = gtk_menu_item_new_with_mnemonic(_("Release C_lip"));
     gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
     gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_release_clip), item);
     if (item && item->clip_ref && item->clip_ref->getObject()) {
@@ -343,7 +348,7 @@ sp_anchor_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     item = (SPItem *) object;
 
     /* Link dialog */
-    w = gtk_menu_item_new_with_mnemonic(_("Link _Properties"));
+    w = gtk_menu_item_new_with_mnemonic(_("Link _Properties..."));
     gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
     gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_anchor_link_properties), item);
     gtk_widget_show(w);
@@ -402,7 +407,7 @@ sp_image_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     GtkWidget *w;
 
     /* Link dialog */
-    w = gtk_menu_item_new_with_mnemonic(_("Image _Properties"));
+    w = gtk_menu_item_new_with_mnemonic(_("Image _Properties..."));
     gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
     gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_image_image_properties), item);
     gtk_widget_show(w);
@@ -473,10 +478,10 @@ static void sp_image_image_edit(GtkMenuItem *menuitem, SPAnchor *anchor)
     g_free(editorBin);
 }
 
-/* SPShape */
+/* Fill and Stroke entry */
 
 static void
-sp_shape_fill_settings(GtkMenuItem *menuitem, SPItem *item)
+sp_fill_settings(GtkMenuItem *menuitem, SPItem *item)
 {
     SPDesktop *desktop;
 
@@ -492,6 +497,8 @@ sp_shape_fill_settings(GtkMenuItem *menuitem, SPItem *item)
     desktop->_dlg_mgr->showDialog("FillAndStroke");
 }
 
+/* SPShape */
+
 static void
 sp_shape_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 {
@@ -501,14 +508,82 @@ sp_shape_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     item = (SPItem *) object;
 
     /* Item dialog */
-    w = gtk_menu_item_new_with_mnemonic(_("_Fill and Stroke"));
+    w = gtk_menu_item_new_with_mnemonic(_("_Fill and Stroke..."));
     gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
-    gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_shape_fill_settings), item);
+    gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_fill_settings), item);
     gtk_widget_show(w);
     gtk_menu_append(GTK_MENU(m), w);
 }
 
+/* Edit Text entry */
 
+static void
+sp_text_settings(GtkMenuItem *menuitem, SPItem *item)
+{
+    SPDesktop *desktop;
+
+    g_assert(SP_IS_ITEM(item));
+
+    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    g_return_if_fail(desktop != NULL);
+
+    if (sp_desktop_selection(desktop)->isEmpty()) {
+        sp_desktop_selection(desktop)->set(item);
+    }
+
+    sp_text_edit_dialog();
+}
+
+/* Spellcheck entry */
+
+static void
+sp_spellcheck_settings(GtkMenuItem *menuitem, SPItem *item)
+{
+    SPDesktop *desktop;
+
+    g_assert(SP_IS_ITEM(item));
+
+    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    g_return_if_fail(desktop != NULL);
+
+    if (sp_desktop_selection(desktop)->isEmpty()) {
+        sp_desktop_selection(desktop)->set(item);
+    }
+
+    sp_spellcheck_dialog();
+}
+
+/* SPText */
+
+static void
+sp_text_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
+{
+    SPItem *item;
+    GtkWidget *w;
+
+    item = (SPItem *) object;
+
+    /* Fill and Stroke dialog */
+    w = gtk_menu_item_new_with_mnemonic(_("_Fill and Stroke..."));
+    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_fill_settings), item);
+    gtk_widget_show(w);
+    gtk_menu_append(GTK_MENU(m), w);
+    
+    /* Edit Text dialog */
+    w = gtk_menu_item_new_with_mnemonic(_("_Text and Font..."));
+    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_text_settings), item);
+    gtk_widget_show(w);
+    gtk_menu_append(GTK_MENU(m), w);
+
+    /* Spellcheck dialog */
+    w = gtk_menu_item_new_with_mnemonic(_("Check Spellin_g..."));
+    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_spellcheck_settings), item);
+    gtk_widget_show(w);
+    gtk_menu_append(GTK_MENU(m), w);
+}
 /*
   Local Variables:
   mode:c++
@@ -518,4 +593,4 @@ sp_shape_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

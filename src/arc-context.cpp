@@ -107,6 +107,7 @@ static void sp_arc_context_init(SPArcContext *arc_context)
     event_context->tolerance = 0;
     event_context->within_tolerance = false;
     event_context->item_to_select = NULL;
+    event_context->tool_url = "/tools/shapes/arc";
 
     arc_context->item = NULL;
 
@@ -251,6 +252,7 @@ static gint sp_arc_context_root_handler(SPEventContext *event_context, GdkEvent 
                                     GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK,
                                     NULL, event->button.time);
                 ret = TRUE;
+                m.unSetup();
             }
             break;
         case GDK_MOTION_NOTIFY:
@@ -281,6 +283,7 @@ static gint sp_arc_context_root_handler(SPEventContext *event_context, GdkEvent 
                 Geom::Point const motion_w(event->motion.x, event->motion.y);
                 Geom::Point motion_dt(desktop->w2d(motion_w));
                 m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+                m.unSetup();
             }
             break;
         case GDK_BUTTON_RELEASE:
@@ -539,4 +542,4 @@ static void sp_arc_cancel(SPArcContext *ac)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

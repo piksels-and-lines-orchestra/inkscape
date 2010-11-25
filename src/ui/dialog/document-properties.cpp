@@ -103,11 +103,8 @@ DocumentProperties::DocumentProperties()
       _rcp_hgui(_("_Highlight color:"), _("Highlighted guideline color"), _("Color of a guideline when it is under mouse"), "guidehicolor", "guidehiopacity", _wr),
     //---------------------------------------------------------------
       _grids_label_crea("", Gtk::ALIGN_LEFT),
-      //TRANSLATORS: only translate "string" in "context|string".
-      // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-      // "New" refers to grid
-      _grids_button_new(Q_("Grid|_New"), _("Create new grid.")),
-      _grids_button_remove(_("_Remove"), _("Remove selected grid.")),
+      _grids_button_new(C_("Grid", "_New"), _("Create new grid.")),
+      _grids_button_remove(C_("Grid", "_Remove"), _("Remove selected grid.")),
       _grids_label_def("", Gtk::ALIGN_LEFT)
     //---------------------------------------------------------------
 {
@@ -336,49 +333,28 @@ DocumentProperties::populate_available_profiles(){
         delete(*it2);
     }
 
-    std::list<Glib::ustring> sources = ColorProfile::getProfileDirs();
-
-    // Use this loop to iterate through a list of possible document locations.
-    for ( std::list<Glib::ustring>::const_iterator it = sources.begin(); it != sources.end(); ++it ) {
-        if ( Inkscape::IO::file_test( it->c_str(), G_FILE_TEST_EXISTS )
-             && Inkscape::IO::file_test( it->c_str(), G_FILE_TEST_IS_DIR )) {
-            GError *err = 0;
-            GDir *directory = g_dir_open(it->c_str(), 0, &err);
-            if (!directory) {
-                gchar *safeDir = Inkscape::IO::sanitizeString(it->c_str());
-                g_warning(_("Color profiles directory (%s) is unavailable."), safeDir);
-                g_free(safeDir);
-            } else {
-                gchar *filename = 0;
-                while ((filename = (gchar *)g_dir_read_name(directory)) != NULL) {
-                    gchar* full = g_build_filename(it->c_str(), filename, NULL);
-                    if ( !Inkscape::IO::file_test( full, G_FILE_TEST_IS_DIR ) ) {
-                        cmsErrorAction( LCMS_ERROR_SHOW );
-                        cmsHPROFILE hProfile = cmsOpenProfileFromFile(full, "r");
-                        if (hProfile != NULL){
-                            const gchar* name;
-                            lcms_profile_get_name(hProfile, &name);
-                            Gtk::MenuItem* mi = manage(new Gtk::MenuItem());
-                            mi->set_data("filepath", g_strdup(full));
-                            mi->set_data("name", g_strdup(name));
-                            Gtk::HBox *hbox = manage(new Gtk::HBox());
-                            hbox->show();
-                            Gtk::Label* lbl = manage(new Gtk::Label(name));
-                            lbl->show();
-                            hbox->pack_start(*lbl, true, true, 0);
-                            mi->add(*hbox);
-                            mi->show_all();
-                            _menu.append(*mi);
-        //                    g_free((void*)name);
-                            cmsCloseProfile(hProfile);
-                        }
-                    }
-                    g_free(full);
-                }
-                g_dir_close(directory);
-            }
+    std::list<Glib::ustring> files = ColorProfile::getProfileFiles();
+    for ( std::list<Glib::ustring>::const_iterator it = files.begin(); it != files.end(); ++it ) {
+        cmsHPROFILE hProfile = cmsOpenProfileFromFile(it->c_str(), "r");
+        if ( hProfile ){
+            const gchar* name = 0;
+            lcms_profile_get_name(hProfile, &name);
+            Gtk::MenuItem* mi = manage(new Gtk::MenuItem());
+            mi->set_data("filepath", g_strdup(it->c_str()));
+            mi->set_data("name", g_strdup(name));
+            Gtk::HBox *hbox = manage(new Gtk::HBox());
+            hbox->show();
+            Gtk::Label* lbl = manage(new Gtk::Label(name));
+            lbl->show();
+            hbox->pack_start(*lbl, true, true, 0);
+            mi->add(*hbox);
+            mi->show_all();
+            _menu.append(*mi);
+//            g_free((void*)name);
+            cmsCloseProfile(hProfile);
         }
     }
+
     _menu.show_all();
 }
 
@@ -1003,4 +979,4 @@ DocumentProperties::onRemoveGrid()
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

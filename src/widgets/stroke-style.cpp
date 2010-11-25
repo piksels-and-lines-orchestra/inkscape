@@ -671,10 +671,7 @@ sp_stroke_style_line_widget_new(void)
 
     gint i = 0;
 
-    //TRANSLATORS: only translate "string" in "context|string".
-    // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-    /* Stroke width */
-    spw_label(t, Q_("StrokeWidth|Width:"), 0, i);
+    spw_label(t, C_("Stroke width", "Width:"), 0, i);
 
     hb = spw_hbox(t, 3, 1, i);
 
@@ -1474,4 +1471,4 @@ ink_extract_marker_name(gchar const *n, SPDocument *doc)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

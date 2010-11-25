@@ -38,15 +38,15 @@ Raise::init(void)
 		"<inkscape-extension xmlns=\"" INKSCAPE_EXTENSION_URI "\">\n"
 			"<name>" N_("Raise") "</name>\n"
 			"<id>org.inkscape.effect.bitmap.raise</id>\n"
-			"<param name=\"width\" gui-text=\"" N_("Width") "\" type=\"int\" min=\"0\" max=\"800\">6</param>\n"
-			"<param name=\"height\" gui-text=\"" N_("Height") "\" type=\"int\" min=\"0\" max=\"800\">6</param>\n"
+			"<param name=\"width\" gui-text=\"" N_("Width:") "\" type=\"int\" min=\"0\" max=\"800\">6</param>\n"
+			"<param name=\"height\" gui-text=\"" N_("Height:") "\" type=\"int\" min=\"0\" max=\"800\">6</param>\n"
 			"<param name=\"raisedFlag\" gui-text=\"" N_("Raised") "\" type=\"boolean\">0</param>\n"
 			"<effect>\n"
 				"<object-type>all</object-type>\n"
 				"<effects-menu>\n"
 					"<submenu name=\"" N_("Raster") "\" />\n"
 				"</effects-menu>\n"
-				"<menu-tip>" N_("Alter lightness the edges of selected bitmap(s) to create a raised appearance.") "</menu-tip>\n"
+				"<menu-tip>" N_("Alter lightness the edges of selected bitmap(s) to create a raised appearance") "</menu-tip>\n"
 			"</effect>\n"
 		"</inkscape-extension>\n", new Raise());
 }

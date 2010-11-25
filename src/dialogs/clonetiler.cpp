@@ -16,8 +16,6 @@
 #include <gtk/gtk.h>
 #include <glibmm/i18n.h>
 
-#include "application/application.h"
-#include "application/editor.h"
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "dialog-events.h"
@@ -84,15 +82,7 @@ static Inkscape::UI::Widget::ColorPicker *color_picker;
 static void
 clonetiler_dialog_destroy( GtkObject */*object*/, gpointer /*data*/ )
 {
-    if (Inkscape::NSApplication::Application::getNewGui())
-    {
-        _shutdown_connection.disconnect();
-        _dialogs_hidden_connection.disconnect();
-        _dialogs_unhidden_connection.disconnect();
-        _desktop_activated_connection.disconnect();
-    } else {
-        sp_signal_disconnect_by_data (INKSCAPE, dlg);
-    }
+    sp_signal_disconnect_by_data (INKSCAPE, dlg);
     _color_changed_connection.disconnect();
 
     delete color_picker;
@@ -1826,18 +1816,10 @@ clonetiler_dialog (void)
         gtk_signal_connect ( GTK_OBJECT (dlg), "destroy", G_CALLBACK (clonetiler_dialog_destroy), dlg);
         gtk_signal_connect ( GTK_OBJECT (dlg), "delete_event", G_CALLBACK (clonetiler_dialog_delete), dlg);
 
-        if (Inkscape::NSApplication::Application::getNewGui())
-        {
-            _shutdown_connection = Inkscape::NSApplication::Editor::connectShutdown (&on_delete);
-            _dialogs_hidden_connection = Inkscape::NSApplication::Editor::connectDialogsHidden (sigc::bind (&on_dialog_hide, dlg));
-            _dialogs_unhidden_connection = Inkscape::NSApplication::Editor::connectDialogsUnhidden (sigc::bind (&on_dialog_unhide, dlg));
-            _desktop_activated_connection = Inkscape::NSApplication::Editor::connectDesktopActivated (sigc::bind (&on_transientize, &wd));
-        } else {
-            g_signal_connect   ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (clonetiler_dialog_delete), dlg);
-            g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg);
-            g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg);
-            g_signal_connect   ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd);
-        }
+        g_signal_connect   ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (clonetiler_dialog_delete), dlg);
+        g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg);
+        g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg);
+        g_signal_connect   ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd);
 
         GtkTooltips *tt = gtk_tooltips_new();
 
@@ -2610,9 +2592,7 @@ clonetiler_dialog (void)
                     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (radio), prefs->getInt(prefs_path + "pick", 0) == PICK_B);
                 }
                 {
-                    //TRANSLATORS: only translate "string" in "context|string".
-                    // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-                    radio = gtk_radio_button_new_with_label (gtk_radio_button_group (GTK_RADIO_BUTTON (radio)), Q_("clonetiler|H"));
+                    radio = gtk_radio_button_new_with_label (gtk_radio_button_group (GTK_RADIO_BUTTON (radio)), C_("Clonetiler color hue", "H"));
                     gtk_tooltips_set_tip (GTK_TOOLTIPS (tt), radio, _("Pick the hue of the color"), NULL);
                     clonetiler_table_attach (table, radio, 0.0, 1, 3);
                     gtk_signal_connect (GTK_OBJECT (radio), "toggled",
@@ -2620,9 +2600,7 @@ clonetiler_dialog (void)
                     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (radio), prefs->getInt(prefs_path + "pick", 0) == PICK_H);
                 }
                 {
-                    //TRANSLATORS: only translate "string" in "context|string".
-                    // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-                    radio = gtk_radio_button_new_with_label (gtk_radio_button_group (GTK_RADIO_BUTTON (radio)), Q_("clonetiler|S"));
+                    radio = gtk_radio_button_new_with_label (gtk_radio_button_group (GTK_RADIO_BUTTON (radio)), C_("Clonetiler color saturation", "S"));
                     gtk_tooltips_set_tip (GTK_TOOLTIPS (tt), radio, _("Pick the saturation of the color"), NULL);
                     clonetiler_table_attach (table, radio, 0.0, 2, 3);
                     gtk_signal_connect (GTK_OBJECT (radio), "toggled",
@@ -2630,9 +2608,7 @@ clonetiler_dialog (void)
                     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (radio), prefs->getInt(prefs_path + "pick", 0) == PICK_S);
                 }
                 {
-                    //TRANSLATORS: only translate "string" in "context|string".
-                    // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-                    radio = gtk_radio_button_new_with_label (gtk_radio_button_group (GTK_RADIO_BUTTON (radio)), Q_("clonetiler|L"));
+                    radio = gtk_radio_button_new_with_label (gtk_radio_button_group (GTK_RADIO_BUTTON (radio)), C_("Clonetiler color lightness", "L"));
                     gtk_tooltips_set_tip (GTK_TOOLTIPS (tt), radio, _("Pick the lightness of the color"), NULL);
                     clonetiler_table_attach (table, radio, 0.0, 3, 3);
                     gtk_signal_connect (GTK_OBJECT (radio), "toggled",
@@ -2967,4 +2943,4 @@ clonetiler_dialog (void)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

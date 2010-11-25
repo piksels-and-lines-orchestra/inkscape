@@ -110,6 +110,7 @@ static void sp_rect_context_init(SPRectContext *rect_context)
     event_context->tolerance = 0;
     event_context->within_tolerance = false;
     event_context->item_to_select = NULL;
+    event_context->tool_url = "/tools/shapes/rect";
 
     rect_context->item = NULL;
 
@@ -284,6 +285,7 @@ static gint sp_rect_context_root_handler(SPEventContext *event_context, GdkEvent
             SnapManager &m = desktop->namedview->snap_manager;
             m.setup(desktop);
             m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
+            m.unSetup();
             rc->center = from_2geom(button_dt);
 
             sp_canvas_item_grab(SP_CANVAS_ITEM(desktop->acetate),
@@ -323,7 +325,9 @@ static gint sp_rect_context_root_handler(SPEventContext *event_context, GdkEvent
 
             Geom::Point const motion_w(event->motion.x, event->motion.y);
             Geom::Point motion_dt(desktop->w2d(motion_w));
+
             m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+            m.unSetup();
         }
         break;
     case GDK_BUTTON_RELEASE:
@@ -584,4 +588,4 @@ static void sp_rect_cancel(SPRectContext *rc)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

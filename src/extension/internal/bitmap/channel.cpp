@@ -46,7 +46,7 @@ Channel::init(void)
 		"<inkscape-extension xmlns=\"" INKSCAPE_EXTENSION_URI "\">\n"
 			"<name>" N_("Channel") "</name>\n"
 			"<id>org.inkscape.effect.bitmap.channel</id>\n"
-			"<param name=\"layer\" gui-text=\"" N_("Layer") "\" type=\"enum\" >\n"
+			"<param name=\"layer\" gui-text=\"" N_("Layer:") "\" type=\"enum\" >\n"
 				"<_item value='Red Channel'>" N_("Red Channel") "</_item>\n"
 				"<_item value='Green Channel'>" N_("Green Channel") "</_item>\n"
 				"<_item value='Blue Channel'>" N_("Blue Channel") "</_item>\n"
@@ -62,7 +62,7 @@ Channel::init(void)
 				"<effects-menu>\n"
 					"<submenu name=\"" N_("Raster") "\" />\n"
 				"</effects-menu>\n"
-				"<menu-tip>" N_("Extract specific channel from image.") "</menu-tip>\n"
+				"<menu-tip>" N_("Extract specific channel from image") "</menu-tip>\n"
 			"</effect>\n"
 		"</inkscape-extension>\n", new Channel());
 }

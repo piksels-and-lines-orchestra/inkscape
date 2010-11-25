@@ -319,6 +319,39 @@ void PathManipulator::insertNodes()
     }
 }
 
+/** Insert new nodes exactly at the positions of selected nodes while preserving shape.
+ * This is equivalent to breaking, except that it doesn't split into subpaths. */
+void PathManipulator::duplicateNodes()
+{
+    if (_num_selected == 0) return;
+
+    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
+        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
+            if (j->selected()) {
+                NodeList::iterator k = j.next();
+                Node *n = new Node(_multi_path_manipulator._path_data.node_data, *j);
+
+                // Move the new node to the bottom of the Z-order. This way you can drag all
+                // nodes that were selected before this operation without deselecting
+                // everything because there is a new node above.
+                n->sink();
+
+                n->front()->setPosition(*j->front());
+                j->front()->retract();
+                j->setType(NODE_CUSP, false);
+                (*i)->insert(k, n);
+
+                // We need to manually call the selection change callback to refresh
+                // the handle display correctly.
+                // This call changes num_selected, but we call this once for a selected node
+                // and once for an unselected node, so in the end the number stays correct.
+                _selectionChanged(j.ptr(), true);
+                _selectionChanged(n, false);
+            }
+        }
+    }
+}
+
 /** Replace contiguous selections of nodes in each subpath with one node. */
 void PathManipulator::weldNodes(NodeList::iterator preserve_pos)
 {
@@ -1292,17 +1325,11 @@ bool PathManipulator::_nodeClicked(Node *n, GdkEventButton *event)
         return true;
     } else if (held_control(*event)) {
         // Ctrl+click: cycle between node types
-        if (n->isEndNode()) {
-            if (n->type() == NODE_CUSP) {
-                n->setType(NODE_SMOOTH);
-            } else {
-                n->setType(NODE_CUSP);
-            }
-        } else {
+        if (!n->isEndNode()) {
             n->setType(static_cast<NodeType>((n->type() + 1) % NODE_LAST_REAL_TYPE));
+            update();
+            _commit(_("Cycle node type"));
         }
-        update();
-        _commit(_("Cycle node type"));
         return true;
     }
     return false;
@@ -1414,7 +1441,10 @@ void PathManipulator::_updateDragPoint(Geom::Point const &evp)
     NodeList::iterator first = (*spi)->before(pvp->t, &fracpart);
     
     double stroke_tolerance = _getStrokeTolerance();
-    if (Geom::distance(evp, nearest_point) < stroke_tolerance) {
+    if (first && first.next() &&
+        fracpart != 0.0 &&
+        Geom::distance(evp, nearest_point) < stroke_tolerance)
+    {
         _dragpoint->setVisible(true);
         _dragpoint->setPosition(_desktop->w2d(nearest_point));
         _dragpoint->setSize(2 * stroke_tolerance);
@@ -1459,4 +1489,4 @@ double PathManipulator::_getStrokeTolerance()
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

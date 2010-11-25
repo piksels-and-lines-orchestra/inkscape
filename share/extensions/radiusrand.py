@@ -52,6 +52,11 @@ class RadiusRandomize(inkex.Effect):
                         action="store", type="inkbool", 
                         dest="norm", default=True,
                         help="Use normal distribution")
+        self.OptionParser.add_option("--tab",
+                        action="store", type="string",
+                        dest="tab",
+                        help="The selected UI-tab when OK was pressed")
+
     def effect(self):
         for id, node in self.selected.iteritems():
             if node.tag == inkex.addNS('path','svg'):
@@ -77,4 +82,4 @@ if __name__ == '__main__':
     e.affect()
 
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

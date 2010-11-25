@@ -274,7 +274,9 @@ void Handle::dragged(Geom::Point &new_pos, GdkEventMotion *event)
         } else {
             sm.freeSnapReturnByRef(new_pos, SNAPSOURCE_NODE_HANDLE);
         }
+        sm.unSetup();
     }
+
 
     // with Shift, if the node is cusp, rotate the other handle as well
     if (_parent->type() == NODE_CUSP && !_drag_out) {
@@ -566,11 +568,7 @@ void Node::setType(NodeType type, bool update_handles)
     if (update_handles) {
         switch (type) {
         case NODE_CUSP:
-            // if the existing type is also NODE_CUSP, retract handles
-            if (_type == NODE_CUSP) {
-                _front.retract();
-                _back.retract();
-            }
+            // nothing to do
             break;
         case NODE_AUTO:
             // auto handles make no sense for endnodes
@@ -578,13 +576,15 @@ void Node::setType(NodeType type, bool update_handles)
             _updateAutoHandles();
             break;
         case NODE_SMOOTH: {
+            // ignore attempts to make smooth endnodes.
+            if (isEndNode()) return;
             // rotate handles to be colinear
             // for degenerate nodes set positions like auto handles
             bool prev_line = _is_line_segment(_prev(), this);
             bool next_line = _is_line_segment(this, _next());
             if (_type == NODE_SMOOTH) {
-                // for a node that is already smooth and has a degenerate handle,
-                // drag out the second handle to 1/3 the length of the linear segment
+                // For a node that is already smooth and has a degenerate handle,
+                // drag out the second handle without changing the direction of the first one.
                 if (_front.isDegenerate()) {
                     double dist = Geom::distance(_next()->position(), position());
                     _front.setRelativePos(Geom::unit_vector(-_back.relativePos()) * dist / 3);
@@ -728,8 +728,7 @@ NodeType Node::parse_nodetype(char x)
 /** Customized event handler to catch scroll events needed for selection grow/shrink. */
 bool Node::_eventHandler(GdkEvent *event)
 {
-    static NodeList::iterator origin;
-    static int dir;
+    int dir = 0;
 
     switch (event->type)
     {
@@ -740,14 +739,34 @@ bool Node::_eventHandler(GdkEvent *event)
             dir = -1;
         } else break;
         if (held_control(event->scroll)) {
-            _selection.spatialGrow(this, dir);
-        } else {
             _linearGrow(dir);
+        } else {
+            _selection.spatialGrow(this, dir);
+        }
+        return true;
+    case GDK_KEY_PRESS:
+        switch (shortcut_key(event->key))
+        {
+        case GDK_Page_Up:
+            dir = 1;
+            break;
+        case GDK_Page_Down:
+            dir = -1;
+            break;
+        default: goto bail_out;
+        }
+
+        if (held_control(event->key)) {
+            _linearGrow(dir);
+        } else {
+            _selection.spatialGrow(this, dir);
         }
         return true;
     default:
         break;
     }
+    
+    bail_out:
     return ControlPoint::_eventHandler(event);
 }
 
@@ -942,8 +961,16 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
 {
     // For a note on how snapping is implemented in Inkscape, see snap.h.
     SnapManager &sm = _desktop->namedview->snap_manager;
-    bool snap = sm.someSnapperMightSnap();
+    // even if we won't really snap, we might still call the one of the
+    // constrainedSnap() methods to enforce the constraints, so we need
+    // to setup the snapmanager anyway; this is also required for someSnapperMightSnap()
+    sm.setup(_desktop);
+
+    // do not snap when Shift is pressed
+    bool snap = !held_shift(*event) && sm.someSnapperMightSnap();
+
     Inkscape::SnappedPoint sp;
+    std::vector<Inkscape::SnapCandidatePoint> unselected;
     if (snap) {
         /* setup
          * TODO We are doing this every time a snap happens. It should once be done only once
@@ -953,7 +980,6 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
          * TODO Snapping to unselected segments of selected paths doesn't work yet. */
 
         // Build the list of unselected nodes.
-        std::vector<Inkscape::SnapCandidatePoint> unselected;
         typedef ControlPointSelection::Set Set;
         Set &nodes = _selection.allPoints();
         for (Set::iterator i = nodes.begin(); i != nodes.end(); ++i) {
@@ -963,6 +989,7 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
                 unselected.push_back(p);
             }
         }
+        sm.unSetup();
         sm.setupIgnoreSelection(_desktop, true, &unselected);
     }
 
@@ -1014,18 +1041,20 @@ void Node::dragged(Geom::Point &new_pos, GdkEventMotion *event)
                 constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, *bperp_point));
             }
 
-            sp = sm.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), constraints);
+            sp = sm.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), constraints, held_shift(*event));
         } else {
             // with Ctrl, constrain to axes
             constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, Geom::Point(1, 0)));
             constraints.push_back(Inkscape::Snapper::SnapConstraint(origin, Geom::Point(0, 1)));
-            sp = sm.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), constraints);
+            sp = sm.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()), constraints, held_shift(*event));
         }
         new_pos = sp.getPoint();
     } else if (snap) {
         sp = sm.freeSnap(Inkscape::SnapCandidatePoint(new_pos, _snapSourceType()));
         new_pos = sp.getPoint();
     }
+
+    sm.unSetup();
 
     SelectableControlPoint::dragged(new_pos, event);
 }
@@ -1374,4 +1403,4 @@ NodeList &NodeList::get(iterator const &i) {
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

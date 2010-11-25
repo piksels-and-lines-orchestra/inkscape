@@ -58,6 +58,7 @@
 [type: gettext/xml] share/extensions/grid_cartesian.inx
 [type: gettext/xml] share/extensions/grid_polar.inx
 [type: gettext/xml] share/extensions/guides_creator.inx
+[type: gettext/xml] share/extensions/guillotine.inx
 [type: gettext/xml] share/extensions/handles.inx
 [type: gettext/xml] share/extensions/hpgl_output.inx
 [type: gettext/xml] share/extensions/inkscape_help_askaquestion.inx
@@ -102,6 +103,7 @@
 [type: gettext/xml] share/extensions/radiusrand.inx
 [type: gettext/xml] share/extensions/render_alphabetsoup.inx
 [type: gettext/xml] share/extensions/render_barcode.inx
+[type: gettext/xml] share/extensions/replace_font.inx
 [type: gettext/xml] share/extensions/restack.inx
 [type: gettext/xml] share/extensions/rtree.inx
 [type: gettext/xml] share/extensions/rubberstretch.inx
@@ -142,6 +144,7 @@ share/extensions/dxf_outlines.py
 share/extensions/embedimage.py
 share/extensions/export_gimp_palette.py
 share/extensions/extractimage.py
+share/extensions/gcodetools.py
 share/extensions/guides_creator.py
 share/extensions/inkex.py
 share/extensions/markers_strokepaint.py
@@ -155,8 +158,9 @@ share/extensions/svg_and_media_zip_output.py
 share/extensions/uniconv_output.py
 share/extensions/web-set-att.py
 share/extensions/web-transmit-att.py
-share/filters/filters.svg.h
 share/filters/i18n.py
+share/filters/filters.svg.h
+share/palettes/palettes.h
 share/patterns/i18n.py
 share/patterns/patterns.svg.h
 src/conn-avoid-ref.cpp
@@ -398,7 +402,6 @@ src/ui/tool/node-tool.cpp
 src/ui/tool/node.cpp
 src/ui/tool/path-manipulator.cpp
 src/ui/tool/transform-handle-set.cpp
-src/ui/view/edit-widget.cpp
 src/ui/widget/combo-enums.h
 src/ui/widget/entity-entry.cpp
 src/ui/widget/filter-effect-chooser.cpp
@@ -506,10 +509,20 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/fractalize.inx
 [type: gettext/xml] share/extensions/funcplot.inx
 [type: gettext/xml] share/extensions/gears.inx
+[type: gettext/xml] share/extensions/gcodetools_all_in_one.inx
+[type: gettext/xml] share/extensions/gcodetools_area.inx
+[type: gettext/xml] share/extensions/gcodetools_check_for_updates.inx
+[type: gettext/xml] share/extensions/gcodetools_dxf_points.inx
+[type: gettext/xml] share/extensions/gcodetools_engraving.inx
+[type: gettext/xml] share/extensions/gcodetools_lathe.inx
+[type: gettext/xml] share/extensions/gcodetools_orientation_points.inx
+[type: gettext/xml] share/extensions/gcodetools_path_to_gcode.inx
+[type: gettext/xml] share/extensions/gcodetools_tools_library.inx
 [type: gettext/xml] share/extensions/gimp_xcf.inx
 [type: gettext/xml] share/extensions/grid_cartesian.inx
 [type: gettext/xml] share/extensions/grid_polar.inx
 [type: gettext/xml] share/extensions/guides_creator.inx
+[type: gettext/xml] share/extensions/guillotine.inx
 [type: gettext/xml] share/extensions/handles.inx
 [type: gettext/xml] share/extensions/hpgl_output.inx
 [type: gettext/xml] share/extensions/inkscape_help_askaquestion.inx
@@ -542,6 +555,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/render_alphabetsoup.inx
 [type: gettext/xml] share/extensions/render_barcode.inx
 [type: gettext/xml] share/extensions/render_barcode_datamatrix.inx
+[type: gettext/xml] share/extensions/replace_font.inx
 [type: gettext/xml] share/extensions/restack.inx
 [type: gettext/xml] share/extensions/rtree.inx
 [type: gettext/xml] share/extensions/rubberstretch.inx

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 """
 svg_and_media_zip_output.py
 An extention which collects all images to the documents directory and
@@ -136,4 +136,4 @@ if __name__ == '__main__':   #pragma: no cover
     e.affect()
 
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

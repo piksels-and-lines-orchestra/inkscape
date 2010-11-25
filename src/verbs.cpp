@@ -63,6 +63,7 @@
 #include "selection-chemistry.h"
 #include "seltrans.h"
 #include "shape-editor.h"
+#include "shortcuts.h"
 #include "sp-flowtext.h"
 #include "sp-guide.h"
 #include "splivarot.h"
@@ -334,7 +335,15 @@ Verb::VerbIDTable Verb::_verb_ids;
     in the \c _verbs hashtable which is indexed by the \c code.
 */
 Verb::Verb(gchar const *id, gchar const *name, gchar const *tip, gchar const *image) :
-    _actions(NULL), _id(id), _name(name), _tip(tip), _image(image)
+    _actions(0),
+    _id(id),
+    _name(name),
+    _tip(tip),
+    _full_tip(0),
+    _shortcut(0),
+    _image(image),
+    _code(0),
+    _default_sensitive(false)
 {
     static int count = SP_VERB_LAST;
 
@@ -342,8 +351,6 @@ Verb::Verb(gchar const *id, gchar const *name, gchar const *tip, gchar const *im
     _code = count;
     _verbs.insert(VerbTable::value_type(count, this));
     _verb_ids.insert(VerbIDTable::value_type(_id, this));
-
-    return;
 }
 
 /** \brief  Destroy a verb.
@@ -358,7 +365,10 @@ Verb::~Verb(void)
         delete _actions;
     }
 
-    return;
+    if (_full_tip) {
+        g_free(_full_tip);
+        _full_tip = 0;
+    }
 }
 
 /** \brief  Verbs are no good without actions.  This is a place holder
@@ -628,10 +638,30 @@ Verb::sensitive(SPDocument *in_doc, bool in_sensitive)
 }
 
 /** \brief Accessor to get the tooltip for verb as localised string */
-gchar const *
-Verb::get_tip (void)
+gchar const *Verb::get_tip(void)
 {
-	return _(_tip);
+    gchar const *result = 0;
+    if (_tip) {
+        unsigned int shortcut = sp_shortcut_get_primary(this);
+        if ( (shortcut != _shortcut) || !_full_tip) {
+            if (_full_tip) {
+                g_free(_full_tip);
+                _full_tip = 0;
+            }
+            _shortcut = shortcut;
+            gchar* shortcutString = sp_shortcut_get_label(shortcut);
+            if (shortcutString) {
+                _full_tip = g_strdup_printf("%s (%s)", _(_tip), shortcutString);
+                g_free(shortcutString);
+                shortcutString = 0;
+            } else {
+	        _full_tip = g_strdup(_(_tip));
+            }
+        }
+        result = _full_tip;
+    }
+
+    return result;
 }
 
 void
@@ -2296,8 +2326,8 @@ Verb *Verb::_base_verbs[] = {
                  N_("Deselect any selected objects or nodes"), INKSCAPE_ICON_EDIT_SELECT_NONE),
     new EditVerb(SP_VERB_EDIT_GUIDES_AROUND_PAGE, "EditGuidesAroundPage", N_("_Guides Around Page"),
                  N_("Create four guides aligned with the page borders"), NULL),
-    new EditVerb(SP_VERB_EDIT_NEXT_PATHEFFECT_PARAMETER, "EditNextPathEffectParameter", N_("Next Path Effect Parameter"),
-                 N_("Show next Path Effect parameter for editing"), INKSCAPE_ICON_PATH_EFFECT_PARAMETER_NEXT),
+    new EditVerb(SP_VERB_EDIT_NEXT_PATHEFFECT_PARAMETER, "EditNextPathEffectParameter", N_("Next path effect parameter"),
+                 N_("Show next editable path effect parameter"), INKSCAPE_ICON_PATH_EFFECT_PARAMETER_NEXT),
 
     /* Selection */
     new SelectionVerb(SP_VERB_SELECTION_TO_FRONT, "SelectionToFront", N_("Raise to _Top"),
@@ -2541,7 +2571,7 @@ Verb *Verb::_base_verbs[] = {
     new ZoomVerb(SP_VERB_TOGGLE_SCROLLBARS, "ToggleScrollbars", N_("Scroll_bars"), N_("Show or hide the canvas scrollbars"), NULL),
     new ZoomVerb(SP_VERB_TOGGLE_GRID, "ToggleGrid", N_("_Grid"), N_("Show or hide the grid"), INKSCAPE_ICON_SHOW_GRID),
     new ZoomVerb(SP_VERB_TOGGLE_GUIDES, "ToggleGuides", N_("G_uides"), N_("Show or hide guides (drag from a ruler to create a guide)"), INKSCAPE_ICON_SHOW_GUIDES),
-    new ZoomVerb(SP_VERB_TOGGLE_SNAPPING, "ToggleSnapGlobal", N_("Snap"), N_("Toggle snapping on or off"), INKSCAPE_ICON_SNAP),
+    new ZoomVerb(SP_VERB_TOGGLE_SNAPPING, "ToggleSnapGlobal", N_("Snap"), N_("Enable snapping"), INKSCAPE_ICON_SNAP),
     new ZoomVerb(SP_VERB_ZOOM_NEXT, "ZoomNext", N_("Nex_t Zoom"), N_("Next zoom (from the history of zooms)"),
                  INKSCAPE_ICON_ZOOM_NEXT),
     new ZoomVerb(SP_VERB_ZOOM_PREV, "ZoomPrev", N_("Pre_vious Zoom"), N_("Previous zoom (from the history of zooms)"),
@@ -2596,7 +2626,7 @@ Verb *Verb::_base_verbs[] = {
     new DialogVerb(SP_VERB_DIALOG_METADATA, "DialogMetadata", N_("Document _Metadata..."),
                    N_("Edit document metadata (to be saved with the document)"), INKSCAPE_ICON_DOCUMENT_METADATA ),
     new DialogVerb(SP_VERB_DIALOG_FILL_STROKE, "DialogFillStroke", N_("_Fill and Stroke..."),
-                   N_("Edit objects' colors, gradients, stroke width, arrowheads, dash patterns..."), INKSCAPE_ICON_DIALOG_FILL_AND_STROKE),
+                   N_("Edit objects' colors, gradients, arrowheads, and other fill and stroke properties..."), INKSCAPE_ICON_DIALOG_FILL_AND_STROKE),
     new DialogVerb(SP_VERB_DIALOG_GLYPHS, "DialogGlyphs", N_("Glyphs..."),
                    N_("Select characters from a glyphs palette"), GTK_STOCK_SELECT_FONT),
     // TRANSLATORS: "Swatches" means: color samples
@@ -2738,4 +2768,4 @@ Verb::list (void) {
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

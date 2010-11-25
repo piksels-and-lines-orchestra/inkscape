@@ -123,8 +123,8 @@ def get_command():
                          'http://sk1project.org/modules.php?name=Products&product=uniconvertor\n'+\
                          'and install into your Inkscape\'s Python location\n'))
             sys.exit(1)
-        cmd = 'python -c "from uniconvertor import uniconv; uniconv();"'
+        cmd = 'python -c "import uniconvertor; uniconvertor.uniconv_run();"'
 
     return cmd
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

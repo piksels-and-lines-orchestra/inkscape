@@ -27,8 +27,6 @@
 #include <gtkmm/tooltips.h>
 #include <glibmm/i18n.h>
 
-#include "application/application.h"
-#include "application/editor.h"
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "dialog-manager.h"
@@ -2532,4 +2530,4 @@ void FilterEffectsDialog::update_color_matrix()
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

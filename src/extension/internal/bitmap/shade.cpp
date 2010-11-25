@@ -38,15 +38,15 @@ Shade::init(void)
 		"<inkscape-extension xmlns=\"" INKSCAPE_EXTENSION_URI "\">\n"
 			"<name>" N_("Shade") "</name>\n"
 			"<id>org.inkscape.effect.bitmap.shade</id>\n"
-			"<param name=\"azimuth\" gui-text=\"" N_("Azimuth") "\" type=\"float\" min=\"-180\" max=\"180\">30</param>\n"
-			"<param name=\"elevation\" gui-text=\"" N_("Elevation") "\" type=\"float\" min=\"-180\" max=\"180\">30</param>\n"
+			"<param name=\"azimuth\" gui-text=\"" N_("Azimuth:") "\" type=\"float\" min=\"-180\" max=\"180\">30</param>\n"
+			"<param name=\"elevation\" gui-text=\"" N_("Elevation:") "\" type=\"float\" min=\"-180\" max=\"180\">30</param>\n"
 			"<param name=\"colorShading\" gui-text=\"" N_("Colored Shading") "\" type=\"boolean\">false</param>\n"
 			"<effect>\n"
 				"<object-type>all</object-type>\n"
 				"<effects-menu>\n"
 					"<submenu name=\"" N_("Raster") "\" />\n"
 				"</effects-menu>\n"
-				"<menu-tip>" N_("Shade selected bitmap(s) simulating distant light source.") "</menu-tip>\n"
+				"<menu-tip>" N_("Shade selected bitmap(s) simulating distant light source") "</menu-tip>\n"
 			"</effect>\n"
 		"</inkscape-extension>\n", new Shade());
 }

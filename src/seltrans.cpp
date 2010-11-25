@@ -401,21 +401,6 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
             g_warning("Checking number of snap sources failed; nothing serious, but please report to Diederik");
         }
 
-        // Optionally, show the snap source
-        if (!(_state == STATE_ROTATE && x != 0.5 && y != 0.5)) { // but not when we're dragging a rotation handle, because that won't snap
-            // Now either _bbox_points or _snap_points has a single element, the other one has zero..... or both have zero elements
-            if ((_snap_points.size() + _bbox_points.size() + _bbox_points_for_translating.size()) > 1) {
-                g_warning("too many snap sources to display, please fix this");
-            } else if (m.snapprefs.getSnapEnabledGlobally()) {
-                if (_bbox_points.size() == 1) {
-                    _desktop->snapindicator->set_new_snapsource(_bbox_points.at(0));
-                } else if (_bbox_points_for_translating.size() == 1) {
-                    _desktop->snapindicator->set_new_snapsource(_bbox_points_for_translating.at(0));
-                } else if (_snap_points.size() == 1){
-                    _desktop->snapindicator->set_new_snapsource(_snap_points.at(0));
-                }
-            }
-        }
     }
 
     if ((x != -1) && (y != -1)) {
@@ -1039,6 +1024,7 @@ gboolean Inkscape::SelTrans::scaleRequest(Geom::Point &pt, guint state)
             geom_scale = Geom::Scale(sn.getTransformation());
             pt = _calcAbsAffineGeom(geom_scale);
         }
+        m.unSetup();
     }
 
     /* Status text */
@@ -1134,6 +1120,8 @@ gboolean Inkscape::SelTrans::stretchRequest(SPSelTransHandle const &handle, Geom
             // will have to calculate pt taking the stroke width into account
             pt = _calcAbsAffineGeom(geom_scale);
         }
+
+        m.unSetup();
     }
 
     // status text
@@ -1226,6 +1214,8 @@ gboolean Inkscape::SelTrans::skewRequest(SPSelTransHandle const &handle, Geom::P
         } else {
             _desktop->snapindicator->remove_snaptarget();
         }
+
+        m.unSetup();
     }
 
     // Update the handle position
@@ -1299,6 +1289,7 @@ gboolean Inkscape::SelTrans::rotateRequest(Geom::Point &pt, guint state)
         m.setup(_desktop, false, _items_const);
         // When rotating, we cannot snap the corners of the bounding box, see the comment in "constrainedSnapRotate" for details
         Inkscape::SnappedPoint sn = m.constrainedSnapRotate(_snap_points, _point, radians, _origin);
+        m.unSetup();
 
         if (sn.getSnapped()) {
             _desktop->snapindicator->set_new_snaptarget(sn);
@@ -1309,6 +1300,7 @@ gboolean Inkscape::SelTrans::rotateRequest(Geom::Point &pt, guint state)
         } else {
             _desktop->snapindicator->remove_snaptarget();
         }
+
     }
 
 
@@ -1331,28 +1323,29 @@ gboolean Inkscape::SelTrans::rotateRequest(Geom::Point &pt, guint state)
 // Move the item's transformation center
 gboolean Inkscape::SelTrans::centerRequest(Geom::Point &pt, guint state)
 {
+    // When dragging the transformation center while multiple items have been selected, then those
+    // items will share a single center. While dragging that single center, it should never snap to the
+    // centers of any of the selected objects. Therefore we will have to pass the list of selected items
+    // to the snapper, to avoid self-snapping of the rotation center
+    GSList *items = (GSList *) const_cast<Selection *>(_selection)->itemList();
     SnapManager &m = _desktop->namedview->snap_manager;
     m.setup(_desktop);
+    m.setRotationCenterSource(items);
 
-    // Center is being dragged for the first item in the selection only
-    // Find out which item is first ...
-    GSList *items = (GSList *) const_cast<Selection *>(_selection)->itemList();
-    SPItem *first = NULL;
-    if (items) {
-        first = reinterpret_cast<SPItem*>(g_slist_last(items)->data); // from the first item in selection
+    if (state & GDK_CONTROL_MASK) { // with Ctrl, constrain to axes
+        std::vector<Inkscape::Snapper::SnapConstraint> constraints;
+        constraints.push_back(Inkscape::Snapper::SnapConstraint(_point, Geom::Point(1, 0)));
+        constraints.push_back(Inkscape::Snapper::SnapConstraint(_point, Geom::Point(0, 1)));
+        Inkscape::SnappedPoint sp = m.multipleConstrainedSnaps(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_ROTATION_CENTER), constraints, state & GDK_SHIFT_MASK);
+        pt = sp.getPoint();
     }
-    // ... and store that item because later on we need to make sure that
-    // this transformation center won't snap to itself
-    m.setRotationCenterSource(first);
-    m.freeSnapReturnByRef(pt, Inkscape::SNAPSOURCE_ROTATION_CENTER);
-
-    if (state & GDK_CONTROL_MASK) {
-        if ( fabs(_point[Geom::X] - pt[Geom::X]) > fabs(_point[Geom::Y] - pt[Geom::Y]) ) {
-            pt[Geom::Y] = _point[Geom::Y];
-        } else {
-            pt[Geom::X] = _point[Geom::X];
+    else {
+        if (!(state & GDK_SHIFT_MASK)) { // Shift disables snapping
+            m.freeSnapReturnByRef(pt, Inkscape::SNAPSOURCE_ROTATION_CENTER);
         }
     }
+
+    m.unSetup();
 
     // status text
     GString *xs = SP_PX_TO_METRIC_STRING(pt[Geom::X], _desktop->namedview->getDefaultMetric());
@@ -1439,6 +1432,7 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
         }
         m.setup(_desktop, true, _items_const);
         dxy = m.multipleOfGridPitch(dxy, _point);
+        m.unSetup();
     } else if (shift) {
         if (control) { // shift & control: constrained movement without snapping
             if (fabs(dxy[Geom::X]) > fabs(dxy[Geom::Y])) {
@@ -1493,6 +1487,7 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
               double elapsed = ((((double)endtime.tv_sec - starttime.tv_sec) * G_USEC_PER_SEC + (endtime.tv_usec - starttime.tv_usec))) / 1000.0;
               std::cout << "Time spent snapping: " << elapsed << std::endl; */
         }
+        m.unSetup();
 
         /* Pick one */
         Inkscape::SnappedPoint best_snapped_point;
@@ -1650,6 +1645,7 @@ void Inkscape::SelTrans::_keepClosestPointOnly(std::vector<Inkscape::SnapCandida
         }
     }
 
+    closest_point.setSourceNum(-1);
     points.clear();
     points.push_back(closest_point);
 }
@@ -1663,4 +1659,4 @@ void Inkscape::SelTrans::_keepClosestPointOnly(std::vector<Inkscape::SnapCandida
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

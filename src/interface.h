@@ -69,8 +69,6 @@ void sp_ui_dialog_title_string (Inkscape::Verb * verb, gchar* c);
 void sp_ui_error_dialog (const gchar * message);
 bool sp_ui_overwrite_file (const gchar * filename);
 
-void sp_ui_shortcut_string (unsigned int shortcut, gchar* c);
-
 #endif
 
 /*
@@ -82,4 +80,4 @@ void sp_ui_shortcut_string (unsigned int shortcut, gchar* c);
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

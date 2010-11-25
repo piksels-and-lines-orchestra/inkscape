@@ -41,6 +41,7 @@ bool inkscape_save_menus (Inkscape::Application * inkscape);
 Inkscape::XML::Node *inkscape_get_menus (Inkscape::Application * inkscape);
 
 Inkscape::Application *inkscape_get_instance();
+gboolean inkscape_use_gui();
 
 SPDesktop * inkscape_find_desktop_by_dkey (unsigned int dkey);
 
@@ -94,4 +95,4 @@ void inkscape_exit (Inkscape::Application *inkscape);
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

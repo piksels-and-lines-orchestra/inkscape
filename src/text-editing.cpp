@@ -57,6 +57,7 @@ static void te_update_layout_now (SPItem *item)
         SP_TEXT(item)->rebuildLayout();
     else if (SP_IS_FLOWTEXT (item))
         SP_FLOWTEXT(item)->rebuildLayout();
+    item->updateRepr();
 }
 
 /** Returns true if there are no visible characters on the canvas */
@@ -972,30 +973,36 @@ sp_te_adjust_kerning_screen (SPItem *item, Inkscape::Text::Layout::iterator cons
     item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
-void
-sp_te_adjust_dx (SPItem *item, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPDesktop *desktop, double delta)
+void sp_te_adjust_dx(SPItem *item, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPDesktop * /*desktop*/, double delta)
 {
-    unsigned char_index;
+    unsigned char_index = 0;
     TextTagAttributes *attributes = text_tag_attributes_at_position(item, std::min(start, end), &char_index);
-    if (attributes) attributes->addToDx(char_index, delta);
+    if (attributes) {
+        attributes->addToDx(char_index, delta);
+    }
     if (start != end) {
         attributes = text_tag_attributes_at_position(item, std::max(start, end), &char_index);
-        if (attributes) attributes->addToDx(char_index, -delta);
+        if (attributes) {
+            attributes->addToDx(char_index, -delta);
+        }
     }
 
     item->updateRepr();
     item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
-void
-sp_te_adjust_dy (SPItem *item, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPDesktop *desktop, double delta)
+void sp_te_adjust_dy(SPItem *item, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPDesktop * /*desktop*/, double delta)
 {
-    unsigned char_index;
+    unsigned char_index = 0;
     TextTagAttributes *attributes = text_tag_attributes_at_position(item, std::min(start, end), &char_index);
-    if (attributes) attributes->addToDy(char_index, delta);
+    if (attributes) {
+        attributes->addToDy(char_index, delta);
+    }
     if (start != end) {
         attributes = text_tag_attributes_at_position(item, std::max(start, end), &char_index);
-        if (attributes) attributes->addToDy(char_index, -delta);
+        if (attributes) {
+            attributes->addToDy(char_index, -delta);
+        }
     }
 
     item->updateRepr();
@@ -1041,23 +1048,25 @@ sp_te_adjust_rotation(SPItem *text, Inkscape::Text::Layout::iterator const &star
     text->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
-void
-sp_te_set_rotation(SPItem *text, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPDesktop */*desktop*/, gdouble degrees)
+void sp_te_set_rotation(SPItem *text, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPDesktop */*desktop*/, gdouble degrees)
 {
-    unsigned char_index;
+    unsigned char_index = 0;
     TextTagAttributes *attributes = text_tag_attributes_at_position(text, std::min(start, end), &char_index);
-    if (attributes == NULL) return;
-
-    if (start != end) {
-        for (Inkscape::Text::Layout::iterator it = std::min(start, end) ; it != std::max(start, end) ; it.nextCharacter()) {
-            attributes = text_tag_attributes_at_position(text, it, &char_index);
-            if (attributes) attributes->setRotate(char_index, degrees);
+    if (attributes != NULL) {
+        if (start != end) {
+            for (Inkscape::Text::Layout::iterator it = std::min(start, end) ; it != std::max(start, end) ; it.nextCharacter()) {
+                attributes = text_tag_attributes_at_position(text, it, &char_index);
+                if (attributes) {
+                    attributes->setRotate(char_index, degrees);
+                }
+            }
+        } else {
+            attributes->setRotate(char_index, degrees);
         }
-    } else
-        attributes->setRotate(char_index, degrees);
 
-    text->updateRepr();
-    text->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+        text->updateRepr();
+        text->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+    }
 }
 
 void
@@ -1283,16 +1292,17 @@ static bool objects_have_equal_style(SPObject const *parent, SPObject const *chi
     parent_style = sp_style_write_string(parent_spstyle, SP_STYLE_FLAG_ALWAYS);
     sp_style_unref(parent_spstyle);
 
-    Glib::ustring child_style_construction(parent_style);
+    Glib::ustring child_style_construction;
     while (child != parent) {
         // FIXME: this assumes that child's style is only in style= whereas it can also be in css attributes!
         char const *style_text = SP_OBJECT_REPR(child)->attribute("style");
         if (style_text && *style_text) {
-            child_style_construction += ';';
-            child_style_construction += style_text;
+            child_style_construction.insert(0, style_text);
+            child_style_construction.insert(0, 1, ';');
         }
         child = SP_OBJECT_PARENT(child);
     }
+    child_style_construction.insert(0, parent_style);
     SPStyle *child_spstyle = sp_style_new(SP_OBJECT_DOCUMENT(parent));
     sp_style_merge_from_style_string(child_spstyle, child_style_construction.c_str());
     gchar *child_style = sp_style_write_string(child_spstyle, SP_STYLE_FLAG_ALWAYS);
@@ -1646,14 +1656,14 @@ static bool redundant_semi_nesting_processor(SPObject **item, SPObject *child, b
 
     SPCSSAttr *css_child_and_item = sp_repr_css_attr_new();
     SPCSSAttr *css_child_only = sp_repr_css_attr_new();
+    gchar const *item_style = SP_OBJECT_REPR(*item)->attribute("style");
+    if (item_style && *item_style) {
+        sp_repr_css_attr_add_from_string(css_child_and_item, item_style);
+    }
     gchar const *child_style = SP_OBJECT_REPR(child)->attribute("style");
     if (child_style && *child_style) {
         sp_repr_css_attr_add_from_string(css_child_and_item, child_style);
         sp_repr_css_attr_add_from_string(css_child_only, child_style);
-    }
-    gchar const *item_style = SP_OBJECT_REPR(*item)->attribute("style");
-    if (item_style && *item_style) {
-        sp_repr_css_attr_add_from_string(css_child_and_item, item_style);
     }
     bool equal = css_attrs_are_equal(css_child_only, css_child_and_item);
     sp_repr_css_attr_unref(css_child_and_item);

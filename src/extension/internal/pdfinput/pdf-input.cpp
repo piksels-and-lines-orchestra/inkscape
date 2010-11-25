@@ -36,7 +36,7 @@
 #include "pdf-parser.h"
 
 #include "document-private.h"
-#include "application/application.h"
+#include "inkscape.h"
 
 #include "dialogs/dialog-events.h"
 #include <gtk/gtkdialog.h>
@@ -390,12 +390,10 @@ void PdfImportDialog::getImportSettings(Inkscape::XML::Node *prefs) {
 void PdfImportDialog::_onPrecisionChanged() {
 
     static Glib::ustring precision_comments[] = {
-        Glib::ustring(_("rough")),
-        //TRANSLATORS: only translate "string" in "context|string".
-        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-        Glib::ustring(Q_("pdfinput|medium")),
-        Glib::ustring(_("fine")),
-        Glib::ustring(_("very fine"))
+        Glib::ustring(C_("PDF input precision", "rough")),
+        Glib::ustring(C_("PDF input precision", "medium")),
+        Glib::ustring(C_("PDF input precision", "fine")),
+        Glib::ustring(C_("PDF input precision", "very fine"))
     };
 
     double min = _fallbackPrecisionSlider_adj->get_lower();
@@ -643,7 +641,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
     }
 
     PdfImportDialog *dlg = NULL;
-    if (Inkscape::NSApplication::Application::getUseGui()) {
+    if (inkscape_use_gui()) {
         dlg = new PdfImportDialog(pdf_doc, uri);
         if (!dlg->showDialog()) {
             delete dlg;

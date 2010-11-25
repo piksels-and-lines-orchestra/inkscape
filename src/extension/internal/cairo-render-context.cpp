@@ -108,7 +108,7 @@ static cairo_status_t _write_callback(void *closure, const unsigned char *data, 
 
 CairoRenderContext::CairoRenderContext(CairoRenderer *parent) :
     _dpi(72),
-    _pdf_level(0),
+    _pdf_level(1),
     _ps_level(1),
     _eps(false),
     _is_texttopath(FALSE),
@@ -782,6 +782,9 @@ CairoRenderContext::setupSurface(double width, double height)
 #ifdef CAIRO_HAS_PDF_SURFACE
         case CAIRO_SURFACE_TYPE_PDF:
             surface = cairo_pdf_surface_create_for_stream(Inkscape::Extension::Internal::_write_callback, _stream, width, height);
+#if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 10, 0))
+            cairo_pdf_surface_restrict_to_version(surface, (cairo_pdf_version_t)_pdf_level);	
+#endif
             break;
 #endif
 #ifdef CAIRO_HAS_PS_SURFACE
@@ -791,8 +794,15 @@ CairoRenderContext::setupSurface(double width, double height)
                 return FALSE;
             }
 #if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 5, 2))
-            cairo_ps_surface_restrict_to_level (surface, (cairo_ps_level_t)_ps_level);
-            cairo_ps_surface_set_eps (surface, (cairo_bool_t) _eps);
+            cairo_ps_surface_restrict_to_level(surface, (cairo_ps_level_t)_ps_level);
+            cairo_ps_surface_set_eps(surface, (cairo_bool_t) _eps);
+#endif
+            // Cairo calculates the bounding box itself, however we want to override this. See Launchpad bug #380501
+#if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 11, 2))
+            if (override_bbox) {
+                cairo_ps_dsc_comment(surface, "%%BoundingBox: 100 100 200 200");
+                cairo_ps_dsc_comment(surface, "%%PageBoundingBox: 100 100 200 200");
+            }
 #endif
             break;
 #endif
@@ -1265,7 +1275,7 @@ CairoRenderContext::_setStrokeStyle(SPStyle const *style, NRRect const *pbox)
 
         cairo_set_source_rgba(_cr, rgb[0], rgb[1], rgb[2], alpha);
     } else {
-        g_assert( style->fill.isPaintserver()
+        g_assert( style->stroke.isPaintserver()
                   || SP_IS_GRADIENT(SP_STYLE_STROKE_SERVER(style))
                   || SP_IS_PATTERN(SP_STYLE_STROKE_SERVER(style)) );
 
@@ -1477,18 +1487,19 @@ CairoRenderContext::_showGlyphs(cairo_t *cr, PangoFont *font, std::vector<CairoG
         glyphs = (cairo_glyph_t*)g_malloc(sizeof(cairo_glyph_t) * num_glyphs);
 
     unsigned int num_invalid_glyphs = 0;
-    unsigned int i = 0;
+    unsigned int i = 0; // is a counter for indexing the glyphs array, only counts the valid glyphs
     for (std::vector<CairoGlyphInfo>::const_iterator it_info = glyphtext.begin() ; it_info != glyphtext.end() ; it_info++) {
         // skip glyphs which are PANGO_GLYPH_EMPTY (0x0FFFFFFF)
         // or have the PANGO_GLYPH_UNKNOWN_FLAG (0x10000000) set
         if (it_info->index == 0x0FFFFFFF || it_info->index & 0x10000000) {
             TRACE(("INVALID GLYPH found\n"));
+            g_message("Invalid glyph found, continuing...");
             num_invalid_glyphs++;
             continue;
         }
-        glyphs[i - num_invalid_glyphs].index = it_info->index;
-        glyphs[i - num_invalid_glyphs].x = it_info->x;
-        glyphs[i - num_invalid_glyphs].y = it_info->y;
+        glyphs[i].index = it_info->index;
+        glyphs[i].x     = it_info->x;
+        glyphs[i].y     = it_info->y;
         i++;
     }
 
@@ -1676,4 +1687,4 @@ _write_callback(void *closure, const unsigned char *data, unsigned int length)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

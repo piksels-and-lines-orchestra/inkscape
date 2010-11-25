@@ -36,14 +36,14 @@ Sharpen::init(void)
 		"<inkscape-extension xmlns=\"" INKSCAPE_EXTENSION_URI "\">\n"
 			"<name>" N_("Sharpen") "</name>\n"
 			"<id>org.inkscape.effect.bitmap.sharpen</id>\n"
-			"<param name=\"radius\" gui-text=\"" N_("Radius") "\" type=\"float\" min=\"0\" max=\"50\">1.0</param>\n"
-			"<param name=\"sigma\" gui-text=\"" N_("Sigma") "\" type=\"float\" min=\"0\" max=\"10\">0.5</param>\n"			
+			"<param name=\"radius\" gui-text=\"" N_("Radius:") "\" type=\"float\" min=\"0\" max=\"50\">1.0</param>\n"
+			"<param name=\"sigma\" gui-text=\"" N_("Sigma:") "\" type=\"float\" min=\"0\" max=\"10\">0.5</param>\n"			
 			"<effect>\n"
 				"<object-type>all</object-type>\n"
 				"<effects-menu>\n"
 					"<submenu name=\"" N_("Raster") "\" />\n"
 				"</effects-menu>\n"
-				"<menu-tip>" N_("Sharpen selected bitmap(s).") "</menu-tip>\n"
+				"<menu-tip>" N_("Sharpen selected bitmap(s)") "</menu-tip>\n"
 			"</effect>\n"
 		"</inkscape-extension>\n", new Sharpen());
 }

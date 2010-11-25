@@ -61,7 +61,7 @@ Inkscape::SnappedPoint::SnappedPoint()
 {
     _point = Geom::Point(0,0);
     _source = SNAPSOURCE_UNDEFINED,
-    _source_num = 0,
+    _source_num = -1,
     _target = SNAPTARGET_UNDEFINED,
     _at_intersection = false;
     _constrained_snap = false;
@@ -81,7 +81,7 @@ Inkscape::SnappedPoint::SnappedPoint(Geom::Point const &p)
 {
     _point = p;
     _source = SNAPSOURCE_UNDEFINED,
-    _source_num = 0,
+    _source_num = -1,
     _target = SNAPTARGET_UNDEFINED,
     _at_intersection = false;
     _fully_constrained = false;
@@ -100,7 +100,7 @@ Inkscape::SnappedPoint::~SnappedPoint()
 {
 }
 
-void Inkscape::SnappedPoint::getPoint(Geom::Point &p) const
+void Inkscape::SnappedPoint::getPointIfSnapped(Geom::Point &p) const
 {
     // When we have snapped
     if (getSnapped()) {
@@ -127,7 +127,7 @@ bool getClosestSP(std::list<Inkscape::SnappedPoint> const &list, Inkscape::Snapp
 bool Inkscape::SnappedPoint::isOtherSnapBetter(Inkscape::SnappedPoint const &other_one, bool weighted) const
 {
 
-    if (!other_one.getSnapped()) {
+    if (getSnapped() && !other_one.getSnapped()) {
         return false;
     }
 

@@ -78,6 +78,10 @@ class Pattern(inkex.Effect):
                         action="store", type="int", 
                         dest="border", default=0,
                         help="Size of Border (px)")
+        self.OptionParser.add_option("--tab",
+                        action="store", type="string",
+                        dest="tab",
+                        help="The selected UI-tab when OK was pressed")
 
     def effect(self):
         if not self.options.ids:
@@ -186,4 +190,4 @@ if __name__ == '__main__':
     e = Pattern()
     e.affect()
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

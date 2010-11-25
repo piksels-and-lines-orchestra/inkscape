@@ -117,6 +117,10 @@ class PathAlongPath(pathmodifier.Diffeo):
                         action="store", type="inkbool", 
                         dest="duplicate", default=False,
                         help="duplicate pattern before deformation")
+        self.OptionParser.add_option("--tab",
+                        action="store", type="string",
+                        dest="tab",
+                        help="The selected UI-tab when OK was pressed")
 
     def prepareSelectionList(self):
 
@@ -216,9 +220,11 @@ class PathAlongPath(pathmodifier.Diffeo):
         if self.options.vertical:
             #flipxy(bbox)...
             bbox=(-bbox[3],-bbox[2],-bbox[1],-bbox[0])
-            
+
         width=bbox[1]-bbox[0]
         dx=width+self.options.space
+        if dx < 0.01:
+            exit(_("The total length of the pattern is too small :\nPlease choose a larger object or set 'Space between copies' > 0"))
 
         for id, node in self.patterns.iteritems():
             if node.tag == inkex.addNS('path','svg') or node.tag=='path':
@@ -278,4 +284,4 @@ if __name__ == '__main__':
     e.affect()
 
                     
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

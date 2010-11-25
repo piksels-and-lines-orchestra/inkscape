@@ -25,6 +25,7 @@
 #include "selection-chemistry.h"
 #include "verbs.h"
 #include "preferences.h"
+#include "sp-namedview.h"
 #include "sp-item-transform.h"
 #include "macros.h"
 #include "sp-item.h"
@@ -78,27 +79,27 @@ Transformation::Transformation()
       _page_rotate            (4, 2),
       _page_skew              (4, 2),
       _page_transform         (3, 3),
-      _scalar_move_horizontal (_("_Horizontal"), _("Horizontal displacement (relative) or position (absolute)"), UNIT_TYPE_LINEAR,
+      _scalar_move_horizontal (_("_Horizontal:"), _("Horizontal displacement (relative) or position (absolute)"), UNIT_TYPE_LINEAR,
                                "", "transform-move-horizontal", &_units_move),
-      _scalar_move_vertical   (_("_Vertical"),  _("Vertical displacement (relative) or position (absolute)"), UNIT_TYPE_LINEAR,
+      _scalar_move_vertical   (_("_Vertical:"),  _("Vertical displacement (relative) or position (absolute)"), UNIT_TYPE_LINEAR,
                                "", "transform-move-vertical", &_units_move),
-      _scalar_scale_horizontal(_("_Width"), _("Horizontal size (absolute or percentage of current)"), UNIT_TYPE_DIMENSIONLESS,
+      _scalar_scale_horizontal(_("_Width:"), _("Horizontal size (absolute or percentage of current)"), UNIT_TYPE_DIMENSIONLESS,
                                "", "transform-scale-horizontal", &_units_scale),
-      _scalar_scale_vertical  (_("_Height"),  _("Vertical size (absolute or percentage of current)"), UNIT_TYPE_DIMENSIONLESS,
+      _scalar_scale_vertical  (_("_Height:"),  _("Vertical size (absolute or percentage of current)"), UNIT_TYPE_DIMENSIONLESS,
                                "", "transform-scale-vertical", &_units_scale),
-      _scalar_rotate          (_("A_ngle"), _("Rotation angle (positive = counterclockwise)"), UNIT_TYPE_RADIAL,
+      _scalar_rotate          (_("A_ngle:"), _("Rotation angle (positive = counterclockwise)"), UNIT_TYPE_RADIAL,
                                "", "transform-rotate", &_units_rotate),
-      _scalar_skew_horizontal (_("_Horizontal"), _("Horizontal skew angle (positive = counterclockwise), or absolute displacement, or percentage displacement"), UNIT_TYPE_LINEAR,
+      _scalar_skew_horizontal (_("_Horizontal:"), _("Horizontal skew angle (positive = counterclockwise), or absolute displacement, or percentage displacement"), UNIT_TYPE_LINEAR,
                                "", "transform-skew-horizontal", &_units_skew),
-      _scalar_skew_vertical   (_("_Vertical"),  _("Vertical skew angle (positive = counterclockwise), or absolute displacement, or percentage displacement"),  UNIT_TYPE_LINEAR,
+      _scalar_skew_vertical   (_("_Vertical:"),  _("Vertical skew angle (positive = counterclockwise), or absolute displacement, or percentage displacement"),  UNIT_TYPE_LINEAR,
                                "", "transform-skew-vertical", &_units_skew),
 
-      _scalar_transform_a     ("_A", _("Transformation matrix element A")),
-      _scalar_transform_b     ("_B", _("Transformation matrix element B")),
-      _scalar_transform_c     ("_C", _("Transformation matrix element C")),
-      _scalar_transform_d     ("_D", _("Transformation matrix element D")),
-      _scalar_transform_e     ("_E", _("Transformation matrix element E")),
-      _scalar_transform_f     ("_F", _("Transformation matrix element F")),
+      _scalar_transform_a     ("_A:", _("Transformation matrix element A")),
+      _scalar_transform_b     ("_B:", _("Transformation matrix element B")),
+      _scalar_transform_c     ("_C:", _("Transformation matrix element C")),
+      _scalar_transform_d     ("_D:", _("Transformation matrix element D")),
+      _scalar_transform_e     ("_E:", _("Transformation matrix element E")),
+      _scalar_transform_f     ("_F:", _("Transformation matrix element F")),
 
       _check_move_relative    (_("Rela_tive move"), _("Add the specified relative displacement to the current position; otherwise, edit the current absolute position directly")),
       _check_scale_proportional (_("Scale proportionally"), _("Preserve the width/height ratio of the scaled objects")),
@@ -197,6 +198,14 @@ void
 Transformation::layoutPageMove()
 {
     _units_move.setUnitType(UNIT_TYPE_LINEAR);
+    
+    // Setting default unit to document unit
+    SPDesktop *dt = getDesktop();
+    SPNamedView *nv = sp_desktop_namedview(dt);
+    if (nv->doc_units) {
+        _units_move.setUnit(nv->doc_units->abbr);
+    }
+    
     _scalar_move_horizontal.initScalar(-1e6, 1e6);
     _scalar_move_horizontal.setDigits(3);
     _scalar_move_horizontal.setIncrements(0.1, 1.0);
@@ -461,8 +470,9 @@ Transformation::updatePageMove(Inkscape::Selection *selection)
                 double x = bbox->min()[Geom::X];
                 double y = bbox->min()[Geom::Y];
 
-                _scalar_move_horizontal.setValue(x, "px");
-                _scalar_move_vertical.setValue(y, "px");
+                double conversion = _units_move.getConversion("px");
+                _scalar_move_horizontal.setValue(x / conversion);
+                _scalar_move_vertical.setValue(y / conversion);
             }
         } else {
             // do nothing, so you can apply the same relative move to many objects in turn
@@ -870,6 +880,8 @@ Transformation::onMoveRelativeToggled()
     double x = _scalar_move_horizontal.getValue("px");
     double y = _scalar_move_vertical.getValue("px");
 
+    double conversion = _units_move.getConversion("px");
+
     //g_message("onMoveRelativeToggled: %f, %f px\n", x, y);
 
     Geom::OptRect bbox = selection->bounds();
@@ -877,12 +889,12 @@ Transformation::onMoveRelativeToggled()
     if (bbox) {
         if (_check_move_relative.get_active()) {
             // From absolute to relative
-            _scalar_move_horizontal.setValue(x - bbox->min()[Geom::X], "px");
-            _scalar_move_vertical.setValue(  y - bbox->min()[Geom::Y], "px");
+            _scalar_move_horizontal.setValue((x - bbox->min()[Geom::X]) / conversion);
+            _scalar_move_vertical.setValue((  y - bbox->min()[Geom::Y]) / conversion);
         } else {
             // From relative to absolute
-            _scalar_move_horizontal.setValue(bbox->min()[Geom::X] + x, "px");
-            _scalar_move_vertical.setValue(  bbox->min()[Geom::Y] + y, "px");
+            _scalar_move_horizontal.setValue((bbox->min()[Geom::X] + x) / conversion);
+            _scalar_move_vertical.setValue((  bbox->min()[Geom::Y] + y) / conversion);
         }
     }
 
@@ -1067,4 +1079,4 @@ Transformation::onApplySeparatelyToggled()
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

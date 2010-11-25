@@ -40,6 +40,7 @@
 #include <2geom/rect.h>
 #include <2geom/sweep.h>
 #include <boost/optional/optional.hpp>
+#include <2geom/path.h>
 
 namespace Geom {
 
@@ -137,6 +138,8 @@ std::vector<Rect> bounds(C const &a) {
     }
     return rs;
 }
+// provide specific method for Paths because paths can be closed or open. Path::size() is named somewhat wrong...
+std::vector<Rect> bounds(Path const &a);
 
 inline void sort_crossings(Crossings &cr, unsigned ix) { std::sort(cr.begin(), cr.end(), CrossingOrder(ix)); }
 
@@ -193,4 +196,4 @@ void clean(Crossings &cr_a, Crossings &cr_b);
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

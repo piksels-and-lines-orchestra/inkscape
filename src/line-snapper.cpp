@@ -64,18 +64,22 @@ void Inkscape::LineSnapper::constrainedSnap(SnappedConstraints &sc,
                                                Inkscape::SnapCandidatePoint const &p,
                                                Geom::OptRect const &/*bbox_to_snap*/,
                                                SnapConstraint const &c,
-                                               std::vector<SPItem const *> const */*it*/) const
+                                               std::vector<SPItem const *> const */*it*/,
+                                               std::vector<SnapCandidatePoint> */*unselected_nodes*/) const
 
 {
     if (_snap_enabled == false || _snapmanager->snapprefs.getSnapFrom(p.getSourceType()) == false) {
         return;
     }
 
+    // project the mouse pointer onto the constraint. Only the projected point will be considered for snapping
+    Geom::Point pp = c.projection(p.getPoint());
+
     /* Get the lines that we will try to snap to */
-    const LineList lines = _getSnapLines(p.getPoint());
+    const LineList lines = _getSnapLines(pp);
 
     for (LineList::const_iterator i = lines.begin(); i != lines.end(); i++) {
-        Geom::Point const point_on_line = c.hasPoint() ? c.getPoint() : p.getPoint();
+        Geom::Point const point_on_line = c.hasPoint() ? c.getPoint() : pp;
         Geom::Line gridguide_line(i->second, i->second + Geom::rot90(i->first));
 
         if (c.isCircular()) {
@@ -87,7 +91,7 @@ void Inkscape::LineSnapper::constrainedSnap(SnappedConstraints &sc,
             Geom::Coord radius = c.getRadius();
             if (dist == radius) {
                 // Only one point of intersection;
-                _addSnappedPoint(sc, p_proj, Geom::L2(p.getPoint() - p_proj), p.getSourceType(), p.getSourceNum(), true);
+                _addSnappedPoint(sc, p_proj, Geom::L2(pp - p_proj), p.getSourceType(), p.getSourceNum(), true);
             } else if (dist < radius) {
                 // Two points of intersection, symmetrical with respect to the projected point
                 // Calculate half the length of the linesegment between the two points of intersection

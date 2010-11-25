@@ -128,6 +128,8 @@ struct SPEventContext : public GObject {
 
     DelayedSnapEvent *_delayed_snap_event;
     bool _dse_callback_in_process;
+
+    char const * tool_url; ///< the (preferences) url for the tool (if a subclass corresponding to a tool is used)
 };
 
 /**
@@ -195,4 +197,4 @@ void event_context_print_event_info(GdkEvent *event, bool print_return = true);
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

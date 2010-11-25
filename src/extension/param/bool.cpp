@@ -139,9 +139,9 @@ ParamBool::get_widget (SPDocument * doc, Inkscape::XML::Node * node, sigc::signa
 
     Gtk::Label * label = Gtk::manage(new Gtk::Label(_(_text), Gtk::ALIGN_LEFT));
     label->show();
-    hbox->pack_start(*label, true, true);
+    hbox->pack_end(*label, true, true);
 
-    ParamBoolCheckButton * checkbox = new ParamBoolCheckButton(this, doc, node, changeSignal);
+    ParamBoolCheckButton * checkbox = Gtk::manage(new ParamBoolCheckButton(this, doc, node, changeSignal));
     checkbox->show();
     hbox->pack_start(*checkbox, false, false);
 
@@ -162,4 +162,4 @@ ParamBool::get_widget (SPDocument * doc, Inkscape::XML::Node * node, sigc::signa
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -27,6 +27,8 @@
 #include "shortcuts.h"
 #include "interface.h"
 
+#include <gdk/gdkkeysyms.h>
+
 #include "icon.h"
 #include "button.h"
 
@@ -286,29 +288,27 @@ sp_button_action_set_shortcut (SPAction *action, unsigned int /*shortcut*/, void
 	}
 }
 
-static void
-sp_button_set_composed_tooltip (GtkTooltips *tooltips, GtkWidget *widget, SPAction *action)
+static void sp_button_set_composed_tooltip(GtkTooltips *tooltips, GtkWidget *widget, SPAction *action)
 {
-	if (action) {
-		unsigned int shortcut = sp_shortcut_get_primary (action->verb);
-		if (shortcut) {
-			// there's both action and shortcut
+    if (action) {
+        unsigned int shortcut = sp_shortcut_get_primary (action->verb);
+        if (shortcut != GDK_VoidSymbol) {
+            // there's both action and shortcut
 
-			gchar        key[256];
-			sp_ui_shortcut_string (shortcut, key);
+            gchar *key = sp_shortcut_get_label(shortcut);
 
-			gchar *tip = g_strdup_printf ("%s (%s)", action->tip, key);
-			gtk_tooltips_set_tip (tooltips, widget, tip, NULL);
-			g_free (tip);
-
-		} else {
-			// action has no shortcut
-			gtk_tooltips_set_tip (tooltips, widget, action->tip, NULL);
-		}
-	} else {
-		// no action
-		gtk_tooltips_set_tip (tooltips, widget, NULL, NULL);
-	}
+            gchar *tip = g_strdup_printf ("%s (%s)", action->tip, key);
+            gtk_tooltips_set_tip(tooltips, widget, tip, NULL);
+            g_free(tip);
+            g_free(key);
+        } else {
+            // action has no shortcut
+            gtk_tooltips_set_tip(tooltips, widget, action->tip, NULL);
+        }
+    } else {
+        // no action
+        gtk_tooltips_set_tip(tooltips, widget, NULL, NULL);
+    }
 }
 
 GtkWidget *

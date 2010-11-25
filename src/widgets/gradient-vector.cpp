@@ -649,25 +649,22 @@ static void sp_grad_edit_select(GtkOptionMenu *mnu, GtkWidget *tbl)
 
 static void offadjustmentChanged( GtkAdjustment *adjustment, GtkWidget *vb)
 {
-    if (blocked) {
-        return;
+    if (!blocked) {
+        blocked = TRUE;
+
+        GtkOptionMenu *mnu = static_cast<GtkOptionMenu *>(g_object_get_data(G_OBJECT(vb), "stopmenu"));
+        if ( g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop") ) {
+            SPStop *stop = SP_STOP(g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop"));
+
+            stop->offset = adjustment->value;
+            sp_repr_set_css_double(SP_OBJECT_REPR(stop), "offset", stop->offset);
+
+            sp_document_maybe_done(SP_OBJECT_DOCUMENT(stop), "gradient:stop:offset", SP_VERB_CONTEXT_GRADIENT,
+                                   _("Change gradient stop offset"));
+
+            blocked = FALSE;
+        }
     }
-
-    blocked = TRUE;
-
-    GtkOptionMenu *mnu = static_cast<GtkOptionMenu *>(g_object_get_data(G_OBJECT(vb), "stopmenu"));
-    if (!g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop")) {
-        return;
-    }
-    SPStop *stop = SP_STOP(g_object_get_data(G_OBJECT(gtk_menu_get_active(GTK_MENU(gtk_option_menu_get_menu(mnu)))), "stop"));
-
-    stop->offset = adjustment->value;
-    sp_repr_set_css_double(SP_OBJECT_REPR(stop), "offset", stop->offset);
-
-    sp_document_done(SP_OBJECT_DOCUMENT(stop), SP_VERB_CONTEXT_GRADIENT,
-                      _("Change gradient stop offset"));
-
-    blocked = FALSE;
 }
 
 guint32 sp_average_color(guint32 c1, guint32 c2, gdouble p = 0.5)
@@ -1204,4 +1201,4 @@ static void sp_gradient_vector_color_changed(SPColorSelector *csel, GtkObject *o
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -602,6 +602,7 @@ void SvgFontsDialog::glyph_unicode_edit(const Glib::ustring&, const Glib::ustrin
 
 void SvgFontsDialog::remove_selected_font(){
     SPFont* font = get_selected_spfont();
+    if (!font) return;
 
     sp_repr_unparent(font->repr);
     SPDocument* doc = sp_desktop_document(this->getDesktop());
@@ -731,7 +732,7 @@ Gtk::VBox* SvgFontsDialog::kerning_tab(){
     create_kerning_pairs_popup_menu(_KerningPairsList, sigc::mem_fun(*this, &SvgFontsDialog::remove_selected_kerning_pair));
 
 //Kerning Setup:
-    kerning_vbox.add(*Gtk::manage(new Gtk::Label(_("Kerning Setup:"))));
+    kerning_vbox.add(*Gtk::manage(new Gtk::Label(_("Kerning Setup"))));
     Gtk::HBox* kerning_selector = Gtk::manage(new Gtk::HBox());
     kerning_selector->add(*Gtk::manage(new Gtk::Label(_("1st Glyph:"))));
     kerning_selector->add(first_glyph);
@@ -910,4 +911,4 @@ SvgFontsDialog::~SvgFontsDialog(){}
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -625,8 +625,7 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Matrix 
 
 static
 void item_outline_add_marker( SPObject const *marker_object, Geom::Matrix marker_transform,
-                              Geom::Scale stroke_scale, Geom::Matrix transform,
-                              Geom::PathVector* pathv_in )
+                              Geom::Scale stroke_scale, Geom::PathVector* pathv_in )
 {
     SPMarker* marker = SP_MARKER (marker_object);
     SPItem* marker_item = sp_item_first_item_child(SP_OBJECT(marker_object));
@@ -636,7 +635,7 @@ void item_outline_add_marker( SPObject const *marker_object, Geom::Matrix marker
         tr = stroke_scale * tr;
     }
     // total marker transform
-    tr = marker_item->transform * marker->c2p * tr * transform;
+    tr = marker_item->transform * marker->c2p * tr;
 
     Geom::PathVector* marker_pathv = item_outline(marker_item);
     
@@ -671,6 +670,10 @@ Geom::PathVector* item_outline(SPItem const *item)
         curve = SP_TEXT(item)->getNormalizedBpath();
     }
     if (curve == NULL) {
+        return ret_pathv;
+    }
+
+    if (curve->get_pathvector().empty()) {
         return ret_pathv;
     }
 
@@ -791,7 +794,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                 if ( SPObject *marker_obj = shape->marker[i] ) {
                     Geom::Matrix const m (sp_shape_marker_get_transform_at_start(pathv.front().front()));
                     item_outline_add_marker( marker_obj, m,
-                                             Geom::Scale(i_style->stroke_width.computed), transform,
+                                             Geom::Scale(i_style->stroke_width.computed),
                                              ret_pathv );
                 }
             }
@@ -806,7 +809,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                     {
                         Geom::Matrix const m (sp_shape_marker_get_transform_at_start(path_it->front()));
                         item_outline_add_marker( midmarker_obj, m,
-                                                 Geom::Scale(i_style->stroke_width.computed), transform,
+                                                 Geom::Scale(i_style->stroke_width.computed),
                                                  ret_pathv );
                     }
                     // MID position
@@ -821,7 +824,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                              */
                             Geom::Matrix const m (sp_shape_marker_get_transform(*curve_it1, *curve_it2));
                             item_outline_add_marker( midmarker_obj, m,
-                                                     Geom::Scale(i_style->stroke_width.computed), transform,
+                                                     Geom::Scale(i_style->stroke_width.computed),
                                                      ret_pathv);
 
                             ++curve_it1;
@@ -833,7 +836,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                         Geom::Curve const &lastcurve = path_it->back_default();
                         Geom::Matrix const m = sp_shape_marker_get_transform_at_end(lastcurve);
                         item_outline_add_marker( midmarker_obj, m,
-                                                 Geom::Scale(i_style->stroke_width.computed), transform,
+                                                 Geom::Scale(i_style->stroke_width.computed),
                                                  ret_pathv );
                     }
                 }
@@ -852,7 +855,7 @@ Geom::PathVector* item_outline(SPItem const *item)
 
                     Geom::Matrix const m = sp_shape_marker_get_transform_at_end(lastcurve);
                     item_outline_add_marker( marker_obj, m,
-                                             Geom::Scale(i_style->stroke_width.computed), transform,
+                                             Geom::Scale(i_style->stroke_width.computed),
                                              ret_pathv );
                 }
             }
@@ -898,6 +901,10 @@ sp_selected_path_outline(SPDesktop *desktop)
             curve = SP_TEXT(item)->getNormalizedBpath();
             if (curve == NULL)
                 continue;
+        }
+
+        if (curve->get_pathvector().empty()) {
+            continue;
         }
 
         // pas de stroke pas de chocolat
@@ -2147,4 +2154,4 @@ Geom::Point get_point_on_Path(Path *path, int piece, double t)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

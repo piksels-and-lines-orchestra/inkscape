@@ -44,6 +44,7 @@
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "desktop-events.h"
+#include "desktop-style.h"
 #include "widgets/desktop-widget.h"
 #include "sp-namedview.h"
 #include "selection.h"
@@ -62,6 +63,7 @@
 #include "ui/tool/control-point.h"
 #include "shape-editor.h"
 #include "sp-guide.h"
+#include "color.h"
 
 static void sp_event_context_class_init(SPEventContextClass *klass);
 static void sp_event_context_init(SPEventContext *event_context);
@@ -141,6 +143,7 @@ static void sp_event_context_init(SPEventContext *event_context) {
     event_context->shape_editor = NULL;
     event_context->_delayed_snap_event = NULL;
     event_context->_dse_callback_in_process = false;
+    event_context->tool_url = NULL;
 }
 
 /**
@@ -183,17 +186,38 @@ void sp_event_context_update_cursor(SPEventContext *ec) {
     if (w->window) {
         /* fixme: */
         if (ec->cursor_shape) {
-            GdkBitmap *bitmap = NULL;
-            GdkBitmap *mask = NULL;
-            sp_cursor_bitmap_and_mask_from_xpm(&bitmap, &mask, ec->cursor_shape);
-            if ((bitmap != NULL) && (mask != NULL)) {
-                if (ec->cursor)
-                    gdk_cursor_unref(ec->cursor);
-                ec->cursor = gdk_cursor_new_from_pixmap(bitmap, mask,
-                        &w->style->black, &w->style->white, ec->hot_x,
-                        ec->hot_y);
-                g_object_unref(bitmap);
-                g_object_unref(mask);
+            GdkDisplay *display = gdk_display_get_default();
+            if (ec->tool_url && gdk_display_supports_cursor_alpha(display) && gdk_display_supports_cursor_color(display)) {
+                bool fillHasColor=false, strokeHasColor=false;
+                guint32 fillColor = sp_desktop_get_color_tool(ec->desktop, ec->tool_url, true, &fillHasColor);
+                guint32 strokeColor = sp_desktop_get_color_tool(ec->desktop, ec->tool_url, false, &strokeHasColor);
+                double fillOpacity = fillHasColor ? sp_desktop_get_opacity_tool(ec->desktop, ec->tool_url, true) : 0;
+                double strokeOpacity = strokeHasColor ? sp_desktop_get_opacity_tool(ec->desktop, ec->tool_url, false) : 0;
+                GdkPixbuf *pixbuf = sp_cursor_pixbuf_from_xpm(
+                    ec->cursor_shape,
+                    w->style->black, w->style->white,
+                    SP_RGBA32_U_COMPOSE(SP_RGBA32_R_U(fillColor),SP_RGBA32_G_U(fillColor),SP_RGBA32_B_U(fillColor),SP_COLOR_F_TO_U(fillOpacity)),
+                    SP_RGBA32_U_COMPOSE(SP_RGBA32_R_U(strokeColor),SP_RGBA32_G_U(strokeColor),SP_RGBA32_B_U(strokeColor),SP_COLOR_F_TO_U(strokeOpacity))
+                    );
+                if (pixbuf != NULL) {
+                    if (ec->cursor)
+                        gdk_cursor_unref(ec->cursor);
+                    ec->cursor = gdk_cursor_new_from_pixbuf(display, pixbuf, ec->hot_x, ec->hot_y);
+                    g_object_unref(pixbuf);
+                }
+            } else {
+                GdkBitmap *bitmap = NULL;
+                GdkBitmap *mask = NULL;
+                sp_cursor_bitmap_and_mask_from_xpm(&bitmap, &mask, ec->cursor_shape);
+                if ((bitmap != NULL) && (mask != NULL)) {
+                    if (ec->cursor)
+                        gdk_cursor_unref(ec->cursor);
+                    ec->cursor = gdk_cursor_new_from_pixmap(bitmap, mask,
+                            &w->style->black, &w->style->white, ec->hot_x,
+                            ec->hot_y);
+                    g_object_unref(bitmap);
+                    g_object_unref(mask);
+                }
             }
         }
         gdk_window_set_cursor(w->window, ec->cursor);
@@ -937,8 +961,12 @@ gint sp_event_context_root_handler(SPEventContext * event_context,
 }
 
 gint sp_event_context_virtual_root_handler(SPEventContext * event_context, GdkEvent * event) {
-    gint ret = ((SPEventContextClass *) G_OBJECT_GET_CLASS(event_context))->root_handler(event_context, event);
-    set_event_location(event_context->desktop, event);
+    gint ret = false;
+    if (event_context) {    // If no event-context is available then do nothing, otherwise Inkscape would crash
+                            // (see the comment in SPDesktop::set_event_context, and bug LP #622350)
+        ret = ((SPEventContextClass *) G_OBJECT_GET_CLASS(event_context))->root_handler(event_context, event);
+        set_event_location(event_context->desktop, event);
+    }
     return ret;
 }
 
@@ -972,12 +1000,15 @@ gint sp_event_context_item_handler(SPEventContext * event_context,
 }
 
 gint sp_event_context_virtual_item_handler(SPEventContext * event_context, SPItem * item, GdkEvent * event) {
-    gint ret = ((SPEventContextClass *) G_OBJECT_GET_CLASS(event_context))->item_handler(event_context, item, event);
-
-    if (!ret) {
-        ret = sp_event_context_virtual_root_handler(event_context, event);
-    } else {
-        set_event_location(event_context->desktop, event);
+    gint ret = false;
+    if (event_context) {    // If no event-context is available then do nothing, otherwise Inkscape would crash
+                            // (see the comment in SPDesktop::set_event_context, and bug LP #622350)
+        ret = ((SPEventContextClass *) G_OBJECT_GET_CLASS(event_context))->item_handler(event_context, item, event);
+        if (!ret) {
+            ret = sp_event_context_virtual_root_handler(event_context, event);
+        } else {
+            set_event_location(event_context->desktop, event);
+        }
     }
 
     return ret;
@@ -1342,4 +1373,4 @@ void sp_event_context_discard_delayed_snap_event(SPEventContext *ec) {
  fill-column:99
  End:
  */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

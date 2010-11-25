@@ -59,7 +59,7 @@ ObjectCompositeSettings::ObjectCompositeSettings(unsigned int verb_code, char co
   _opacity_tag(Glib::ustring(history_prefix) + ":opacity"),
   _opacity_vbox(false, 0),
   _opacity_label_box(false, 0),
-  _opacity_label(_("Opacity, %"), 0.0, 1.0, true),
+  _opacity_label(_("Opacity (%):"), 0.0, 1.0, true),
   _opacity_adjustment(100.0, 0.0, 100.0, 1.0, 1.0, 0.0),
   _opacity_hscale(_opacity_adjustment),
   _opacity_spin_button(_opacity_adjustment, 0.01, 1),
@@ -305,4 +305,4 @@ ObjectCompositeSettings::_subjectChanged() {
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -15,8 +15,6 @@
 #include "floating-behavior.h"
 #include "dialog.h"
 
-#include "application/application.h"
-#include "application/editor.h"
 #include "inkscape.h"
 #include "desktop.h"
 #include "dialogs/dialog-events.h"
@@ -240,4 +238,4 @@ FloatingBehavior::onDesktopActivated (SPDesktop *desktop)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

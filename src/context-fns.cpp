@@ -209,6 +209,8 @@ Geom::Rect Inkscape::snap_rectangular_box(SPDesktop const *desktop, SPItem *item
     p[0] *= desktop->dt2doc();
     p[1] *= desktop->dt2doc();
 
+    m.unSetup();
+
     return Geom::Rect(Geom::Point(MIN(p[0][Geom::X], p[1][Geom::X]), MIN(p[0][Geom::Y], p[1][Geom::Y])),
                     Geom::Point(MAX(p[0][Geom::X], p[1][Geom::X]), MAX(p[0][Geom::Y], p[1][Geom::Y])));
 }
@@ -236,4 +238,4 @@ Geom::Point Inkscape::setup_for_drag_start(SPDesktop *desktop, SPEventContext* e
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

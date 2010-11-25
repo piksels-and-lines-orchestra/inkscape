@@ -12,6 +12,7 @@
 #define SEEN_UI_TOOL_NODE_TOOL_H
 
 #include <memory>
+#include <boost/ptr_container/ptr_map.hpp>
 #include <glib.h>
 #include <sigc++/sigc++.h>
 #include "event-context.h"
@@ -41,6 +42,7 @@ typedef std::auto_ptr<Inkscape::UI::MultiPathManipulator> MultiPathPtr;
 typedef std::auto_ptr<Inkscape::UI::ControlPointSelection> CSelPtr;
 typedef std::auto_ptr<Inkscape::UI::Selector> SelectorPtr;
 typedef std::auto_ptr<Inkscape::UI::PathSharedData> PathSharedDataPtr;
+typedef boost::ptr_map<SPItem*, ShapeEditor> ShapeEditors;
 
 struct InkNodeTool : public SPEventContext
 {
@@ -56,6 +58,7 @@ struct InkNodeTool : public SPEventContext
     PathSharedDataPtr _path_data;
     SPCanvasGroup *_transform_handle_group;
     SPItem *_last_over;
+    ShapeEditors _shape_editors;
 
     unsigned cursor_drag : 1;
     unsigned show_handles : 1;
@@ -86,4 +89,4 @@ GType ink_node_tool_get_type (void);
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

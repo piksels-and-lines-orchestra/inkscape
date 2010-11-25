@@ -210,8 +210,8 @@ ParamNotebookPage::get_widget (SPDocument * doc, Inkscape::XML::Node * node, sig
         Parameter * param = reinterpret_cast<Parameter *>(list->data);
         Gtk::Widget * widg = param->get_widget(doc, node, changeSignal);
         gchar const * tip = param->get_tooltip();
-
-        vbox->pack_start(*widg, true, true, 2);
+//        printf("Tip: '%s'\n", tip);
+        vbox->pack_start(*widg, false, false, 2);
         if (tip != NULL) {
             _tooltips->set_tip(*widg, Glib::ustring(tip));
         }
@@ -428,4 +428,4 @@ ParamNotebook::get_widget (SPDocument * doc, Inkscape::XML::Node * node, sigc::s
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

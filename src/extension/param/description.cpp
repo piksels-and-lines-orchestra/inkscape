@@ -40,7 +40,9 @@ ParamDescription::ParamDescription (const gchar * name, const gchar * guitext, c
 
     if (defaultval != NULL)
         _value = g_strdup(defaultval);
-
+        
+    _context = xml->attribute("msgctxt");
+    
     return;
 }
 
@@ -50,12 +52,21 @@ ParamDescription::get_widget (SPDocument * /*doc*/, Inkscape::XML::Node * /*node
 {
 	if (_gui_hidden) return NULL;
 
-    Gtk::Label * label = Gtk::manage(new Gtk::Label(_(_value)));
+    Glib::ustring newguitext;
+
+    if (_context != NULL) {
+        newguitext = g_dpgettext2(NULL, _context, _value);
+    } else {
+        newguitext = _(_value);
+    }
+    
+    Gtk::Label * label = Gtk::manage(new Gtk::Label(newguitext, Gtk::ALIGN_LEFT));
+    
     label->set_line_wrap();
     label->show();
 
     Gtk::HBox * hbox = Gtk::manage(new Gtk::HBox(false, 4));
-    hbox->pack_start(*label, true, true, 5);
+    hbox->pack_start(*label, true, true, 12);
     hbox->show();
 
     return hbox;

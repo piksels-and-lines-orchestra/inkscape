@@ -28,6 +28,7 @@
 
 #include <gdk/gdkkeys.h>
 #include <gdk/gdkkeysyms.h>
+#include <gtk/gtk.h>
 
 #include "helper/action.h"
 #include "io/sys.h"
@@ -198,14 +199,41 @@ sp_shortcut_get_verb(unsigned int shortcut)
     return (Inkscape::Verb *)(g_hash_table_lookup(verbs, GINT_TO_POINTER(shortcut)));
 }
 
-unsigned int
-sp_shortcut_get_primary(Inkscape::Verb *verb)
+unsigned int sp_shortcut_get_primary(Inkscape::Verb *verb)
 {
-    if (!primary_shortcuts) sp_shortcut_init();
-    return (unsigned int)GPOINTER_TO_INT(g_hash_table_lookup(primary_shortcuts,
-                                                             (gpointer)(verb)));
+    unsigned int result = GDK_VoidSymbol;
+    if (!primary_shortcuts) {
+        sp_shortcut_init();
+    }
+    gpointer value = 0;
+    if (g_hash_table_lookup_extended(primary_shortcuts, static_cast<gpointer>(verb), NULL, &value)) {
+        result = static_cast<unsigned int>(GPOINTER_TO_INT(value));
+    }
+    return result;
 }
 
+gchar *sp_shortcut_get_label(unsigned int shortcut)
+{
+    // The comment below was copied from the function sp_ui_shortcut_string in interface.cpp (which was subsequently removed)
+    /* TODO: This function shouldn't exist.  Our callers should use GtkAccelLabel instead of
+     * a generic GtkLabel containing this string, and should call gtk_widget_add_accelerator.
+     * Will probably need to change sp_shortcut_invoke callers.
+     *
+     * The existing gtk_label_new_with_mnemonic call can be replaced with
+     * g_object_new(GTK_TYPE_ACCEL_LABEL, NULL) followed by
+     * gtk_label_set_text_with_mnemonic(lbl, str).
+     */
+    gchar *result = 0;
+    if (shortcut != GDK_VoidSymbol) {
+        result = gtk_accelerator_get_label(
+            shortcut & (~SP_SHORTCUT_MODIFIER_MASK), static_cast<GdkModifierType>(
+                ((shortcut & SP_SHORTCUT_SHIFT_MASK) ? GDK_SHIFT_MASK : 0) |
+                ((shortcut & SP_SHORTCUT_CONTROL_MASK) ? GDK_CONTROL_MASK : 0) |
+                ((shortcut & SP_SHORTCUT_ALT_MASK) ? GDK_MOD1_MASK : 0)
+                ));
+    }
+    return result;
+}
 
 /*
   Local Variables:
@@ -216,4 +244,4 @@ sp_shortcut_get_primary(Inkscape::Verb *verb)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

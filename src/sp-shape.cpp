@@ -20,6 +20,7 @@
 #include <2geom/transforms.h>
 #include <2geom/pathvector.h>
 #include <2geom/path-intersection.h>
+#include <2geom/exception.h>
 #include "helper/geom.h"
 #include "helper/geom-nodetype.h"
 
@@ -406,7 +407,9 @@ sp_shape_update_marker_view (SPShape *shape, NRArenaItem *ai)
     // position arguments to sp_marker_show_instance, basically counts the amount of markers.
     int counter[4] = {0};
 
+    if (!shape->curve) return;
     Geom::PathVector const & pathv = shape->curve->get_pathvector();
+    if (pathv.empty()) return;
 
     // the first vertex should get a start marker, the last an end marker, and all the others a mid marker
     // see bug 456148
@@ -581,7 +584,7 @@ static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &
                     }
 
                     // Union with bboxes of the markers, if any
-                    if (sp_shape_has_markers (shape)) {
+                    if (sp_shape_has_markers (shape) && !shape->curve->get_pathvector().empty()) {
                         /** \todo make code prettier! */
                         Geom::PathVector const & pathv = shape->curve->get_pathvector();
                         // START marker
@@ -763,6 +766,9 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
 
     if (!shape->curve) return;
 
+    Geom::PathVector const & pathv = shape->curve->get_pathvector();
+    if (pathv.empty()) return;
+
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         gint add_comments = prefs->getBool("/printing/debug/add-label-comments");
         if (add_comments) {
@@ -784,15 +790,14 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
     SPStyle* style = SP_OBJECT_STYLE (item);
 
     if (!style->fill.isNone()) {
-        sp_print_fill (ctx, shape->curve->get_pathvector(), &i2d, style, &pbox, &dbox, &bbox);
+        sp_print_fill (ctx, pathv, &i2d, style, &pbox, &dbox, &bbox);
     }
 
     if (!style->stroke.isNone()) {
-        sp_print_stroke (ctx, shape->curve->get_pathvector(), &i2d, style, &pbox, &dbox, &bbox);
+        sp_print_stroke (ctx, pathv, &i2d, style, &pbox, &dbox, &bbox);
     }
 
     /** \todo make code prettier */
-    Geom::PathVector const & pathv = shape->curve->get_pathvector();
     // START marker
     for (int i = 0; i < 2; i++) {  // SP_MARKER_LOC and SP_MARKER_LOC_START    
         if ( shape->marker[i] ) {
@@ -1264,13 +1269,19 @@ static void sp_shape_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
         // (using "Method 1" as described in Inkscape::ObjectSnapper::_collectNodes())
         if (snapprefs->getSnapIntersectionCS()) {
             Geom::Crossings cs;
-            cs = self_crossings(*path_it);
-            if (cs.size() > 0) { // There might be multiple intersections...
-                for (Geom::Crossings::const_iterator i = cs.begin(); i != cs.end(); i++) {
-                    Geom::Point p_ix = (*path_it).pointAt((*i).ta);
-                    p.push_back(Inkscape::SnapCandidatePoint(p_ix * i2d, Inkscape::SNAPSOURCE_PATH_INTERSECTION, Inkscape::SNAPTARGET_PATH_INTERSECTION));
+            try {
+                cs = self_crossings(*path_it);
+                if (cs.size() > 0) { // There might be multiple intersections...
+                    for (Geom::Crossings::const_iterator i = cs.begin(); i != cs.end(); i++) {
+                        Geom::Point p_ix = (*path_it).pointAt((*i).ta);
+                        p.push_back(Inkscape::SnapCandidatePoint(p_ix * i2d, Inkscape::SNAPSOURCE_PATH_INTERSECTION, Inkscape::SNAPTARGET_PATH_INTERSECTION));
+                    }
                 }
+            } catch (Geom::RangeError &e) {
+                // do nothing
+                // The exception could be Geom::InfiniteSolutions: then no snappoints should be added
             }
+
         }
     }
 
@@ -1285,4 +1296,4 @@ static void sp_shape_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

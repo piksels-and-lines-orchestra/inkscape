@@ -1,9 +1,16 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 inkex.py
 A helper module for creating Inkscape extensions
 
-Copyright (C) 2005,2007 Aaron Spike, aaron@ekips.org
+Copyright (C) 2005,2010 Aaron Spike <aaron@ekips.org> and contributors
+
+Contributors:
+  Aurélio A. Heckert <aurium(a)gmail.com>
+  Bulia Byak <buliabyak@users.sf.net>
+  Nicolas Dufour, nicoduf@yahoo.fr
+  Peter J. R. Moulder <pjrm@users.sourceforge.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,7 +29,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 import sys, copy, optparse, random, re
 import gettext
 from math import *
-_ = gettext.gettext
+
+gettext.install('inkscape')
+# _ = gettext.gettext
+# gettext.bindtextdomain('inkscape', '/usr/share/locale')
+# gettext.textdomain('inkscape')
 
 #a dictionary of all of the xmlns prefixes in a standard inkscape doc
 NSS = {
@@ -63,8 +74,9 @@ def uutounit(val, unit):
 
 try:
     from lxml import etree
-except:
-    sys.exit(_('The fantastic lxml wrapper for libxml2 is required by inkex.py and therefore this extension. Please download and install the latest version from http://cheeseshop.python.org/pypi/lxml/, or install it through your package manager by a command like: sudo apt-get install python-lxml'))
+except Exception, e:
+    sys.exit(_("The fantastic lxml wrapper for libxml2 is required by inkex.py and therefore this extension. Please download and install the latest version from http://cheeseshop.python.org/pypi/lxml/, or install it through your package manager by a command like: sudo apt-get install python-lxml\n\nTechnical details:\n%s" % (e,)))
+ 
 
 def debug(what):
     sys.stderr.write(str(what) + "\n")
@@ -232,4 +244,4 @@ class Effect:
         return retval
             
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

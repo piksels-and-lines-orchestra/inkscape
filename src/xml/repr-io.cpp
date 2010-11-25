@@ -20,6 +20,8 @@
 #include <string>
 #include <stdexcept>
 
+#include <libxml/parser.h>
+
 #include "xml/repr.h"
 #include "xml/attribute-record.h"
 #include "xml/rebase-hrefs.h"
@@ -294,7 +296,7 @@ sp_repr_read_file (const gchar * filename, const gchar *default_ns)
                              &src,
                              localFilename,
                              src.getEncoding(),
-                             XML_PARSE_NOENT );
+                             XML_PARSE_NOENT | XML_PARSE_HUGE);
         }
     }
 
@@ -988,4 +990,4 @@ sp_repr_write_stream_element (Node * repr, Writer & out, gint indent_level,
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

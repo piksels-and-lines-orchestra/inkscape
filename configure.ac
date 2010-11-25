@@ -702,10 +702,10 @@ dnl ******************************
 
 AC_ARG_ENABLE(dbusapi,
        [  --enable-dbusapi       compile with support for DBus interface],
-       enable_dbusapi=$enableval,enable_dbusapi=yes)
+       enable_dbusapi=$enableval,enable_dbusapi=no)
 
 with_dbus="no"
-if test "x$dbusapi" = "xyes"; then
+if test "x$enable_dbusapi" = "xyes"; then
 	PKG_CHECK_MODULES(DBUS, dbus-glib-1, with_dbus=yes, with_dbus=no)
 	if test "x$with_dbus" = "xyes"; then
 		if test "x$with_localinstall" = "xyes"; then
@@ -780,7 +780,7 @@ if test "x$cairo_pdf" = "xyes"; then
 fi
 
 dnl Shouldn't we test for libpng and libz?
-INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz -lX11 -lxml2"
+INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz -lX11 -lxml2 -ldl"
 if test "x$openmp_ok" = "xyes"; then
 	INKSCAPE_LIBS="$INKSCAPE_LIBS -lgomp"
 fi
@@ -964,7 +964,6 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 src/check-header-compile
-src/application/makefile
 src/bind/makefile
 src/debug/makefile
 src/dialogs/makefile
@@ -1060,7 +1059,7 @@ Configuration:
         Internal Python:          ${with_python}
         Internal Perl:            ${with_perl}
         Enable LittleCms:         ${enable_lcms}
-        Enable DBUS               ${with_dbus} 
+        Enable DBUS:              ${with_dbus} 
         Enable Poppler-Cairo:     ${enable_poppler_cairo}
         ImageMagick Magick++:     ${magick_ok}
         Libwpg:                   ${with_libwpg}

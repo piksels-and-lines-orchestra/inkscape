@@ -112,6 +112,7 @@ enum SPAttributeEnum {
     SP_ATTR_INKSCAPE_SNAP_PAGE,
     SP_ATTR_INKSCAPE_CURRENT_LAYER,
     SP_ATTR_INKSCAPE_DOCUMENT_UNITS,
+    SP_ATTR_UNITS,
     SP_ATTR_INKSCAPE_CONNECTOR_SPACING,
     /* SPColorProfile */
     SP_ATTR_LOCAL,
@@ -494,4 +495,4 @@ enum SPAttributeEnum {
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

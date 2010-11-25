@@ -111,6 +111,7 @@ static SPStyleProp const props[] = {
     {SP_ATTR_INKSCAPE_SNAP_PAGE, "inkscape:snap-page"},
     {SP_ATTR_INKSCAPE_CURRENT_LAYER, "inkscape:current-layer"},
     {SP_ATTR_INKSCAPE_DOCUMENT_UNITS, "inkscape:document-units"},
+    {SP_ATTR_UNITS, "units"},
     {SP_ATTR_INKSCAPE_CONNECTOR_SPACING, "inkscape:connector-spacing"},
     /* SPColorProfile */
     {SP_ATTR_LOCAL, "local"},
@@ -523,4 +524,4 @@ sp_attribute_name(unsigned int id)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -132,7 +132,7 @@ void ColorWheelSelector::init()
     row++;
 
     /* Label */
-    _label = gtk_label_new_with_mnemonic (_("_A"));
+    _label = gtk_label_new_with_mnemonic (_("_A:"));
     gtk_misc_set_alignment (GTK_MISC (_label), 1.0, 0.5);
     gtk_widget_show (_label);
     gtk_table_attach (GTK_TABLE (t), _label, 0, 1, row, row + 1, GTK_FILL, GTK_FILL, XPAD, YPAD);
@@ -311,4 +311,4 @@ void ColorWheelSelector::_wheelChanged( SPColorWheel *wheel, SPColorWheelSelecto
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

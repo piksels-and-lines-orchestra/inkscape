@@ -220,11 +220,29 @@ void MultiPathManipulator::invertSelectionInSubpaths()
 void MultiPathManipulator::setNodeType(NodeType type)
 {
     if (_selection.empty()) return;
+
+    // When all selected nodes are already cusp, retract their handles
+    bool retract_handles = (type == NODE_CUSP);
+
     for (ControlPointSelection::iterator i = _selection.begin(); i != _selection.end(); ++i) {
         Node *node = dynamic_cast<Node*>(*i);
-        if (node) node->setType(type);
+        if (node) {
+            retract_handles &= (node->type() == NODE_CUSP);
+            node->setType(type);
+        }
     }
-    _done(_("Change node type"));
+
+    if (retract_handles) {
+        for (ControlPointSelection::iterator i = _selection.begin(); i != _selection.end(); ++i) {
+            Node *node = dynamic_cast<Node*>(*i);
+            if (node) {
+                node->front()->retract();
+                node->back()->retract();
+            }
+        }
+    }
+
+    _done(retract_handles ? _("Retract handles") : _("Change node type"));
 }
 
 void MultiPathManipulator::setSegmentType(SegmentType type)
@@ -242,6 +260,12 @@ void MultiPathManipulator::insertNodes()
 {
     invokeForAll(&PathManipulator::insertNodes);
     _done(_("Add nodes"));
+}
+
+void MultiPathManipulator::duplicateNodes()
+{
+    invokeForAll(&PathManipulator::duplicateNodes);
+    _done(_("Duplicate nodes"));
 }
 
 void MultiPathManipulator::joinNodes()
@@ -513,6 +537,12 @@ bool MultiPathManipulator::event(GdkEvent *event)
                 return true;
             }
             break;
+        case GDK_d:
+        case GDK_D:
+            if (held_only_shift(event->key)) {
+                duplicateNodes();
+                return true;
+            }
         case GDK_j:
         case GDK_J:
             if (held_only_shift(event->key)) {
@@ -591,6 +621,20 @@ bool MultiPathManipulator::event(GdkEvent *event)
                 return true;
             }
             break;
+        case GDK_l:
+        case GDK_L:
+            if (held_only_shift(event->key)) {
+                // Shift+L - make segments linear
+                setSegmentType(SEGMENT_STRAIGHT);
+                return true;
+            }
+        case GDK_u:
+        case GDK_U:
+            if (held_only_shift(event->key)) {
+                // Shift+L - make segments curves
+                setSegmentType(SEGMENT_CUBIC_BEZIER);
+                return true;
+            }
         default:
             break;
         }
@@ -714,4 +758,4 @@ guint32 MultiPathManipulator::_getOutlineColor(ShapeRole role)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

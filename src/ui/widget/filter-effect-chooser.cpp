@@ -23,7 +23,7 @@ namespace Widget {
 
 SimpleFilterModifier::SimpleFilterModifier(int flags)
     : _lb_blend(_("_Blend mode:")),
-      _lb_blur(_("B_lur:"), Gtk::ALIGN_LEFT),
+      _lb_blur(_("Blur:"), Gtk::ALIGN_LEFT),
       _blend(BlendModeConverter, SP_ATTR_INVALID, false),
       _blur(0, 0, 100, 1, 0.01, 1)
 {
@@ -106,4 +106,4 @@ void SimpleFilterModifier::set_blur_sensitive(const bool s)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -99,8 +99,8 @@ class MyEffect(inkex.Effect):
         mirror = 1.0
         if self.options.mirror:
             mirror = -1.0
-            if self.document.getroot().get('height'):
-                y0 -= float(self.document.getroot().get('height'))
+            if inkex.unittouu(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0]):
+                y0 -= float(inkex.unittouu(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0]))
         self.groupmat = [[[scale, 0.0, -x0*scale], [0.0, mirror*scale, -y0*scale]]]
         doc = self.document.getroot()
         self.process_group(doc)
@@ -110,4 +110,4 @@ if __name__ == '__main__':   #pragma: no cover
     e = MyEffect()
     e.affect()
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 encoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

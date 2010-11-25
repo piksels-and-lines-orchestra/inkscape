@@ -62,11 +62,13 @@ extensions = \
 	fractalize.py \
 	funcplot.py \
 	gears.py\
+    gcodetools.py\
 	generate_voronoi.py \
 	gimp_xcf.py \
 	grid_cartesian.py \
 	grid_polar.py \
 	guides_creator.py \
+	guillotine.py \
 	handles.py \
 	hpgl_output.py \
 	ill2svg.pl \
@@ -112,9 +114,11 @@ extensions = \
 	ps2pdf-ext.py \
 	pturtle.py \
 	radiusrand.py \
+	replace_font.py \
 	restack.py \
 	render_barcode.py \
 	render_barcode_datamatrix.py \
+	render_barcode_qrcode.py \
 	render_alphabetsoup.py \
 	render_alphabetsoup_config.py \
 	rtree.py \
@@ -216,11 +220,21 @@ modules = \
 	fractalize.inx \
 	funcplot.inx \
 	gears.inx\
+    gcodetools_all_in_one.inx\
+    gcodetools_area.inx\
+    gcodetools_check_for_updates.inx\
+    gcodetools_dxf_points.inx\
+    gcodetools_engraving.inx\
+    gcodetools_lathe.inx\
+    gcodetools_orientation_points.inx\
+    gcodetools_path_to_gcode.inx\
+    gcodetools_tools_library.inx\
 	generate_voronoi.inx \
 	gimp_xcf.inx \
 	grid_cartesian.inx \
 	grid_polar.inx \
 	guides_creator.inx \
+	guillotine.inx \
 	handles.inx \
 	hpgl_output.inx \
 	inkscape_help_askaquestion.inx \
@@ -265,7 +279,9 @@ modules = \
 	radiusrand.inx \
 	render_barcode.inx \
 	render_barcode_datamatrix.inx \
+	render_barcode_qrcode.inx \
 	render_alphabetsoup.inx \
+	replace_font.inx \
 	restack.inx \
 	rubberstretch.inx \
 	rtree.inx \

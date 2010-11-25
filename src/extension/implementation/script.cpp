@@ -39,7 +39,7 @@
 #include "extension/db.h"
 #include "script.h"
 #include "dialogs/dialog-events.h"
-#include "application/application.h"
+#include "inkscape.h"
 #include "xml/node.h"
 #include "xml/attribute-record.h"
 
@@ -602,10 +602,14 @@ void Script::save(Inkscape::Extension::Output *module,
 
 
     file_listener fileout;
-    execute(command, params, tempfilename_in, fileout);
+    int data_read = execute(command, params, tempfilename_in, fileout);
+    
+    bool success = false;
 
-    std::string lfilename = Glib::filename_from_utf8(filenameArg);
-    bool success = fileout.toFile(lfilename);
+    if (data_read > 0) {
+        std::string lfilename = Glib::filename_from_utf8(filenameArg);
+        success = fileout.toFile(lfilename);
+    }
 
     // make sure we don't leak file descriptors from g_file_open_tmp
     close(tempfd_in);
@@ -979,7 +983,7 @@ int Script::execute (const std::list<std::string> &in_command,
 
     Glib::ustring stderr_data = fileerr.string();
     if (stderr_data.length() != 0 &&
-        Inkscape::NSApplication::Application::getUseGui()
+        inkscape_use_gui()
        ) {
         checkStderr(stderr_data, Gtk::MESSAGE_INFO,
                                  _("Inkscape has received additional data from the script executed.  "
@@ -1011,4 +1015,4 @@ int Script::execute (const std::list<std::string> &in_command,
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

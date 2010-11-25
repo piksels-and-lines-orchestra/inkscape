@@ -606,10 +606,8 @@ sp_find_types ()
 
         {
             GtkWidget *c = sp_find_types_checkbox_indented (vb, "clones", TRUE, tt, _("Search clones"),
-                        //TRANSLATORS: only translate "string" in "context|string".
-                        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
-                        // "Clones" is a noun indicating type of object to find
-            		Q_("find|Clones"), NULL, 10);
+                        //TRANSLATORS: "Clones" is a noun indicating type of object to find
+            		C_("Find dialog","Clones"), NULL, 10);
             gtk_box_pack_start (GTK_BOX (vb_all), c, FALSE, FALSE, 0);
         }
 
@@ -684,10 +682,10 @@ sp_find_dialog_old (void)
         GtkWidget *vb = gtk_vbox_new (FALSE, 0);
         gtk_container_add (GTK_CONTAINER (dlg), vb);
 
-        sp_find_new_searchfield (dlg, vb, _("_Text: "), "text", tt, _("Find objects by their text content (exact or partial match)"));
-        sp_find_new_searchfield (dlg, vb, _("_ID: "), "id", tt, _("Find objects by the value of the id attribute (exact or partial match)"));
-        sp_find_new_searchfield (dlg, vb, _("_Style: "), "style", tt, _("Find objects by the value of the style attribute (exact or partial match)"));
-        sp_find_new_searchfield (dlg, vb, _("_Attribute: "), "attr", tt ,_("Find objects by the name of an attribute (exact or partial match)"));
+        sp_find_new_searchfield (dlg, vb, _("_Text:"), "text", tt, _("Find objects by their text content (exact or partial match)"));
+        sp_find_new_searchfield (dlg, vb, _("_ID:"), "id", tt, _("Find objects by the value of the id attribute (exact or partial match)"));
+        sp_find_new_searchfield (dlg, vb, _("_Style:"), "style", tt, _("Find objects by the value of the style attribute (exact or partial match)"));
+        sp_find_new_searchfield (dlg, vb, _("_Attribute:"), "attr", tt ,_("Find objects by the name of an attribute (exact or partial match)"));
 
         gtk_widget_show_all (vb);
 
@@ -765,4 +763,4 @@ sp_find_dialog_old (void)
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

@@ -228,7 +228,7 @@ IconPreviewPanel::IconPreviewPanel() :
     splitter.pack2( *actuals, false, false );
 
 
-    selectionButton = new Gtk::CheckButton(_("Selection")); // , GTK_RESPONSE_APPLY
+    selectionButton = new Gtk::CheckButton(C_("Icon preview window", "Sele_ction"), true);//selectionButton = (Gtk::ToggleButton*) gtk_check_button_new_with_mnemonic(_("_Selection")); // , GTK_RESPONSE_APPLY
     magBox->pack_start( *selectionButton, Gtk::PACK_SHRINK );
     tips.set_tip((*selectionButton), _("Selection only or whole document"));
     selectionButton->signal_clicked().connect( sigc::mem_fun(*this, &IconPreviewPanel::modeToggled) );
@@ -496,4 +496,4 @@ void IconPreviewPanel::updateMagnify()
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

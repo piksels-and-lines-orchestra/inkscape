@@ -36,13 +36,13 @@ Threshold::init(void)
 // TRANSLATORS: see http://docs.gimp.org/en/gimp-tool-threshold.html
 			"<name>" N_("Threshold") "</name>\n"
 			"<id>org.inkscape.effect.bitmap.threshold</id>\n"
-			"<param name=\"threshold\" gui-text=\"" N_("Threshold") "\" type=\"float\" min=\"-100.0\" max=\"100.0\"></param>\n"
+			"<param name=\"threshold\" gui-text=\"" N_("Threshold:") "\" type=\"float\" min=\"-100.0\" max=\"100.0\"></param>\n"
 			"<effect>\n"
 				"<object-type>all</object-type>\n"
 				"<effects-menu>\n"
 					"<submenu name=\"" N_("Raster") "\" />\n"
 				"</effects-menu>\n"
-				"<menu-tip>" N_("Threshold selected bitmap(s).") "</menu-tip>\n"
+				"<menu-tip>" N_("Threshold selected bitmap(s)") "</menu-tip>\n"
 			"</effect>\n"
 		"</inkscape-extension>\n", new Threshold());
 }

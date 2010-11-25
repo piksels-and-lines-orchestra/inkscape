@@ -768,7 +768,6 @@ connector_handle_button_press(SPConnectorContext *const cc, GdkEventButton const
             Geom::Point const event_dt = cc->desktop->w2d(event_w);
 
             SnapManager &m = cc->desktop->namedview->snap_manager;
-            m.setup(cc->desktop);
 
             switch (cc->state) {
                 case SP_CONNECTOR_CONTEXT_STOP:
@@ -790,7 +789,9 @@ connector_handle_button_press(SPConnectorContext *const cc, GdkEventButton const
                         if (!found) {
                             // This is the first point, so just snap it to the grid
                             // as there's no other points to go off.
+                            m.setup(cc->desktop);
                             m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                            m.unSetup();
                         }
                         spcc_connector_set_initial_point(cc, p);
 
@@ -802,7 +803,9 @@ connector_handle_button_press(SPConnectorContext *const cc, GdkEventButton const
                 case SP_CONNECTOR_CONTEXT_DRAGGING:
                 {
                     // This is the second click of a connector creation.
+                    m.setup(cc->desktop);
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                    m.unSetup();
 
                     spcc_connector_set_subsequent_point(cc, p);
                     spcc_connector_finish_segment(cc, p);
@@ -942,7 +945,6 @@ connector_handle_motion_notify(SPConnectorContext *const cc, GdkEventMotion cons
     if ( cc->mode == SP_CONNECTOR_CONTEXT_DRAWING_MODE )
     {
         SnapManager &m = dt->namedview->snap_manager;
-        m.setup(dt);
 
         switch (cc->state) {
             case SP_CONNECTOR_CONTEXT_DRAGGING:
@@ -950,7 +952,9 @@ connector_handle_motion_notify(SPConnectorContext *const cc, GdkEventMotion cons
                 gobble_motion_events(mevent.state);
                 // This is movement during a connector creation.
                 if ( cc->npoints > 0 ) {
+                    m.setup(dt);
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                    m.unSetup();
                     cc->selection->clear();
                     spcc_connector_set_subsequent_point(cc, p);
                     ret = TRUE;
@@ -962,7 +966,9 @@ connector_handle_motion_notify(SPConnectorContext *const cc, GdkEventMotion cons
                 gobble_motion_events(GDK_BUTTON1_MASK);
                 g_assert( SP_IS_PATH(cc->clickeditem));
 
+                m.setup(dt);
                 m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                m.unSetup();
 
                 // Update the hidden path
                 Geom::Matrix i2d = sp_item_i2d_affine(cc->clickeditem);
@@ -993,7 +999,9 @@ connector_handle_motion_notify(SPConnectorContext *const cc, GdkEventMotion cons
                 break;
             default:
                 if (!sp_event_context_knot_mouseover(cc)) {
+                    m.setup(dt);
                     m.preSnap(Inkscape::SnapCandidatePoint(p, Inkscape::SNAPSOURCE_OTHER_HANDLE));
+                    m.unSetup();
                 }
                 break;
         }
@@ -1028,7 +1036,6 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
         SPDocument *doc = sp_desktop_document(desktop);
 
         SnapManager &m = desktop->namedview->snap_manager;
-        m.setup(desktop);
 
         Geom::Point const event_w(revent.x, revent.y);
 
@@ -1040,7 +1047,9 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
                 //case SP_CONNECTOR_CONTEXT_POINT:
                 case SP_CONNECTOR_CONTEXT_DRAGGING:
                 {
+                    m.setup(desktop);
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                    m.unSetup();
 
                     if (cc->within_tolerance)
                     {
@@ -1061,7 +1070,9 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
                 }
                 case SP_CONNECTOR_CONTEXT_REROUTING:
                 {
+                    m.setup(desktop);
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                    m.unSetup();
                     cc_connector_rerouting_finish(cc, &p);
 
                     sp_document_ensure_up_to_date(doc);
@@ -1085,7 +1096,9 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
 
                     if (!cc->within_tolerance)
                     {
+                        m.setup(desktop);
                         m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                        m.unSetup();
                         sp_knot_set_position(cc->selected_handle, p, 0);
                         ConnectionPoint& cp = cc->connpthandles[cc->selected_handle];
                         cp.pos = p * sp_item_dt2i_affine(cc->active_shape);
@@ -1098,7 +1111,9 @@ connector_handle_button_release(SPConnectorContext *const cc, GdkEventButton con
 
 
                 case SP_CONNECTOR_CONTEXT_NEWCONNPOINT:
+                    m.setup(desktop);
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                    m.unSetup();
 
                     sp_knot_set_position(cc->selected_handle, p, 0);
 
@@ -1193,15 +1208,15 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
                 {
                     // Put connection point at current position
 
-                    SPDesktop *desktop = SP_EVENT_CONTEXT_DESKTOP(cc);
-                    SnapManager &m = desktop->namedview->snap_manager;
-                    m.setup(desktop);
                     Geom::Point p = cc->selected_handle->pos;
-//                     SPEventContext* event_context = SP_EVENT_CONTEXT( cc );
 
                     if (!cc->within_tolerance)
                     {
+                        SPDesktop *desktop = SP_EVENT_CONTEXT_DESKTOP(cc);
+                        SnapManager &m = desktop->namedview->snap_manager;
+                        m.setup(desktop);
                         m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
+                        m.unSetup();
                         sp_knot_set_position(cc->selected_handle, p, 0);
                         ConnectionPoint& cp = cc->connpthandles[cc->selected_handle];
                         cp.pos = p * sp_item_dt2i_affine(cc->active_shape);
@@ -1228,9 +1243,8 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
                     SnapManager &m = desktop->namedview->snap_manager;
                     m.setup(desktop);
                     Geom::Point p = cc->selected_handle->pos;
-
                     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
-
+                    m.unSetup();
                     sp_knot_set_position(cc->selected_handle, p, 0);
 
                     ConnectionPoint cp;
@@ -1756,12 +1770,22 @@ cc_set_active_conn(SPConnectorContext *cc, SPItem *item)
 
     if (cc->active_conn == item)
     {
-        // Just adjust handle positions.
-        Geom::Point startpt = *(curve->first_point()) * i2d;
-        sp_knot_set_position(cc->endpt_handle[0], startpt, 0);
+        if (curve->is_empty())
+        {
+            // Connector is invisible because it is clipped to the boundary of
+            // two overlpapping shapes.
+            sp_knot_hide(cc->endpt_handle[0]);
+            sp_knot_hide(cc->endpt_handle[1]);
+        }
+        else
+        {
+            // Just adjust handle positions.
+            Geom::Point startpt = *(curve->first_point()) * i2d;
+            sp_knot_set_position(cc->endpt_handle[0], startpt, 0);
 
-        Geom::Point endpt = *(curve->last_point()) * i2d;
-        sp_knot_set_position(cc->endpt_handle[1], endpt, 0);
+            Geom::Point endpt = *(curve->last_point()) * i2d;
+            sp_knot_set_position(cc->endpt_handle[1], endpt, 0);
+        }
 
         return;
     }
@@ -1822,6 +1846,13 @@ cc_set_active_conn(SPConnectorContext *cc, SPItem *item)
         cc->endpt_handler_id[i] = g_signal_connect_after(
                 G_OBJECT(cc->endpt_handle[i]->item), "event",
                 G_CALLBACK(endpt_handler), cc);
+    }
+
+    if (curve->is_empty())
+    {
+        // Connector is invisible because it is clipped to the boundary 
+        // of two overlpapping shapes.  So, it doesn't need endpoints.
+        return;
     }
 
     Geom::Point startpt = *(curve->first_point()) * i2d;
@@ -1887,8 +1918,10 @@ static bool cc_item_is_shape(SPItem *item)
 bool cc_item_is_connector(SPItem *item)
 {
     if (SP_IS_PATH(item)) {
-        if (SP_PATH(item)->connEndPair.isAutoRoutingConn()) {
-            g_assert( SP_PATH(item)->original_curve ? !(SP_PATH(item)->original_curve->is_closed()) : !(SP_PATH(item)->curve->is_closed()) );
+        bool closed = SP_PATH(item)->original_curve ? SP_PATH(item)->original_curve->is_closed() : SP_PATH(item)->curve->is_closed();
+        if (SP_PATH(item)->connEndPair.isAutoRoutingConn() && !closed) {
+            // To be considered a connector, an object must be a non-closed 
+            // path that is marked with a "inkscape:connector-type" attribute.
             return true;
         }
     }
@@ -2019,4 +2052,4 @@ shape_event_attr_changed(Inkscape::XML::Node *repr, gchar const *name,
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

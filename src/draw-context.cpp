@@ -468,7 +468,7 @@ spdc_attach_selection(SPDrawContext *dc, Inkscape::Selection */*sel*/)
  *  \param dc draw context
  *  \param p cursor point (to be changed by snapping)
  *  \param o origin point
- *  \param state  keyboard state to check if ctrl was pressed
+ *  \param state  keyboard state to check if ctrl or shift was pressed
 */
 
 void spdc_endpoint_snap_rotation(SPEventContext const *const ec, Geom::Point &p, Geom::Point const &o,
@@ -476,44 +476,27 @@ void spdc_endpoint_snap_rotation(SPEventContext const *const ec, Geom::Point &p,
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     unsigned const snaps = abs(prefs->getInt("/options/rotationsnapsperpi/value", 12));
-    /* 0 means no snapping. */
 
-    /* mirrored by fabs, so this corresponds to 15 degrees */
-    Geom::Point best; /* best solution */
-    double bn = Geom::infinity(); /* best normal */
-    double bdot = 0;
-    Geom::Point v = Geom::Point(0, 1);
-    double const r00 = cos(M_PI / snaps), r01 = sin(M_PI / snaps);
-    double const r10 = -r01, r11 = r00;
+    SnapManager &m = SP_EVENT_CONTEXT_DESKTOP(ec)->namedview->snap_manager;
+    m.setup(SP_EVENT_CONTEXT_DESKTOP(ec));
 
-    Geom::Point delta = p - o;
-
-    for (unsigned i = 0; i < snaps; i++) {
-        double const ndot = fabs(dot(v,Geom::rot90(delta)));
-        Geom::Point t(r00*v[Geom::X] + r01*v[Geom::Y],
-                    r10*v[Geom::X] + r11*v[Geom::Y]);
-        if (ndot < bn) {
-            /* I think it is better numerically to use the normal, rather than the dot product
-             * to assess solutions, but I haven't proven it. */
-            bn = ndot;
-            best = v;
-            bdot = dot(v, delta);
-        }
-        v = t;
+    bool snap_enabled = m.snapprefs.getSnapEnabledGlobally();
+    if (state & GDK_SHIFT_MASK) {
+        // SHIFT disables all snapping, except the angular snapping. After all, the user explicitly asked for angular
+        // snapping by pressing CTRL, otherwise we wouldn't have arrived here. But although we temporarily disable
+        // the snapping here, we must still call for a constrained snap in order to apply the constraints (i.e. round
+        // to the nearest angle increment)
+        m.snapprefs.setSnapEnabledGlobally(false);
     }
 
-    if (fabs(bdot) > 0) {
-        p = o + bdot * best;
+    Inkscape::SnappedPoint dummy = m.constrainedAngularSnap(Inkscape::SnapCandidatePoint(p, Inkscape::SNAPSOURCE_NODE_HANDLE), boost::optional<Geom::Point>(), o, snaps);
+    p = dummy.getPoint();
 
-        if (!(state & GDK_SHIFT_MASK)) { //SHIFT disables all snapping, except the angular snapping above
-                                         //After all, the user explicitly asked for angular snapping by
-                                         //pressing CTRL
-            /* Snap it along best vector */
-            SnapManager &m = SP_EVENT_CONTEXT_DESKTOP(ec)->namedview->snap_manager;
-            m.setup(SP_EVENT_CONTEXT_DESKTOP(ec));
-            m.constrainedSnapReturnByRef(p, Inkscape::SNAPSOURCE_NODE_HANDLE, Inkscape::Snapper::SnapConstraint(best));
-        }
+    if (state & GDK_SHIFT_MASK) {
+        m.snapprefs.setSnapEnabledGlobally(snap_enabled); // restore the original setting
     }
+
+    m.unSetup();
 }
 
 
@@ -528,6 +511,7 @@ void spdc_endpoint_snap_free(SPEventContext const * const ec, Geom::Point& p, gu
 
     m.setup(dt, true, selection->singleItem());
     m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_NODE_HANDLE);
+    m.unSetup();
 }
 
 static SPCurve *
@@ -872,4 +856,4 @@ void spdc_create_single_dot(SPEventContext *ec, Geom::Point const &pt, char cons
   fill-column:99
   End:
 */
-// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=99 :
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :
