@@ -317,8 +317,8 @@ struct MaskLuminanceToAlpha {
         // the operation of unpremul -> luminance-to-alpha -> multiply by alpha
         // is equivalent to luminance-to-alpha on premultiplied color values
         // original computation in double: r*0.2125 + g*0.7154 + b*0.0721
-        guint32 ao = r*54 + g*182 + b*18;
-        return ((ao + 127) / 255) << 24;
+        guint32 ao = r*109 + g*366 + b*37; // coeffs add up to 512
+        return ((ao + 256) << 15) & 0xff000000; // equivalent to ((ao + 256) / 512) << 24
     }
 };
 
