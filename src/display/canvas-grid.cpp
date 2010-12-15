@@ -3,6 +3,7 @@
  */
 /* Copyright (C) Johan Engelen 2006-2007 <johan@shouraizou.nl>
  * Copyright (C) Lauris Kaplinski 2000
+ *   Abhishek Sharma
  */
 
 /* As a general comment, I am not exactly proud of how things are done.
@@ -11,9 +12,10 @@
  * Don't be shy to correct things.
  */
 
-#define INKSCAPE_CANVAS_GRID_C
-
 #include "desktop.h"
+#include "sp-canvas-util.h"
+#include "util/mathfns.h"
+#include "display-forward.h"
 #include "desktop-handles.h"
 #include "display/cairo-utils.h"
 #include "display/canvas-axonomgrid.h"
@@ -29,6 +31,8 @@
 #include "svg/svg-color.h"
 #include "util/mathfns.h"
 #include "xml/node-event-vector.h"
+
+using Inkscape::DocumentUndo;
 
 namespace Inkscape {
 
@@ -244,7 +248,7 @@ CanvasGrid::writeNewGridToRepr(Inkscape::XML::Node * repr, SPDocument * doc, Gri
 
     // first create the child xml node, then hook it to repr. This order is important, to not set off listeners to repr before the new node is complete.
 
-    Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
+    Inkscape::XML::Document *xml_doc = doc->getReprDoc();
     Inkscape::XML::Node *newnode;
     newnode = xml_doc->createElement("inkscape:grid");
     newnode->setAttribute("type", getSVGName(gridtype));
@@ -252,7 +256,7 @@ CanvasGrid::writeNewGridToRepr(Inkscape::XML::Node * repr, SPDocument * doc, Gri
     repr->appendChild(newnode);
     Inkscape::GC::release(newnode);
 
-    sp_document_done(doc, SP_VERB_DIALOG_NAMEDVIEW, _("Create new grid"));
+    DocumentUndo::done(doc, SP_VERB_DIALOG_NAMEDVIEW, _("Create new grid"));
 }
 
 /*

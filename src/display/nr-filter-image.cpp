@@ -4,6 +4,7 @@
  * Authors:
  *   Felipe Corrêa da Silva Sanches <juca@members.fsf.org>
  *   Tavmjong Bah <tavmjong@free.fr>
+ *   Abhishek Sharma
  *
  * Copyright (C) 2007 authors
  *
@@ -69,13 +70,15 @@ void FilterImage::render_cairo(FilterSlot &slot)
         // TODO: do not recreate the rendering tree every time
         // TODO: the entire thing is a hack, we should give filter primitives an "update" method
         //       like the one for NRArenaItems
-        sp_document_ensure_up_to_date(document);
+        document->ensureUpToDate();
+
         NRArena* arena = NRArena::create();
         Geom::OptRect optarea = SVGElem->getBounds(Geom::identity());
         if (!optarea) return;
 
-        unsigned const key = sp_item_display_key_new(1);
-        NRArenaItem* ai = sp_item_invoke_show(SVGElem, arena, key, SP_ITEM_SHOW_DISPLAY);
+        unsigned const key = SPItem::display_key_new(1);
+        NRArenaItem* ai = SVGElem->invoke_show(arena, key, SP_ITEM_SHOW_DISPLAY);
+
         if (!ai) {
             g_warning("feImage renderer: error creating NRArenaItem for SVG Element");
             nr_object_unref((NRObject *) arena);
@@ -113,7 +116,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
                                     NR_ARENA_ITEM_STATE_ALL,
                                     NR_ARENA_ITEM_STATE_NONE);
         nr_arena_item_invoke_render(ct, ai, &render_rect, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE);
-        sp_item_invoke_hide(SVGElem, key);
+        SVGElem->invoke_hide(key);
         nr_object_unref((NRObject*) arena);
 
         slot.set(_output, out);
@@ -135,7 +138,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
             if ( !g_file_test( fullname, G_FILE_TEST_EXISTS ) ) {
                 // Try to load from relative postion combined with document base
                 if( document ) {
-                    fullname = g_build_filename( document->base, feImageHref, NULL );
+                    fullname = g_build_filename( document->getBase(), feImageHref, NULL );
                 }
             }
             if ( !g_file_test( fullname, G_FILE_TEST_EXISTS ) ) {

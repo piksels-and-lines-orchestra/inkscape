@@ -1,5 +1,3 @@
-#define __SP_INTERFACE_C__
-
 /** @file
  * @brief Main UI stuff
  */
@@ -7,6 +5,8 @@
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Frank Felfe <innerspace@iname.com>
  *   bulia byak <buliabyak@users.sf.net>
+ *   Jon A. Cruz <jon@joncruz.org>
+ *   Abhishek Sharma
  *
  * Copyright (C) 1999-2005 authors
  * Copyright (C) 2001-2002 Ximian, Inc.
@@ -73,6 +73,8 @@
 #include "ige-mac-menu.h"
 #endif
 
+using Inkscape::DocumentUndo;
+
 /* Drag and Drop */
 typedef enum {
     URI_LIST,
@@ -133,6 +135,8 @@ static void sp_ui_menu_item_set_name(SPAction *action,
                                      Glib::ustring name,
                                      void *data);
 static void sp_recent_open(GtkRecentChooser *, gpointer);
+
+static void injectRenamedIcons();
 
 SPActionEventVector menu_item_event_vector = {
     {NULL},
@@ -408,6 +412,11 @@ sp_ui_menu_deselect(gpointer object)
 void
 sp_ui_menuitem_add_icon( GtkWidget *item, gchar *icon_name )
 {
+    static bool iconsInjected = false;
+    if ( !iconsInjected ) {
+        iconsInjected = true;
+        injectRenamedIcons();
+    }
     GtkWidget *icon;
 
     icon = sp_icon_new( Inkscape::ICON_SIZE_MENU, icon_name );
@@ -1120,7 +1129,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
             gtk_widget_translate_coordinates( widget, &(desktop->canvas->widget), x, y, &destX, &destY );
             Geom::Point where( sp_canvas_window_to_world( desktop->canvas, Geom::Point( destX, destY ) ) );
 
-            SPItem *item = desktop->item_at_point( where, true );
+            SPItem *item = desktop->getItemAtPoint( where, true );
             if ( item )
             {
                 bool fillnotstroke = (drag_context->action != GDK_ACTION_MOVE);
@@ -1159,7 +1168,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                             g_free(str);
                             str = 0;
 
-                            sp_object_setAttribute( SP_OBJECT(item),
+                            SP_OBJECT(item)->setAttribute( 
                                                     fillnotstroke ? "inkscape:x-fill-tag":"inkscape:x-stroke-tag",
                                                     palName.c_str(),
                                                     false );
@@ -1177,7 +1186,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                     sp_desktop_apply_css_recursive( item, css, true );
                     item->updateRepr();
 
-                    sp_document_done( doc , SP_VERB_NONE,
+                    SPDocumentUndo::done( doc , SP_VERB_NONE,
                                       _("Drop color"));
 
                     if ( srgbProf ) {
@@ -1211,13 +1220,13 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                         //0x0ff & (data->data[3] >> 8),
                                         ));
 
-                SPItem *item = desktop->item_at_point( where, true );
+                SPItem *item = desktop->getItemAtPoint( where, true );
 
                 bool consumed = false;
                 if (desktop->event_context && desktop->event_context->get_drag()) {
                     consumed = desktop->event_context->get_drag()->dropColor(item, colorspec, button_dt);
                     if (consumed) {
-                        sp_document_done( doc , SP_VERB_NONE, _("Drop color on gradient"));
+                        DocumentUndo::done( doc , SP_VERB_NONE, _("Drop color on gradient") );
                         desktop->event_context->get_drag()->updateDraggers();
                     }
                 }
@@ -1225,7 +1234,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                 //if (!consumed && tools_active(desktop, TOOLS_TEXT)) {
                 //    consumed = sp_text_context_drop_color(c, button_doc);
                 //    if (consumed) {
-                //        sp_document_done( doc , SP_VERB_NONE, _("Drop color on gradient stop"));
+                //        SPDocumentUndo::done( doc , SP_VERB_NONE, _("Drop color on gradient stop"));
                 //    }
                 //}
 
@@ -1246,7 +1255,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                 ( !SP_OBJECT_STYLE(item)->stroke.isNone() ?
                                   desktop->current_zoom() *
                                   SP_OBJECT_STYLE (item)->stroke_width.computed *
-                                  sp_item_i2d_affine(item).descrim() * 0.5
+                                  item->i2d_affine().descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 
@@ -1263,8 +1272,8 @@ sp_ui_drag_data_received(GtkWidget *widget,
                     sp_desktop_apply_css_recursive( item, css, true );
                     item->updateRepr();
 
-                    sp_document_done( doc , SP_VERB_NONE,
-                                      _("Drop color"));
+                    DocumentUndo::done( doc , SP_VERB_NONE,
+                                        _("Drop color") );
                 }
             }
         }
@@ -1291,7 +1300,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                         unsigned int b = color.getB();
 
                         SPGradient* matches = 0;
-                        const GSList *gradients = sp_document_get_resource_list(doc, "gradient");
+                        const GSList *gradients = doc->getResourceList("gradient");
                         for (const GSList *item = gradients; item; item = item->next) {
                             SPGradient* grad = SP_GRADIENT(item->data);
                             if ( color.descr == grad->getId() ) {
@@ -1321,13 +1330,13 @@ sp_ui_drag_data_received(GtkWidget *widget,
                 Geom::Point const button_dt(desktop->w2d(where));
                 Geom::Point const button_doc(desktop->dt2doc(button_dt));
 
-                SPItem *item = desktop->item_at_point( where, true );
+                SPItem *item = desktop->getItemAtPoint( where, true );
 
                 bool consumed = false;
                 if (desktop->event_context && desktop->event_context->get_drag()) {
                     consumed = desktop->event_context->get_drag()->dropColor(item, colorspec.c_str(), button_dt);
                     if (consumed) {
-                        sp_document_done( doc , SP_VERB_NONE, _("Drop color on gradient"));
+                        DocumentUndo::done( doc , SP_VERB_NONE, _("Drop color on gradient") );
                         desktop->event_context->get_drag()->updateDraggers();
                     }
                 }
@@ -1349,7 +1358,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                 ( !SP_OBJECT_STYLE(item)->stroke.isNone() ?
                                   desktop->current_zoom() *
                                   SP_OBJECT_STYLE (item)->stroke_width.computed *
-                                  sp_item_i2d_affine(item).descrim() * 0.5
+                                  item->i2d_affine().descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 
@@ -1366,8 +1375,8 @@ sp_ui_drag_data_received(GtkWidget *widget,
                     sp_desktop_apply_css_recursive( item, css, true );
                     item->updateRepr();
 
-                    sp_document_done( doc , SP_VERB_NONE,
-                                      _("Drop color"));
+                    DocumentUndo::done( doc , SP_VERB_NONE,
+                                        _("Drop color") );
                 }
             }
         }
@@ -1390,7 +1399,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
             Inkscape::XML::Node *newgroup = rnewdoc->createElement("svg:g");
             newgroup->setAttribute("style", style);
 
-            Inkscape::XML::Document * xml_doc =  sp_document_repr_doc(doc);
+            Inkscape::XML::Document * xml_doc =  doc->getReprDoc();
             for (Inkscape::XML::Node *child = repr->firstChild(); child != NULL; child = child->next()) {
                 Inkscape::XML::Node *newchild = child->duplicate(xml_doc);
                 newgroup->appendChild(newchild);
@@ -1409,7 +1418,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
 
             // move to mouse pointer
             {
-                sp_document_ensure_up_to_date(sp_desktop_document(desktop));
+                sp_desktop_document(desktop)->ensureUpToDate();
                 Geom::OptRect sel_bbox = selection->bounds();
                 if (sel_bbox) {
                     Geom::Point m( desktop->point() - sel_bbox->midpoint() );
@@ -1418,8 +1427,8 @@ sp_ui_drag_data_received(GtkWidget *widget,
             }
 
             Inkscape::GC::release(newgroup);
-            sp_document_done(doc, SP_VERB_NONE,
-                             _("Drop SVG"));
+            DocumentUndo::done( doc, SP_VERB_NONE,
+                             _("Drop SVG") );
             break;
         }
 
@@ -1452,8 +1461,8 @@ sp_ui_drag_data_received(GtkWidget *widget,
 
             ext->set_param_optiongroup("link", save ? "embed" : "link");
             ext->set_gui(true);
-            sp_document_done( doc , SP_VERB_NONE,
-                              _("Drop bitmap image"));
+            DocumentUndo::done( doc , SP_VERB_NONE,
+                                _("Drop bitmap image") );
             break;
         }
     }
@@ -1593,6 +1602,32 @@ sp_ui_menu_item_set_name(SPAction */*action*/, Glib::ustring name, void *data)
         name.c_str());
     }//else sp_ui_menu_append_item_from_verb has been modified and can set
     //a menu item in yet another way...
+}
+
+void injectRenamedIcons()
+{
+    Glib::RefPtr<Gtk::IconTheme> iconTheme = Gtk::IconTheme::get_default();
+
+    std::vector< std::pair<Glib::ustring, Glib::ustring> > renamed;
+    renamed.push_back(std::make_pair("gtk-file", "document-x-generic"));
+    renamed.push_back(std::make_pair("gtk-directory", "folder"));
+
+    for ( std::vector< std::pair<Glib::ustring, Glib::ustring> >::iterator it = renamed.begin(); it < renamed.end(); ++it ) {
+        bool hasIcon = iconTheme->has_icon(it->first);
+        bool hasSecondIcon = iconTheme->has_icon(it->second);
+
+        if ( !hasIcon && hasSecondIcon ) {
+            Glib::ArrayHandle<int> sizes = iconTheme->get_icon_sizes(it->second);
+            for ( Glib::ArrayHandle<int>::iterator it2 = sizes.begin(); it2 < sizes.end(); ++it2 ) {
+                Glib::RefPtr<Gdk::Pixbuf> pb = iconTheme->load_icon( it->second, *it2 );
+                if ( pb ) {
+                    // install a private copy of the pixbuf to avoid pinning a theme
+                    Glib::RefPtr<Gdk::Pixbuf> pbCopy = pb->copy();
+                    Gtk::IconTheme::add_builtin_icon( it->first, *it2, pbCopy );
+                }
+            }
+        }
+    }
 }
 
 

@@ -3,6 +3,8 @@
  */
 /* Authors:
  *   Ulf Erikson <ulferikson@users.sf.net>
+ *   Jon A. Cruz <jon@joncruz.org>
+ *   Abhishek Sharma
  *
  * Copyright (C) 2006-2008 Authors
  *
@@ -87,7 +89,7 @@ emf_print_document_to_file(SPDocument *doc, gchar const *filename)
     gchar *oldoutput;
     unsigned int ret;
 
-    sp_document_ensure_up_to_date(doc);
+    doc->ensureUpToDate();
 
     mod = Inkscape::Extension::get_print(PRINT_EMF_WIN32);
     oldconst = mod->get_param_string("destination");
@@ -98,20 +100,20 @@ emf_print_document_to_file(SPDocument *doc, gchar const *filename)
     context.module = mod;
     /* fixme: This has to go into module constructor somehow */
     /* Create new arena */
-    mod->base = SP_ITEM(sp_document_root(doc));
+    mod->base = SP_ITEM(doc->getRoot());
     mod->arena = NRArena::create();
     mod->dkey = sp_item_display_key_new(1);
-    mod->root = sp_item_invoke_show(mod->base, mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+    mod->root = mod->base->invoke_show(mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
     /* Print document */
     ret = mod->begin(doc);
     if (ret) {
         g_free(oldoutput);
         throw Inkscape::Extension::Output::save_failed();
     }
-    sp_item_invoke_print(mod->base, &context);
+    mod->base->invoke_print(&context);
     ret = mod->finish();
     /* Release arena */
-    sp_item_invoke_hide(mod->base, mod->dkey);
+    mod->base->invoke_hide(mod->dkey);
     mod->base = NULL;
     mod->root = NULL;
     nr_object_unref((NRObject *) mod->arena);
@@ -2345,7 +2347,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
 
 //    std::cout << "SVG Output: " << std::endl << *(d.outsvg) << std::endl;
 
-    SPDocument *doc = sp_document_new_from_mem(d.outsvg->c_str(), d.outsvg->length(), TRUE);
+    SPDocument *doc = SPDocument::createNewDocFromMem(d.outsvg->c_str(), d.outsvg->length(), TRUE);
 
     delete d.outsvg;
     delete d.path;

@@ -1,11 +1,11 @@
-#define __SP_CAIRO_RENDER_CONTEXT_C__
-
 /** \file
  * Rendering with Cairo.
  */
 /*
  * Author:
  *   Miklos Erdelyi <erdelyim@gmail.com>
+ *   Jon A. Cruz <jon@joncruz.org>
+ *   Abhishek Sharma
  *
  * Copyright (C) 2006 Miklos Erdelyi
  *
@@ -670,6 +670,11 @@ CairoRenderContext::popLayer(void)
             }
             TRACE(("mask surface: %f x %f at %i dpi\n", surface_width, surface_height, _dpi ));
 
+            // Mask should start black, but it is created white.
+            cairo_set_source_rgba(mask_ctx->_cr, 0.0, 0.0, 0.0, 1.0);
+            cairo_rectangle(mask_ctx->_cr, 0, 0, surface_width, surface_height);
+            cairo_fill(mask_ctx->_cr);
+
             // set rendering mode to normal
             setRenderMode(RENDER_MODE_NORMAL);
 
@@ -700,19 +705,27 @@ CairoRenderContext::popLayer(void)
             int stride = cairo_image_surface_get_stride(mask_image);
             unsigned char *pixels = cairo_image_surface_get_data(mask_image);
 
-            // premultiply with opacity
             // In SVG, the rgb channels as well as the alpha channel is used in masking.
             // In Cairo, only the alpha channel is used thus requiring this conversion.
+            // SVG specifies that RGB be converted to alpha using luminance-to-alpha.
+            // Notes: This calculation assumes linear RGB values. VERIFY COLOR SPACE!
+            // The incoming pixel values already include alpha, fill-opacity, etc.,
+            // however, opacity must still be applied.
             TRACE(("premul w/ %f\n", opacity));
-            guint8 int_opacity = (guint8)(255 * opacity);
+            const float coeff_r = 0.2125 / 255.0;
+            const float coeff_g = 0.7154 / 255.0;
+            const float coeff_b = 0.0721 / 255.0;
             for (int row = 0 ; row < height; row++) {
                 unsigned char *row_data = pixels + (row * stride);
                 for (int i = 0 ; i < width; i++) {
                     guint32 *pixel = (guint32 *)row_data + i;
-                    *pixel = ((((*pixel & 0x00ff0000) >> 16) * 13817 +
-                               ((*pixel & 0x0000ff00) >>  8) * 46518 +
-                               ((*pixel & 0x000000ff)      ) * 4688) *
-                              int_opacity);
+                    float lum_alpha = (((*pixel & 0x00ff0000) >> 16) * coeff_r +
+                                       ((*pixel & 0x0000ff00) >>  8) * coeff_g +
+                                       ((*pixel & 0x000000ff)      ) * coeff_b );
+                    // lum_alpha can be slightly greater than 1 due to rounding errors...
+                    // but this should be OK since it doesn't matter what the lower
+                    // six hexadecimal numbers of *pixel are.
+                    *pixel = (guint32)(0xff000000 * lum_alpha * opacity);
                 }
             }
 
@@ -970,14 +983,15 @@ CairoRenderContext::popState(void)
     g_assert( g_slist_length(_state_stack) > 0 );
 }
 
-static bool pattern_hasItemChildren (SPPattern *pat)
+static bool pattern_hasItemChildren(SPPattern *pat)
 {
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(pat)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    bool hasItems = false;
+    for ( SPObject *child = pat->firstChild() ; child && !hasItems; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
-            return true;
+            hasItems = true;
         }
     }
-    return false;
+    return hasItems;
 }
 
 cairo_pattern_t*
@@ -1073,14 +1087,14 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
 
     // create arena and group
     NRArena *arena = NRArena::create();
-    unsigned dkey = sp_item_display_key_new(1);
+    unsigned dkey = SPItem::display_key_new(1);
 
     // show items and render them
     for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+            for ( SPObject *child = pat_i->firstChild() ; child; child = child->getNext() ) {
                 if (SP_IS_ITEM (child)) {
-                    sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_REFERENCE_FLAGS);
+                    SP_ITEM (child)->invoke_show (arena, dkey, SP_ITEM_REFERENCE_FLAGS);
                     _renderer->renderItem(pattern_ctx, SP_ITEM (child));
                 }
             }
@@ -1107,9 +1121,9 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
     // hide all items
     for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
-            for (SPObject *child = sp_object_first_child(SP_OBJECT(pat_i)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+            for ( SPObject *child = pat_i->firstChild() ; child; child = child->getNext() ) {
                 if (SP_IS_ITEM (child)) {
-                    sp_item_invoke_hide (SP_ITEM (child), dkey);
+                    SP_ITEM (child)->invoke_hide (dkey);
                 }
             }
             break; // do not go further up the chain if children are found

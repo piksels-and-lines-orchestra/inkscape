@@ -492,7 +492,6 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
         if (mask) {
             cairo_mask(ct, mask->cobj());
             // opacity of masked objects is handled by premultiplying the mask
-
         } else {
             // opacity of non-masked objects must be rendered explicitly
             if (needs_opacity) {

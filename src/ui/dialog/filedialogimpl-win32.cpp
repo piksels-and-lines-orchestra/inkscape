@@ -4,6 +4,7 @@
 /* Authors:
  *   Joel Holdsworth
  *   The Inkscape Organization
+ *   Abhishek Sharma
  *
  * Copyright (C) 2004-2008 The Inkscape Organization
  *
@@ -908,20 +909,20 @@ bool FileOpenDialogImplWin32::set_svg_preview()
 
     gchar *utf8string = g_utf16_to_utf8((const gunichar2*)_path_string,
         _MAX_PATH, NULL, NULL, NULL);
-    SPDocument *svgDoc = sp_document_new (utf8string, true);
+    SPDocument *svgDoc = SPDocument::createNewDoc (utf8string, true);
     g_free(utf8string);
 
     // Check the document loaded properly
     if(svgDoc == NULL) return false;
     if(svgDoc->root == NULL)
     {
-        sp_document_unref(svgDoc);
+        svgDoc->doUnref();
         return false;
     }
 
     // Get the size of the document
-    const double svgWidth = sp_document_width(svgDoc);
-    const double svgHeight = sp_document_height(svgDoc);
+    const double svgWidth = svgDoc->getWidth();
+    const double svgHeight = svgDoc->getHeight();
 
     // Find the minimum scale to fit the image inside the preview area
     const double scaleFactorX =    PreviewSize / svgWidth;
@@ -938,15 +939,15 @@ bool FileOpenDialogImplWin32::set_svg_preview()
 
     // write object bbox to area
     Geom::OptRect maybeArea(area);
-    sp_document_ensure_up_to_date (svgDoc);
-    sp_item_invoke_bbox((SPItem *) svgDoc->root, maybeArea,
-        sp_item_i2d_affine((SPItem *)(svgDoc->root)), TRUE);
+    svgDoc->ensureUpToDate();
+    static_cast<SPItem *>(svgDoc->root)->invoke_bbox( maybeArea,
+        static_cast<SPItem *>(svgDoc->root)->i2d_affine(), TRUE);
 
     NRArena *const arena = NRArena::create();
 
-    unsigned const key = sp_item_display_key_new(1);
+    unsigned const key = SPItem::display_key_new(1);
 
-    NRArenaItem *root = sp_item_invoke_show((SPItem*)(svgDoc->root),
+    NRArenaItem *root = static_cast<SPItem*>(svgDoc->root)->invoke_show(
         arena, key, SP_ITEM_SHOW_DISPLAY);
 
     NRGC gc(NULL);
@@ -970,7 +971,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     // Fail if the pixblock failed to allocate
     if(pixBlock.data.px == NULL)
     {
-        sp_document_unref(svgDoc);
+        svgDoc->doUnref();
         return false;
     }
 
@@ -982,8 +983,8 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     nr_arena_item_invoke_render(NULL, root, &bbox, &pixBlock, /*0*/NR_ARENA_ITEM_RENDER_NO_CACHE);
 
     // Tidy up
-    sp_document_unref(svgDoc);
-    sp_item_invoke_hide((SPItem*)(svgDoc->root), key);
+    svgDoc->doUnref();
+    static_cast<SPItem*>(svgDoc->root)->invoke_hide(key);
     nr_object_unref((NRObject *) arena);
 
     // Create the GDK pixbuf

@@ -10,7 +10,9 @@
 /* Put your filter here */
 #include "color.h"
 #include "drop-shadow.h"
+#include "morphology.h"
 #include "snow.h"
+
 #include "experimental.h"
 
 namespace Inkscape {
@@ -23,13 +25,28 @@ void
 Filter::filters_all (void )
 {
 	// Here come the filters which are coded in C++ in order to present a parameters dialog
-    Duochrome::init();
 	DropShadow::init();
 	DropGlow::init();
-    ColorizableDropShadow::init();
 	Snow::init();
+
+    /* Experimental custom predefined filters */
     
-    // Experimental!
+    // Color
+    Colorize::init();
+    Duochrome::init();
+    Quadritone::init();
+    Solarize::init();
+    Tritone::init();
+
+    // Morphology
+    Crosssmooth::init();
+    
+    // Shadows and glows
+    ColorizableDropShadow::init();
+
+    // TDB
+    Chromolitho::init();
+    Drawing::init();
     Posterize::init();
 
 	// Here come the rest of the filters that are read from SVG files in share/filters and

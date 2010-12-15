@@ -4,6 +4,7 @@
 /* Author:
  *   Ted Gould <ted@gould.cx>
  *   Johan Engelen <johan@shouraizou.nl>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 2005-2007 Authors
  *
@@ -154,8 +155,6 @@ Parameter::make (Inkscape::XML::Node * in_repr, Inkscape::Extension::Extension *
     /* Note: param could equal NULL */
     return param;
 }
-
-
 
 /** \brief  Wrapper to cast to the object and use it's function.  */
 bool
@@ -347,10 +346,9 @@ Parameter::new_child (Inkscape::XML::Node * parent)
     return retval;
 }
 
-Inkscape::XML::Node *
-Parameter::document_param_node (SPDocument * doc)
+Inkscape::XML::Node *Parameter::document_param_node(SPDocument * doc)
 {
-    Inkscape::XML::Document *xml_doc = sp_document_repr_doc(doc);
+    Inkscape::XML::Document *xml_doc = doc->getReprDoc();
     Inkscape::XML::Node * defs = SP_OBJECT_REPR(SP_DOCUMENT_DEFS(doc));
     Inkscape::XML::Node * params = NULL;
 
@@ -407,6 +405,13 @@ Parameter::string (std::list <std::string> &list)
 
     list.insert(list.end(), final);
     return;
+}
+
+/** \brief  All the code in Notebook::get_param to get the notebook content */
+Parameter *
+Parameter::get_param(const gchar * name)
+{
+    return NULL;
 }
 
 Glib::ustring const extension_pref_root = "/extensions/";

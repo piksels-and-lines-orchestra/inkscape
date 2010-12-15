@@ -1,11 +1,11 @@
-#define __SP_PATTERN_C__
-
 /*
  * SVG <pattern> implementation
  *
  * Author:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   bulia byak <buliabyak@users.sf.net>
+ *   Jon A. Cruz <jon@joncruz.org>
+ *   Abhishek Sharma 
  *
  * Copyright (C) 2002 Lauris Kaplinski
  *
@@ -128,18 +128,18 @@ sp_pattern_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *r
 	if (((SPObjectClass *) pattern_parent_class)->build)
 		(* ((SPObjectClass *) pattern_parent_class)->build) (object, document, repr);
 
-	sp_object_read_attr (object, "patternUnits");
-	sp_object_read_attr (object, "patternContentUnits");
-	sp_object_read_attr (object, "patternTransform");
-	sp_object_read_attr (object, "x");
-	sp_object_read_attr (object, "y");
-	sp_object_read_attr (object, "width");
-	sp_object_read_attr (object, "height");
-	sp_object_read_attr (object, "viewBox");
-	sp_object_read_attr (object, "xlink:href");
+	object->readAttr( "patternUnits" );
+	object->readAttr( "patternContentUnits" );
+	object->readAttr( "patternTransform" );
+	object->readAttr( "x" );
+	object->readAttr( "y" );
+	object->readAttr( "width" );
+	object->readAttr( "height" );
+	object->readAttr( "viewBox" );
+	object->readAttr( "xlink:href" );
 
 	/* Register ourselves */
-	sp_document_add_resource (document, "pattern", object);
+	document->addResource("pattern", object);
 }
 
 static void
@@ -151,7 +151,7 @@ sp_pattern_release (SPObject *object)
 
 	if (SP_OBJECT_DOCUMENT (object)) {
 		/* Unregister ourselves */
-		sp_document_remove_resource (SP_OBJECT_DOCUMENT (object), "pattern", SP_OBJECT (object));
+		SP_OBJECT_DOCUMENT (object)->removeResource("pattern", SP_OBJECT (object));
 	}
 
 	if (pat->ref) {
@@ -291,21 +291,20 @@ sp_pattern_set (SPObject *object, unsigned int key, const gchar *value)
 
 /* fixme: We need ::order_changed handler too (Lauris) */
 
-GSList *
-pattern_getchildren (SPPattern *pat)
+GSList *pattern_getchildren(SPPattern *pat)
 {
-	GSList *l = NULL;
+    GSList *l = NULL;
 
-	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-		if (sp_object_first_child(SP_OBJECT(pat_i))) { // find the first one with children
-			for (SPObject *child = sp_object_first_child(SP_OBJECT (pat)) ; child != NULL ; child = SP_OBJECT_NEXT(child) ) {
-				l = g_slist_prepend (l, child);
-			}
-			break; // do not go further up the chain if children are found
-		}
+    for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
+        if (pat_i->firstChild()) { // find the first one with children
+	    for (SPObject *child = pat->firstChild() ; child ; child = child->getNext() ) {
+	        l = g_slist_prepend (l, child);
+	    }
+	    break; // do not go further up the chain if children are found
 	}
+    }
 
-	return l;
+  return l;
 }
 
 static void
@@ -379,17 +378,45 @@ pattern_ref_modified (SPObject */*ref*/, guint /*flags*/, SPPattern *pattern)
         /* Conditional to avoid causing infinite loop if there's a cycle in the href chain. */
 }
 
+
+/**
+Count how many times pat is used by the styles of o and its descendants
+*/
 guint
-pattern_users (SPPattern *pattern)
+count_pattern_hrefs(SPObject *o, SPPattern *pat)
 {
-	return SP_OBJECT (pattern)->hrefcount;
+    if (!o)
+        return 1;
+
+    guint i = 0;
+
+    SPStyle *style = SP_OBJECT_STYLE(o);
+    if (style
+        && style->fill.isPaintserver()
+        && SP_IS_PATTERN(SP_STYLE_FILL_SERVER(style))
+        && SP_PATTERN(SP_STYLE_FILL_SERVER(style)) == pat)
+    {
+        i ++;
+    }
+    if (style
+        && style->stroke.isPaintserver()
+        && SP_IS_PATTERN(SP_STYLE_STROKE_SERVER(style))
+        && SP_PATTERN(SP_STYLE_STROKE_SERVER(style)) == pat)
+    {
+        i ++;
+    }
+
+    for ( SPObject *child = o->firstChild(); child != NULL; child = child->next ) {
+        i += count_pattern_hrefs(child, pat);
+    }
+
+    return i;
 }
 
-SPPattern *
-pattern_chain (SPPattern *pattern)
+SPPattern *pattern_chain(SPPattern *pattern)
 {
 	SPDocument *document = SP_OBJECT_DOCUMENT (pattern);
-        Inkscape::XML::Document *xml_doc = sp_document_repr_doc(document);
+        Inkscape::XML::Document *xml_doc = document->getReprDoc();
 	Inkscape::XML::Node *defsrepr = SP_OBJECT_REPR (SP_DOCUMENT_DEFS (document));
 
 	Inkscape::XML::Node *repr = xml_doc->createElement("svg:pattern");
@@ -409,7 +436,7 @@ pattern_chain (SPPattern *pattern)
 SPPattern *
 sp_pattern_clone_if_necessary (SPItem *item, SPPattern *pattern, const gchar *property)
 {
-	if (pattern_users(pattern) > 1) {
+	if (!pattern->href || pattern->hrefcount > count_pattern_hrefs(item, pattern)) {
 		pattern = pattern_chain (pattern);
 		gchar *href = g_strconcat ("url(#", SP_OBJECT_REPR (pattern)->attribute("id"), ")", NULL);
 
@@ -440,10 +467,9 @@ sp_pattern_transform_multiply (SPPattern *pattern, Geom::Matrix postmul, bool se
 	g_free(c);
 }
 
-const gchar *
-pattern_tile (GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Matrix transform, Geom::Matrix move)
+const gchar *pattern_tile(GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Matrix transform, Geom::Matrix move)
 {
-	Inkscape::XML::Document *xml_doc = sp_document_repr_doc(document);
+    Inkscape::XML::Document *xml_doc = document->getReprDoc();
 	Inkscape::XML::Node *defsrepr = SP_OBJECT_REPR (SP_DOCUMENT_DEFS (document));
 
 	Inkscape::XML::Node *repr = xml_doc->createElement("svg:pattern");
@@ -468,22 +494,21 @@ pattern_tile (GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Matr
 			dup_transform = Geom::identity();
 		dup_transform *= move;
 
-		sp_item_write_transform(copy, SP_OBJECT_REPR(copy), dup_transform, NULL, false);
+		copy->doWriteTransform(SP_OBJECT_REPR(copy), dup_transform, NULL, false);
 	}
 
 	Inkscape::GC::release(repr);
 	return pat_id;
 }
 
-SPPattern *
-pattern_getroot (SPPattern *pat)
+SPPattern *pattern_getroot(SPPattern *pat)
 {
-	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-		if (sp_object_first_child(SP_OBJECT(pat_i))) { // find the first one with children
-			return pat_i;
-		}
-	}
-	return pat; // document is broken, we can't get to root; but at least we can return pat which is supposedly a valid pattern
+    for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
+        if ( pat_i->firstChild() ) { // find the first one with children
+            return pat_i;
+        }
+    }
+    return pat; // document is broken, we can't get to root; but at least we can return pat which is supposedly a valid pattern
 }
 
 
@@ -565,12 +590,13 @@ NRRect *pattern_viewBox (SPPattern *pat)
 
 bool pattern_hasItemChildren (SPPattern *pat)
 {
-	for (SPObject *child = sp_object_first_child(SP_OBJECT(pat)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
-		if (SP_IS_ITEM (child)) {
-			return true;
-		}
-	}
-	return false;
+    bool hasChildren = false;
+    for (SPObject *child = pat->firstChild() ; child && !hasChildren ; child = child->getNext() ) {
+        if (SP_IS_ITEM(child)) {
+            hasChildren = true;
+        }
+    }
+    return hasChildren;
 }
 
 static cairo_pattern_t *
@@ -604,15 +630,15 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 
     /* Create arena */
     NRArena *arena = NRArena::create();
-    unsigned int dkey = sp_item_display_key_new (1);
+    unsigned int dkey = SPItem::display_key_new (1);
     NRArenaGroup *root = NRArenaGroup::create(arena);
 
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(shown)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = shown->firstChild(); child != NULL; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
             // for each item in pattern, show it on our arena, add to the group,
             // and connect to the release signal in case the item gets deleted
             NRArenaItem *cai;
-            cai = sp_item_invoke_show (SP_ITEM (child), arena, dkey, SP_ITEM_SHOW_DISPLAY);
+            cai = SP_ITEM(child)->invoke_show (arena, dkey, SP_ITEM_SHOW_DISPLAY);
             nr_arena_item_append_child (root, cai);
         }
     }
@@ -677,9 +703,9 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     gc.transform = vb2ps;
     nr_arena_item_invoke_update (root, NULL, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
     nr_arena_item_invoke_render (ct, root, &one_tile, NULL, 0);
-    for (SPObject *child = sp_object_first_child(SP_OBJECT(shown)) ; child != NULL; child = SP_OBJECT_NEXT(child) ) {
+    for (SPObject *child = shown->firstChild() ; child != NULL; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
-            sp_item_invoke_hide(SP_ITEM (child), dkey);
+            SP_ITEM(child)->invoke_hide(dkey);
         }
     }
     nr_object_unref(root);
