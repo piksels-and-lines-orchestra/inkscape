@@ -20,6 +20,7 @@
 #include <glib/gmem.h>
 #include <gtk/gtk.h>
 #include <gtkmm.h>
+#include <gdkmm/pixbuf.h>
 
 #include "path-prefix.h"
 #include "preferences.h"
@@ -542,8 +543,7 @@ static void setupLegacyNaming() {
     legacyNames["zoom"] ="sticky_zoom";
 }
 
-static GtkWidget *
-sp_icon_new_full( Inkscape::IconSize lsize, gchar const *name )
+static GtkWidget *sp_icon_new_full( Inkscape::IconSize lsize, gchar const *name )
 {
     static bool dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpGtk");
 
@@ -1203,6 +1203,7 @@ bool prerender_icon(gchar const *name, GtkIconSize lsize, unsigned psize)
 {
     bool loadNeeded = false;
     static bool dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpGtk");
+    static bool useCache = Inkscape::Preferences::get()->getBool("/debug/icons/useCache");
 
     Glib::ustring key = icon_cache_key(name, psize);
     if ( !get_cached_pixbuf(key) ) {
@@ -1211,28 +1212,62 @@ bool prerender_icon(gchar const *name, GtkIconSize lsize, unsigned psize)
             if (dump) {
                 g_message("prerender_icon  [%s] %d:%d", name, lsize, psize);
             }
-            guchar* px = load_svg_pixels(name, lsize, psize);
-            if ( !px ) {
-                // check for a fallback name
-                if ( legacyNames.find(name) != legacyNames.end() ) {
-                    if ( dump ) {
-                        g_message("load_svg_pixels([%s]=%s, %d, %d)", name, legacyNames[name].c_str(), lsize, psize);
+            // In file encoding:
+            std::string iconCacheDir = Glib::build_filename(Glib::build_filename(Glib::get_user_cache_dir(), "inkscape"), "icons");
+            std::string potentialFile = Glib::build_filename( iconCacheDir, name );
+            potentialFile += ".png";
+            
+            bool dataLoaded = false;
+            if ( useCache && Glib::file_test(potentialFile, Glib::FILE_TEST_EXISTS) && Glib::file_test(potentialFile, Glib::FILE_TEST_IS_REGULAR) ) {
+                Glib::RefPtr<Gdk::Pixbuf> pb = Gdk::Pixbuf::create_from_file(potentialFile);
+                if (pb) {
+                    dataLoaded = true;
+                    GdkPixbuf *obj = pb->gobj();
+                    g_object_ref(obj);
+                    pb_cache[key] = obj;
+                    addToIconSet(obj, name, lsize, psize);
+                    loadNeeded = true;
+                    if (internalNames.find(name) == internalNames.end()) {
+                        internalNames.insert(name);
                     }
-                    px = load_svg_pixels(legacyNames[name].c_str(), lsize, psize);
                 }
             }
-            if (px) {
-                GdkPixbuf* pb = gdk_pixbuf_new_from_data( px, GDK_COLORSPACE_RGB, TRUE, 8,
-                                                          psize, psize, psize * 4,
-                                                          reinterpret_cast<GdkPixbufDestroyNotify>(g_free), NULL );
-                pb_cache[key] = pb;
-                addToIconSet(pb, name, lsize, psize);
-                loadNeeded = true;
-                if (internalNames.find(name) == internalNames.end()) {
-                    internalNames.insert(name);
+
+            if (!dataLoaded) {
+                guchar* px = load_svg_pixels(name, lsize, psize);
+                if ( !px ) {
+                    // check for a fallback name
+                    if ( legacyNames.find(name) != legacyNames.end() ) {
+                        if ( dump ) {
+                            g_message("load_svg_pixels([%s]=%s, %d, %d)", name, legacyNames[name].c_str(), lsize, psize);
+                        }
+                        px = load_svg_pixels(legacyNames[name].c_str(), lsize, psize);
+                    }
                 }
-            } else if (dump) {
-                g_message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX  error!!! pixels not found for '%s'", name);
+                if (px) {
+                    GdkPixbuf* pb = gdk_pixbuf_new_from_data( px, GDK_COLORSPACE_RGB, TRUE, 8,
+                                                              psize, psize, psize * 4,
+                                                              reinterpret_cast<GdkPixbufDestroyNotify>(g_free), NULL );
+                    pb_cache[key] = pb;
+                    addToIconSet(pb, name, lsize, psize);
+                    loadNeeded = true;
+                    if (internalNames.find(name) == internalNames.end()) {
+                        internalNames.insert(name);
+                    }
+                    if (useCache) {
+                        g_object_ref(pb);
+                        Glib::RefPtr<Gdk::Pixbuf> ppp = Glib::wrap(pb);
+                        try {
+                            ppp->save( potentialFile, "png" );
+                        } catch ( Glib::FileError &ex ) {
+                            g_warning("FileError    [%s]", ex.what().c_str());
+                        } catch ( Gdk::PixbufError &ex ) {
+                            g_warning("PixbufError  [%s]", ex.what().c_str());
+                        }
+                    }
+                } else if (dump) {
+                    g_message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX  error!!! pixels not found for '%s'", name);
+                }
             }
         }
         else if (dump) {
@@ -1249,6 +1284,7 @@ static GdkPixbuf *sp_icon_image_load_svg(gchar const *name, GtkIconSize lsize, u
     // did we already load this icon at this scale/size?
     GdkPixbuf* pb = get_cached_pixbuf(key);
     if (!pb) {
+        g_message("YYYYYYYYYYYYY YYYYYYYYYYYYYYY two load_svg_pixels(%s, %d, %d)", name, lsize, psize);
         guchar *px = load_svg_pixels(name, lsize, psize);
         if (px) {
             pb = gdk_pixbuf_new_from_data(px, GDK_COLORSPACE_RGB, TRUE, 8,
