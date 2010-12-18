@@ -113,12 +113,29 @@ void Handle::move(Geom::Point const &new_pos)
     Handle *towards_second = node_towards ? node_towards->handleToward(_parent) : NULL;
 
     if (Geom::are_near(new_pos, _parent->position())) {
-        // The handle becomes degenerate. If the segment between it and the node
+        // The handle becomes degenerate.
+        // Adjust node type as necessary.
+        if (other->isDegenerate()) {
+            // If both handles become degenerate, convert to parent cusp node
+            _parent->setType(NODE_CUSP, false);
+        } else {
+            // Only 1 handle becomes degenerate
+            switch (_parent->type()) {
+            case NODE_AUTO:
+            case NODE_SYMMETRIC:
+                _parent->setType(NODE_SMOOTH, false);
+                break;
+            default:
+                // do nothing for other node types
+                break;
+            }
+        }
+        // If the segment between the handle and the node
         // in its direction becomes linear and there are smooth nodes
         // at its ends, make their handles colinear with the segment
-        if (towards && towards->isDegenerate()) {
+        if (towards && towards_second->isDegenerate()) {
             if (node_towards->type() == NODE_SMOOTH) {
-                towards_second->setDirection(*_parent, *node_towards);
+                towards->setDirection(*_parent, *node_towards);
             }
             if (_parent->type() == NODE_SMOOTH) {
                 other->setDirection(*node_towards, *_parent);
@@ -160,6 +177,7 @@ void Handle::move(Geom::Point const &new_pos)
 
 void Handle::setPosition(Geom::Point const &p)
 {
+    Geom::Point old_pos = position();
     ControlPoint::setPosition(p);
     sp_ctrlline_set_coords(SP_CTRLLINE(_handle_line), _parent->position(), position());
 
@@ -167,14 +185,11 @@ void Handle::setPosition(Geom::Point const &p)
     if (Geom::are_near(position(), _parent->position()))
         _degenerate = true;
     else _degenerate = false;
+
     if (_parent->_handles_shown && _parent->visible() && !_degenerate) {
         setVisible(true);
     } else {
         setVisible(false);
-    }
-    // If both handles become degenerate, convert to parent cusp node
-    if (_parent->isDegenerate()) {
-        _parent->setType(NODE_CUSP, false);
     }
 }
 
@@ -187,7 +202,7 @@ void Handle::setLength(double len)
 
 void Handle::retract()
 {
-    setPosition(_parent->position());
+    move(_parent->position());
 }
 
 void Handle::setDirection(Geom::Point const &from, Geom::Point const &to)
@@ -212,6 +227,35 @@ char const *Handle::handle_type_to_localized_string(NodeType type)
     }
 }
 
+bool Handle::_eventHandler(GdkEvent *event)
+{
+    switch (event->type)
+    {
+    case GDK_KEY_PRESS:
+        switch (shortcut_key(event->key))
+        {
+        case GDK_s:
+        case GDK_S:
+            if (held_only_shift(event->key) && _parent->_type == NODE_CUSP) {
+                // when Shift+S is pressed when hovering over a handle belonging to a cusp node,
+                // hold this handle in place; otherwise process normally
+                // this handle is guaranteed not to be degenerate
+                other()->move(_parent->position() - (position() - _parent->position()));
+                _parent->setType(NODE_SMOOTH, false);
+                _parent->_pm().update(); // magic triple combo to add undo event
+                _parent->_pm().writeXML();
+                _parent->_pm()._commit(_("Change node type"));
+                return true;
+            }
+            break;
+        default: break;
+        }
+    default: break;
+    }
+
+    return ControlPoint::_eventHandler(event);
+}
+
 bool Handle::grabbed(GdkEventMotion *)
 {
     _saved_other_pos = other()->position();
@@ -226,6 +270,7 @@ void Handle::dragged(Geom::Point &new_pos, GdkEventMotion *event)
     Geom::Point origin = _last_drag_origin();
     SnapManager &sm = _desktop->namedview->snap_manager;
     bool snap = sm.someSnapperMightSnap();
+    boost::optional<Inkscape::Snapper::SnapConstraint> ctrl_constraint;
 
     // with Alt, preserve length
     if (held_alt(*event)) {
@@ -241,16 +286,23 @@ void Handle::dragged(Geom::Point &new_pos, GdkEventMotion *event)
         // note: if snapping to the original position is only desired in the original
         // direction of the handle, change to Ray instead of Line
         Geom::Line original_line(parent_pos, origin);
+        Geom::Line perp_line(parent_pos, parent_pos + Geom::rot90(origin - parent_pos));
         Geom::Point snap_pos = parent_pos + Geom::constrain_angle(
             Geom::Point(0,0), new_pos - parent_pos, snaps, Geom::Point(1,0));
         Geom::Point orig_pos = original_line.pointAt(original_line.nearestPoint(new_pos));
+        Geom::Point perp_pos = perp_line.pointAt(perp_line.nearestPoint(new_pos));
 
-        if (Geom::distance(snap_pos, new_pos) < Geom::distance(orig_pos, new_pos)) {
-            new_pos = snap_pos;
-        } else {
-            new_pos = orig_pos;
+        Geom::Point result = snap_pos;
+        ctrl_constraint = Inkscape::Snapper::SnapConstraint(parent_pos, parent_pos - snap_pos);
+        if (Geom::distance(orig_pos, new_pos) < Geom::distance(result, new_pos)) {
+            result = orig_pos;
+            ctrl_constraint = Inkscape::Snapper::SnapConstraint(parent_pos, parent_pos - orig_pos);
         }
-        snap = false;
+        if (Geom::distance(perp_pos, new_pos) < Geom::distance(result, new_pos)) {
+            result = perp_pos;
+            ctrl_constraint = Inkscape::Snapper::SnapConstraint(parent_pos, parent_pos - perp_pos);
+        }
+        new_pos = result;
     }
 
     std::vector<Inkscape::SnapCandidatePoint> unselected;
@@ -264,12 +316,19 @@ void Handle::dragged(Geom::Point &new_pos, GdkEventMotion *event)
         }
         sm.setupIgnoreSelection(_desktop, true, &unselected);
 
-        Node *node_away = (this == &_parent->_front ? _parent->_prev() : _parent->_next());
+        Node *node_away = _parent->nodeAwayFrom(this);
         if (_parent->type() == NODE_SMOOTH && Node::_is_line_segment(_parent, node_away)) {
             Inkscape::Snapper::SnapConstraint cl(_parent->position(),
                 _parent->position() - node_away->position());
             Inkscape::SnappedPoint p;
             p = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos, SNAPSOURCE_NODE_HANDLE), cl);
+            new_pos = p.getPoint();
+        } else if (ctrl_constraint) {
+            // NOTE: this is subtly wrong.
+            // We should get all possible constraints and snap along them using
+            // multipleConstrainedSnaps, instead of first snapping to angle and the to objects
+            Inkscape::SnappedPoint p;
+            p = sm.constrainedSnap(Inkscape::SnapCandidatePoint(new_pos, SNAPSOURCE_NODE_HANDLE), *ctrl_constraint);
             new_pos = p.getPoint();
         } else {
             sm.freeSnapReturnByRef(new_pos, SNAPSOURCE_NODE_HANDLE);

@@ -215,7 +215,7 @@ void PathManipulator::clear()
 /** Select all nodes in subpaths that have something selected. */
 void PathManipulator::selectSubpaths()
 {
-    for (std::list<SubpathPtr>::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
+    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
         NodeList::iterator sp_start = (*i)->begin(), sp_end = (*i)->end();
         for (NodeList::iterator j = sp_start; j != sp_end; ++j) {
             if (j->selected()) {
@@ -225,63 +225,6 @@ void PathManipulator::selectSubpaths()
                     _selection.insert(ins.ptr());
                 continue;
             }
-        }
-    }
-}
-
-/** Move the selection forward or backward by one node in each subpath, based on the sign
- * of the parameter. */
-void PathManipulator::shiftSelection(int dir)
-{
-    if (dir == 0) return;
-    if (_num_selected == 0) {
-        // select the first node of the path.
-        SubpathList::iterator s = _subpaths.begin();
-        if (s == _subpaths.end()) return;
-        NodeList::iterator n = (*s)->begin();
-        if (n != (*s)->end())
-            _selection.insert(n.ptr());
-        return;
-    }
-    // We cannot do any tricks here, like iterating in different directions based on
-    // the sign and only setting the selection of nodes behind us, because it would break
-    // for closed paths.
-    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
-        std::deque<bool> sels; // I hope this is specialized for bools!
-        unsigned num = 0;
-        
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            sels.push_back(j->selected());
-            _selection.erase(j.ptr());
-            ++num;
-        }
-        if (num == 0) continue; // should never happen! zero-node subpaths are not allowed
-
-        num = 0;
-        // In closed subpath, shift the selection cyclically. In an open one,
-        // let the selection 'slide into nothing' at ends.
-        if (dir > 0) {
-            if ((*i)->closed()) {
-                bool last = sels.back();
-                sels.pop_back();
-                sels.push_front(last);
-            } else {
-                sels.push_front(false);
-            }
-        } else {
-            if ((*i)->closed()) {
-                bool first = sels.front();
-                sels.pop_front();
-                sels.push_back(first);
-            } else {
-                sels.push_back(false);
-                num = 1;
-            }
-        }
-
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            if (sels[num]) _selection.insert(j.ptr());
-            ++num;
         }
     }
 }
@@ -332,22 +275,31 @@ void PathManipulator::duplicateNodes()
                 NodeList::iterator k = j.next();
                 Node *n = new Node(_multi_path_manipulator._path_data.node_data, *j);
 
-                // Move the new node to the bottom of the Z-order. This way you can drag all
-                // nodes that were selected before this operation without deselecting
-                // everything because there is a new node above.
-                n->sink();
+                if (k) {
+                    // Move the new node to the bottom of the Z-order. This way you can drag all
+                    // nodes that were selected before this operation without deselecting
+                    // everything because there is a new node above.
+                    n->sink();
+                }
 
                 n->front()->setPosition(*j->front());
                 j->front()->retract();
                 j->setType(NODE_CUSP, false);
                 (*i)->insert(k, n);
 
-                // We need to manually call the selection change callback to refresh
-                // the handle display correctly.
-                // This call changes num_selected, but we call this once for a selected node
-                // and once for an unselected node, so in the end the number stays correct.
-                _selectionChanged(j.ptr(), true);
-                _selectionChanged(n, false);
+                if (k) {
+                    // We need to manually call the selection change callback to refresh
+                    // the handle display correctly.
+                    // This call changes num_selected, but we call this once for a selected node
+                    // and once for an unselected node, so in the end the number stays correct.
+                    _selectionChanged(j.ptr(), true);
+                    _selectionChanged(n, false);
+                } else {
+                    // select the new end node instead of the node just before it
+                    _selection.erase(j.ptr());
+                    _selection.insert(n);
+                    break; // this was the end node, nothing more to do
+                }
             }
         }
     }
