@@ -18,6 +18,7 @@
 
 #include <cstring>
 #include <glib/gmem.h>
+#include <glib/gstdio.h>
 #include <gtk/gtk.h>
 #include <gtkmm.h>
 #include <gdkmm/pixbuf.h>
