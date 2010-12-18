@@ -56,7 +56,7 @@ static void sp_icon_style_set( GtkWidget *widget, GtkStyle *previous_style );
 static void sp_icon_theme_changed( SPIcon *icon );
 
 static GdkPixbuf *sp_icon_image_load_pixmap(gchar const *name, unsigned lsize, unsigned psize);
-static GdkPixbuf *sp_icon_image_load_svg(gchar const *name, GtkIconSize lsize, unsigned psize);
+static GdkPixbuf *sp_icon_image_load_svg(std::list<Glib::ustring> const &names, GtkIconSize lsize, unsigned psize);
 
 static void sp_icon_overlay_pixels( guchar *px, int width, int height, int stride,
                                     unsigned r, unsigned g, unsigned b );
@@ -230,13 +230,16 @@ GdkPixbuf* renderup( gchar const* name, Inkscape::IconSize lsize, unsigned psize
         pb = gtk_icon_theme_load_icon(theme, name, psize, (GtkIconLookupFlags) 0, NULL);
     }
     if (!pb) {
-        pb = sp_icon_image_load_svg( name, Inkscape::getRegisteredIconSize(lsize), psize );
-        if (!pb && (legacyNames.find(name) != legacyNames.end())) {
+        std::list<Glib::ustring> names;
+        names.push_back(name);
+        if ( legacyNames.find(name) != legacyNames.end() ) {
             if ( Inkscape::Preferences::get()->getBool("/debug/icons/dumpSvg") ) {
                 g_message("Checking fallback [%s]->[%s]", name, legacyNames[name].c_str());
             }
-            pb = sp_icon_image_load_svg( legacyNames[name].c_str(), Inkscape::getRegisteredIconSize(lsize), psize );
+            names.push_back(legacyNames[name]);
         }
+
+        pb = sp_icon_image_load_svg( names, Inkscape::getRegisteredIconSize(lsize), psize );
 
         // if this was loaded from SVG, add it as a builtin icon
         if (pb) {
@@ -286,7 +289,7 @@ static void sp_icon_theme_changed( SPIcon *icon )
 static void imageMapCB(GtkWidget* widget, gpointer user_data);
 static void imageMapNamedCB(GtkWidget* widget, gpointer user_data);
 static bool prerender_icon(gchar const *name, GtkIconSize lsize, unsigned psize);
-static Glib::ustring icon_cache_key(gchar const *name, unsigned psize);
+static Glib::ustring icon_cache_key(Glib::ustring const &name, unsigned psize);
 static GdkPixbuf *get_cached_pixbuf(Glib::ustring const &key);
 
 static void setupLegacyNaming() {
@@ -1049,9 +1052,9 @@ public:
 static std::map<Glib::ustring, SVGDocCache *> doc_cache;
 static std::map<Glib::ustring, GdkPixbuf *> pb_cache;
 
-Glib::ustring icon_cache_key(gchar const *name, unsigned psize)
+Glib::ustring icon_cache_key(Glib::ustring const & name, unsigned psize)
 {
-    Glib::ustring key=name;
+    Glib::ustring key = name;
     key += ":";
     key += psize;
     return key;
@@ -1281,22 +1284,20 @@ bool prerender_icon(gchar const *name, GtkIconSize lsize, unsigned psize)
     return loadNeeded;
 }
 
-static GdkPixbuf *sp_icon_image_load_svg(gchar const *name, GtkIconSize lsize, unsigned psize)
+static GdkPixbuf *sp_icon_image_load_svg(std::list<Glib::ustring> const &names, GtkIconSize lsize, unsigned psize)
 {
-    Glib::ustring key = icon_cache_key(name, psize);
+    Glib::ustring key = icon_cache_key(*names.begin(), psize);
 
     // did we already load this icon at this scale/size?
     GdkPixbuf* pb = get_cached_pixbuf(key);
     if (!pb) {
-        std::list<Glib::ustring> names;
-        names.push_back(name);
         guchar *px = load_svg_pixels(names, lsize, psize);
         if (px) {
             pb = gdk_pixbuf_new_from_data(px, GDK_COLORSPACE_RGB, TRUE, 8,
                                           psize, psize, psize * 4,
                                           (GdkPixbufDestroyNotify)g_free, NULL);
             pb_cache[key] = pb;
-            addToIconSet(pb, name, lsize, psize);
+            addToIconSet(pb, names.begin()->c_str(), lsize, psize);
         }
     }
 
