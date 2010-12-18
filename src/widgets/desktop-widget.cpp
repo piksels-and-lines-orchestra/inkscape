@@ -123,30 +123,6 @@ static void sp_dtw_sticky_zoom_toggled (GtkMenuItem *item, gpointer data);
 
 SPViewWidgetClass *dtw_parent_class;
 
-static GTimer *baseTimer = 0;
-static bool timeReported = false;
-
-static void timeGoing(gchar const* id)
-{
-    if ( !baseTimer ) {
-        g_message("Starting time at point [%s]", id);
-        baseTimer = g_timer_new();
-    }
-}
-
-static void checkTime(gchar const* msg)
-{
-    if ( baseTimer && !timeReported ) {
-        timeReported = true;
-        g_timer_stop(baseTimer);
-        gulong msCount = 0;
-        gdouble secs = g_timer_elapsed( baseTimer, &msCount );
-        g_message("Time ended at %2.3f with [%s]", secs, msg);
-    }
-}
-
-
-
 class CMSPrefWatcher {
 public:
     CMSPrefWatcher() :
@@ -278,7 +254,6 @@ GType SPDesktopWidget::getType(void)
 {
     static GtkType type = 0;
     if (!type) {
-        timeGoing("SPDesktopWidget::getType");
         GTypeInfo info = {
             sizeof(SPDesktopWidgetClass),
             0, // base_init
@@ -304,7 +279,6 @@ GType SPDesktopWidget::getType(void)
 static void
 sp_desktop_widget_class_init (SPDesktopWidgetClass *klass)
 {
-    timeGoing("sp_desktop_widget_class_init");
     dtw_parent_class = (SPViewWidgetClass*)gtk_type_class (SP_TYPE_VIEW_WIDGET);
 
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
@@ -321,7 +295,6 @@ sp_desktop_widget_class_init (SPDesktopWidgetClass *klass)
  */
 void SPDesktopWidget::init( SPDesktopWidget *dtw )
 {
-    timeGoing("SPDesktopWidget::init");
     GtkWidget *widget;
     GtkWidget *tbl;
     GtkWidget *canvas_tbl;
