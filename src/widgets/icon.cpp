@@ -1198,6 +1198,19 @@ void Inkscape::queueIconPrerender( Glib::ustring const &name, Inkscape::IconSize
     }
 }
 
+static std::map<unsigned, Glib::ustring> sizePaths;
+
+static std::string getDestDir( unsigned psize )
+{
+    if ( sizePaths.find(psize) == sizePaths.end() ) {
+        gchar *tmp = g_strdup_printf("%dx%d", psize, psize);
+        sizePaths[psize] = tmp;
+        g_free(tmp);
+    }
+
+    return sizePaths[psize];
+}
+
 // returns true if icon needed preloading, false if nothing was done
 bool prerender_icon(gchar const *name, GtkIconSize lsize, unsigned psize)
 {
@@ -1212,23 +1225,36 @@ bool prerender_icon(gchar const *name, GtkIconSize lsize, unsigned psize)
             if (dump) {
                 g_message("prerender_icon  [%s] %d:%d", name, lsize, psize);
             }
-            // In file encoding:
-            std::string iconCacheDir = Glib::build_filename(Glib::build_filename(Glib::get_user_cache_dir(), "inkscape"), "icons");
-            std::string potentialFile = Glib::build_filename( iconCacheDir, name );
-            potentialFile += ".png";
-            
+
+            std::string potentialFile;
             bool dataLoaded = false;
-            if ( useCache && Glib::file_test(potentialFile, Glib::FILE_TEST_EXISTS) && Glib::file_test(potentialFile, Glib::FILE_TEST_IS_REGULAR) ) {
-                Glib::RefPtr<Gdk::Pixbuf> pb = Gdk::Pixbuf::create_from_file(potentialFile);
-                if (pb) {
-                    dataLoaded = true;
-                    GdkPixbuf *obj = pb->gobj();
-                    g_object_ref(obj);
-                    pb_cache[key] = obj;
-                    addToIconSet(obj, name, lsize, psize);
-                    loadNeeded = true;
-                    if (internalNames.find(name) == internalNames.end()) {
-                        internalNames.insert(name);
+            if ( useCache ) {
+                // In file encoding:
+                std::string iconCacheDir = Glib::build_filename(Glib::build_filename(Glib::get_user_cache_dir(), "inkscape"), "icons");
+                std::string subpart = getDestDir(psize);
+                if (subpart.empty()) {
+                    g_message("Is empty");
+                }
+                std::string subdir = Glib::build_filename( iconCacheDir, subpart );
+                if ( !Glib::file_test(subdir, Glib::FILE_TEST_EXISTS) ) {
+                    g_message("NEED SUB OF   [%s]", subdir.c_str());
+                    g_mkdir_with_parents( subdir.c_str(), 0x1ED );
+                }
+                potentialFile = Glib::build_filename( subdir, name );
+                potentialFile += ".png";
+
+                if ( Glib::file_test(potentialFile, Glib::FILE_TEST_EXISTS) && Glib::file_test(potentialFile, Glib::FILE_TEST_IS_REGULAR) ) {
+                    Glib::RefPtr<Gdk::Pixbuf> pb = Gdk::Pixbuf::create_from_file(potentialFile);
+                    if (pb) {
+                        dataLoaded = true;
+                        GdkPixbuf *obj = pb->gobj();
+                        g_object_ref(obj);
+                        pb_cache[key] = obj;
+                        addToIconSet(obj, name, lsize, psize);
+                        loadNeeded = true;
+                        if (internalNames.find(name) == internalNames.end()) {
+                            internalNames.insert(name);
+                        }
                     }
                 }
             }
@@ -1284,7 +1310,6 @@ static GdkPixbuf *sp_icon_image_load_svg(gchar const *name, GtkIconSize lsize, u
     // did we already load this icon at this scale/size?
     GdkPixbuf* pb = get_cached_pixbuf(key);
     if (!pb) {
-        g_message("YYYYYYYYYYYYY YYYYYYYYYYYYYYY two load_svg_pixels(%s, %d, %d)", name, lsize, psize);
         guchar *px = load_svg_pixels(name, lsize, psize);
         if (px) {
             pb = gdk_pixbuf_new_from_data(px, GDK_COLORSPACE_RGB, TRUE, 8,
