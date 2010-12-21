@@ -22,6 +22,7 @@
 #include <gtk/gtk.h>
 #include <gtkmm.h>
 #include <gdkmm/pixbuf.h>
+#include <glibmm/fileutils.h>
 
 #include "path-prefix.h"
 #include "preferences.h"
@@ -76,13 +77,23 @@ struct IconImpl {
     static void imageMapNamedCB(GtkWidget* widget, gpointer user_data);
     static bool prerenderIcon(gchar const *name, GtkIconSize lsize, unsigned psize);
 
+
+    static std::list<gchar*> &icons_svg_paths();
+    static guchar *load_svg_pixels(std::list<Glib::ustring> const &names,
+                                   unsigned lsize, unsigned psize);
+
+    static std::string fileEscape( std::string const & str );
+ 
+    static void validateCache();
     static void setupLegacyNaming();
 
 private:
+    static const std::string magicNumber;
     static GtkWidgetClass *parent_class;
     static std::map<Glib::ustring, Glib::ustring> legacyNames;
 };
 
+const std::string IconImpl::magicNumber = "1.0";
 GtkWidgetClass *IconImpl::parent_class = 0;
 std::map<Glib::ustring, Glib::ustring> IconImpl::legacyNames;
 
@@ -303,6 +314,132 @@ void IconImpl::themeChanged( SPIcon *icon )
     gtk_widget_queue_draw( GTK_WIDGET(icon) );
 }
 
+std::string IconImpl::fileEscape( std::string const & str )
+{
+    std::string result;
+    result.reserve(str.size());
+    for ( size_t i = 0; i < str.size(); ++i ) {
+        char ch = str[i];
+        if ( (0x20 <= ch) && !(0x80 & ch) ) {
+            result += ch;
+        } else {
+            result += "\\x";
+            gchar *tmp = g_strdup_printf("%02X", (0x0ff & ch));
+            result += tmp;
+            g_free(tmp);
+        }
+    }
+    return result;
+}
+
+static bool isSizedSubdir( std::string const &name )
+{
+    bool isSized = false;
+    if ( (name.size() > 2) && (name.size() & 1) ) { // needs to be an odd length 3 or more
+        size_t mid = (name.size() - 1) / 2;
+        if ( (name[mid] == 'x') && (name.substr(0, mid) == name.substr(mid + 1)) ) {
+            isSized = true;
+            for ( size_t i = 0; (i < mid) && isSized; ++i ) {
+                isSized &= g_ascii_isdigit(name[i]);
+            }
+        }
+    }
+    return isSized;
+}
+
+void IconImpl::validateCache()
+{
+    std::list<gchar *> &sources = icons_svg_paths();
+    std::string iconCacheDir = Glib::build_filename(Glib::build_filename(Glib::get_user_cache_dir(), "inkscape"), "icons");
+    std::string iconCacheFile = Glib::build_filename( iconCacheDir, "cache.info" );
+
+    std::vector<std::string> filesFound;
+
+    for (std::list<gchar*>::iterator i = sources.begin(); i != sources.end(); ++i) {
+        gchar const* potentialFile = *i;
+        if ( Glib::file_test(potentialFile, Glib::FILE_TEST_EXISTS) && Glib::file_test(potentialFile, Glib::FILE_TEST_IS_REGULAR) ) {
+            filesFound.push_back(*i);
+        }
+    }
+
+    unsigned long lastSeen = 0;
+    std::ostringstream out;
+    out << "Inkscape cache v" << std::hex << magicNumber << std::dec << std::endl;
+    out << "Sourcefiles: " << filesFound.size() << std::endl; 
+    for ( std::vector<std::string>::iterator it = filesFound.begin(); it != filesFound.end(); ++it ) {
+        GStatBuf st;
+        memset(&st, 0, sizeof(st));
+        if ( !g_stat(it->c_str(), &st) ) {
+            unsigned long when = st.st_mtime;
+            lastSeen = std::max(lastSeen, when);
+            out << std::hex << when << std::dec << " " << fileEscape(*it) << std::endl;
+        } else {
+            out << "0 " << fileEscape(*it) << std::endl;
+        }
+    }
+    std::string wanted = out.str();
+
+    std::string present;
+    {
+        gchar *contents = 0;
+        if ( g_file_get_contents(iconCacheFile.c_str(), &contents, 0, 0) ) {
+            if ( contents ) {
+                present = contents;
+            }
+            g_free(contents);
+            contents = 0;
+        }
+    }
+    bool cacheValid = (present == wanted);
+
+    if ( cacheValid ) {
+        // Check if any cached rasters are out of date
+        Glib::Dir dir(iconCacheDir);
+        for ( Glib::DirIterator it = dir.begin(); cacheValid && (it != dir.end()); ++it ) {
+            if ( isSizedSubdir(*it) ) {
+                std::string subdirName = Glib::build_filename( iconCacheDir, *it );
+                Glib::Dir subdir(subdirName);
+                for ( Glib::DirIterator subit = subdir.begin(); cacheValid && (subit != subdir.end()); ++subit ) {
+                    std::string fullpath = Glib::build_filename( subdirName, *subit );
+                    if ( Glib::file_test(fullpath, Glib::FILE_TEST_EXISTS) && !Glib::file_test(fullpath, Glib::FILE_TEST_IS_DIR) ) {
+                        GStatBuf st;
+                        memset(&st, 0, sizeof(st));
+                        if ( !g_stat(fullpath.c_str(), &st) ) {
+                            unsigned long when = st.st_mtime;
+                            if ( when < lastSeen ) {
+                                cacheValid = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if ( !cacheValid ) {
+        // Purge existing icons, but not possible future sub-directories.
+        Glib::Dir dir(iconCacheDir);
+        for ( Glib::DirIterator it = dir.begin(); it != dir.end(); ++it ) {
+            if ( isSizedSubdir(*it) ) {
+                std::string subdirName = Glib::build_filename( iconCacheDir, *it );
+                Glib::Dir subdir(subdirName);
+                for ( Glib::DirIterator subit = subdir.begin(); subit != subdir.end(); ++subit ) {
+                    std::string fullpath = Glib::build_filename( subdirName, *subit );
+                    if ( Glib::file_test(fullpath, Glib::FILE_TEST_EXISTS) && !Glib::file_test(fullpath, Glib::FILE_TEST_IS_DIR) ) {
+                        g_remove(fullpath.c_str());
+                    }
+                }
+                g_rmdir( subdirName.c_str() );
+            }
+        }
+
+        if ( g_file_set_contents(iconCacheFile.c_str(), wanted.c_str(), wanted.size(), 0) ) {
+            // Caching may proceed
+        } else {
+            g_warning("Unable to write cache info file.");
+        }
+    }
+}
 
 static Glib::ustring icon_cache_key(Glib::ustring const &name, unsigned psize);
 static GdkPixbuf *get_cached_pixbuf(Glib::ustring const &key);
@@ -1073,7 +1210,7 @@ GdkPixbuf *get_cached_pixbuf(Glib::ustring const &key) {
     return pb;
 }
 
-static std::list<gchar*> &icons_svg_paths()
+std::list<gchar*> &IconImpl::icons_svg_paths()
 {
     static std::list<gchar *> sources;
     static bool initialized = false;
@@ -1089,8 +1226,8 @@ static std::list<gchar*> &icons_svg_paths()
 }
 
 // this function renders icons from icons.svg and returns the pixels.
-static guchar *load_svg_pixels(std::list<Glib::ustring> const &names,
-                               unsigned /*lsize*/, unsigned psize)
+guchar *IconImpl::load_svg_pixels(std::list<Glib::ustring> const &names,
+                                  unsigned /*lsize*/, unsigned psize)
 {
     bool const dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpSvg");
     std::list<gchar *> &sources = icons_svg_paths();
@@ -1194,6 +1331,11 @@ bool IconImpl::prerenderIcon(gchar const *name, GtkIconSize lsize, unsigned psiz
     bool loadNeeded = false;
     static bool dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpGtk");
     static bool useCache = Inkscape::Preferences::get()->getBool("/debug/icons/useCache");
+    static bool cacheValidated = false;
+    if (!cacheValidated) {
+        cacheValidated = true;
+        validateCache();
+    }
 
     Glib::ustring key = icon_cache_key(name, psize);
     if ( !get_cached_pixbuf(key) ) {
