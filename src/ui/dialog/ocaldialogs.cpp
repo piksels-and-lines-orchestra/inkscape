@@ -592,10 +592,13 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
     list_files->set_sensitive(false);
     /// Add the listview inside a ScrolledWindow
     scrolledwindow_list.add(*list_files);
+    scrolledwindow_list.set_shadow_type(Gtk::SHADOW_IN);
     /// Only show the scrollbars when they are necessary
-    scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_ALWAYS);
     list_files->set_column_title(0, _("Files found"));
+    scrolledwindow_list.set_size_request(400, 180);
 
+    list_files->set_headers_visible(false);
     list_files->get_column(1)->set_visible(false); // file url
     list_files->get_column(2)->set_visible(false); // tmp file path
     list_files->get_column(3)->set_visible(false); // author dir
@@ -616,17 +619,15 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
     vbox->pack_start(hbox_message, false, false);
     vbox->pack_start(hbox_files, true, true);
     vbox->pack_start(hbox_description, false, false);
-
-    // Let's do some customization
+    
+    // Signals
     entry_search = NULL;
     Gtk::Container *cont = get_toplevel();
     std::vector<Gtk::Entry *> entries;
     findEntryWidgets(cont, entries);
     
-    // Signals
-    if (entries.size() >=1 )
-    {
-    //Catch when user hits [return] on the text field
+    if (entries.size() >=1 ) {
+    /// Catch when user hits [return] on the text field
         entry_search = entries[0];
         entry_search->signal_activate().connect(
               sigc::mem_fun(*this, &FileImportFromOCALDialog::on_entry_search_changed));
