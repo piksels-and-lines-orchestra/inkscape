@@ -562,25 +562,30 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     Glib::ustring searchTag = "";
 
     dialogType = fileTypes;
+    
     // Dialog
     set_border_width(12);
     set_default_size(480, 350);
-    //
+    // VBox
     Gtk::VBox *vbox = get_vbox();
+    vbox->set_spacing(12);
     notFoundLabel = new Gtk::Label(_("No files matched your search"));
     descriptionLabel = new Gtk::Label();
     descriptionLabel->set_max_width_chars(260);
     descriptionLabel->set_size_request(500, -1);
     descriptionLabel->set_single_line_mode(false);
     descriptionLabel->set_line_wrap(true);
-    messageBox.pack_start(*notFoundLabel);
-    descriptionBox.pack_start(*descriptionLabel);
+    messageBox.pack_start(*notFoundLabel, false, false);
+    descriptionBox.pack_start(*descriptionLabel, false, false);
     searchTagEntry = new Gtk::Entry();
     searchTagEntry->set_text(searchTag);
     searchTagEntry->set_max_length(255);
     searchButton = new Gtk::Button(_("Search"));
-    tagBox.pack_start(*searchTagEntry, Gtk::PACK_EXPAND_WIDGET, 3);
-    tagBox.pack_start(*searchButton, false, false);
+    Gtk::HButtonBox* searchButtonBox = new Gtk::HButtonBox();
+    searchButtonBox->pack_start(*searchButton, false, false);
+    tagBox.set_spacing(6);
+    tagBox.pack_start(*searchTagEntry, true, true);
+    tagBox.pack_start(*searchButtonBox, false, false);
     filesPreview = new SVGPreview();
     filesPreview->showNoPreview();
     // add the buttons in the bottom of the dialog
@@ -600,12 +605,13 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     filesList->get_column(2)->set_visible(false); // tmp file path
     filesList->get_column(3)->set_visible(false); // author dir
     filesList->get_column(4)->set_visible(false); // file description
-    filesBox.pack_start(listScrolledWindow);
-    filesBox.pack_start(*filesPreview);
+    filesBox.set_spacing(12);
+    filesBox.pack_start(listScrolledWindow, true, true);
+    filesBox.pack_start(*filesPreview, true, true);
     vbox->pack_start(tagBox, false, false);
-    vbox->pack_start(messageBox);
-    vbox->pack_start(filesBox);
-    vbox->pack_start(descriptionBox);
+    vbox->pack_start(messageBox, false, false);
+    vbox->pack_start(filesBox, true, true);
+    vbox->pack_start(descriptionBox, false, false);
 
     //Let's do some customization
     searchTagEntry = NULL;
