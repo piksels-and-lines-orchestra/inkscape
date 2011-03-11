@@ -269,7 +269,7 @@ public:
         myLabel = &description;
         myButton = &okButton;
     }
-    Glib::ustring getFilename();
+    Glib::ustring get_filename();
 protected:
     void on_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
     void on_cursor_changed();
@@ -292,9 +292,9 @@ public:
      * @param fileTypes one of FileDialogTypes
      * @param title the title of the dialog
      */
-    FileImportFromOCALDialog(Gtk::Window& parentWindow,
+    FileImportFromOCALDialog(Gtk::Window& parent_window,
     		       const Glib::ustring &dir,
-                       FileDialogType fileTypes,
+                       FileDialogType file_types,
                        const Glib::ustring &title);
 
     /**
@@ -314,36 +314,35 @@ public:
      * @return a pointer to a string if successful (which must
      * be later freed with g_free(), else NULL.
      */
-    Inkscape::Extension::Extension *getSelectionType();
+    Inkscape::Extension::Extension *get_selection_type();
 
-    Glib::ustring getFilename();
+    Glib::ustring get_filename();
 
 private:
 
     /**
      * Allow the user to type the tag to be searched
      */
-    Gtk::Entry *searchTagEntry;
-    FileListViewText *filesList;
-    SVGPreview *filesPreview;
-    Gtk::Label *notFoundLabel;
-    Gtk::Label *descriptionLabel;
-    Gtk::Button *searchButton;
-    Gtk::Button *okButton;
+    Gtk::Entry *entry_search;
+    FileListViewText *list_files;
+    SVGPreview *preview_files;
+    Gtk::Label *label_not_found;
+    Gtk::Label *label_description;
+    Gtk::Button *button_search;
+    Gtk::Button *button_ok;
 
     // Child widgets
-    Gtk::HBox tagBox;
-    Gtk::HBox filesBox;
-    Gtk::HBox messageBox;
-    Gtk::HBox descriptionBox;
-    Gtk::ScrolledWindow listScrolledWindow;
+    Gtk::HBox hbox_tags;
+    Gtk::HBox hbox_files;
+    Gtk::HBox hbox_message;
+    Gtk::HBox hbox_description;
+    Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 
     /**
      * Callback for user input into searchTagEntry
      */
-    void searchTagEntryChangedCallback();
-
+    void on_entry_search_changed();
 
     /**
      * Prints the names of the all the xml elements 

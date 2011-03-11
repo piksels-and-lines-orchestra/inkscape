@@ -1444,7 +1444,7 @@ sp_file_export_to_ocal(Gtk::Window &parentWindow)
  * Display an ImportToOcal Dialog, and the selected document from OCAL
  */
 void
-sp_file_import_from_ocal(Gtk::Window &parentWindow)
+sp_file_import_from_ocal(Gtk::Window &parent_window)
 {
     static Glib::ustring import_path;
 
@@ -1452,44 +1452,44 @@ sp_file_import_from_ocal(Gtk::Window &parentWindow)
     if (!doc)
         return;
 
-    Inkscape::UI::Dialog::FileImportFromOCALDialog *importDialogInstance = NULL;
+    Inkscape::UI::Dialog::FileImportFromOCALDialog *import_dialog = NULL;
 
-    if (!importDialogInstance) {
-        importDialogInstance = new
+    if (!import_dialog) {
+        import_dialog = new
              Inkscape::UI::Dialog::FileImportFromOCALDialog(
-                 parentWindow,
+                 parent_window,
                  import_path,
                  Inkscape::UI::Dialog::IMPORT_TYPES,
                  (char const *)_("Import From Open Clip Art Library"));
     }
 
-    bool success = importDialogInstance->show();
+    bool success = import_dialog->show();
     if (!success) {
-        delete importDialogInstance;
+        delete import_dialog;
         return;
     }
 
     // Get file name and extension type
-    Glib::ustring fileName = importDialogInstance->getFilename();
-    Inkscape::Extension::Extension *selection = importDialogInstance->getSelectionType();
+    Glib::ustring file_name = import_dialog->get_filename();
+    Inkscape::Extension::Extension *selection = import_dialog->get_selection_type();
 
-    delete importDialogInstance;
-    importDialogInstance = NULL;
+    delete import_dialog;
+    import_dialog = NULL;
 
-    if (fileName.size() > 0) {
+    if (file_name.size() > 0) {
 
-        Glib::ustring newFileName = Glib::filename_to_utf8(fileName);
+        Glib::ustring new_file_name = Glib::filename_to_utf8(file_name);
 
-        if ( newFileName.size() > 0)
-            fileName = newFileName;
+        if (new_file_name.size() > 0)
+            file_name = new_file_name;
         else
             g_warning( "ERROR CONVERTING OPEN FILENAME TO UTF-8" );
 
-        import_path = fileName;
+        import_path = file_name;
         if (import_path.size()>0)
             import_path.append(G_DIR_SEPARATOR_S);
 
-        file_import(doc, fileName, selection);
+        file_import(doc, file_name, selection);
     }
 
     return;

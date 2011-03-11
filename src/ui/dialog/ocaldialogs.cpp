@@ -146,7 +146,7 @@ FileExportToOCALDialog::show()
  */
 /*
 Glib::ustring
-FileExportToOCALDialog::getFilename()
+FileExportToOCALDialog::get_filename()
 {
     myFilename = fileNameEntry->get_text();
     if (!Glib::get_charset()) //If we are not utf8
@@ -398,7 +398,7 @@ void FileListViewText::on_row_activated(const Gtk::TreeModel::Path& /*path*/, Gt
 /*
  * Returns the selected filename
  */
-Glib::ustring FileListViewText::getFilename()
+Glib::ustring FileListViewText::get_filename()
 {
     return myFilename;
 }
@@ -429,23 +429,23 @@ static int vfs_read_callback (GnomeVFSHandle *handle, char* buf, int nb)
 
 
 /**
- * Callback for user input into searchTagEntry
+ * Callback for user input into entry_search
  */
-void FileImportFromOCALDialog::searchTagEntryChangedCallback()
+void FileImportFromOCALDialog::on_entry_search_changed()
 {
-    if (!searchTagEntry)
+    if (!entry_search)
         return;
 
-    notFoundLabel->hide();
-    descriptionLabel->set_text("");
+    label_not_found->hide();
+    label_description->set_text("");
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
-    Glib::ustring searchTag = searchTagEntry->get_text();
+    Glib::ustring search_keywords = entry_search->get_text();
     // create the ocal uri to get rss feed
     Glib::ustring uri = "http://";
     uri.append(prefs->getString("/options/ocalurl/str"));
     uri.append("/media/feed/rss/");
-    uri.append(searchTag);
+    uri.append(search_keywords);
     if (!Glib::get_charset()) //If we are not utf8
         uri = Glib::filename_to_utf8(uri);
 
@@ -480,20 +480,20 @@ void FileImportFromOCALDialog::searchTagEntryChangedCallback()
     // get the root element node
     root_element = xmlDocGetRootElement(doc);
 
-    // clear the fileslist
-    filesList->clear_items();
-    filesList->set_sensitive(false);
+    // clear the list_files
+    list_files->clear_items();
+    list_files->set_sensitive(false);
 
     // print all xml the element names
     print_xml_element_names(root_element);
 
-    if (filesList->size() == 0)
+    if (list_files->size() == 0)
     {
-        notFoundLabel->show();
-        filesList->set_sensitive(false);
+        label_not_found->show();
+        list_files->set_sensitive(false);
     }
     else
-        filesList->set_sensitive(true);
+        list_files->set_sensitive(true);
 
     // free the document
     xmlFreeDoc(doc);
@@ -520,26 +520,26 @@ void FileImportFromOCALDialog::print_xml_element_names(xmlNode * a_node)
                 if (!strcmp((const char*)cur_node->name, "title"))
                 {
                     xmlChar *title = xmlNodeGetContent(cur_node);
-                    row_num = filesList->append_text((const char*)title);
+                    row_num = list_files->append_text((const char*)title);
                     xmlFree(title);
                 }
 #ifdef WITH_GNOME_VFS
                 else if (!strcmp((const char*)cur_node->name, "enclosure"))
                 {
                     xmlChar *urlattribute = xmlGetProp(cur_node, (xmlChar*)"url");
-                    filesList->set_text(row_num, 1, (const char*)urlattribute);
+                    list_files->set_text(row_num, 1, (const char*)urlattribute);
                     gchar *tmp_file;
                     tmp_file = gnome_vfs_uri_extract_short_path_name(gnome_vfs_uri_new((const char*)urlattribute));
-                    filesList->set_text(row_num, 2, (const char*)tmp_file);
+                    list_files->set_text(row_num, 2, (const char*)tmp_file);
                     xmlFree(urlattribute);
                 }
                 else if (!strcmp((const char*)cur_node->name, "creator"))
                 {
-                    filesList->set_text(row_num, 3, (const char*)xmlNodeGetContent(cur_node));
+                    list_files->set_text(row_num, 3, (const char*)xmlNodeGetContent(cur_node));
                 }
                 else if (!strcmp((const char*)cur_node->name, "description"))
                 {
-                    filesList->set_text(row_num, 4, (const char*)xmlNodeGetContent(cur_node));
+                    list_files->set_text(row_num, 4, (const char*)xmlNodeGetContent(cur_node));
                 }
 #endif
             }
@@ -550,76 +550,75 @@ void FileImportFromOCALDialog::print_xml_element_names(xmlNode * a_node)
 /**
  * Constructor.  Not called directly.  Use the factory.
  */
-FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
+FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
                                                    const Glib::ustring &/*dir*/,
-                                                   FileDialogType fileTypes,
+                                                   FileDialogType file_types,
                                                    const Glib::ustring &title) :
-    FileDialogOCALBase(title, parentWindow)
+    FileDialogOCALBase(title, parent_window)
 {
     // Initalize to Autodetect
     extension = NULL;
     // No filename to start out with
-    Glib::ustring searchTag = "";
+    Glib::ustring search_keywords = "";
 
-    dialogType = fileTypes;
+    dialogType = file_types;
 
     // Creation
     Gtk::VBox *vbox = get_vbox();
-    notFoundLabel = new Gtk::Label(_("No files matched your search"));
-    descriptionLabel = new Gtk::Label();
-    searchTagEntry = new Gtk::Entry();
-    searchButton = new Gtk::Button(_("Search"));
-    Gtk::HButtonBox* searchButtonBox = new Gtk::HButtonBox();
-    filesPreview = new SVGPreview();
+    label_not_found = new Gtk::Label(_("No files matched your search"));
+    label_description = new Gtk::Label();
+    entry_search = new Gtk::Entry();
+    button_search = new Gtk::Button(_("Search"));
+    Gtk::HButtonBox* hbuttonbox_search = new Gtk::HButtonBox();
+    preview_files = new SVGPreview();
     /// Add the buttons in the bottom of the dialog
     add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
-    okButton = add_button(Gtk::Stock::OPEN,   Gtk::RESPONSE_OK);
-    filesList = new FileListViewText(5, *filesPreview, *descriptionLabel, *okButton);
+    button_ok = add_button(Gtk::Stock::OPEN,   Gtk::RESPONSE_OK);
+    list_files = new FileListViewText(5, *preview_files, *label_description, *button_ok);
 
     // Properties
     set_border_width(12);
     set_default_size(480, 350);
     vbox->set_spacing(12);
-    descriptionLabel->set_max_width_chars(260);
-    descriptionLabel->set_size_request(500, -1);
-    descriptionLabel->set_single_line_mode(false);
-    descriptionLabel->set_line_wrap(true);
-    searchTagEntry->set_text(searchTag);
-    searchTagEntry->set_max_length(255);
-    tagBox.set_spacing(6);
-    filesPreview->showNoPreview();
-    set_default(*okButton);
-    filesList->set_sensitive(false);
+    label_description->set_max_width_chars(260);
+    label_description->set_size_request(500, -1);
+    label_description->set_single_line_mode(false);
+    label_description->set_line_wrap(true);
+    entry_search->set_text(search_keywords);
+    entry_search->set_max_length(255);
+    hbox_tags.set_spacing(6);
+    preview_files->showNoPreview();
+    set_default(*button_ok);
+    list_files->set_sensitive(false);
     /// Add the listview inside a ScrolledWindow
-    listScrolledWindow.add(*filesList);
+    scrolledwindow_list.add(*list_files);
     /// Only show the scrollbars when they are necessary
-    listScrolledWindow.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    filesList->set_column_title(0, _("Files found"));
-    listScrolledWindow.set_size_request(400, 180);
+    scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    list_files->set_column_title(0, _("Files found"));
 
-    filesList->get_column(1)->set_visible(false); // file url
-    filesList->get_column(2)->set_visible(false); // tmp file path
-    filesList->get_column(3)->set_visible(false); // author dir
-    filesList->get_column(4)->set_visible(false); // file description
+    list_files->get_column(1)->set_visible(false); // file url
+    list_files->get_column(2)->set_visible(false); // tmp file path
+    list_files->get_column(3)->set_visible(false); // author dir
+    list_files->get_column(4)->set_visible(false); // file description
 
-    filesBox.set_spacing(12);
-    notFoundLabel->hide();
+    hbox_files.set_spacing(12);
+    label_not_found->hide();
     
     // Packing
-    messageBox.pack_start(*notFoundLabel, false, false);
-    descriptionBox.pack_start(*descriptionLabel, false, false);
-    searchButtonBox->pack_start(*searchButton, false, false);
-    tagBox.pack_start(*searchTagEntry, true, true);
-    tagBox.pack_start(*searchButtonBox, false, false);
-    filesBox.pack_start(listScrolledWindow, true, true);
-    filesBox.pack_start(*filesPreview, true, true);
-    vbox->pack_start(tagBox, false, false);
-    vbox->pack_start(messageBox, false, false);
-    vbox->pack_start(filesBox, true, true);
-    vbox->pack_start(descriptionBox, false, false);
+    hbox_message.pack_start(*label_not_found, false, false);
+    hbox_description.pack_start(*label_description, false, false);
+    hbuttonbox_search->pack_start(*button_search, false, false);
+    hbox_tags.pack_start(*entry_search, true, true);
+    hbox_tags.pack_start(*hbuttonbox_search, false, false);
+    hbox_files.pack_start(scrolledwindow_list, true, true);
+    hbox_files.pack_start(*preview_files, true, true);
+    vbox->pack_start(hbox_tags, false, false);
+    vbox->pack_start(hbox_message, false, false);
+    vbox->pack_start(hbox_files, true, true);
+    vbox->pack_start(hbox_description, false, false);
 
     // Let's do some customization
-    searchTagEntry = NULL;
+    entry_search = NULL;
     Gtk::Container *cont = get_toplevel();
     std::vector<Gtk::Entry *> entries;
     findEntryWidgets(cont, entries);
@@ -628,13 +627,13 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     if (entries.size() >=1 )
     {
     //Catch when user hits [return] on the text field
-        searchTagEntry = entries[0];
-        searchTagEntry->signal_activate().connect(
-              sigc::mem_fun(*this, &FileImportFromOCALDialog::searchTagEntryChangedCallback));
+        entry_search = entries[0];
+        entry_search->signal_activate().connect(
+              sigc::mem_fun(*this, &FileImportFromOCALDialog::on_entry_search_changed));
     }
 
-    searchButton->signal_clicked().connect(
-            sigc::mem_fun(*this, &FileImportFromOCALDialog::searchTagEntryChangedCallback));
+    button_search->signal_clicked().connect(
+            sigc::mem_fun(*this, &FileImportFromOCALDialog::on_entry_search_changed));
 
     show_all_children();
 }
@@ -673,7 +672,7 @@ FileImportFromOCALDialog::show()
  * Get the file extension type that was selected by the user. Valid after an [OK]
  */
 Inkscape::Extension::Extension *
-FileImportFromOCALDialog::getSelectionType()
+FileImportFromOCALDialog::get_selection_type()
 {
     return extension;
 }
@@ -683,9 +682,9 @@ FileImportFromOCALDialog::getSelectionType()
  * Get the file name chosen by the user.   Valid after an [OK]
  */
 Glib::ustring
-FileImportFromOCALDialog::getFilename (void)
+FileImportFromOCALDialog::get_filename (void)
 {
-    return filesList->getFilename();
+    return list_files->get_filename();
 }
 
 
