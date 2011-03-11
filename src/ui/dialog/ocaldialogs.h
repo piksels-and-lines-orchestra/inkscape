@@ -329,13 +329,11 @@ private:
     Gtk::Label *label_not_found;
     Gtk::Label *label_description;
     Gtk::Button *button_search;
-    Gtk::Button *button_ok;
+    Gtk::Button *button_import;
 
     // Child widgets
     Gtk::HBox hbox_tags;
     Gtk::HBox hbox_files;
-    Gtk::HBox hbox_message;
-    Gtk::HBox hbox_description;
     Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 

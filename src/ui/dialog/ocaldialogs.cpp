@@ -437,7 +437,6 @@ void FileImportFromOCALDialog::on_entry_search_changed()
         return;
 
     label_not_found->hide();
-    label_description->set_text("");
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     Glib::ustring search_keywords = entry_search->get_text();
@@ -565,7 +564,7 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
 
     // Creation
     Gtk::VBox *vbox = get_vbox();
-    label_not_found = new Gtk::Label(_("No files matched your search"));
+    label_not_found = new Gtk::Label();
     label_description = new Gtk::Label();
     entry_search = new Gtk::Entry();
     button_search = new Gtk::Button(_("Search"));
@@ -573,30 +572,26 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
     preview_files = new SVGPreview();
     /// Add the buttons in the bottom of the dialog
     add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
-    button_ok = add_button(Gtk::Stock::OPEN,   Gtk::RESPONSE_OK);
-    list_files = new FileListViewText(5, *preview_files, *label_description, *button_ok);
+    button_import = add_button(_("Import"), Gtk::RESPONSE_OK);
+    list_files = new FileListViewText(5, *preview_files, *label_description, *button_import);
 
     // Properties
     set_border_width(12);
-    set_default_size(480, 350);
+    set_default_size(480, 320);
     vbox->set_spacing(12);
-    label_description->set_max_width_chars(260);
-    label_description->set_size_request(500, -1);
-    label_description->set_single_line_mode(false);
-    label_description->set_line_wrap(true);
     entry_search->set_text(search_keywords);
     entry_search->set_max_length(255);
     hbox_tags.set_spacing(6);
     preview_files->showNoPreview();
-    set_default(*button_ok);
+    set_default(*button_import);
     list_files->set_sensitive(false);
     /// Add the listview inside a ScrolledWindow
     scrolledwindow_list.add(*list_files);
     scrolledwindow_list.set_shadow_type(Gtk::SHADOW_IN);
     /// Only show the scrollbars when they are necessary
-    scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_ALWAYS);
+    scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
     list_files->set_column_title(0, _("Files found"));
-    scrolledwindow_list.set_size_request(400, 180);
+    scrolledwindow_list.set_size_request(310, 230);
 
     list_files->set_headers_visible(false);
     list_files->get_column(1)->set_visible(false); // file url
@@ -608,17 +603,13 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
     label_not_found->hide();
     
     // Packing
-    hbox_message.pack_start(*label_not_found, false, false);
-    hbox_description.pack_start(*label_description, false, false);
     hbuttonbox_search->pack_start(*button_search, false, false);
     hbox_tags.pack_start(*entry_search, true, true);
     hbox_tags.pack_start(*hbuttonbox_search, false, false);
     hbox_files.pack_start(scrolledwindow_list, true, true);
     hbox_files.pack_start(*preview_files, true, true);
     vbox->pack_start(hbox_tags, false, false);
-    vbox->pack_start(hbox_message, false, false);
     vbox->pack_start(hbox_files, true, true);
-    vbox->pack_start(hbox_description, false, false);
     
     // Signals
     entry_search = NULL;
