@@ -562,50 +562,55 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     Glib::ustring searchTag = "";
 
     dialogType = fileTypes;
-    
-    // Dialog
-    set_border_width(12);
-    set_default_size(480, 350);
-    // VBox
+
+    // Creation
     Gtk::VBox *vbox = get_vbox();
-    vbox->set_spacing(12);
     notFoundLabel = new Gtk::Label(_("No files matched your search"));
     descriptionLabel = new Gtk::Label();
+    searchTagEntry = new Gtk::Entry();
+    searchButton = new Gtk::Button(_("Search"));
+    Gtk::HButtonBox* searchButtonBox = new Gtk::HButtonBox();
+    filesPreview = new SVGPreview();
+    /// Add the buttons in the bottom of the dialog
+    add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
+    okButton = add_button(Gtk::Stock::OPEN,   Gtk::RESPONSE_OK);
+    filesList = new FileListViewText(5, *filesPreview, *descriptionLabel, *okButton);
+
+    // Properties
+    set_border_width(12);
+    set_default_size(480, 350);
+    vbox->set_spacing(12);
     descriptionLabel->set_max_width_chars(260);
     descriptionLabel->set_size_request(500, -1);
     descriptionLabel->set_single_line_mode(false);
     descriptionLabel->set_line_wrap(true);
-    messageBox.pack_start(*notFoundLabel, false, false);
-    descriptionBox.pack_start(*descriptionLabel, false, false);
-    searchTagEntry = new Gtk::Entry();
     searchTagEntry->set_text(searchTag);
     searchTagEntry->set_max_length(255);
-    searchButton = new Gtk::Button(_("Search"));
-    Gtk::HButtonBox* searchButtonBox = new Gtk::HButtonBox();
-    searchButtonBox->pack_start(*searchButton, false, false);
     tagBox.set_spacing(6);
-    tagBox.pack_start(*searchTagEntry, true, true);
-    tagBox.pack_start(*searchButtonBox, false, false);
-    filesPreview = new SVGPreview();
     filesPreview->showNoPreview();
-    // add the buttons in the bottom of the dialog
-    add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
-    okButton = add_button(Gtk::Stock::OPEN,   Gtk::RESPONSE_OK);
-    // sets the okbutton to default
     set_default(*okButton);
-    filesList = new FileListViewText(5, *filesPreview, *descriptionLabel, *okButton);
     filesList->set_sensitive(false);
-    // add the listview inside a ScrolledWindow
+    /// Add the listview inside a ScrolledWindow
     listScrolledWindow.add(*filesList);
-    // only show the scrollbars when they are necessary:
+    /// Only show the scrollbars when they are necessary
     listScrolledWindow.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
     filesList->set_column_title(0, _("Files found"));
     listScrolledWindow.set_size_request(400, 180);
+
     filesList->get_column(1)->set_visible(false); // file url
     filesList->get_column(2)->set_visible(false); // tmp file path
     filesList->get_column(3)->set_visible(false); // author dir
     filesList->get_column(4)->set_visible(false); // file description
+
     filesBox.set_spacing(12);
+    notFoundLabel->hide();
+    
+    // Packing
+    messageBox.pack_start(*notFoundLabel, false, false);
+    descriptionBox.pack_start(*descriptionLabel, false, false);
+    searchButtonBox->pack_start(*searchButton, false, false);
+    tagBox.pack_start(*searchTagEntry, true, true);
+    tagBox.pack_start(*searchButtonBox, false, false);
     filesBox.pack_start(listScrolledWindow, true, true);
     filesBox.pack_start(*filesPreview, true, true);
     vbox->pack_start(tagBox, false, false);
@@ -613,11 +618,13 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     vbox->pack_start(filesBox, true, true);
     vbox->pack_start(descriptionBox, false, false);
 
-    //Let's do some customization
+    // Let's do some customization
     searchTagEntry = NULL;
     Gtk::Container *cont = get_toplevel();
     std::vector<Gtk::Entry *> entries;
     findEntryWidgets(cont, entries);
+    
+    // Signals
     if (entries.size() >=1 )
     {
     //Catch when user hits [return] on the text field
@@ -630,7 +637,6 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
             sigc::mem_fun(*this, &FileImportFromOCALDialog::searchTagEntryChangedCallback));
 
     show_all_children();
-    notFoundLabel->hide();
 }
 
 /**
