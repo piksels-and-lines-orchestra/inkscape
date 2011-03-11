@@ -562,8 +562,11 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     Glib::ustring searchTag = "";
 
     dialogType = fileTypes;
+    // Dialog
+    set_border_width(12);
+    set_default_size(480, 350);
+    //
     Gtk::VBox *vbox = get_vbox();
-    Gtk::Label *tagLabel = new Gtk::Label(_("Search for:"));
     notFoundLabel = new Gtk::Label(_("No files matched your search"));
     descriptionLabel = new Gtk::Label();
     descriptionLabel->set_max_width_chars(260);
@@ -576,9 +579,8 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parentWindow,
     searchTagEntry->set_text(searchTag);
     searchTagEntry->set_max_length(255);
     searchButton = new Gtk::Button(_("Search"));
-    tagBox.pack_start(*tagLabel);
     tagBox.pack_start(*searchTagEntry, Gtk::PACK_EXPAND_WIDGET, 3);
-    tagBox.pack_start(*searchButton);
+    tagBox.pack_start(*searchButton, false, false);
     filesPreview = new SVGPreview();
     filesPreview->showNoPreview();
     // add the buttons in the bottom of the dialog
