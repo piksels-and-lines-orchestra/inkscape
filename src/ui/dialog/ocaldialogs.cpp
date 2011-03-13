@@ -430,6 +430,86 @@ Glib::ustring SearchResultList::get_filename()
     return myFilename;
 }
 
+/**
+ * Prints the names of the all the xml elements
+ * that are siblings or children of a given xml node
+ */
+void SearchResultList::populate_from_xml(xmlNode * a_node)
+{
+    xmlNode *cur_node = NULL;
+    guint row_num = 0;
+    
+    for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
+        // Get items information
+        if (strcmp((const char*)cur_node->name, "rss")) // Avoid the root
+            if (cur_node->type == XML_ELEMENT_NODE && !strcmp((const char*)cur_node->parent->name, "item"))
+            {
+                if (!strcmp((const char*)cur_node->name, "title"))
+                {
+                    row_num = append_text("");
+                    xmlChar *xml_title = xmlNodeGetContent(cur_node);
+                    char* title = (char*) xml_title;
+                    
+                    set_text(row_num, RESULTS_COLUMN_TITLE, title);
+                    xmlFree(title);
+                }
+#ifdef WITH_GNOME_VFS
+                else if (!strcmp((const char*)cur_node->name, "pubDate"))
+                {
+                    xmlChar *xml_date = xmlNodeGetContent(cur_node);
+                    char* date = (char*) xml_date;
+                    
+                    set_text(row_num, RESULTS_COLUMN_DATE, date);
+                    xmlFree(xml_date);
+                }
+                else if (!strcmp((const char*)cur_node->name, "creator"))
+                {
+                    xmlChar *xml_creator = xmlNodeGetContent(cur_node);
+                    char* creator = (char*) xml_creator;
+                    
+                    set_text(row_num, RESULTS_COLUMN_CREATOR, creator);
+                    xmlFree(xml_creator);
+                }
+                else if (!strcmp((const char*)cur_node->name, "description"))
+                {
+                    xmlChar *xml_description = xmlNodeGetContent(cur_node);
+                    //char* final_description;
+                    char* stripped_description = g_strstrip((char*) xml_description);
+
+                    if (!strcmp(stripped_description, "")) {
+                        stripped_description = _("No description");
+                    }
+
+                    //GRegex* regex = g_regex_new(g_regex_escape_string(stripped_description, -1));
+                    //final_description = g_regex_replace_literal(regex, "\n", -1, 0, " ");
+
+                    set_text(row_num, RESULTS_COLUMN_DESCRIPTION, stripped_description);
+                    xmlFree(xml_description);
+                }
+                else if (!strcmp((const char*)cur_node->name, "enclosure"))
+                {
+                    xmlChar *xml_url = xmlGetProp(cur_node, (xmlChar*) "url");
+                    char* url = (char*) xml_url;
+                    char* filename = gnome_vfs_uri_extract_short_path_name(gnome_vfs_uri_new(url));
+
+                    set_text(row_num, RESULTS_COLUMN_URL, url);
+                    set_text(row_num, RESULTS_COLUMN_FILENAME, filename);
+                    xmlFree(xml_url);
+                }
+                else if (!strcmp((const char*)cur_node->name, "thumbnail"))
+                {
+                    xmlChar *xml_thumbnail_url = xmlGetProp(cur_node, (xmlChar*) "url");
+                    char* thumbnail_url = (char*) xml_thumbnail_url;
+
+                    set_text(row_num, RESULTS_COLUMN_THUMBNAIL_URL, thumbnail_url);
+                    xmlFree(xml_thumbnail_url);
+                }
+#endif
+            }
+        populate_from_xml(cur_node->children);
+    }
+}
+
 
 #ifdef WITH_GNOME_VFS
 /**
@@ -510,13 +590,13 @@ void ImportDialog::on_entry_search_changed()
     list_results->clear_items();
     list_results->set_sensitive(false);
 
-    // print all xml the element names
-    print_xml_element_names(root_element);
+    list_results->populate_from_xml(root_element);
 
     if (list_results->size() == 0) {
         label_not_found->show();
         list_results->set_sensitive(false);
     } else {
+        // Populate the MARKUP column with the title & description of the clipart
         for (guint i = 0; i <= list_results->size() - 1; i++) {
             Glib::ustring title = list_results->get_text(i, RESULTS_COLUMN_TITLE);
             Glib::ustring description = list_results->get_text(i, RESULTS_COLUMN_DESCRIPTION);
@@ -533,87 +613,6 @@ void ImportDialog::on_entry_search_changed()
     xmlCleanupParser();
     return;
 #endif
-}
-
-
-/**
- * Prints the names of the all the xml elements
- * that are siblings or children of a given xml node
- */
-void ImportDialog::print_xml_element_names(xmlNode * a_node)
-{
-    xmlNode *cur_node = NULL;
-    guint row_num = 0;
-    
-    for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
-        // Get items information
-        if (strcmp((const char*)cur_node->name, "rss")) // Avoid the root
-            if (cur_node->type == XML_ELEMENT_NODE && !strcmp((const char*)cur_node->parent->name, "item"))
-            {
-                if (!strcmp((const char*)cur_node->name, "title"))
-                {
-                    row_num = list_results->append_text("");
-                    xmlChar *xml_title = xmlNodeGetContent(cur_node);
-                    char* title = (char*) xml_title;
-                    
-                    list_results->set_text(row_num, RESULTS_COLUMN_TITLE, title);
-                    xmlFree(title);
-                }
-#ifdef WITH_GNOME_VFS
-                else if (!strcmp((const char*)cur_node->name, "pubDate"))
-                {
-                    xmlChar *xml_date = xmlNodeGetContent(cur_node);
-                    char* date = (char*) xml_date;
-                    
-                    list_results->set_text(row_num, RESULTS_COLUMN_DATE, date);
-                    xmlFree(xml_date);
-                }
-                else if (!strcmp((const char*)cur_node->name, "creator"))
-                {
-                    xmlChar *xml_creator = xmlNodeGetContent(cur_node);
-                    char* creator = (char*) xml_creator;
-                    
-                    list_results->set_text(row_num, RESULTS_COLUMN_CREATOR, creator);
-                    xmlFree(xml_creator);
-                }
-                else if (!strcmp((const char*)cur_node->name, "description"))
-                {
-                    xmlChar *xml_description = xmlNodeGetContent(cur_node);
-                    //char* final_description;
-                    char* stripped_description = g_strstrip((char*) xml_description);
-
-                    if (!strcmp(stripped_description, "")) {
-                        stripped_description = _("No description");
-                    }
-
-                    //GRegex* regex = g_regex_new(g_regex_escape_string(stripped_description, -1));
-                    //final_description = g_regex_replace_literal(regex, "\n", -1, 0, " ");
-
-                    list_results->set_text(row_num, RESULTS_COLUMN_DESCRIPTION, stripped_description);
-                    xmlFree(xml_description);
-                }
-                else if (!strcmp((const char*)cur_node->name, "enclosure"))
-                {
-                    xmlChar *xml_url = xmlGetProp(cur_node, (xmlChar*) "url");
-                    char* url = (char*) xml_url;
-                    char* filename = gnome_vfs_uri_extract_short_path_name(gnome_vfs_uri_new(url));
-
-                    list_results->set_text(row_num, RESULTS_COLUMN_URL, url);
-                    list_results->set_text(row_num, RESULTS_COLUMN_FILENAME, filename);
-                    xmlFree(xml_url);
-                }
-                else if (!strcmp((const char*)cur_node->name, "thumbnail"))
-                {
-                    xmlChar *xml_thumbnail_url = xmlGetProp(cur_node, (xmlChar*) "url");
-                    char* thumbnail_url = (char*) xml_thumbnail_url;
-
-                    list_results->set_text(row_num, RESULTS_COLUMN_THUMBNAIL_URL, thumbnail_url);
-                    xmlFree(xml_thumbnail_url);
-                }
-#endif
-            }
-        print_xml_element_names(cur_node->children);
-    }
 }
 
 /**

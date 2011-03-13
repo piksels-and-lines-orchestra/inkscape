@@ -278,6 +278,7 @@ public:
     SearchResultList(guint columns_count, SVGPreview& filesPreview,
         Gtk::Label& description, Gtk::Button& okButton);
     Glib::ustring get_filename();
+    void populate_from_xml(xmlNode* a_node);
 protected:
     void on_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
     void on_cursor_changed();
@@ -289,7 +290,7 @@ private:
 };
 
 /**
- * Our implementation class for the ImportDialog interface..
+ * The Import Dialog
  */
 class ImportDialog : public FileDialogBase
 {
@@ -300,10 +301,8 @@ public:
      * @param fileTypes one of FileDialogTypes
      * @param title the title of the dialog
      */
-    ImportDialog(Gtk::Window& parent_window,
-    		       const Glib::ustring &dir,
-                       FileDialogType file_types,
-                       const Glib::ustring &title);
+    ImportDialog(Gtk::Window& parent_window, const Glib::ustring &dir,
+                 FileDialogType file_types, const Glib::ustring &title);
 
     /**
      * Destructor.
@@ -327,10 +326,6 @@ public:
     Glib::ustring get_filename();
 
 private:
-
-    /**
-     * Allow the user to type the tag to be searched
-     */
     Gtk::Entry *entry_search;
     SearchResultList *list_results;
     SVGPreview *preview_files;
@@ -345,16 +340,7 @@ private:
     Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 
-    /**
-     * Callback for user input into searchTagEntry
-     */
     void on_entry_search_changed();
-
-    /**
-     * Prints the names of the all the xml elements 
-     * that are siblings or children of a given xml node
-     */
-    void print_xml_element_names(xmlNode * a_node);
 
     /**
      * The extension to use to write this file
