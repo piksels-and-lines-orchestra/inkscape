@@ -281,10 +281,35 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview,
+    Gtk::Label& description, Gtk::Button& okButton) : ListViewText(columns_count)
+{
+    myPreview = &filesPreview;
+    myLabel = &description;
+    myButton = &okButton;
+
+    set_headers_visible(false);
+    set_column_title(RESULTS_COLUMN_MARKUP, _("Clipart found"));
+
+    Gtk::CellRenderer* cr_markup = get_column_cell_renderer(RESULTS_COLUMN_MARKUP);
+    cr_markup->set_property("ellipsize", Pango::ELLIPSIZE_END);
+    get_column(RESULTS_COLUMN_MARKUP)->clear_attributes(*cr_markup);
+    get_column(RESULTS_COLUMN_MARKUP)->add_attribute(*cr_markup,
+        "markup", RESULTS_COLUMN_MARKUP);
+
+    get_column(RESULTS_COLUMN_TITLE)->set_visible(false);
+    get_column(RESULTS_COLUMN_DESCRIPTION)->set_visible(false);
+    get_column(RESULTS_COLUMN_CREATOR)->set_visible(false);
+    get_column(RESULTS_COLUMN_DATE)->set_visible(false);
+    get_column(RESULTS_COLUMN_FILENAME)->set_visible(false);
+    get_column(RESULTS_COLUMN_URL)->set_visible(false);
+    get_column(RESULTS_COLUMN_THUMBNAIL_URL)->set_visible(false);
+}
+
 /*
  * Callback for cursor chage
  */
-void FileListViewText::on_cursor_changed()
+void SearchResultList::on_cursor_changed()
 {
     std::vector<Gtk::TreeModel::Path> pathlist;
     pathlist = this->get_selection()->get_selected_rows();
@@ -316,7 +341,7 @@ void FileListViewText::on_cursor_changed()
     // make sure we don't collide with other users on the same machine
     myFilename = tmpname;
     myFilename.append("-");
-    myFilename.append(get_text(posArray[0], 2));
+    myFilename.append(get_text(posArray[0], RESULTS_COLUMN_FILENAME));
     // rename based on original image's name, retaining extension
     if (rename(tmpname.c_str(),myFilename.c_str())<0) {
         unlink(tmpname.c_str());
@@ -325,7 +350,7 @@ void FileListViewText::on_cursor_changed()
     }
 
     //get file url
-    fileUrl = get_text(posArray[0], 1); //http url
+    fileUrl = get_text(posArray[0], RESULTS_COLUMN_URL); //http url
 
     //Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     //Glib::ustring fileUrl = "dav://"; //dav url
@@ -377,7 +402,7 @@ void FileListViewText::on_cursor_changed()
         }
     }
     myPreview->showImage(myFilename);
-    myLabel->set_text(get_text(posArray[0], 4));
+    myLabel->set_text(get_text(posArray[0], RESULTS_COLUMN_TITLE));
 #endif
     return;
 fail:
@@ -390,7 +415,7 @@ failquit:
 /*
  * Callback for row activated
  */
-void FileListViewText::on_row_activated(const Gtk::TreeModel::Path& /*path*/, Gtk::TreeViewColumn* /*column*/)
+void SearchResultList::on_row_activated(const Gtk::TreeModel::Path& /*path*/, Gtk::TreeViewColumn* /*column*/)
 {
     this->on_cursor_changed();
     myButton->activate();
@@ -400,7 +425,7 @@ void FileListViewText::on_row_activated(const Gtk::TreeModel::Path& /*path*/, Gt
 /*
  * Returns the selected filename
  */
-Glib::ustring FileListViewText::get_filename()
+Glib::ustring SearchResultList::get_filename()
 {
     return myFilename;
 }
@@ -481,18 +506,25 @@ void ImportDialog::on_entry_search_changed()
     // get the root element node
     root_element = xmlDocGetRootElement(doc);
 
-    // clear the list_files
-    list_files->clear_items();
-    list_files->set_sensitive(false);
+    // clear the list_results
+    list_results->clear_items();
+    list_results->set_sensitive(false);
 
     // print all xml the element names
     print_xml_element_names(root_element);
 
-    if (list_files->size() == 0) {
+    if (list_results->size() == 0) {
         label_not_found->show();
-        list_files->set_sensitive(false);
+        list_results->set_sensitive(false);
     } else {
-        list_files->set_sensitive(true);
+        for (guint i = 0; i <= list_results->size() - 1; i++) {
+            Glib::ustring title = list_results->get_text(i, RESULTS_COLUMN_TITLE);
+            Glib::ustring description = list_results->get_text(i, RESULTS_COLUMN_DESCRIPTION);
+            char* markup = g_markup_printf_escaped("<b>%s</b>\n%s",
+                title.c_str(), description.c_str());
+            list_results->set_text(i, RESULTS_COLUMN_MARKUP, markup);
+        }
+        list_results->set_sensitive(true);
     }
 
     // free the document
@@ -512,6 +544,7 @@ void ImportDialog::print_xml_element_names(xmlNode * a_node)
 {
     xmlNode *cur_node = NULL;
     guint row_num = 0;
+    
     for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
         // Get items information
         if (strcmp((const char*)cur_node->name, "rss")) // Avoid the root
@@ -519,27 +552,63 @@ void ImportDialog::print_xml_element_names(xmlNode * a_node)
             {
                 if (!strcmp((const char*)cur_node->name, "title"))
                 {
-                    xmlChar *title = xmlNodeGetContent(cur_node);
-                    row_num = list_files->append_text((const char*)title);
+                    row_num = list_results->append_text("");
+                    xmlChar *xml_title = xmlNodeGetContent(cur_node);
+                    char* title = (char*) xml_title;
+                    
+                    list_results->set_text(row_num, RESULTS_COLUMN_TITLE, title);
                     xmlFree(title);
                 }
 #ifdef WITH_GNOME_VFS
-                else if (!strcmp((const char*)cur_node->name, "enclosure"))
+                else if (!strcmp((const char*)cur_node->name, "pubDate"))
                 {
-                    xmlChar *urlattribute = xmlGetProp(cur_node, (xmlChar*)"url");
-                    list_files->set_text(row_num, 1, (const char*)urlattribute);
-                    gchar *tmp_file;
-                    tmp_file = gnome_vfs_uri_extract_short_path_name(gnome_vfs_uri_new((const char*)urlattribute));
-                    list_files->set_text(row_num, 2, (const char*)tmp_file);
-                    xmlFree(urlattribute);
+                    xmlChar *xml_date = xmlNodeGetContent(cur_node);
+                    char* date = (char*) xml_date;
+                    
+                    list_results->set_text(row_num, RESULTS_COLUMN_DATE, date);
+                    xmlFree(xml_date);
                 }
                 else if (!strcmp((const char*)cur_node->name, "creator"))
                 {
-                    list_files->set_text(row_num, 3, (const char*)xmlNodeGetContent(cur_node));
+                    xmlChar *xml_creator = xmlNodeGetContent(cur_node);
+                    char* creator = (char*) xml_creator;
+                    
+                    list_results->set_text(row_num, RESULTS_COLUMN_CREATOR, creator);
+                    xmlFree(xml_creator);
                 }
                 else if (!strcmp((const char*)cur_node->name, "description"))
                 {
-                    list_files->set_text(row_num, 4, (const char*)xmlNodeGetContent(cur_node));
+                    xmlChar *xml_description = xmlNodeGetContent(cur_node);
+                    //char* final_description;
+                    char* stripped_description = g_strstrip((char*) xml_description);
+
+                    if (!strcmp(stripped_description, "")) {
+                        stripped_description = _("No description");
+                    }
+
+                    //GRegex* regex = g_regex_new(g_regex_escape_string(stripped_description, -1));
+                    //final_description = g_regex_replace_literal(regex, "\n", -1, 0, " ");
+
+                    list_results->set_text(row_num, RESULTS_COLUMN_DESCRIPTION, stripped_description);
+                    xmlFree(xml_description);
+                }
+                else if (!strcmp((const char*)cur_node->name, "enclosure"))
+                {
+                    xmlChar *xml_url = xmlGetProp(cur_node, (xmlChar*) "url");
+                    char* url = (char*) xml_url;
+                    char* filename = gnome_vfs_uri_extract_short_path_name(gnome_vfs_uri_new(url));
+
+                    list_results->set_text(row_num, RESULTS_COLUMN_URL, url);
+                    list_results->set_text(row_num, RESULTS_COLUMN_FILENAME, filename);
+                    xmlFree(xml_url);
+                }
+                else if (!strcmp((const char*)cur_node->name, "thumbnail"))
+                {
+                    xmlChar *xml_thumbnail_url = xmlGetProp(cur_node, (xmlChar*) "url");
+                    char* thumbnail_url = (char*) xml_thumbnail_url;
+
+                    list_results->set_text(row_num, RESULTS_COLUMN_THUMBNAIL_URL, thumbnail_url);
+                    xmlFree(xml_thumbnail_url);
                 }
 #endif
             }
@@ -574,7 +643,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     /// Add the buttons in the bottom of the dialog
     add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
     button_import = add_button(_("Import"), Gtk::RESPONSE_OK);
-    list_files = new FileListViewText(5, *preview_files, *label_description, *button_import);
+    list_results = new SearchResultList(RESULTS_COLUMN_LENGTH,
+        *preview_files, *label_description, *button_import);
 
     // Properties
     set_border_width(12);
@@ -585,20 +655,13 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     hbox_tags.set_spacing(6);
     preview_files->showNoPreview();
     set_default(*button_import);
-    list_files->set_sensitive(false);
+    list_results->set_sensitive(false);
     /// Add the listview inside a ScrolledWindow
-    scrolledwindow_list.add(*list_files);
+    scrolledwindow_list.add(*list_results);
     scrolledwindow_list.set_shadow_type(Gtk::SHADOW_IN);
     /// Only show the scrollbars when they are necessary
     scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    list_files->set_column_title(0, _("Files found"));
     scrolledwindow_list.set_size_request(310, 230);
-
-    list_files->set_headers_visible(false);
-    list_files->get_column(1)->set_visible(false); // file url
-    list_files->get_column(2)->set_visible(false); // tmp file path
-    list_files->get_column(3)->set_visible(false); // author dir
-    list_files->get_column(4)->set_visible(false); // file description
 
     hbox_files.set_spacing(12);
     label_not_found->hide();
@@ -677,7 +740,7 @@ ImportDialog::get_selection_type()
 Glib::ustring
 ImportDialog::get_filename (void)
 {
-    return list_files->get_filename();
+    return list_results->get_filename();
 }
 
 

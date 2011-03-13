@@ -257,19 +257,26 @@ private:
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+enum {
+    RESULTS_COLUMN_MARKUP,
+    RESULTS_COLUMN_TITLE,
+    RESULTS_COLUMN_DESCRIPTION,
+    RESULTS_COLUMN_CREATOR,
+    RESULTS_COLUMN_DATE,
+    RESULTS_COLUMN_FILENAME,
+    RESULTS_COLUMN_URL,
+    RESULTS_COLUMN_THUMBNAIL_URL,
+    RESULTS_COLUMN_LENGTH,
+};
+
 /**
- * Our implementation class for filesListView
+ * The TreeView which holds the search results
  */
-class FileListViewText : public Gtk::ListViewText
+class SearchResultList : public Gtk::ListViewText
 {
 public:
-    FileListViewText(guint columns_count, SVGPreview& filesPreview, Gtk::Label& description, Gtk::Button& okButton)
-                :ListViewText(columns_count)
-    {
-        myPreview = &filesPreview;
-        myLabel = &description;
-        myButton = &okButton;
-    }
+    SearchResultList(guint columns_count, SVGPreview& filesPreview,
+        Gtk::Label& description, Gtk::Button& okButton);
     Glib::ustring get_filename();
 protected:
     void on_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
@@ -325,7 +332,7 @@ private:
      * Allow the user to type the tag to be searched
      */
     Gtk::Entry *entry_search;
-    FileListViewText *list_files;
+    SearchResultList *list_results;
     SVGPreview *preview_files;
     Gtk::Label *label_not_found;
     Gtk::Label *label_description;
