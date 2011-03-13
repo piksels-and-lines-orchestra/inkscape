@@ -33,6 +33,8 @@ namespace UI
 {
 namespace Dialog
 {
+namespace OCAL
+{
 
 //########################################################################
 //# F I L E    E X P O R T   T O   O C A L
@@ -42,7 +44,7 @@ namespace Dialog
  * Callback for fileNameEntry widget
  */
 /*
-void FileExportToOCALDialog::fileNameEntryChangedCallback()
+void ExportDialog::fileNameEntryChangedCallback()
 {
     if (!fileNameEntry)
         return;
@@ -59,10 +61,10 @@ void FileExportToOCALDialog::fileNameEntryChangedCallback()
  * Constructor
  */
 /*
-FileExportToOCALDialog::FileExportToOCALDialog(Gtk::Window &parentWindow,
+ExportDialog::ExportDialog(Gtk::Window &parentWindow,
             FileDialogType fileTypes,
             const Glib::ustring &title) :
-    FileDialogOCALBase(title, parentWindow)
+    FileDialogBase(title, parentWindow)
 {
 */
      /*
@@ -102,7 +104,7 @@ FileExportToOCALDialog::FileExportToOCALDialog(Gtk::Window &parentWindow,
         //Catch when user hits [return] on the text field
         fileNameEntry = entries[0];
         fileNameEntry->signal_activate().connect(
-             sigc::mem_fun(*this, &FileExportToOCALDialog::fileNameEntryChangedCallback) );
+             sigc::mem_fun(*this, &ExportDialog::fileNameEntryChangedCallback) );
         }
 
     add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
@@ -115,7 +117,7 @@ FileExportToOCALDialog::FileExportToOCALDialog(Gtk::Window &parentWindow,
  * Destructor
  */
 /*
-FileExportToOCALDialog::~FileExportToOCALDialog()
+ExportDialog::~ExportDialog()
 {
 }
 */
@@ -124,7 +126,7 @@ FileExportToOCALDialog::~FileExportToOCALDialog()
  */
 /*
 bool
-FileExportToOCALDialog::show()
+ExportDialog::show()
 {
     set_modal (TRUE);                      //Window
     sp_transientize((GtkWidget *)gobj());  //Make transient
@@ -146,7 +148,7 @@ FileExportToOCALDialog::show()
  */
 /*
 Glib::ustring
-FileExportToOCALDialog::get_filename()
+ExportDialog::get_filename()
 {
     myFilename = fileNameEntry->get_text();
     if (!Glib::get_charset()) //If we are not utf8
@@ -157,7 +159,7 @@ FileExportToOCALDialog::get_filename()
 
 
 void
-FileExportToOCALDialog::change_title(const Glib::ustring& title)
+ExportDialog::change_title(const Glib::ustring& title)
 {
     this->set_title(title);
 }
@@ -172,8 +174,8 @@ FileExportToOCALDialog::change_title(const Glib::ustring& title)
  * Constructor
  */
 /*
-FileExportToOCALPasswordDialog::FileExportToOCALPasswordDialog(Gtk::Window &parentWindow,
-                             const Glib::ustring &title) : FileDialogOCALBase(title, parentWindow)
+ExportPasswordDialog::ExportPasswordDialog(Gtk::Window &parentWindow,
+                             const Glib::ustring &title) : FileDialogBase(title, parentWindow)
 {
 */
     /*
@@ -220,7 +222,7 @@ FileExportToOCALPasswordDialog::FileExportToOCALPasswordDialog(Gtk::Window &pare
  * Destructor
  */
 /*
-FileExportToOCALPasswordDialog::~FileExportToOCALPasswordDialog()
+ExportPasswordDialog::~ExportPasswordDialog()
 {
 }
 */
@@ -229,7 +231,7 @@ FileExportToOCALPasswordDialog::~FileExportToOCALPasswordDialog()
  */
 /*
 bool
-FileExportToOCALPasswordDialog::show()
+ExportPasswordDialog::show()
 {
     set_modal (TRUE);                      //Window
     sp_transientize((GtkWidget *)gobj());  //Make transient
@@ -251,7 +253,7 @@ FileExportToOCALPasswordDialog::show()
  */
 /*
 Glib::ustring
-FileExportToOCALPasswordDialog::getUsername()
+ExportPasswordDialog::getUsername()
 {
     myUsername = usernameEntry->get_text();
     return myUsername;
@@ -262,14 +264,14 @@ FileExportToOCALPasswordDialog::getUsername()
  */
 /*
 Glib::ustring
-FileExportToOCALPasswordDialog::getPassword()
+ExportPasswordDialog::getPassword()
 {
     myPassword = passwordEntry->get_text();
     return myPassword;
 }
 
 void
-FileExportToOCALPasswordDialog::change_title(const Glib::ustring& title)
+ExportPasswordDialog::change_title(const Glib::ustring& title)
 {
     this->set_title(title);
 }
@@ -280,7 +282,7 @@ FileExportToOCALPasswordDialog::change_title(const Glib::ustring& title)
 //#########################################################################
 
 /*
- * Calalback for cursor chage
+ * Callback for cursor chage
  */
 void FileListViewText::on_cursor_changed()
 {
@@ -329,9 +331,9 @@ void FileListViewText::on_cursor_changed()
     //Glib::ustring fileUrl = "dav://"; //dav url
     //fileUrl.append(prefs->getString("/options/ocalurl/str"));
     //fileUrl.append("/dav.php/");
-    //fileUrl.append(get_text(posArray[0], 3)); //author dir
+    //fileUrl.append(row[results_columns.CREATOR]); //author dir
     //fileUrl.append("/");
-    //fileUrl.append(get_text(posArray[0], 2)); //filename
+    //fileUrl.append(row[results_columns.FILENAME]); //filename
 
     if (!Glib::get_charset()) //If we are not utf8
         fileUrl = Glib::filename_to_utf8(fileUrl);
@@ -431,7 +433,7 @@ static int vfs_read_callback (GnomeVFSHandle *handle, char* buf, int nb)
 /**
  * Callback for user input into entry_search
  */
-void FileImportFromOCALDialog::on_entry_search_changed()
+void ImportDialog::on_entry_search_changed()
 {
     if (!entry_search)
         return;
@@ -452,8 +454,8 @@ void FileImportFromOCALDialog::on_entry_search_changed()
 
     // open the rss feed
     gnome_vfs_init();
-    GnomeVFSHandle    *from_handle = NULL;
-    GnomeVFSResult    result;
+    GnomeVFSHandle *from_handle = NULL;
+    GnomeVFSResult result;
 
     result = gnome_vfs_open (&from_handle, uri.c_str(), GNOME_VFS_OPEN_READ);
     if (result != GNOME_VFS_OK) {
@@ -486,13 +488,12 @@ void FileImportFromOCALDialog::on_entry_search_changed()
     // print all xml the element names
     print_xml_element_names(root_element);
 
-    if (list_files->size() == 0)
-    {
+    if (list_files->size() == 0) {
         label_not_found->show();
         list_files->set_sensitive(false);
-    }
-    else
+    } else {
         list_files->set_sensitive(true);
+    }
 
     // free the document
     xmlFreeDoc(doc);
@@ -507,13 +508,13 @@ void FileImportFromOCALDialog::on_entry_search_changed()
  * Prints the names of the all the xml elements
  * that are siblings or children of a given xml node
  */
-void FileImportFromOCALDialog::print_xml_element_names(xmlNode * a_node)
+void ImportDialog::print_xml_element_names(xmlNode * a_node)
 {
     xmlNode *cur_node = NULL;
     guint row_num = 0;
     for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
-        // get itens information
-        if (strcmp((const char*)cur_node->name, "rss")) //avoid the root
+        // Get items information
+        if (strcmp((const char*)cur_node->name, "rss")) // Avoid the root
             if (cur_node->type == XML_ELEMENT_NODE && !strcmp((const char*)cur_node->parent->name, "item"))
             {
                 if (!strcmp((const char*)cur_node->name, "title"))
@@ -549,11 +550,11 @@ void FileImportFromOCALDialog::print_xml_element_names(xmlNode * a_node)
 /**
  * Constructor.  Not called directly.  Use the factory.
  */
-FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
+ImportDialog::ImportDialog(Gtk::Window& parent_window,
                                                    const Glib::ustring &/*dir*/,
                                                    FileDialogType file_types,
                                                    const Glib::ustring &title) :
-    FileDialogOCALBase(title, parent_window)
+    FileDialogBase(title, parent_window)
 {
     // Initalize to Autodetect
     extension = NULL;
@@ -621,11 +622,11 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
     /// Catch when user hits [return] on the text field
         entry_search = entries[0];
         entry_search->signal_activate().connect(
-              sigc::mem_fun(*this, &FileImportFromOCALDialog::on_entry_search_changed));
+              sigc::mem_fun(*this, &ImportDialog::on_entry_search_changed));
     }
 
     button_search->signal_clicked().connect(
-            sigc::mem_fun(*this, &FileImportFromOCALDialog::on_entry_search_changed));
+            sigc::mem_fun(*this, &ImportDialog::on_entry_search_changed));
 
     show_all_children();
 }
@@ -633,7 +634,7 @@ FileImportFromOCALDialog::FileImportFromOCALDialog(Gtk::Window& parent_window,
 /**
  * Destructor
  */
-FileImportFromOCALDialog::~FileImportFromOCALDialog()
+ImportDialog::~ImportDialog()
 {
 
 }
@@ -642,7 +643,7 @@ FileImportFromOCALDialog::~FileImportFromOCALDialog()
  * Show this dialog modally.  Return true if user hits [OK]
  */
 bool
-FileImportFromOCALDialog::show()
+ImportDialog::show()
 {
     set_modal (TRUE);                      //Window
     sp_transientize((GtkWidget *)gobj());  //Make transient
@@ -664,7 +665,7 @@ FileImportFromOCALDialog::show()
  * Get the file extension type that was selected by the user. Valid after an [OK]
  */
 Inkscape::Extension::Extension *
-FileImportFromOCALDialog::get_selection_type()
+ImportDialog::get_selection_type()
 {
     return extension;
 }
@@ -674,17 +675,16 @@ FileImportFromOCALDialog::get_selection_type()
  * Get the file name chosen by the user.   Valid after an [OK]
  */
 Glib::ustring
-FileImportFromOCALDialog::get_filename (void)
+ImportDialog::get_filename (void)
 {
     return list_files->get_filename();
 }
 
 
+} //namespace OCAL
 } //namespace Dialog
 } //namespace UI
 } //namespace Inkscape
-
-
 
 /*
   Local Variables:

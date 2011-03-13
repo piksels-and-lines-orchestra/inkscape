@@ -1328,8 +1328,8 @@ sp_file_export_to_ocal_dialog(Gtk::Window &parentWindow)
         export_path = export_path_local;
 
     // Show the Export To OCAL dialog
-    Inkscape::UI::Dialog::FileExportToOCALDialog *exportDialogInstance =
-        new Inkscape::UI::Dialog::FileExportToOCALDialog(
+    Inkscape::UI::Dialog::OCAL:ExportDialog *exportDialogInstance =
+        new Inkscape::UI::Dialog::OCAL:ExportDialog
                 parentWindow,
                 Inkscape::UI::Dialog::EXPORT_TYPES,
                 (char const *) _("Select file to export to")
@@ -1452,11 +1452,11 @@ sp_file_import_from_ocal(Gtk::Window &parent_window)
     if (!doc)
         return;
 
-    Inkscape::UI::Dialog::FileImportFromOCALDialog *import_dialog = NULL;
+    Inkscape::UI::Dialog::OCAL::ImportDialog *import_dialog = NULL;
 
     if (!import_dialog) {
         import_dialog = new
-             Inkscape::UI::Dialog::FileImportFromOCALDialog(
+             Inkscape::UI::Dialog::OCAL::ImportDialog(
                  parent_window,
                  import_path,
                  Inkscape::UI::Dialog::IMPORT_TYPES,

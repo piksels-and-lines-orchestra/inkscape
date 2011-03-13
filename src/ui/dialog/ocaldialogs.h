@@ -61,7 +61,8 @@ namespace UI
 {   
 namespace Dialog
 {   
-    
+namespace OCAL
+{
 /*#########################################################################
 ### F I L E     D I A L O G    O C A L    B A S E    C L A S S
 #########################################################################*/
@@ -69,20 +70,20 @@ namespace Dialog
 /**
  * This class is the base implementation for export to OCAL.
  */
-class FileDialogOCALBase : public Gtk::Dialog
+class FileDialogBase : public Gtk::Dialog
 {
 public:
 
     /**
      * Constructor
      */
-    FileDialogOCALBase(const Glib::ustring &title, Gtk::Window& parent) : Gtk::Dialog(title, parent, true)
+    FileDialogBase(const Glib::ustring &title, Gtk::Window& parent) : Gtk::Dialog(title, parent, true)
     {}
 
     /*
      * Destructor
      */
-    virtual ~FileDialogOCALBase()
+    virtual ~FileDialogBase()
     {}
 
 protected:
@@ -103,10 +104,10 @@ protected:
 
 
 /**
- * Our implementation of the FileExportToOCALDialog interface.
+ * Our implementation of the ExportDialog interface.
  */
 /*
-class FileExportToOCALDialog : public FileDialogOCALBase
+class ExportDialog : public FileDialogBase
 {
 
 public:
@@ -118,7 +119,7 @@ public:
      * @param key a list of file types from which the user can select
      */
 /*
-    FileExportToOCALDialog(Gtk::Window& parentWindow, 
+    ExportDialog(Gtk::Window& parentWindow, 
                              FileDialogType fileTypes,
                  const Glib::ustring &title);
 */
@@ -127,7 +128,7 @@ public:
      * Perform any necessary cleanups.
      */
 /*
-    ~FileExportToOCALDialog();
+    ~ExportDialog();
 */
     /**
      * Show an SaveAs file selector.
@@ -183,7 +184,7 @@ private:
 /*
     std::set<Glib::ustring> knownExtensions;
 
-}; //FileExportToOCAL
+}; //ExportDialog
 */
 
 //########################################################################
@@ -192,10 +193,10 @@ private:
 
 
 /**
- * Our implementation of the FileExportToOCALPasswordDialog interface.
+ * Our implementation of the ExportPasswordDialog interface.
  */
 /*
-class FileExportToOCALPasswordDialog : public FileDialogOCALBase
+class ExportPasswordDialog : public FileDialogBase
 {
 
 public:
@@ -205,7 +206,7 @@ public:
      * @param title the title of the dialog
      */
 /*
-    FileExportToOCALPasswordDialog(Gtk::Window& parentWindow, 
+    ExportPasswordDialog(Gtk::Window& parentWindow, 
                                 const Glib::ustring &title);
 */
     /**
@@ -213,7 +214,7 @@ public:
      * Perform any necessary cleanups.
      */
 /*
-    ~FileExportToOCALPasswordDialog();
+    ~ExportPasswordDialog();
 */
 
     /**
@@ -248,7 +249,7 @@ private:
     Gtk::HBox userBox;
     Gtk::HBox passBox;
     
-}; //FileExportToOCALPassword
+}; //ExportPasswordDialog
 */
 
 
@@ -281,9 +282,9 @@ private:
 };
 
 /**
- * Our implementation class for the FileImportFromOCALDialog interface..
+ * Our implementation class for the ImportDialog interface..
  */
-class FileImportFromOCALDialog : public FileDialogOCALBase
+class ImportDialog : public FileDialogBase
 {
 public:
     /**
@@ -292,7 +293,7 @@ public:
      * @param fileTypes one of FileDialogTypes
      * @param title the title of the dialog
      */
-    FileImportFromOCALDialog(Gtk::Window& parent_window,
+    ImportDialog(Gtk::Window& parent_window,
     		       const Glib::ustring &dir,
                        FileDialogType file_types,
                        const Glib::ustring &title);
@@ -301,7 +302,7 @@ public:
      * Destructor.
      * Perform any necessary cleanups.
      */
-    ~FileImportFromOCALDialog();
+    ~ImportDialog();
 
     /**
      * Show an OpenFile file selector.
@@ -353,9 +354,10 @@ private:
      */
     Inkscape::Extension::Extension *extension;
 
-}; //FileImportFromOCALDialog
+}; //ImportDialog
 
 
+} //namespace OCAL
 } //namespace Dialog
 } //namespace UI
 } //namespace Inkscape
