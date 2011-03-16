@@ -4,6 +4,7 @@
 /* Authors:
  *   Bruno Dilly <bruno.dilly@gmail.com>
  *   Inkscape Guys
+ *   Andrew Higginson
  *
  * Copyright (C) 2007 Bruno Dilly <bruno.dilly@gmail.com>
  * Released under GNU GPL, read the file 'COPYING' for more information
@@ -257,6 +258,21 @@ private:
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+
+/**
+ * A box which paints an overlay of the OCAL logo
+ */
+class LogoDrawingArea : public Gtk::DrawingArea
+{
+public:
+    LogoDrawingArea();
+private:
+    bool _on_expose_event(GdkEventExpose* event);
+    void _on_style_set(const Glib::RefPtr<Gtk::Style>& previous_style);
+    Cairo::RefPtr<Cairo::ImageSurface> logo_mask;
+    Glib::RefPtr<Pango::Layout> layout;
+};
+
 enum {
     RESULTS_COLUMN_MARKUP,
     RESULTS_COLUMN_TITLE,
@@ -279,10 +295,9 @@ public:
         Gtk::Label& description, Gtk::Button& okButton);
     Glib::ustring get_filename();
     void populate_from_xml(xmlNode* a_node);
-protected:
+private:
     void on_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
     void on_cursor_changed();
-private:
     Glib::ustring myFilename;
     SVGPreview *myPreview;
     Gtk::Label *myLabel;
@@ -340,7 +355,7 @@ private:
     Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 
-    void on_entry_search_changed();
+    void on_entry_search_activated();
 
     /**
      * The extension to use to write this file

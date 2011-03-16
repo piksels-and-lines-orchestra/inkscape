@@ -4,6 +4,7 @@
 /* Authors:
  *   Bruno Dilly
  *   Other dudes from The Inkscape Organization
+ *   Andrew Higginson
  *
  * Copyright (C) 2007 Bruno Dilly <bruno.dilly@gmail.com>
  *
@@ -281,6 +282,62 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+LogoDrawingArea::LogoDrawingArea() : Gtk::DrawingArea()
+{
+    logo_mask = Cairo::ImageSurface::create_from_png("/home/andrew/Software/Launchpad/inkscape/ocal-dialog/share/icons/OCAL.png");
+    signal_expose_event().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_expose_event));
+    signal_style_changed().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_style_set));
+}
+
+void LogoDrawingArea::_on_style_set(const Glib::RefPtr<Gtk::Style>& previous_style)
+{
+    Gdk::Color color = get_style()->get_mid(get_state());
+    layout = this->create_pango_layout("");
+    Glib::ustring markup = Glib::ustring::compose("<span color=\"%1\" size=\"large\">%2</span>",
+        color.to_string(), _("powered by"));
+        
+    layout->set_markup(markup);
+}
+
+bool LogoDrawingArea::_on_expose_event(GdkEventExpose* event)
+{
+    Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
+
+    // Draw background and shadow
+    int width = get_allocation().get_width();
+    int height = get_allocation().get_height();
+    Gdk::Color background_fill = get_style()->get_base(get_state());
+
+    cr->rectangle(0, 0, width, height);
+    Gdk::Cairo::set_source_color(cr, background_fill);
+    cr->fill();
+
+    get_style()->paint_shadow(get_window(), get_state(), Gtk::SHADOW_IN,
+        Gdk::Rectangle(0, 0, width, height),
+        *this, Glib::ustring::ustring("viewport"), 0, 0, width, height);
+
+    // Draw logo
+    Gdk::Color logo_fill = get_style()->get_mid(get_state());
+    int x_logo = width - 12 - 127;
+    int y_logo = height - 12 - 44;
+
+    Gdk::Cairo::set_source_color(cr, logo_fill);
+    cr->mask(logo_mask, x_logo, y_logo);
+
+    // Draw text
+    Pango::Rectangle extents = layout->get_pixel_logical_extents();
+    int text_width = extents.get_width();
+    int text_height = extents.get_height();
+
+    int x_text = x_logo - text_width - 12;
+    int y_text = height - text_height - 12;
+        
+    get_style()->paint_layout(get_window(), get_state(), true,
+        Gdk::Rectangle(0, 0, width, height), *this, "", x_text, y_text, layout);
+    
+    return false;
+}
+
 SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview,
     Gtk::Label& description, Gtk::Button& okButton) : ListViewText(columns_count)
 {
@@ -538,7 +595,7 @@ static int vfs_read_callback (GnomeVFSHandle *handle, char* buf, int nb)
 /**
  * Callback for user input into entry_search
  */
-void ImportDialog::on_entry_search_changed()
+void ImportDialog::on_entry_search_activated()
 {
     if (!entry_search)
         return;
@@ -643,7 +700,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
     button_import = add_button(_("Import"), Gtk::RESPONSE_OK);
     list_results = new SearchResultList(RESULTS_COLUMN_LENGTH,
-        *preview_files, *label_description, *button_import);
+            *preview_files, *label_description, *button_import);
+    LogoDrawingArea *drawingarea_logo = new LogoDrawingArea();
 
     // Properties
     set_border_width(12);
@@ -661,6 +719,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     /// Only show the scrollbars when they are necessary
     scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
     scrolledwindow_list.set_size_request(310, 230);
+    drawingarea_logo->set_size_request(310, 230);
 
     hbox_files.set_spacing(12);
     label_not_found->hide();
@@ -669,7 +728,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     hbuttonbox_search->pack_start(*button_search, false, false);
     hbox_tags.pack_start(*entry_search, true, true);
     hbox_tags.pack_start(*hbuttonbox_search, false, false);
-    hbox_files.pack_start(scrolledwindow_list, true, true);
+    //hbox_files.pack_start(scrolledwindow_list, true, true);
+    hbox_files.pack_start(*drawingarea_logo, true, true);
     hbox_files.pack_start(*preview_files, true, true);
     vbox->pack_start(hbox_tags, false, false);
     vbox->pack_start(hbox_files, true, true);
@@ -684,11 +744,11 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     /// Catch when user hits [return] on the text field
         entry_search = entries[0];
         entry_search->signal_activate().connect(
-              sigc::mem_fun(*this, &ImportDialog::on_entry_search_changed));
+              sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
     }
 
     button_search->signal_clicked().connect(
-            sigc::mem_fun(*this, &ImportDialog::on_entry_search_changed));
+            sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
 
     show_all_children();
 }
