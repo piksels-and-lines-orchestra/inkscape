@@ -282,6 +282,79 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+SearchEntry::SearchEntry(Glib::ustring hint_string) : Gtk::Entry()
+{
+    signal_icon_press().connect(sigc::mem_fun(*this, &SearchEntry::_on_icon_pressed));
+    signal_focus_in_event().connect(sigc::mem_fun(*this, &SearchEntry::_on_focus_in_event));
+    signal_focus_out_event().connect(sigc::mem_fun(*this, &SearchEntry::_on_focus_out_event));
+
+    set_icon_from_stock(Gtk::Stock::FIND, Gtk::ENTRY_ICON_PRIMARY);
+    set_icon_from_stock(0, Gtk::ENTRY_ICON_SECONDARY);
+    
+    this->hint_string = hint_string;
+
+    normal_text_colour = get_style()->get_text(get_state());
+    hinted_text_colour = get_style()->get_text_aa(get_state());
+        
+    hint();
+}
+
+void SearchEntry::hint() {
+    set_text(hint_string);
+        
+    modify_text(get_state(), hinted_text_colour);
+
+    Pango::FontDescription* italic = new Pango::FontDescription("italic");
+    modify_font(*italic);
+}
+
+void SearchEntry::unhint() {
+    set_text("");
+        
+    modify_text(get_state(), normal_text_colour);
+
+    Pango::FontDescription* normal = new Pango::FontDescription("italic");
+    modify_font(*normal);
+}
+
+void SearchEntry::_on_icon_pressed(Gtk::EntryIconPosition icon_position,
+    const GdkEventButton* event)
+{
+    if (icon_position == Gtk::ENTRY_ICON_SECONDARY) {
+        grab_focus();
+        set_text("");
+    } else if (icon_position == Gtk::ENTRY_ICON_PRIMARY) {
+        select_region(0, -1);
+        grab_focus();
+    }
+}
+
+
+bool SearchEntry::_on_focus_in_event(GdkEventFocus* event)
+{
+    if (get_text() == hint_string) {
+        unhint();
+    }
+    return false;
+}
+
+bool SearchEntry::_on_focus_out_event(GdkEventFocus* event)
+{
+    if (get_text().empty()) {
+        unhint();
+    }
+    return false;
+}
+
+void SearchEntry::_on_changed()
+{
+    if ((get_text() == hint_string) | get_text().empty()) {
+        set_icon_from_stock(0, Gtk::ENTRY_ICON_SECONDARY);
+    } else {
+        set_icon_from_stock(Gtk::Stock::CLEAR, Gtk::ENTRY_ICON_SECONDARY);
+    }
+}
+
 LogoDrawingArea::LogoDrawingArea() : Gtk::DrawingArea()
 {
     logo_mask = Cairo::ImageSurface::create_from_png("/home/andrew/Software/Launchpad/inkscape/ocal-dialog/share/icons/OCAL.png");
@@ -294,7 +367,7 @@ void LogoDrawingArea::_on_style_set(const Glib::RefPtr<Gtk::Style>& previous_sty
     Gdk::Color color = get_style()->get_mid(get_state());
     layout = this->create_pango_layout("");
     Glib::ustring markup = Glib::ustring::compose("<span color=\"%1\" size=\"large\">%2</span>",
-        color.to_string(), _("powered by"));
+        color.to_string(), _("Powered by"));
         
     layout->set_markup(markup);
 }
@@ -316,7 +389,8 @@ bool LogoDrawingArea::_on_expose_event(GdkEventExpose* event)
         Gdk::Rectangle(0, 0, width, height),
         *this, Glib::ustring::ustring("viewport"), 0, 0, width, height);
 
-    // Draw logo
+    // Draw logo, we mask [read fill] it with the mid colour from the
+    // user's GTK theme
     Gdk::Color logo_fill = get_style()->get_mid(get_state());
     int x_logo = width - 12 - 127;
     int y_logo = height - 12 - 44;
@@ -692,7 +766,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     Gtk::VBox *vbox = get_vbox();
     label_not_found = new Gtk::Label();
     label_description = new Gtk::Label();
-    entry_search = new Gtk::Entry();
+    entry_search = new SearchEntry(_("Enter keywords here..."));
     button_search = new Gtk::Button(_("Search"));
     Gtk::HButtonBox* hbuttonbox_search = new Gtk::HButtonBox();
     preview_files = new SVGPreview();
@@ -707,7 +781,6 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     set_border_width(12);
     set_default_size(480, 320);
     vbox->set_spacing(12);
-    entry_search->set_text(search_keywords);
     entry_search->set_max_length(255);
     hbox_tags.set_spacing(6);
     preview_files->showNoPreview();
@@ -735,22 +808,14 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     vbox->pack_start(hbox_files, true, true);
     
     // Signals
-    entry_search = NULL;
-    Gtk::Container *cont = get_toplevel();
-    std::vector<Gtk::Entry *> entries;
-    findEntryWidgets(cont, entries);
-    
-    if (entries.size() >=1 ) {
-    /// Catch when user hits [return] on the text field
-        entry_search = entries[0];
-        entry_search->signal_activate().connect(
-              sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
-    }
+    entry_search->signal_activate().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
 
     button_search->signal_clicked().connect(
             sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
 
     show_all_children();
+    entry_search->grab_focus();
 }
 
 /**
