@@ -20,6 +20,7 @@
 #include <errno.h>  // errno
 #include <string.h> // strerror()
 
+#include "path-prefix.h"
 #include "ocaldialogs.h"
 #include "filedialogimpl-gtkmm.h"
 #include "interface.h"
@@ -313,7 +314,15 @@ void SearchEntry::_on_changed()
 
 LogoDrawingArea::LogoDrawingArea() : Gtk::DrawingArea()
 {
-    logo_mask = Cairo::ImageSurface::create_from_png("/home/andrew/Software/Launchpad/inkscape/ocal-dialog/share/icons/OCAL.png");
+    // Try to load the OCAL logo, but if the file is not found, degrade gracefully
+    try {
+        std::string logo_path = Glib::build_filename(INKSCAPE_PIXMAPDIR, "OCAL.png");
+        logo_mask = Cairo::ImageSurface::create_from_png(logo_path);
+        draw_logo = true;
+    } catch( Cairo::logic_error ) {
+        logo_mask = Cairo::ImageSurface::create(Cairo::FORMAT_ARGB32, 1,1);
+        draw_logo = false;
+    }
     signal_expose_event().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_expose_event));
     signal_style_changed().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_style_set));
 }
@@ -345,25 +354,27 @@ bool LogoDrawingArea::_on_expose_event(GdkEventExpose* event)
         Gdk::Rectangle(0, 0, width, height),
         *this, Glib::ustring::ustring("viewport"), 0, 0, width, height);
 
-    // Draw logo, we mask [read fill] it with the mid colour from the
-    // user's GTK theme
-    Gdk::Color logo_fill = get_style()->get_mid(get_state());
-    int x_logo = width - 12 - 127;
-    int y_logo = height - 12 - 44;
+    if (draw_logo) {
+        // Draw logo, we mask [read fill] it with the mid colour from the
+        // user's GTK theme
+        Gdk::Color logo_fill = get_style()->get_mid(get_state());
+        int x_logo = width - 12 - 127;
+        int y_logo = height - 12 - 44;
 
-    Gdk::Cairo::set_source_color(cr, logo_fill);
-    cr->mask(logo_mask, x_logo, y_logo);
+        Gdk::Cairo::set_source_color(cr, logo_fill);
+        cr->mask(logo_mask, x_logo, y_logo);
 
-    // Draw text
-    Pango::Rectangle extents = layout->get_pixel_logical_extents();
-    int text_width = extents.get_width();
-    int text_height = extents.get_height();
+        // Draw text
+        Pango::Rectangle extents = layout->get_pixel_logical_extents();
+        int text_width = extents.get_width();
+        int text_height = extents.get_height();
 
-    int x_text = x_logo - text_width - 12;
-    int y_text = height - text_height - 12;
-        
-    get_style()->paint_layout(get_window(), get_state(), true,
-        Gdk::Rectangle(0, 0, width, height), *this, "", x_text, y_text, layout);
+        int x_text = x_logo - text_width - 12;
+        int y_text = height - text_height - 12;
+            
+        get_style()->paint_layout(get_window(), get_state(), true,
+            Gdk::Rectangle(0, 0, width, height), *this, "", x_text, y_text, layout);
+    }
     
     return false;
 }

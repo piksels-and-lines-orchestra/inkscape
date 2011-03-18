@@ -282,6 +282,7 @@ public:
 private:
     bool _on_expose_event(GdkEventExpose* event);
     void _on_style_set(const Glib::RefPtr<Gtk::Style>& previous_style);
+    bool draw_logo;
     Cairo::RefPtr<Cairo::ImageSurface> logo_mask;
     Glib::RefPtr<Pango::Layout> layout;
 };
