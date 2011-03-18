@@ -260,26 +260,16 @@ private:
 
 
 /**
- * A Gtk::Entry with a grey hint text in it, and search & clear icons
+ * A Gtk::Entry with search & clear icons
  */
 class SearchEntry : public Gtk::Entry
 {
 public:
-    SearchEntry(Glib::ustring hint_string);
+    SearchEntry();
     
 private:
     void _on_icon_pressed(Gtk::EntryIconPosition icon_position, const GdkEventButton* event);
     void _on_changed();
-    bool _on_focus_in_event(GdkEventFocus* event);
-    bool _on_focus_out_event(GdkEventFocus* event);
-
-    void hint();
-    void unhint();
-
-    Gdk::Color hinted_text_colour;
-    Gdk::Color normal_text_colour;
-    Glib::ustring hint_string;
-    
 };
 
 /**
@@ -306,6 +296,12 @@ enum {
     RESULTS_COLUMN_URL,
     RESULTS_COLUMN_THUMBNAIL_URL,
     RESULTS_COLUMN_LENGTH,
+};
+
+enum {
+    NOTEBOOK_PAGE_LOGO,
+    NOTEBOOK_PAGE_RESULTS,
+    NOTEBOOK_PAGE_NOT_FOUND,
 };
 
 /**
@@ -365,6 +361,7 @@ public:
 
 private:
     SearchEntry *entry_search;
+    LogoDrawingArea *drawingarea_logo;
     SearchResultList *list_results;
     SVGPreview *preview_files;
     Gtk::Label *label_not_found;
@@ -373,6 +370,7 @@ private:
     Gtk::Button *button_import;
 
     // Child widgets
+    Gtk::Notebook *notebook_content;
     Gtk::HBox hbox_tags;
     Gtk::HBox hbox_files;
     Gtk::ScrolledWindow scrolledwindow_list;

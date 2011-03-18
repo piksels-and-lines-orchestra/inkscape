@@ -282,43 +282,16 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
-SearchEntry::SearchEntry(Glib::ustring hint_string) : Gtk::Entry()
+SearchEntry::SearchEntry() : Gtk::Entry()
 {
+    signal_changed().connect(sigc::mem_fun(*this, &SearchEntry::_on_changed));
     signal_icon_press().connect(sigc::mem_fun(*this, &SearchEntry::_on_icon_pressed));
-    signal_focus_in_event().connect(sigc::mem_fun(*this, &SearchEntry::_on_focus_in_event));
-    signal_focus_out_event().connect(sigc::mem_fun(*this, &SearchEntry::_on_focus_out_event));
 
     set_icon_from_stock(Gtk::Stock::FIND, Gtk::ENTRY_ICON_PRIMARY);
-    set_icon_from_stock(0, Gtk::ENTRY_ICON_SECONDARY);
-    
-    this->hint_string = hint_string;
-
-    normal_text_colour = get_style()->get_text(get_state());
-    hinted_text_colour = get_style()->get_text_aa(get_state());
-        
-    hint();
+    gtk_entry_set_icon_from_stock(gobj(), GTK_ENTRY_ICON_SECONDARY, NULL);
 }
 
-void SearchEntry::hint() {
-    set_text(hint_string);
-        
-    modify_text(get_state(), hinted_text_colour);
-
-    Pango::FontDescription* italic = new Pango::FontDescription("italic");
-    modify_font(*italic);
-}
-
-void SearchEntry::unhint() {
-    set_text("");
-        
-    modify_text(get_state(), normal_text_colour);
-
-    Pango::FontDescription* normal = new Pango::FontDescription("italic");
-    modify_font(*normal);
-}
-
-void SearchEntry::_on_icon_pressed(Gtk::EntryIconPosition icon_position,
-    const GdkEventButton* event)
+void SearchEntry::_on_icon_pressed(Gtk::EntryIconPosition icon_position, const GdkEventButton* event)
 {
     if (icon_position == Gtk::ENTRY_ICON_SECONDARY) {
         grab_focus();
@@ -329,27 +302,10 @@ void SearchEntry::_on_icon_pressed(Gtk::EntryIconPosition icon_position,
     }
 }
 
-
-bool SearchEntry::_on_focus_in_event(GdkEventFocus* event)
-{
-    if (get_text() == hint_string) {
-        unhint();
-    }
-    return false;
-}
-
-bool SearchEntry::_on_focus_out_event(GdkEventFocus* event)
-{
-    if (get_text().empty()) {
-        unhint();
-    }
-    return false;
-}
-
 void SearchEntry::_on_changed()
 {
-    if ((get_text() == hint_string) | get_text().empty()) {
-        set_icon_from_stock(0, Gtk::ENTRY_ICON_SECONDARY);
+    if (get_text().empty()) {
+        gtk_entry_set_icon_from_stock(gobj(), GTK_ENTRY_ICON_SECONDARY, NULL);
     } else {
         set_icon_from_stock(Gtk::Stock::CLEAR, Gtk::ENTRY_ICON_SECONDARY);
     }
@@ -671,10 +627,8 @@ static int vfs_read_callback (GnomeVFSHandle *handle, char* buf, int nb)
  */
 void ImportDialog::on_entry_search_activated()
 {
-    if (!entry_search)
-        return;
+    notebook_content->set_current_page(NOTEBOOK_PAGE_LOGO);
 
-    label_not_found->hide();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     Glib::ustring search_keywords = entry_search->get_text();
@@ -719,23 +673,21 @@ void ImportDialog::on_entry_search_activated()
 
     // clear the list_results
     list_results->clear_items();
-    list_results->set_sensitive(false);
 
     list_results->populate_from_xml(root_element);
 
     if (list_results->size() == 0) {
-        label_not_found->show();
-        list_results->set_sensitive(false);
+        notebook_content->set_current_page(NOTEBOOK_PAGE_NOT_FOUND);
     } else {
         // Populate the MARKUP column with the title & description of the clipart
         for (guint i = 0; i <= list_results->size() - 1; i++) {
             Glib::ustring title = list_results->get_text(i, RESULTS_COLUMN_TITLE);
             Glib::ustring description = list_results->get_text(i, RESULTS_COLUMN_DESCRIPTION);
-            char* markup = g_markup_printf_escaped("<b>%s</b>\n%s",
+            char* markup = g_markup_printf_escaped("<b>%s</b>\n<span size=\"small\">%s</span>",
                 title.c_str(), description.c_str());
             list_results->set_text(i, RESULTS_COLUMN_MARKUP, markup);
         }
-        list_results->set_sensitive(true);
+        notebook_content->set_current_page(NOTEBOOK_PAGE_RESULTS);
     }
 
     // free the document
@@ -766,7 +718,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     Gtk::VBox *vbox = get_vbox();
     label_not_found = new Gtk::Label();
     label_description = new Gtk::Label();
-    entry_search = new SearchEntry(_("Enter keywords here..."));
+    entry_search = new SearchEntry();
     button_search = new Gtk::Button(_("Search"));
     Gtk::HButtonBox* hbuttonbox_search = new Gtk::HButtonBox();
     preview_files = new SVGPreview();
@@ -775,7 +727,21 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     button_import = add_button(_("Import"), Gtk::RESPONSE_OK);
     list_results = new SearchResultList(RESULTS_COLUMN_LENGTH,
             *preview_files, *label_description, *button_import);
-    LogoDrawingArea *drawingarea_logo = new LogoDrawingArea();
+    drawingarea_logo = new LogoDrawingArea();
+    notebook_content = new Gtk::Notebook();
+    
+    // Packing
+    hbuttonbox_search->pack_start(*button_search, false, false);
+    hbox_tags.pack_start(*entry_search, true, true);
+    hbox_tags.pack_start(*hbuttonbox_search, false, false);
+    hbox_files.pack_start(*notebook_content, true, true);
+    hbox_files.pack_start(*preview_files, true, true);
+    vbox->pack_start(hbox_tags, false, false);
+    vbox->pack_start(hbox_files, true, true);
+
+    notebook_content->insert_page(*drawingarea_logo, NOTEBOOK_PAGE_LOGO);
+    notebook_content->insert_page(scrolledwindow_list, NOTEBOOK_PAGE_RESULTS);
+    notebook_content->insert_page(*label_not_found, NOTEBOOK_PAGE_NOT_FOUND);
 
     // Properties
     set_border_width(12);
@@ -785,7 +751,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     hbox_tags.set_spacing(6);
     preview_files->showNoPreview();
     set_default(*button_import);
-    list_results->set_sensitive(false);
+    notebook_content->set_current_page(NOTEBOOK_PAGE_LOGO);
     /// Add the listview inside a ScrolledWindow
     scrolledwindow_list.add(*list_results);
     scrolledwindow_list.set_shadow_type(Gtk::SHADOW_IN);
@@ -793,19 +759,9 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
     scrolledwindow_list.set_size_request(310, 230);
     drawingarea_logo->set_size_request(310, 230);
-
     hbox_files.set_spacing(12);
-    label_not_found->hide();
-    
-    // Packing
-    hbuttonbox_search->pack_start(*button_search, false, false);
-    hbox_tags.pack_start(*entry_search, true, true);
-    hbox_tags.pack_start(*hbuttonbox_search, false, false);
-    //hbox_files.pack_start(scrolledwindow_list, true, true);
-    hbox_files.pack_start(*drawingarea_logo, true, true);
-    hbox_files.pack_start(*preview_files, true, true);
-    vbox->pack_start(hbox_tags, false, false);
-    vbox->pack_start(hbox_files, true, true);
+    notebook_content->set_show_tabs(false);
+    notebook_content->set_show_border(false);
     
     // Signals
     entry_search->signal_activate().connect(
