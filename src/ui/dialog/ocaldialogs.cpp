@@ -509,7 +509,6 @@ failquit:
     myFilename = "";
 }
 
-
 /*
  * Callback for row activated
  */
@@ -518,7 +517,6 @@ void SearchResultList::on_row_activated(const Gtk::TreeModel::Path& /*path*/, Gt
     this->on_cursor_changed();
     myButton->activate();
 }
-
 
 /*
  * Returns the selected filename
@@ -551,7 +549,6 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
                     set_text(row_num, RESULTS_COLUMN_TITLE, title);
                     xmlFree(title);
                 }
-#ifdef WITH_GNOME_VFS
                 else if (!strcmp((const char*)cur_node->name, "pubDate"))
                 {
                     xmlChar *xml_date = xmlNodeGetContent(cur_node);
@@ -588,7 +585,7 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
                 {
                     xmlChar *xml_url = xmlGetProp(cur_node, (xmlChar*) "url");
                     char* url = (char*) xml_url;
-                    char* filename = gnome_vfs_uri_extract_short_path_name(gnome_vfs_uri_new(url));
+                    char* filename = g_path_get_basename(url);
 
                     set_text(row_num, RESULTS_COLUMN_URL, url);
                     set_text(row_num, RESULTS_COLUMN_FILENAME, filename);
@@ -602,7 +599,6 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
                     set_text(row_num, RESULTS_COLUMN_THUMBNAIL_URL, thumbnail_url);
                     xmlFree(xml_thumbnail_url);
                 }
-#endif
             }
         populate_from_xml(cur_node->children);
     }
@@ -643,39 +639,43 @@ void ImportDialog::on_entry_search_activated()
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     Glib::ustring search_keywords = entry_search->get_text();
-    // create the ocal uri to get rss feed
-    Glib::ustring uri = "http://";
-    uri.append(prefs->getString("/options/ocalurl/str"));
-    uri.append("/media/feed/rss/");
-    uri.append(search_keywords);
-    if (!Glib::get_charset()) //If we are not utf8
-        uri = Glib::filename_to_utf8(uri);
+    
+    // Create the URI to the OCAL RSS feed
+    xml_uri = Glib::ustring::compose("http://%1/media/feed/rss/%2",
+        prefs->getString("/options/ocalurl/str"), search_keywords);
+    // If we are not UTF8
+    if (!Glib::get_charset()) {
+        xml_uri = Glib::filename_to_utf8(xml_uri);
+    }
 
-#ifdef WITH_GNOME_VFS
+    // Open the rss feed
+    xml_file = Gio::File::create_for_uri(xml_uri);
+    xml_file->load_contents_async(sigc::mem_fun(*this, &ImportDialog::on_xml_file_read));
+}
 
-    // open the rss feed
-    gnome_vfs_init();
-    GnomeVFSHandle *from_handle = NULL;
-    GnomeVFSResult result;
-
-    result = gnome_vfs_open (&from_handle, uri.c_str(), GNOME_VFS_OPEN_READ);
-    if (result != GNOME_VFS_OK) {
+void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result)
+{
+    char* data;
+    gsize length;
+    
+    bool sucess = xml_file->load_contents_finish(result, data, length);
+    if (!sucess) {
         sp_ui_error_dialog(_("Failed to receive the Open Clip Art Library RSS feed. Verify if the server name is correct in Configuration->Import/Export (e.g.: openclipart.org)"));
         return;
     }
 
-    // create the resulting xml document tree
-    // this initialize the library and test mistakes between compiled and shared library used
+    // Create the resulting xml document tree
+    // Initialize libxml and test mistakes between compiled and shared library used
     LIBXML_TEST_VERSION
     xmlDoc *doc = NULL;
     xmlNode *root_element = NULL;
 
-    doc = xmlReadIO ((xmlInputReadCallback) vfs_read_callback,
-        (xmlInputCloseCallback) gnome_vfs_close, from_handle, uri.c_str(), NULL,
-        XML_PARSE_RECOVER + XML_PARSE_NOWARNING + XML_PARSE_NOERROR);
+    doc = xmlReadMemory(data, (int) length, xml_uri.c_str(), NULL,
+            XML_PARSE_RECOVER + XML_PARSE_NOWARNING + XML_PARSE_NOERROR);
+        
     if (doc == NULL) {
         sp_ui_error_dialog(_("Server supplied malformed Clip Art feed"));
-        g_warning("Failed to parse %s\n", uri.c_str());
+        g_warning("Failed to parse %s\n", xml_uri.c_str());
         return;
     }
 
@@ -705,8 +705,6 @@ void ImportDialog::on_entry_search_activated()
     xmlFreeDoc(doc);
     // free the global variables that may have been allocated by the parser
     xmlCleanupParser();
-    return;
-#endif
 }
 
 /**

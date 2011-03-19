@@ -377,7 +377,16 @@ private:
     Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 
+    // XML
+    Glib::RefPtr<Gio::File> xml_file;
+    Glib::RefPtr<Gio::FileInputStream> xml_stream;
+    Glib::ustring xml_uri;
+    char xml_buffer[8192];
+
     void on_entry_search_activated();
+    void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
+    void on_xml_stream_read(const Glib::RefPtr<Gio::AsyncResult>& result);
+
 
     /**
      * The extension to use to write this file
