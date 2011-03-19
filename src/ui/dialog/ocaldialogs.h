@@ -281,7 +281,7 @@ public:
     LogoDrawingArea();
 private:
     bool _on_expose_event(GdkEventExpose* event);
-    void _on_style_set(const Glib::RefPtr<Gtk::Style>& previous_style);
+    void _on_realize();
     bool draw_logo;
     Cairo::RefPtr<Cairo::ImageSurface> logo_mask;
     Glib::RefPtr<Pango::Layout> layout;
@@ -383,6 +383,7 @@ private:
     Glib::ustring xml_uri;
     char xml_buffer[8192];
 
+    void update_label_no_search_results();
     void on_entry_search_activated();
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
     void on_xml_stream_read(const Glib::RefPtr<Gio::AsyncResult>& result);

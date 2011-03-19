@@ -324,10 +324,10 @@ LogoDrawingArea::LogoDrawingArea() : Gtk::DrawingArea()
         draw_logo = false;
     }
     signal_expose_event().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_expose_event));
-    signal_style_changed().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_style_set));
+    signal_realize().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_realize));
 }
 
-void LogoDrawingArea::_on_style_set(const Glib::RefPtr<Gtk::Style>& previous_style)
+void LogoDrawingArea::_on_realize()
 {
     Gdk::Color color = get_style()->get_mid(get_state());
     layout = this->create_pango_layout("");
@@ -414,8 +414,6 @@ void SearchResultList::on_cursor_changed()
     std::vector<int> posArray(1);
     posArray = pathlist[0].get_indices();
 
-#ifdef WITH_GNOME_VFS
-    gnome_vfs_init();
     GnomeVFSHandle    *from_handle = NULL;
     GnomeVFSHandle    *to_handle = NULL;
     GnomeVFSFileSize  bytes_read;
@@ -426,8 +424,8 @@ void SearchResultList::on_cursor_changed()
 
     // FIXME: this would be better as a per-user OCAL cache of files
     // instead of filling /tmp with downloads.
-    //
-    // create file path
+
+    // Create file path
     const std::string tmptemplate = "ocal-";
     std::string tmpname;
     int fd = Inkscape::IO::file_open_tmp(tmpname, tmptemplate);
@@ -501,7 +499,6 @@ void SearchResultList::on_cursor_changed()
     }
     myPreview->showImage(myFilename);
     myLabel->set_text(get_text(posArray[0], RESULTS_COLUMN_TITLE));
-#endif
     return;
 fail:
     unlink(myFilename.c_str());
@@ -604,31 +601,6 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
     }
 }
 
-
-#ifdef WITH_GNOME_VFS
-/**
- * Read callback for xmlReadIO(), used below
- */
-static int vfs_read_callback (GnomeVFSHandle *handle, char* buf, int nb)
-{
-    GnomeVFSFileSize ndone;
-    GnomeVFSResult    result;
-
-    result = gnome_vfs_read (handle, buf, nb, &ndone);
-
-    if (result == GNOME_VFS_OK) {
-        return (int)ndone;
-    } else {
-        if (result != GNOME_VFS_ERROR_EOF) {
-            sp_ui_error_dialog(_("Error while reading the Open Clip Art RSS feed"));
-            g_warning("%s\n", gnome_vfs_result_to_string(result));
-        }
-        return -1;
-    }
-}
-#endif
-
-
 /**
  * Callback for user input into entry_search
  */
@@ -689,6 +661,7 @@ void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result
 
     if (list_results->size() == 0) {
         notebook_content->set_current_page(NOTEBOOK_PAGE_NOT_FOUND);
+        update_label_no_search_results();
     } else {
         // Populate the MARKUP column with the title & description of the clipart
         for (guint i = 0; i <= list_results->size() - 1; i++) {
@@ -705,6 +678,20 @@ void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result
     xmlFreeDoc(doc);
     // free the global variables that may have been allocated by the parser
     xmlCleanupParser();
+}
+
+
+void ImportDialog::update_label_no_search_results()
+{
+    const char* keywords = entry_search->get_text().c_str();
+    Gdk::Color grey = entry_search->get_style()->get_text_aa(entry_search->get_state());
+    
+    char* markup = g_markup_printf_escaped(
+        "<span size=\"large\">%s<b>%s</b>%s</span>\n<span color=\"%s\">%s</span>",
+        _("No clipart named "), keywords, _(" was found."), grey.to_string().c_str(),
+        _("Please make sure all keywords are spelled correctly, or try again with different keywords."));
+    
+    label_not_found->set_markup(markup);
 }
 
 /**
@@ -794,8 +781,7 @@ ImportDialog::~ImportDialog()
 /**
  * Show this dialog modally.  Return true if user hits [OK]
  */
-bool
-ImportDialog::show()
+bool ImportDialog::show()
 {
     set_modal (TRUE);                      //Window
     sp_transientize((GtkWidget *)gobj());  //Make transient
