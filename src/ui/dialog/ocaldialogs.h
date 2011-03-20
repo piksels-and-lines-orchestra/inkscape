@@ -315,13 +315,6 @@ public:
         Gtk::Label& description, Gtk::Button& okButton);
     Glib::ustring get_filename();
     void populate_from_xml(xmlNode* a_node);
-private:
-    void on_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
-    void on_cursor_changed();
-    Glib::ustring myFilename;
-    SVGPreview *myPreview;
-    Gtk::Label *myLabel;
-    Gtk::Button *myButton;
 };
 
 /**
@@ -361,6 +354,7 @@ public:
     Glib::ustring get_filename();
 
 private:
+    Glib::ustring myFilename;
     SearchEntry *entry_search;
     LogoDrawingArea *drawingarea_logo;
     SearchResultList *list_results;
@@ -383,10 +377,16 @@ private:
     Glib::ustring xml_uri;
     char xml_buffer[8192];
 
+    // File
+    Glib::RefPtr<Gio::File> file_local;
+    Glib::RefPtr<Gio::File> file_remote;
+
     void update_label_no_search_results();
+    void on_list_results_cursor_changed();
+    void on_list_results_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
     void on_entry_search_activated();
+    void on_file_copied(const Glib::RefPtr<Gio::AsyncResult>& result);
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
-    void on_xml_stream_read(const Glib::RefPtr<Gio::AsyncResult>& result);
 
 
     /**

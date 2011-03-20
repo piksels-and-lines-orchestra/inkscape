@@ -382,10 +382,6 @@ bool LogoDrawingArea::_on_expose_event(GdkEventExpose* event)
 SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview,
     Gtk::Label& description, Gtk::Button& okButton) : ListViewText(columns_count)
 {
-    myPreview = &filesPreview;
-    myLabel = &description;
-    myButton = &okButton;
-
     set_headers_visible(false);
     set_column_title(RESULTS_COLUMN_MARKUP, _("Clipart found"));
 
@@ -407,25 +403,21 @@ SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview
 /*
  * Callback for cursor chage
  */
-void SearchResultList::on_cursor_changed()
+void ImportDialog::on_list_results_cursor_changed()
 {
     std::vector<Gtk::TreeModel::Path> pathlist;
-    pathlist = this->get_selection()->get_selected_rows();
+    pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     posArray = pathlist[0].get_indices();
-
-    GnomeVFSHandle    *from_handle = NULL;
-    GnomeVFSHandle    *to_handle = NULL;
-    GnomeVFSFileSize  bytes_read;
-    GnomeVFSFileSize  bytes_written;
-    GnomeVFSResult    result;
-    guint8 buffer[8192];
-    Glib::ustring fileUrl;
 
     // FIXME: this would be better as a per-user OCAL cache of files
     // instead of filling /tmp with downloads.
 
-    // Create file path
+    // Get Remote File URL
+    Glib::ustring url = list_results->get_text(posArray[0], RESULTS_COLUMN_URL);
+    file_remote = Gio::File::create_for_uri(url.c_str());
+
+    // Create local file
     const std::string tmptemplate = "ocal-";
     std::string tmpname;
     int fd = Inkscape::IO::file_open_tmp(tmpname, tmptemplate);
@@ -437,90 +429,47 @@ void SearchResultList::on_cursor_changed()
     // make sure we don't collide with other users on the same machine
     myFilename = tmpname;
     myFilename.append("-");
-    myFilename.append(get_text(posArray[0], RESULTS_COLUMN_FILENAME));
+    myFilename.append(list_results->get_text(posArray[0], RESULTS_COLUMN_FILENAME));
     // rename based on original image's name, retaining extension
     if (rename(tmpname.c_str(),myFilename.c_str())<0) {
         unlink(tmpname.c_str());
         g_warning("Error creating destination file '%s': %s", myFilename.c_str(), strerror(errno));
-        goto failquit;
+    }
+    file_local = Gio::File::create_for_path(myFilename.c_str());
+
+    
+    //If we are not UTF8
+    if (!Glib::get_charset()) {
+        url = Glib::filename_to_utf8(url);
     }
 
-    //get file url
-    fileUrl = get_text(posArray[0], RESULTS_COLUMN_URL); //http url
-
-    //Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    //Glib::ustring fileUrl = "dav://"; //dav url
-    //fileUrl.append(prefs->getString("/options/ocalurl/str"));
-    //fileUrl.append("/dav.php/");
-    //fileUrl.append(row[results_columns.CREATOR]); //author dir
-    //fileUrl.append("/");
-    //fileUrl.append(row[results_columns.FILENAME]); //filename
-
-    if (!Glib::get_charset()) //If we are not utf8
-        fileUrl = Glib::filename_to_utf8(fileUrl);
-
-    {
-        // open the temp file to receive
-        result = gnome_vfs_open (&to_handle, myFilename.c_str(), GNOME_VFS_OPEN_WRITE);
-        if (result == GNOME_VFS_ERROR_NOT_FOUND){
-            result = gnome_vfs_create (&to_handle, myFilename.c_str(), GNOME_VFS_OPEN_WRITE, FALSE, GNOME_VFS_PERM_USER_ALL);
-        }
-        if (result != GNOME_VFS_OK) {
-            g_warning("Error creating temp file '%s': %s", myFilename.c_str(), gnome_vfs_result_to_string(result));
-            goto fail;
-        }
-        result = gnome_vfs_open (&from_handle, fileUrl.c_str(), GNOME_VFS_OPEN_READ);
-        if (result != GNOME_VFS_OK) {
-            g_warning("Could not find the file in Open Clip Art Library.");
-            goto fail;
-        }
-        // copy the file
-        while (1) {
-            result = gnome_vfs_read (from_handle, buffer, 8192, &bytes_read);
-            if ((result == GNOME_VFS_ERROR_EOF) &&(!bytes_read)){
-                result = gnome_vfs_close (from_handle);
-                result = gnome_vfs_close (to_handle);
-                break;
-            }
-            if (result != GNOME_VFS_OK) {
-                g_warning("%s", gnome_vfs_result_to_string(result));
-                goto fail;
-            }
-            result = gnome_vfs_write (to_handle, buffer, bytes_read, &bytes_written);
-            if (result != GNOME_VFS_OK) {
-                g_warning("%s", gnome_vfs_result_to_string(result));
-                goto fail;
-            }
-            if (bytes_read != bytes_written){
-                g_warning("Bytes read not equal to bytes written");
-                goto fail;
-            }
-        }
-    }
-    myPreview->showImage(myFilename);
-    myLabel->set_text(get_text(posArray[0], RESULTS_COLUMN_TITLE));
-    return;
-fail:
-    unlink(myFilename.c_str());
-failquit:
-    myFilename = "";
+    file_remote->copy_async(file_local, sigc::mem_fun(*this, &ImportDialog::on_file_copied),
+        Gio::FILE_COPY_OVERWRITE);
 }
 
 /*
  * Callback for row activated
  */
-void SearchResultList::on_row_activated(const Gtk::TreeModel::Path& /*path*/, Gtk::TreeViewColumn* /*column*/)
+void ImportDialog::on_file_copied(const Glib::RefPtr<Gio::AsyncResult>& result)
 {
-    this->on_cursor_changed();
-    myButton->activate();
+    bool success = file_remote->copy_finish(result);
+
+    if (success) {
+        preview_files->showImage(myFilename);
+        //update_label_no_search_results(list_results->get_text(posArray[0], RESULTS_COLUMN_TITLE));
+    } else {
+        myFilename = "";
+    }
 }
 
 /*
- * Returns the selected filename
+ * Callback for row activated
  */
-Glib::ustring SearchResultList::get_filename()
+void ImportDialog::on_list_results_row_activated(const Gtk::TreeModel::Path& path,
+    Gtk::TreeViewColumn* column)
 {
-    return myFilename;
+    on_list_results_cursor_changed();
+    button_import->activate();
 }
 
 /**
@@ -762,9 +711,12 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     // Signals
     entry_search->signal_activate().connect(
             sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
-
     button_search->signal_clicked().connect(
             sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
+    list_results->signal_cursor_changed().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_list_results_cursor_changed));
+    list_results->signal_row_activated().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_list_results_row_activated));
 
     show_all_children();
     entry_search->grab_focus();
@@ -815,7 +767,7 @@ ImportDialog::get_selection_type()
 Glib::ustring
 ImportDialog::get_filename (void)
 {
-    return list_results->get_filename();
+    return myFilename;
 }
 
 
