@@ -1441,8 +1441,19 @@ sp_file_export_to_ocal(Gtk::Window &parentWindow)
 ######################*/
 
 /**
- * Display an ImportToOcal Dialog, and the selected document from OCAL
+ * Display an ImportFromOcal Dialog, and the selected document from OCAL
  */
+void on_import_from_ocal_response(Glib::ustring filename,
+    Inkscape::UI::Dialog::OCAL::ImportDialog* import_dialog)
+{
+    SPDocument *doc = SP_ACTIVE_DOCUMENT;
+    
+    if (!filename.empty()) {
+        Inkscape::Extension::Extension *selection = import_dialog->get_selection_type();
+        file_import(doc, filename, selection);
+    }
+}
+
 void
 sp_file_import_from_ocal(Gtk::Window &parent_window)
 {
@@ -1452,7 +1463,7 @@ sp_file_import_from_ocal(Gtk::Window &parent_window)
     if (!doc)
         return;
 
-    Inkscape::UI::Dialog::OCAL::ImportDialog *import_dialog = NULL;
+    Inkscape::UI::Dialog::OCAL::ImportDialog* import_dialog = NULL;
 
     if (!import_dialog) {
         import_dialog = new
@@ -1463,36 +1474,13 @@ sp_file_import_from_ocal(Gtk::Window &parent_window)
                  (char const *)_("Import From Open Clip Art Library"));
     }
 
-    bool success = import_dialog->show();
-    if (!success) {
-        delete import_dialog;
-        return;
-    }
-
-    // Get file name and extension type
-    Glib::ustring file_name = import_dialog->get_filename();
-    Inkscape::Extension::Extension *selection = import_dialog->get_selection_type();
-
-    delete import_dialog;
-    import_dialog = NULL;
-
-    if (file_name.size() > 0) {
-
-        Glib::ustring new_file_name = Glib::filename_to_utf8(file_name);
-
-        if (new_file_name.size() > 0)
-            file_name = new_file_name;
-        else
-            g_warning( "ERROR CONVERTING OPEN FILENAME TO UTF-8" );
-
-        import_path = file_name;
-        if (import_path.size()>0)
-            import_path.append(G_DIR_SEPARATOR_S);
-
-        file_import(doc, file_name, selection);
-    }
-
-    return;
+    import_dialog->signal_response().connect(
+        sigc::bind<Inkscape::UI::Dialog::OCAL::ImportDialog*>(
+            sigc::ptr_fun(&on_import_from_ocal_response),
+        import_dialog)
+    );
+            
+    import_dialog->show_all();
 }
 
 /*######################

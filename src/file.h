@@ -19,6 +19,7 @@
 #include <glib/gslist.h>
 #include <gtk/gtkwidget.h>
 
+#include "ui/dialog/ocaldialogs.h"
 #include "extension/extension-forward.h"
 #include "extension/system.h"
 
@@ -163,6 +164,12 @@ bool sp_file_export_dialog (Gtk::Window &parentWindow);
 /*######################
 ## I M P O R T  F R O M  O C A L
 ######################*/
+
+/**
+ * Import a document from OCAL
+ */
+void on_import_from_ocal_response(Glib::ustring filename,
+    Inkscape::UI::Dialog::OCAL::ImportDialog* import_dialog);
 
 /**
  * Import a document from OCAL

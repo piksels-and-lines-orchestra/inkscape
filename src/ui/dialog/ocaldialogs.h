@@ -55,6 +55,7 @@
 //For export dialog
 #include "ui/widget/scalar-unit.h"
 
+#include <dialogs/dialog-events.h>
 
 namespace Inkscape
 {
@@ -71,15 +72,20 @@ namespace OCAL
 /**
  * This class is the base implementation for export to OCAL.
  */
-class FileDialogBase : public Gtk::Dialog
+class FileDialogBase : public Gtk::Window
 {
 public:
 
     /**
      * Constructor
      */
-    FileDialogBase(const Glib::ustring &title, Gtk::Window& parent) : Gtk::Dialog(title, parent, true)
-    {}
+    FileDialogBase(const Glib::ustring &title, Gtk::Window& parent) : Gtk::Window(Gtk::WINDOW_TOPLEVEL)
+    {
+        set_title(title);
+
+        //set_modal(TRUE);
+        //sp_transientize((GtkWidget*) gobj());
+    }
 
     /*
      * Destructor
@@ -260,6 +266,24 @@ private:
 
 
 /**
+ * A Widget that contains an status icon and a message
+ */
+class StatusWidget : public Gtk::HBox
+{
+public:
+    StatusWidget();
+
+    void clear();
+    void set_error(Glib::ustring text);
+    void start_process(Glib::ustring text);
+    void end_process();
+
+    Gtk::Spinner* spinner;
+    Gtk::Image* image;
+    Gtk::Label* label;
+};
+
+/**
  * A Gtk::Entry with search & clear icons
  */
 class SearchEntry : public Gtk::Entry
@@ -275,16 +299,27 @@ private:
 /**
  * A box which paints an overlay of the OCAL logo
  */
-class LogoDrawingArea : public Gtk::DrawingArea
+class LogoArea : public Gtk::EventBox
 {
 public:
-    LogoDrawingArea();
+    LogoArea();
 private:
     bool _on_expose_event(GdkEventExpose* event);
     void _on_realize();
     bool draw_logo;
     Cairo::RefPtr<Cairo::ImageSurface> logo_mask;
     Glib::RefPtr<Pango::Layout> layout;
+};
+
+/**
+ * A box filled with the Base colour from the user's GTK theme, and a border
+ */
+class BaseBox : public Gtk::EventBox
+{
+public:
+    BaseBox();
+private:
+    bool _on_expose_event(GdkEventExpose* event);
 };
 
 enum {
@@ -313,7 +348,6 @@ class SearchResultList : public Gtk::ListViewText
 public:
     SearchResultList(guint columns_count, SVGPreview& filesPreview,
         Gtk::Label& description, Gtk::Button& okButton);
-    Glib::ustring get_filename();
     void populate_from_xml(xmlNode* a_node);
 };
 
@@ -350,19 +384,26 @@ public:
      * be later freed with g_free(), else NULL.
      */
     Inkscape::Extension::Extension *get_selection_type();
-
-    Glib::ustring get_filename();
+    
+    typedef sigc::signal<void, Glib::ustring> type_signal_response;
+    type_signal_response signal_response();
+    
+protected:
+  type_signal_response m_signal_response;
 
 private:
-    Glib::ustring myFilename;
+    Glib::ustring filename_image;
+    Glib::ustring filename_thumbnail;
     SearchEntry *entry_search;
-    LogoDrawingArea *drawingarea_logo;
+    LogoArea *drawingarea_logo;
     SearchResultList *list_results;
     SVGPreview *preview_files;
     Gtk::Label *label_not_found;
     Gtk::Label *label_description;
     Gtk::Button *button_search;
     Gtk::Button *button_import;
+    Gtk::Button *button_cancel;
+    StatusWidget *widget_status;
 
     // Child widgets
     Gtk::Notebook *notebook_content;
@@ -380,12 +421,20 @@ private:
     // File
     Glib::RefPtr<Gio::File> file_local;
     Glib::RefPtr<Gio::File> file_remote;
+    Glib::RefPtr<Gio::File> file_thumbnail_local;
+    Glib::RefPtr<Gio::File> file_thumbnail_remote;
 
     void update_label_no_search_results();
+    void update_preview(int row);
     void on_list_results_cursor_changed();
+    void download_thumbnail_image(int row);
+    void on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result);
+    void download_image(int row);
+    void on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result);
     void on_list_results_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
+    void on_button_import_clicked();
+    void on_button_search_clicked();
     void on_entry_search_activated();
-    void on_file_copied(const Glib::RefPtr<Gio::AsyncResult>& result);
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
 
 

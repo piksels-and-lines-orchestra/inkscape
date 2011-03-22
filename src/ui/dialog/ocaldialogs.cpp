@@ -283,6 +283,55 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+StatusWidget::StatusWidget() : Gtk::HBox(false, 6)
+{
+    image = new Gtk::Image(Gtk::Stock::DIALOG_ERROR, Gtk::ICON_SIZE_MENU);
+    spinner = new Gtk::Spinner();
+    label = new Gtk::Label();
+
+    image->set_no_show_all(true);
+    spinner->set_no_show_all(true);
+    label->set_no_show_all(true);
+
+    pack_start(*image, false, false);
+    pack_start(*spinner, false, false);
+    pack_start(*label, false, false);
+}
+
+void StatusWidget::clear()
+{
+    spinner->hide();
+    image->hide();
+    label->hide();
+}
+
+void StatusWidget::set_error(Glib::ustring text)
+{
+    spinner->hide();
+    image->show();
+    label->show();
+    image->set(Gtk::Stock::DIALOG_ERROR,  Gtk::ICON_SIZE_MENU);
+    label->set_text(text);
+}
+
+void StatusWidget::start_process(Glib::ustring text)
+{
+    image->hide();
+    spinner->show();
+    label->show();
+    label->set_text(text);
+    spinner->start();
+    show_all();
+}
+
+void StatusWidget::end_process()
+{
+    spinner->stop();
+    spinner->hide();
+    label->hide();
+    clear();
+}
+
 SearchEntry::SearchEntry() : Gtk::Entry()
 {
     signal_changed().connect(sigc::mem_fun(*this, &SearchEntry::_on_changed));
@@ -312,7 +361,35 @@ void SearchEntry::_on_changed()
     }
 }
 
-LogoDrawingArea::LogoDrawingArea() : Gtk::DrawingArea()
+BaseBox::BaseBox() : Gtk::EventBox()
+{
+    signal_expose_event().connect(sigc::mem_fun(*this, &BaseBox::_on_expose_event), false);
+    set_visible_window(false);
+}
+
+bool BaseBox::_on_expose_event(GdkEventExpose* event)
+{
+    Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
+
+    // Draw background and shadow
+    int x = get_allocation().get_x();
+    int y = get_allocation().get_y();
+    int width = get_allocation().get_width();
+    int height = get_allocation().get_height();
+    Gdk::Color background_fill = get_style()->get_base(get_state());
+
+    cr->rectangle(x, y, width, height);
+    Gdk::Cairo::set_source_color(cr, background_fill);
+    cr->fill();
+
+    get_style()->paint_shadow(get_window(), get_state(), Gtk::SHADOW_IN,
+        Gdk::Rectangle(x, y, width, height),
+        *this, Glib::ustring::ustring("viewport"), x, y, width, height);
+
+    return false;
+}
+
+LogoArea::LogoArea() : Gtk::EventBox()
 {
     // Try to load the OCAL logo, but if the file is not found, degrade gracefully
     try {
@@ -323,11 +400,12 @@ LogoDrawingArea::LogoDrawingArea() : Gtk::DrawingArea()
         logo_mask = Cairo::ImageSurface::create(Cairo::FORMAT_ARGB32, 1,1);
         draw_logo = false;
     }
-    signal_expose_event().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_expose_event));
-    signal_realize().connect(sigc::mem_fun(*this, &LogoDrawingArea::_on_realize));
+    signal_expose_event().connect(sigc::mem_fun(*this, &LogoArea::_on_expose_event));
+    signal_realize().connect(sigc::mem_fun(*this, &LogoArea::_on_realize));
+    set_visible_window(false);
 }
 
-void LogoDrawingArea::_on_realize()
+void LogoArea::_on_realize()
 {
     Gdk::Color color = get_style()->get_mid(get_state());
     layout = this->create_pango_layout("");
@@ -337,29 +415,21 @@ void LogoDrawingArea::_on_realize()
     layout->set_markup(markup);
 }
 
-bool LogoDrawingArea::_on_expose_event(GdkEventExpose* event)
+bool LogoArea::_on_expose_event(GdkEventExpose* event)
 {
-    Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
-
-    // Draw background and shadow
-    int width = get_allocation().get_width();
-    int height = get_allocation().get_height();
-    Gdk::Color background_fill = get_style()->get_base(get_state());
-
-    cr->rectangle(0, 0, width, height);
-    Gdk::Cairo::set_source_color(cr, background_fill);
-    cr->fill();
-
-    get_style()->paint_shadow(get_window(), get_state(), Gtk::SHADOW_IN,
-        Gdk::Rectangle(0, 0, width, height),
-        *this, Glib::ustring::ustring("viewport"), 0, 0, width, height);
-
     if (draw_logo) {
+        int x = get_allocation().get_x();
+        int y = get_allocation().get_y();
+        int width = get_allocation().get_width();
+        int height = get_allocation().get_height();
+        
+        Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
+        
         // Draw logo, we mask [read fill] it with the mid colour from the
         // user's GTK theme
         Gdk::Color logo_fill = get_style()->get_mid(get_state());
-        int x_logo = width - 12 - 127;
-        int y_logo = height - 12 - 44;
+        int x_logo = x + width - 12 - 127;
+        int y_logo = y + height - 12 - 44;
 
         Gdk::Cairo::set_source_color(cr, logo_fill);
         cr->mask(logo_mask, x_logo, y_logo);
@@ -370,10 +440,10 @@ bool LogoDrawingArea::_on_expose_event(GdkEventExpose* event)
         int text_height = extents.get_height();
 
         int x_text = x_logo - text_width - 12;
-        int y_text = height - text_height - 12;
+        int y_text = y + height - text_height - 12;
             
         get_style()->paint_layout(get_window(), get_state(), true,
-            Gdk::Rectangle(0, 0, width, height), *this, "", x_text, y_text, layout);
+            Gdk::Rectangle(x, y, width, height), *this, "", x_text, y_text, layout);
     }
     
     return false;
@@ -400,6 +470,59 @@ SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview
     get_column(RESULTS_COLUMN_THUMBNAIL_URL)->set_visible(false);
 }
 
+
+void ImportDialog::on_button_import_clicked() {
+    std::vector<Gtk::TreeModel::Path> pathlist;
+    pathlist = list_results->get_selection()->get_selected_rows();
+    std::vector<int> posArray(1);
+    posArray = pathlist[0].get_indices();
+    int row = posArray[0];
+
+    download_image(row);
+}
+
+void ImportDialog::download_image(int row)
+{
+    // Get Remote File URL
+    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_URL);
+    file_remote = Gio::File::create_for_uri(url.c_str());
+
+    // Create local file
+    const std::string tmptemplate = "ocal-";
+    std::string tmpname;
+    int fd = Inkscape::IO::file_open_tmp(tmpname, tmptemplate);
+    if (fd < 0) {
+        widget_status->set_error(_("Could not create image file"));
+        return;
+    }
+    close(fd);
+    // make sure we don't collide with other users on the same machine
+    filename_image = tmpname;
+    filename_image.append("-");
+    filename_image.append(list_results->get_text(row, RESULTS_COLUMN_FILENAME));
+    // rename based on original image's name, retaining extension
+    if (rename(tmpname.c_str(), filename_image.c_str()) < 0) {
+        unlink(tmpname.c_str());
+        widget_status->set_error(_("Could not create image file"));
+    }
+    file_local = Gio::File::create_for_path(filename_image.c_str());
+
+    file_remote->copy_async(file_local, sigc::mem_fun(*this,
+        &ImportDialog::on_thumbnail_image_downloaded), Gio::FILE_COPY_OVERWRITE);
+}
+
+void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result)
+{
+    bool success = file_thumbnail_remote->copy_finish(result);
+
+    if (success) {
+        m_signal_response.emit(filename_image);
+    } else {
+        filename_image = "";
+    }
+}
+
+
 /*
  * Callback for cursor chage
  */
@@ -409,56 +532,66 @@ void ImportDialog::on_list_results_cursor_changed()
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     posArray = pathlist[0].get_indices();
+    int row = posArray[0];
 
     // FIXME: this would be better as a per-user OCAL cache of files
     // instead of filling /tmp with downloads.
 
+    update_preview(row);
+    download_thumbnail_image(row);
+
+
+}
+void ImportDialog::update_preview(int row)
+{
+    Glib::ustring title = list_results->get_text(row, RESULTS_COLUMN_TITLE);
+    Glib::ustring description = list_results->get_text(row, RESULTS_COLUMN_DESCRIPTION);
+    Glib::ustring creator = list_results->get_text(row, RESULTS_COLUMN_CREATOR);
+    Glib::ustring date = list_results->get_text(row, RESULTS_COLUMN_DATE);
+}
+
+void ImportDialog::download_thumbnail_image(int row)
+{
     // Get Remote File URL
-    Glib::ustring url = list_results->get_text(posArray[0], RESULTS_COLUMN_URL);
-    file_remote = Gio::File::create_for_uri(url.c_str());
+    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
+    file_thumbnail_remote = Gio::File::create_for_uri(url.c_str());
 
     // Create local file
     const std::string tmptemplate = "ocal-";
     std::string tmpname;
     int fd = Inkscape::IO::file_open_tmp(tmpname, tmptemplate);
-    if (fd<0) {
-        g_warning("Error creating temp file");
+    if (fd < 0) {
+        widget_status->set_error(_("Could not create thumbnail file"));
         return;
     }
     close(fd);
     // make sure we don't collide with other users on the same machine
-    myFilename = tmpname;
-    myFilename.append("-");
-    myFilename.append(list_results->get_text(posArray[0], RESULTS_COLUMN_FILENAME));
+    filename_thumbnail = tmpname;
+    filename_thumbnail.append("-");
+    filename_thumbnail.append(list_results->get_text(row, RESULTS_COLUMN_FILENAME));
     // rename based on original image's name, retaining extension
-    if (rename(tmpname.c_str(),myFilename.c_str())<0) {
+    if (rename(tmpname.c_str(), filename_thumbnail.c_str()) < 0) {
         unlink(tmpname.c_str());
-        g_warning("Error creating destination file '%s': %s", myFilename.c_str(), strerror(errno));
+        widget_status->set_error(_("Could not create thumbnail file"));
     }
-    file_local = Gio::File::create_for_path(myFilename.c_str());
+    file_thumbnail_local = Gio::File::create_for_path(filename_thumbnail.c_str());
 
-    
-    //If we are not UTF8
-    if (!Glib::get_charset()) {
-        url = Glib::filename_to_utf8(url);
-    }
-
-    file_remote->copy_async(file_local, sigc::mem_fun(*this, &ImportDialog::on_file_copied),
-        Gio::FILE_COPY_OVERWRITE);
+    file_thumbnail_remote->copy_async(file_thumbnail_local, sigc::mem_fun(*this,
+        &ImportDialog::on_thumbnail_image_downloaded), Gio::FILE_COPY_OVERWRITE);
 }
 
 /*
  * Callback for row activated
  */
-void ImportDialog::on_file_copied(const Glib::RefPtr<Gio::AsyncResult>& result)
+void ImportDialog::on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result)
 {
-    bool success = file_remote->copy_finish(result);
+    bool success = file_thumbnail_remote->copy_finish(result);
 
     if (success) {
-        preview_files->showImage(myFilename);
-        //update_label_no_search_results(list_results->get_text(posArray[0], RESULTS_COLUMN_TITLE));
+        preview_files->showImage(filename_thumbnail);
     } else {
-        myFilename = "";
+        widget_status->set_error(_("Could not download thumbnail file"));
+        filename_thumbnail = "";
     }
 }
 
@@ -469,7 +602,7 @@ void ImportDialog::on_list_results_row_activated(const Gtk::TreeModel::Path& pat
     Gtk::TreeViewColumn* column)
 {
     on_list_results_cursor_changed();
-    button_import->activate();
+    button_import->signal_clicked();
 }
 
 /**
@@ -553,8 +686,18 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
 /**
  * Callback for user input into entry_search
  */
+void ImportDialog::on_button_search_clicked()
+{
+    on_entry_search_activated();
+}
+
+/**
+ * Callback for user input into entry_search
+ */
 void ImportDialog::on_entry_search_activated()
 {
+    widget_status->start_process(_("Searching clipart..."));
+    
     notebook_content->set_current_page(NOTEBOOK_PAGE_LOGO);
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -576,12 +719,14 @@ void ImportDialog::on_entry_search_activated()
 
 void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result)
 {
+    widget_status->end_process();
+    
     char* data;
     gsize length;
     
     bool sucess = xml_file->load_contents_finish(result, data, length);
     if (!sucess) {
-        sp_ui_error_dialog(_("Failed to receive the Open Clip Art Library RSS feed. Verify if the server name is correct in Configuration->Import/Export (e.g.: openclipart.org)"));
+        widget_status->set_error(_("Could not connect to the Open Clip Art Library"));
         return;
     }
 
@@ -595,33 +740,32 @@ void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result
             XML_PARSE_RECOVER + XML_PARSE_NOWARNING + XML_PARSE_NOERROR);
         
     if (doc == NULL) {
-        sp_ui_error_dialog(_("Server supplied malformed Clip Art feed"));
-        g_warning("Failed to parse %s\n", xml_uri.c_str());
+        // If nothing is returned, no results could be found
+        if (length == 0) {
+            notebook_content->set_current_page(NOTEBOOK_PAGE_NOT_FOUND);
+            update_label_no_search_results();
+        } else {
+            widget_status->set_error(_("Could not parse search results"));
+        }
         return;
     }
 
-    // get the root element node
+    // Get the root element node
     root_element = xmlDocGetRootElement(doc);
 
-    // clear the list_results
+    // Clear and populate the list_results
     list_results->clear_items();
-
     list_results->populate_from_xml(root_element);
 
-    if (list_results->size() == 0) {
-        notebook_content->set_current_page(NOTEBOOK_PAGE_NOT_FOUND);
-        update_label_no_search_results();
-    } else {
-        // Populate the MARKUP column with the title & description of the clipart
-        for (guint i = 0; i <= list_results->size() - 1; i++) {
-            Glib::ustring title = list_results->get_text(i, RESULTS_COLUMN_TITLE);
-            Glib::ustring description = list_results->get_text(i, RESULTS_COLUMN_DESCRIPTION);
-            char* markup = g_markup_printf_escaped("<b>%s</b>\n<span size=\"small\">%s</span>",
-                title.c_str(), description.c_str());
-            list_results->set_text(i, RESULTS_COLUMN_MARKUP, markup);
-        }
-        notebook_content->set_current_page(NOTEBOOK_PAGE_RESULTS);
+    // Populate the MARKUP column with the title & description of the clipart
+    for (guint i = 0; i <= list_results->size() - 1; i++) {
+        Glib::ustring title = list_results->get_text(i, RESULTS_COLUMN_TITLE);
+        Glib::ustring description = list_results->get_text(i, RESULTS_COLUMN_DESCRIPTION);
+        char* markup = g_markup_printf_escaped("<b>%s</b>\n<span size=\"small\">%s</span>",
+            title.c_str(), description.c_str());
+        list_results->set_text(i, RESULTS_COLUMN_MARKUP, markup);
     }
+    notebook_content->set_current_page(NOTEBOOK_PAGE_RESULTS);
 
     // free the document
     xmlFreeDoc(doc);
@@ -632,12 +776,12 @@ void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result
 
 void ImportDialog::update_label_no_search_results()
 {
-    const char* keywords = entry_search->get_text().c_str();
+    Glib::ustring keywords = Glib::Markup::escape_text(entry_search->get_text());
     Gdk::Color grey = entry_search->get_style()->get_text_aa(entry_search->get_state());
     
-    char* markup = g_markup_printf_escaped(
-        "<span size=\"large\">%s<b>%s</b>%s</span>\n<span color=\"%s\">%s</span>",
-        _("No clipart named "), keywords, _(" was found."), grey.to_string().c_str(),
+    Glib::ustring markup = Glib::ustring::compose(
+        "<span size=\"large\">%1 <b>%2</b> %3</span>\n<span color=\"%4\">%5</span>",
+        _("No clipart named"), keywords, _("was found."), grey.to_string(),
         _("Please make sure all keywords are spelled correctly, or try again with different keywords."));
     
     label_not_found->set_markup(markup);
@@ -660,7 +804,11 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     dialogType = file_types;
 
     // Creation
-    Gtk::VBox *vbox = get_vbox();
+    Gtk::VBox *vbox = new Gtk::VBox(false, 0);
+    Gtk::HButtonBox *hbuttonbox_bottom = new Gtk::HButtonBox();
+    Gtk::HBox *hbox_bottom = new Gtk::HBox(false, 12);
+    BaseBox *basebox_logo = new BaseBox();
+    BaseBox *basebox_no_search_results = new BaseBox();
     label_not_found = new Gtk::Label();
     label_description = new Gtk::Label();
     entry_search = new SearchEntry();
@@ -668,34 +816,45 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     Gtk::HButtonBox* hbuttonbox_search = new Gtk::HButtonBox();
     preview_files = new SVGPreview();
     /// Add the buttons in the bottom of the dialog
-    add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
-    button_import = add_button(_("Import"), Gtk::RESPONSE_OK);
+    button_cancel = new Gtk::Button(Gtk::Stock::CANCEL);
+    button_import = new Gtk::Button(_("Import"));
     list_results = new SearchResultList(RESULTS_COLUMN_LENGTH,
             *preview_files, *label_description, *button_import);
-    drawingarea_logo = new LogoDrawingArea();
+    drawingarea_logo = new LogoArea();
     notebook_content = new Gtk::Notebook();
+    widget_status = new StatusWidget();
     
     // Packing
+    this->add(*vbox);
+    vbox->pack_start(hbox_tags, false, false);
+    vbox->pack_start(hbox_files, true, true);
+    vbox->pack_start(*hbox_bottom, false, false);
+    basebox_logo->add(*drawingarea_logo);
+    basebox_no_search_results->add(*label_not_found);
+    hbox_bottom->pack_start(*widget_status, true, true);
+    hbox_bottom->pack_start(*hbuttonbox_bottom, true, true);
+    hbuttonbox_bottom->pack_start(*button_cancel, false, false);
+    hbuttonbox_bottom->pack_start(*button_import, false, false);
     hbuttonbox_search->pack_start(*button_search, false, false);
     hbox_tags.pack_start(*entry_search, true, true);
     hbox_tags.pack_start(*hbuttonbox_search, false, false);
     hbox_files.pack_start(*notebook_content, true, true);
     hbox_files.pack_start(*preview_files, true, true);
-    vbox->pack_start(hbox_tags, false, false);
-    vbox->pack_start(hbox_files, true, true);
 
-    notebook_content->insert_page(*drawingarea_logo, NOTEBOOK_PAGE_LOGO);
+    notebook_content->insert_page(*basebox_logo, NOTEBOOK_PAGE_LOGO);
     notebook_content->insert_page(scrolledwindow_list, NOTEBOOK_PAGE_RESULTS);
-    notebook_content->insert_page(*label_not_found, NOTEBOOK_PAGE_NOT_FOUND);
+    notebook_content->insert_page(*basebox_no_search_results, NOTEBOOK_PAGE_NOT_FOUND);
 
     // Properties
     set_border_width(12);
     set_default_size(480, 320);
     vbox->set_spacing(12);
+    hbuttonbox_bottom->set_spacing(6);
+    hbuttonbox_bottom->set_layout(Gtk::BUTTONBOX_END);
+    button_import->set_sensitive(false);
     entry_search->set_max_length(255);
     hbox_tags.set_spacing(6);
     preview_files->showNoPreview();
-    set_default(*button_import);
     notebook_content->set_current_page(NOTEBOOK_PAGE_LOGO);
     /// Add the listview inside a ScrolledWindow
     scrolledwindow_list.add(*list_results);
@@ -705,14 +864,20 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     scrolledwindow_list.set_size_request(310, 230);
     drawingarea_logo->set_size_request(310, 230);
     hbox_files.set_spacing(12);
+    label_not_found->set_line_wrap(true);
+    label_not_found->set_line_wrap_mode(Pango::WRAP_WORD);
+    label_not_found->set_justify(Gtk::JUSTIFY_CENTER);
+    label_not_found->set_size_request(260, -1);
     notebook_content->set_show_tabs(false);
     notebook_content->set_show_border(false);
     
     // Signals
     entry_search->signal_activate().connect(
             sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
+    button_import->signal_clicked().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_button_import_clicked));
     button_search->signal_clicked().connect(
-            sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
+            sigc::mem_fun(*this, &ImportDialog::on_button_search_clicked));
     list_results->signal_cursor_changed().connect(
             sigc::mem_fun(*this, &ImportDialog::on_list_results_cursor_changed));
     list_results->signal_row_activated().connect(
@@ -731,27 +896,6 @@ ImportDialog::~ImportDialog()
 }
 
 /**
- * Show this dialog modally.  Return true if user hits [OK]
- */
-bool ImportDialog::show()
-{
-    set_modal (TRUE);                      //Window
-    sp_transientize((GtkWidget *)gobj());  //Make transient
-    gint b = run();                        //Dialog
-    hide();
-
-    if (b == Gtk::RESPONSE_OK)
-    {
-        return TRUE;
-    }
-    else
-    {
-        return FALSE;
-    }
-}
-
-
-/**
  * Get the file extension type that was selected by the user. Valid after an [OK]
  */
 Inkscape::Extension::Extension *
@@ -760,14 +904,9 @@ ImportDialog::get_selection_type()
     return extension;
 }
 
-
-/**
- * Get the file name chosen by the user.   Valid after an [OK]
- */
-Glib::ustring
-ImportDialog::get_filename (void)
+ImportDialog::type_signal_response ImportDialog::signal_response()
 {
-    return myFilename;
+  return m_signal_response;
 }
 
 
