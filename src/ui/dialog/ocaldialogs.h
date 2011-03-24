@@ -82,9 +82,7 @@ public:
     FileDialogBase(const Glib::ustring &title, Gtk::Window& parent) : Gtk::Window(Gtk::WINDOW_TOPLEVEL)
     {
         set_title(title);
-
-        //set_modal(TRUE);
-        //sp_transientize((GtkWidget*) gobj());
+        sp_transientize((GtkWidget*) gobj());
     }
 
     /*
@@ -275,6 +273,7 @@ public:
 
     void clear();
     void set_error(Glib::ustring text);
+    void set_info(Glib::ustring text);
     void start_process(Glib::ustring text);
     void end_process();
 
@@ -329,8 +328,10 @@ enum {
     RESULTS_COLUMN_CREATOR,
     RESULTS_COLUMN_DATE,
     RESULTS_COLUMN_FILENAME,
+    RESULTS_COLUMN_THUMBNAIL_FILENAME,
     RESULTS_COLUMN_URL,
     RESULTS_COLUMN_THUMBNAIL_URL,
+    RESULTS_COLUMN_GUID,
     RESULTS_COLUMN_LENGTH,
 };
 
@@ -338,6 +339,11 @@ enum {
     NOTEBOOK_PAGE_LOGO,
     NOTEBOOK_PAGE_RESULTS,
     NOTEBOOK_PAGE_NOT_FOUND,
+};
+
+enum DownloadType {
+    TYPE_THUMBNAIL,
+    TYPE_IMAGE,
 };
 
 /**
@@ -402,6 +408,7 @@ private:
     Gtk::Label *label_description;
     Gtk::Button *button_search;
     Gtk::Button *button_import;
+    Gtk::Button *button_close;
     Gtk::Button *button_cancel;
     StatusWidget *widget_status;
 
@@ -418,24 +425,24 @@ private:
     Glib::ustring xml_uri;
     char xml_buffer[8192];
 
-    // File
-    Glib::RefPtr<Gio::File> file_local;
-    Glib::RefPtr<Gio::File> file_remote;
-    Glib::RefPtr<Gio::File> file_thumbnail_local;
-    Glib::RefPtr<Gio::File> file_thumbnail_remote;
-
     void update_label_no_search_results();
     void update_preview(int row);
     void on_list_results_cursor_changed();
     void download_thumbnail_image(int row);
-    void on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result);
+    void on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
+        Glib::RefPtr<Gio::File> file_thumbnail_remote, Glib::ustring path_thumbnail);
     void download_image(int row);
-    void on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result);
+    void on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
+        Glib::RefPtr<Gio::File> file_remote, Glib::ustring filename_image);
     void on_list_results_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
     void on_button_import_clicked();
+    void on_button_close_clicked();
+    void on_button_cancel_clicked();
     void on_button_search_clicked();
     void on_entry_search_activated();
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
+    void create_temporary_dirs();
+    std::string get_temporary_dir(DownloadType type);
 
 
     /**

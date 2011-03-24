@@ -168,8 +168,7 @@ bool sp_file_export_dialog (Gtk::Window &parentWindow);
 /**
  * Import a document from OCAL
  */
-void on_import_from_ocal_response(Glib::ustring filename,
-    Inkscape::UI::Dialog::OCAL::ImportDialog* import_dialog);
+void on_import_from_ocal_response(Glib::ustring filename);
 
 /**
  * Import a document from OCAL

@@ -1113,7 +1113,7 @@ sp_file_import(Gtk::Window &parentWindow)
         return;
     }
 
-    //# Get file name and extension type
+    // Get file name and extension type
     Glib::ustring fileName = importDialogInstance->getFilename();
     Inkscape::Extension::Extension *selection = importDialogInstance->getSelectionType();
 
@@ -1440,16 +1440,17 @@ sp_file_export_to_ocal(Gtk::Window &parentWindow)
 ## I M P O R T  F R O M  O C A L
 ######################*/
 
+Inkscape::UI::Dialog::OCAL::ImportDialog* import_ocal_dialog = NULL;
+
 /**
  * Display an ImportFromOcal Dialog, and the selected document from OCAL
  */
-void on_import_from_ocal_response(Glib::ustring filename,
-    Inkscape::UI::Dialog::OCAL::ImportDialog* import_dialog)
+void on_import_from_ocal_response(Glib::ustring filename)
 {
     SPDocument *doc = SP_ACTIVE_DOCUMENT;
     
     if (!filename.empty()) {
-        Inkscape::Extension::Extension *selection = import_dialog->get_selection_type();
+        Inkscape::Extension::Extension *selection = import_ocal_dialog->get_selection_type();
         file_import(doc, filename, selection);
     }
 }
@@ -1463,24 +1464,19 @@ sp_file_import_from_ocal(Gtk::Window &parent_window)
     if (!doc)
         return;
 
-    Inkscape::UI::Dialog::OCAL::ImportDialog* import_dialog = NULL;
-
-    if (!import_dialog) {
-        import_dialog = new
+    if (import_ocal_dialog == NULL) {
+        import_ocal_dialog = new
              Inkscape::UI::Dialog::OCAL::ImportDialog(
                  parent_window,
                  import_path,
                  Inkscape::UI::Dialog::IMPORT_TYPES,
                  (char const *)_("Import From Open Clip Art Library"));
-    }
 
-    import_dialog->signal_response().connect(
-        sigc::bind<Inkscape::UI::Dialog::OCAL::ImportDialog*>(
-            sigc::ptr_fun(&on_import_from_ocal_response),
-        import_dialog)
-    );
+        import_ocal_dialog->signal_response().connect(
+        sigc::ptr_fun(&on_import_from_ocal_response));
+    }
             
-    import_dialog->show_all();
+    import_ocal_dialog->show_all();
 }
 
 /*######################

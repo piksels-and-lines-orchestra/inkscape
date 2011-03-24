@@ -305,6 +305,15 @@ void StatusWidget::clear()
     label->hide();
 }
 
+void StatusWidget::set_info(Glib::ustring text)
+{
+    spinner->hide();
+    image->show();
+    label->show();
+    image->set(Gtk::Stock::DIALOG_INFO,  Gtk::ICON_SIZE_MENU);
+    label->set_text(text);
+}
+
 void StatusWidget::set_error(Glib::ustring text)
 {
     spinner->hide();
@@ -396,7 +405,7 @@ LogoArea::LogoArea() : Gtk::EventBox()
         std::string logo_path = Glib::build_filename(INKSCAPE_PIXMAPDIR, "OCAL.png");
         logo_mask = Cairo::ImageSurface::create_from_png(logo_path);
         draw_logo = true;
-    } catch( Cairo::logic_error ) {
+    } catch(Cairo::logic_error) {
         logo_mask = Cairo::ImageSurface::create(Cairo::FORMAT_ARGB32, 1,1);
         draw_logo = false;
     }
@@ -461,13 +470,12 @@ SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview
     get_column(RESULTS_COLUMN_MARKUP)->add_attribute(*cr_markup,
         "markup", RESULTS_COLUMN_MARKUP);
 
-    get_column(RESULTS_COLUMN_TITLE)->set_visible(false);
-    get_column(RESULTS_COLUMN_DESCRIPTION)->set_visible(false);
-    get_column(RESULTS_COLUMN_CREATOR)->set_visible(false);
-    get_column(RESULTS_COLUMN_DATE)->set_visible(false);
-    get_column(RESULTS_COLUMN_FILENAME)->set_visible(false);
-    get_column(RESULTS_COLUMN_URL)->set_visible(false);
-    get_column(RESULTS_COLUMN_THUMBNAIL_URL)->set_visible(false);
+    // Hide all columns except for the MARKUP column
+    for (int i = 0; i < RESULTS_COLUMN_LENGTH; i++) {
+        if (i != RESULTS_COLUMN_MARKUP) {
+            get_column(i)->set_visible(false);
+        }
+    }
 }
 
 
@@ -479,49 +487,8 @@ void ImportDialog::on_button_import_clicked() {
     int row = posArray[0];
 
     download_image(row);
+    widget_status->start_process(_("Downloading image..."));
 }
-
-void ImportDialog::download_image(int row)
-{
-    // Get Remote File URL
-    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_URL);
-    file_remote = Gio::File::create_for_uri(url.c_str());
-
-    // Create local file
-    const std::string tmptemplate = "ocal-";
-    std::string tmpname;
-    int fd = Inkscape::IO::file_open_tmp(tmpname, tmptemplate);
-    if (fd < 0) {
-        widget_status->set_error(_("Could not create image file"));
-        return;
-    }
-    close(fd);
-    // make sure we don't collide with other users on the same machine
-    filename_image = tmpname;
-    filename_image.append("-");
-    filename_image.append(list_results->get_text(row, RESULTS_COLUMN_FILENAME));
-    // rename based on original image's name, retaining extension
-    if (rename(tmpname.c_str(), filename_image.c_str()) < 0) {
-        unlink(tmpname.c_str());
-        widget_status->set_error(_("Could not create image file"));
-    }
-    file_local = Gio::File::create_for_path(filename_image.c_str());
-
-    file_remote->copy_async(file_local, sigc::mem_fun(*this,
-        &ImportDialog::on_thumbnail_image_downloaded), Gio::FILE_COPY_OVERWRITE);
-}
-
-void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result)
-{
-    bool success = file_thumbnail_remote->copy_finish(result);
-
-    if (success) {
-        m_signal_response.emit(filename_image);
-    } else {
-        filename_image = "";
-    }
-}
-
 
 /*
  * Callback for cursor chage
@@ -550,48 +517,125 @@ void ImportDialog::update_preview(int row)
     Glib::ustring date = list_results->get_text(row, RESULTS_COLUMN_DATE);
 }
 
+
+std::string ImportDialog::get_temporary_dir(DownloadType type)
+{
+    std::string ocal_tmp_dir = Glib::build_filename(Glib::get_tmp_dir(),
+        "openclipart");
+
+    if (type == TYPE_THUMBNAIL) {
+        return Glib::build_filename(ocal_tmp_dir, "thumbnails");
+    } else {
+        return Glib::build_filename(ocal_tmp_dir, "images");
+    }
+}
+
+void ImportDialog::create_temporary_dirs()
+{
+    // Make sure the temporary directories exists, if not, create them
+    std::string ocal_tmp_thumbnail_dir = get_temporary_dir(TYPE_THUMBNAIL);
+    std::string ocal_tmp_image_dir = get_temporary_dir(TYPE_IMAGE);
+
+    if (!Glib::file_test(ocal_tmp_thumbnail_dir, Glib::FILE_TEST_EXISTS)) {
+        Glib::RefPtr<Gio::File> directory = Gio::File::create_for_path(ocal_tmp_thumbnail_dir);
+        directory->make_directory_with_parents();
+    }
+    
+    if (!Glib::file_test(ocal_tmp_image_dir, Glib::FILE_TEST_EXISTS)) {
+        Glib::RefPtr<Gio::File> directory = Gio::File::create_for_path(ocal_tmp_image_dir);
+        directory->make_directory_with_parents();
+    }
+}
+
+void ImportDialog::download_image(int row)
+{
+    // Get Remote File URL
+    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_URL);
+    Glib::RefPtr<Gio::File> file_remote = Gio::File::create_for_uri(url.c_str());
+
+    std::string ocal_tmp_image_dir = get_temporary_dir(TYPE_IMAGE);
+
+    // Make a unique filename for the clipart, in the form 'GUID.extension'
+    Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
+    Glib::ustring original_filename = list_results->get_text(row, RESULTS_COLUMN_FILENAME);
+    Glib::ustring extension = Inkscape::IO::get_file_extension(original_filename);
+
+    Glib::ustring filename = Glib::ustring::compose("%1%2", guid, extension);
+    std::string path = Glib::build_filename(ocal_tmp_image_dir, filename.c_str());
+
+    // Download it asynchronously
+    Glib::RefPtr<Gio::File> file_local = Gio::File::create_for_path(path);
+    file_remote->copy_async(file_local,
+        sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
+            sigc::mem_fun(*this, &ImportDialog::on_image_downloaded),
+            file_remote, path),
+        Gio::FILE_COPY_OVERWRITE);
+}
+
+void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
+    Glib::RefPtr<Gio::File> file_remote, Glib::ustring path)
+{
+    // Try to show the the thumbnail in the Preview widget
+    bool success = file_remote->copy_finish(result);
+
+    try {
+        widget_status->clear();
+        m_signal_response.emit(path);
+        widget_status->set_info(_("Clipart downloaded successfully"));
+    } catch(Glib::Error) {
+        success = false;
+    }
+
+    // If anything went wrong, show an error message
+    if (!success) {
+        widget_status->set_error(_("Could not download image"));
+        path = "";
+    }
+}
+
 void ImportDialog::download_thumbnail_image(int row)
 {
     // Get Remote File URL
     Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
-    file_thumbnail_remote = Gio::File::create_for_uri(url.c_str());
+    Glib::RefPtr<Gio::File> file_thumbnail_remote = Gio::File::create_for_uri(url);
 
-    // Create local file
-    const std::string tmptemplate = "ocal-";
-    std::string tmpname;
-    int fd = Inkscape::IO::file_open_tmp(tmpname, tmptemplate);
-    if (fd < 0) {
-        widget_status->set_error(_("Could not create thumbnail file"));
-        return;
-    }
-    close(fd);
-    // make sure we don't collide with other users on the same machine
-    filename_thumbnail = tmpname;
-    filename_thumbnail.append("-");
-    filename_thumbnail.append(list_results->get_text(row, RESULTS_COLUMN_FILENAME));
-    // rename based on original image's name, retaining extension
-    if (rename(tmpname.c_str(), filename_thumbnail.c_str()) < 0) {
-        unlink(tmpname.c_str());
-        widget_status->set_error(_("Could not create thumbnail file"));
-    }
-    file_thumbnail_local = Gio::File::create_for_path(filename_thumbnail.c_str());
+    std::string ocal_tmp_thumbnail_dir = get_temporary_dir(TYPE_THUMBNAIL);
 
-    file_thumbnail_remote->copy_async(file_thumbnail_local, sigc::mem_fun(*this,
-        &ImportDialog::on_thumbnail_image_downloaded), Gio::FILE_COPY_OVERWRITE);
+    // Make a unique filename for the clipart, in the form 'GUID.extension'
+    Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
+    Glib::ustring original_filename = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_FILENAME);
+    Glib::ustring extension = Inkscape::IO::get_file_extension(original_filename);
+
+    Glib::ustring filename_thumbnail = Glib::ustring::compose("%1%2", guid, extension);
+    std::string path_thumbnail = Glib::build_filename(ocal_tmp_thumbnail_dir, filename_thumbnail.c_str());
+
+    // Download it asynchronously
+    Glib::RefPtr<Gio::File> file_thumbnail_local = Gio::File::create_for_path(path_thumbnail);
+    file_thumbnail_remote->copy_async(file_thumbnail_local,
+        sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
+            sigc::mem_fun(*this, &ImportDialog::on_thumbnail_image_downloaded),
+            file_thumbnail_remote, path_thumbnail),
+        Gio::FILE_COPY_OVERWRITE);
 }
 
-/*
- * Callback for row activated
- */
-void ImportDialog::on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result)
+
+void ImportDialog::on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
+    Glib::RefPtr<Gio::File> file_thumbnail_remote, Glib::ustring path_thumbnail)
 {
+    // Try to show the the thumbnail in the Preview widget
     bool success = file_thumbnail_remote->copy_finish(result);
 
-    if (success) {
-        preview_files->showImage(filename_thumbnail);
-    } else {
+    try {
+        widget_status->clear();
+        preview_files->showImage(path_thumbnail);
+    } catch(Glib::Error) {
+        success = false;
+    }
+
+    // If anything went wrong, show an error message
+    if (!success) {
         widget_status->set_error(_("Could not download thumbnail file"));
-        filename_thumbnail = "";
+        path_thumbnail = "";
     }
 }
 
@@ -674,9 +718,20 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
                 {
                     xmlChar *xml_thumbnail_url = xmlGetProp(cur_node, (xmlChar*) "url");
                     char* thumbnail_url = (char*) xml_thumbnail_url;
+                    char* thumbnail_filename = g_path_get_basename(thumbnail_url);
 
                     set_text(row_num, RESULTS_COLUMN_THUMBNAIL_URL, thumbnail_url);
+                    set_text(row_num, RESULTS_COLUMN_THUMBNAIL_FILENAME, thumbnail_filename);
                     xmlFree(xml_thumbnail_url);
+                }
+                else if (!strcmp((const char*)cur_node->name, "guid"))
+                {
+                    xmlChar *xml_guid = xmlNodeGetContent(cur_node);
+                    char* guid_url = (char*) xml_guid;
+                    char* guid = g_path_get_basename(guid_url);
+
+                    set_text(row_num, RESULTS_COLUMN_GUID, guid);
+                    xmlFree(xml_guid);
                 }
             }
         populate_from_xml(cur_node->children);
@@ -689,6 +744,12 @@ void SearchResultList::populate_from_xml(xmlNode * a_node)
 void ImportDialog::on_button_search_clicked()
 {
     on_entry_search_activated();
+}
+
+
+void ImportDialog::on_button_close_clicked()
+{
+    hide_all();
 }
 
 /**
@@ -817,6 +878,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     preview_files = new SVGPreview();
     /// Add the buttons in the bottom of the dialog
     button_cancel = new Gtk::Button(Gtk::Stock::CANCEL);
+    button_close = new Gtk::Button(_("Close"));
     button_import = new Gtk::Button(_("Import"));
     list_results = new SearchResultList(RESULTS_COLUMN_LENGTH,
             *preview_files, *label_description, *button_import);
@@ -834,6 +896,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     hbox_bottom->pack_start(*widget_status, true, true);
     hbox_bottom->pack_start(*hbuttonbox_bottom, true, true);
     hbuttonbox_bottom->pack_start(*button_cancel, false, false);
+    hbuttonbox_bottom->pack_start(*button_close, false, false);
     hbuttonbox_bottom->pack_start(*button_import, false, false);
     hbuttonbox_search->pack_start(*button_search, false, false);
     hbox_tags.pack_start(*entry_search, true, true);
@@ -851,7 +914,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     vbox->set_spacing(12);
     hbuttonbox_bottom->set_spacing(6);
     hbuttonbox_bottom->set_layout(Gtk::BUTTONBOX_END);
-    button_import->set_sensitive(false);
+    //button_import->set_sensitive(false);
     entry_search->set_max_length(255);
     hbox_tags.set_spacing(6);
     preview_files->showNoPreview();
@@ -870,12 +933,18 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     label_not_found->set_size_request(260, -1);
     notebook_content->set_show_tabs(false);
     notebook_content->set_show_border(false);
+    button_cancel->set_no_show_all(true);
+    button_close->set_no_show_all(true);
+    button_close->show();
+    button_cancel->hide();
     
     // Signals
     entry_search->signal_activate().connect(
             sigc::mem_fun(*this, &ImportDialog::on_entry_search_activated));
     button_import->signal_clicked().connect(
             sigc::mem_fun(*this, &ImportDialog::on_button_import_clicked));
+    button_close->signal_clicked().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_button_close_clicked));
     button_search->signal_clicked().connect(
             sigc::mem_fun(*this, &ImportDialog::on_button_search_clicked));
     list_results->signal_cursor_changed().connect(
@@ -885,6 +954,9 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
 
     show_all_children();
     entry_search->grab_focus();
+
+    // Make sure the temporary directories needed later exist
+    create_temporary_dirs();
 }
 
 /**
