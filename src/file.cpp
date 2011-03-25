@@ -1470,7 +1470,7 @@ sp_file_import_from_ocal(Gtk::Window &parent_window)
                  parent_window,
                  import_path,
                  Inkscape::UI::Dialog::IMPORT_TYPES,
-                 (char const *)_("Import From Open Clip Art Library"));
+                 (char const *)_("Import Clip Art"));
 
         import_ocal_dialog->signal_response().connect(
         sigc::ptr_fun(&on_import_from_ocal_response));

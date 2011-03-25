@@ -352,7 +352,6 @@ bool LoadingBox::on_timeout() {
     return false;
 }
 
-
 PreviewWidget::PreviewWidget() : Gtk::VBox(false, 12)
 {
     box_loading = new LoadingBox();
