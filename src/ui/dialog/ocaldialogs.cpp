@@ -283,6 +283,164 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+LoadingBox::LoadingBox() : Gtk::EventBox()
+{
+    set_visible_window(false);
+    draw_spinner = false;
+    spinner_step = 0;
+    signal_expose_event().connect(sigc::mem_fun(*this, &LoadingBox::_on_expose_event), false);
+}
+
+bool LoadingBox::_on_expose_event(GdkEventExpose* event)
+{
+    Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
+
+    // Draw shadow
+    int x = get_allocation().get_x();
+    int y = get_allocation().get_y();
+    int width = get_allocation().get_width();
+    int height = get_allocation().get_height();
+
+    get_style()->paint_shadow(get_window(), get_state(), Gtk::SHADOW_IN,
+        Gdk::Rectangle(x, y, width, height),
+        *this, Glib::ustring::ustring("viewport"), x, y, width, height);
+
+    if (draw_spinner) {
+
+        int spinner_size = 16;
+        int spinner_x = x + (width - spinner_size) / 2;
+        int spinner_y = y + (height - spinner_size) / 2;
+
+        // FIXME: Gtk::Style::paint_spinner not yet in gtkmm
+        gtk_paint_spinner(gtk_widget_get_style(GTK_WIDGET(gobj())),
+            gtk_widget_get_window(GTK_WIDGET(gobj())),
+            gtk_widget_get_state(GTK_WIDGET(gobj())), NULL, GTK_WIDGET(gobj()),
+            NULL, spinner_step, spinner_x, spinner_y, spinner_size, spinner_size);
+    }
+
+    return false;
+}
+
+void LoadingBox::start()
+{
+    // Timeout hasn't been stopped, so must be disconnected
+    if ((draw_spinner != false) & (timeout != NULL)) {
+        timeout.disconnect();
+    }
+    
+    draw_spinner = true;
+    timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &LoadingBox::on_timeout), 80);
+}
+
+void LoadingBox::stop()
+{
+    draw_spinner = false;
+}
+
+bool LoadingBox::on_timeout() {
+    if (draw_spinner) {
+
+        if (spinner_step == 11) {
+            spinner_step = 0;
+        } else {
+            spinner_step ++;
+        }
+        
+        queue_draw();
+        return true;
+    }
+    return false;
+}
+
+
+PreviewWidget::PreviewWidget() : Gtk::VBox(false, 12)
+{
+    box_loading = new LoadingBox();
+    image = new Gtk::Image();
+
+    label_title = new Gtk::Label();
+    label_description = new Gtk::Label();
+    label_time = new Gtk::Label();
+    
+    pack_start(*box_loading, false, false);
+    pack_start(*image, false, false);
+    pack_start(*label_title, false, false);
+    pack_start(*label_description, false, false);
+    pack_start(*label_time, false, false);
+
+    label_title->set_line_wrap(true);
+    label_title->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+    label_description->set_line_wrap(true);
+    label_description->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+    label_time->set_line_wrap(true);
+    label_time->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+
+    label_title->set_size_request(90, -1);
+    label_description->set_size_request(90, -1);
+    label_time->set_size_request(90, -1);
+    box_loading->set_size_request(90, 90);
+    set_border_width(12);
+
+    signal_expose_event().connect(sigc::mem_fun(*this, &PreviewWidget::_on_expose_event), false);
+}
+
+void PreviewWidget::set_metadata(Glib::ustring description, Glib::ustring creator, 
+    Glib::ustring time)
+{
+    label_title->set_markup(g_markup_printf_escaped("<b>%s</b>", description.c_str()));
+    label_description->set_markup(g_markup_printf_escaped("%s", creator.c_str()));
+    label_time->set_markup(g_markup_printf_escaped("<small>%s</small>", time.c_str()));
+
+    show_box_loading();
+}
+
+void PreviewWidget::show_box_loading()
+{
+    box_loading->show();
+    box_loading->start();
+}
+
+void PreviewWidget::hide_box_loading()
+{
+    box_loading->hide();
+    box_loading->stop();
+}
+
+void PreviewWidget::set_image(std::string path)
+{
+    image->set(path);
+    hide_box_loading();
+    image->show();
+}
+
+void PreviewWidget::clear()
+{
+    label_title->set_markup("");
+    label_description->set_markup("");
+    label_time->set_markup("");
+
+    box_loading->hide();
+    image->hide();
+}
+
+bool PreviewWidget::_on_expose_event(GdkEventExpose* event)
+{
+    Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
+
+    // Draw background
+    int x = get_allocation().get_x();
+    int y = get_allocation().get_y();
+    int width = get_allocation().get_width();
+    int height = get_allocation().get_height();
+    Gdk::Color background_fill = get_style()->get_base(get_state());
+
+    cr->rectangle(x, y, width, height);
+    Gdk::Cairo::set_source_color(cr, background_fill);
+    cr->fill();
+
+    return false;
+}
+
 StatusWidget::StatusWidget() : Gtk::HBox(false, 6)
 {
     image = new Gtk::Image(Gtk::Stock::DIALOG_ERROR, Gtk::ICON_SIZE_MENU);
@@ -458,8 +616,7 @@ bool LogoArea::_on_expose_event(GdkEventExpose* event)
     return false;
 }
 
-SearchResultList::SearchResultList(guint columns_count, SVGPreview& filesPreview,
-    Gtk::Label& description, Gtk::Button& okButton) : ListViewText(columns_count)
+SearchResultList::SearchResultList(guint columns_count) : ListViewText(columns_count)
 {
     set_headers_visible(false);
     set_column_title(RESULTS_COLUMN_MARKUP, _("Clipart found"));
@@ -491,7 +648,7 @@ void ImportDialog::on_button_import_clicked() {
 }
 
 /*
- * Callback for cursor chage
+ * Callback for cursor change
  */
 void ImportDialog::on_list_results_cursor_changed()
 {
@@ -511,10 +668,12 @@ void ImportDialog::on_list_results_cursor_changed()
 }
 void ImportDialog::update_preview(int row)
 {
-    Glib::ustring title = list_results->get_text(row, RESULTS_COLUMN_TITLE);
     Glib::ustring description = list_results->get_text(row, RESULTS_COLUMN_DESCRIPTION);
     Glib::ustring creator = list_results->get_text(row, RESULTS_COLUMN_CREATOR);
     Glib::ustring date = list_results->get_text(row, RESULTS_COLUMN_DATE);
+
+    preview_files->clear();
+    preview_files->set_metadata(description, creator, date);
 }
 
 
@@ -627,7 +786,7 @@ void ImportDialog::on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncRe
 
     try {
         widget_status->clear();
-        preview_files->showImage(path_thumbnail);
+        preview_files->set_image(path_thumbnail);
     } catch(Glib::Error) {
         success = false;
     }
@@ -875,13 +1034,13 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     entry_search = new SearchEntry();
     button_search = new Gtk::Button(_("Search"));
     Gtk::HButtonBox* hbuttonbox_search = new Gtk::HButtonBox();
-    preview_files = new SVGPreview();
+    Gtk::ScrolledWindow* scrolledwindow_preview = new Gtk::ScrolledWindow();
+    preview_files = new PreviewWidget();
     /// Add the buttons in the bottom of the dialog
     button_cancel = new Gtk::Button(Gtk::Stock::CANCEL);
     button_close = new Gtk::Button(_("Close"));
     button_import = new Gtk::Button(_("Import"));
-    list_results = new SearchResultList(RESULTS_COLUMN_LENGTH,
-            *preview_files, *label_description, *button_import);
+    list_results = new SearchResultList(RESULTS_COLUMN_LENGTH);
     drawingarea_logo = new LogoArea();
     notebook_content = new Gtk::Notebook();
     widget_status = new StatusWidget();
@@ -902,7 +1061,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     hbox_tags.pack_start(*entry_search, true, true);
     hbox_tags.pack_start(*hbuttonbox_search, false, false);
     hbox_files.pack_start(*notebook_content, true, true);
-    hbox_files.pack_start(*preview_files, true, true);
+    scrolledwindow_preview->add(*preview_files);
+    hbox_files.pack_start(*scrolledwindow_preview, true, true);
 
     notebook_content->insert_page(*basebox_logo, NOTEBOOK_PAGE_LOGO);
     notebook_content->insert_page(scrolledwindow_list, NOTEBOOK_PAGE_RESULTS);
@@ -917,7 +1077,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     //button_import->set_sensitive(false);
     entry_search->set_max_length(255);
     hbox_tags.set_spacing(6);
-    preview_files->showNoPreview();
+    preview_files->clear();
     notebook_content->set_current_page(NOTEBOOK_PAGE_LOGO);
     /// Add the listview inside a ScrolledWindow
     scrolledwindow_list.add(*list_results);
@@ -931,6 +1091,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     label_not_found->set_line_wrap_mode(Pango::WRAP_WORD);
     label_not_found->set_justify(Gtk::JUSTIFY_CENTER);
     label_not_found->set_size_request(260, -1);
+    scrolledwindow_preview->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
     notebook_content->set_show_tabs(false);
     notebook_content->set_show_border(false);
     button_cancel->set_no_show_all(true);

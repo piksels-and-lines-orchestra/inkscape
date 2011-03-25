@@ -262,6 +262,42 @@ private:
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+class LoadingBox : public Gtk::EventBox
+{
+public:
+    LoadingBox();
+
+    void start();
+    void stop();
+
+private:
+    uint spinner_step;
+    sigc::connection timeout;
+    bool draw_spinner;
+    bool _on_expose_event(GdkEventExpose* event);
+    bool on_timeout();
+};
+
+class PreviewWidget : public Gtk::VBox
+{
+public:
+    PreviewWidget();
+
+    void set_metadata(Glib::ustring description, Glib::ustring creator, Glib::ustring time);
+    void show_box_loading();
+    void hide_box_loading();
+    void set_image(std::string path);
+    void clear();
+    bool _on_expose_event(GdkEventExpose* event);
+
+private:
+    LoadingBox* box_loading;
+    Gtk::Image* image;
+
+    Gtk::Label* label_title;
+    Gtk::Label* label_description;
+    Gtk::Label* label_time;
+};
 
 /**
  * A Widget that contains an status icon and a message
@@ -352,8 +388,7 @@ enum DownloadType {
 class SearchResultList : public Gtk::ListViewText
 {
 public:
-    SearchResultList(guint columns_count, SVGPreview& filesPreview,
-        Gtk::Label& description, Gtk::Button& okButton);
+    SearchResultList(guint columns_count);
     void populate_from_xml(xmlNode* a_node);
 };
 
@@ -403,7 +438,7 @@ private:
     SearchEntry *entry_search;
     LogoArea *drawingarea_logo;
     SearchResultList *list_results;
-    SVGPreview *preview_files;
+    PreviewWidget *preview_files;
     Gtk::Label *label_not_found;
     Gtk::Label *label_description;
     Gtk::Button *button_search;
