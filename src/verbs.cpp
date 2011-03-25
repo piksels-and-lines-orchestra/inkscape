@@ -2257,7 +2257,7 @@ Verb *Verb::_base_verbs[] = {
                  N_("Import a bitmap or SVG image into this document"), INKSCAPE_ICON_DOCUMENT_IMPORT),
     new FileVerb(SP_VERB_FILE_EXPORT, "FileExport", N_("_Export Bitmap..."),
                  N_("Export this document or a selection as a bitmap image"), INKSCAPE_ICON_DOCUMENT_EXPORT),
-    new FileVerb(SP_VERB_FILE_IMPORT_FROM_OCAL, "FileImportFromOCAL", N_("Import Clip Art"), N_("Import clipart from Open Clip Art Library"), INKSCAPE_ICON_DOCUMENT_IMPORT_OCAL),
+    new FileVerb(SP_VERB_FILE_IMPORT_FROM_OCAL, "FileImportFromOCAL", N_("Import Clip Art..."), N_("Import clipart from Open Clip Art Library"), INKSCAPE_ICON_DOCUMENT_IMPORT_OCAL),
 //    new FileVerb(SP_VERB_FILE_EXPORT_TO_OCAL, "FileExportToOCAL", N_("Export To Open Clip Art Library"), N_("Export this document to Open Clip Art Library"), INKSCAPE_ICON_DOCUMENT_EXPORT_OCAL),
     new FileVerb(SP_VERB_FILE_NEXT_DESKTOP, "NextWindow", N_("N_ext Window"),
                  N_("Switch to the next document window"), INKSCAPE_ICON_WINDOW_NEXT),

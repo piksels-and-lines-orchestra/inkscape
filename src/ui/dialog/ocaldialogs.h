@@ -340,10 +340,8 @@ public:
     LogoArea();
 private:
     bool _on_expose_event(GdkEventExpose* event);
-    void _on_realize();
     bool draw_logo;
     Cairo::RefPtr<Cairo::ImageSurface> logo_mask;
-    Glib::RefPtr<Pango::Layout> layout;
 };
 
 /**

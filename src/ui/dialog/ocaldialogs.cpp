@@ -374,6 +374,8 @@ PreviewWidget::PreviewWidget() : Gtk::VBox(false, 12)
     label_time->set_line_wrap(true);
     label_time->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
 
+    box_loading->set_no_show_all(true);
+    image->set_no_show_all(true);
     label_title->set_size_request(90, -1);
     label_description->set_size_request(90, -1);
     label_time->set_size_request(90, -1);
@@ -381,6 +383,8 @@ PreviewWidget::PreviewWidget() : Gtk::VBox(false, 12)
     set_border_width(12);
 
     signal_expose_event().connect(sigc::mem_fun(*this, &PreviewWidget::_on_expose_event), false);
+
+    clear();
 }
 
 void PreviewWidget::set_metadata(Glib::ustring description, Glib::ustring creator, 
@@ -567,18 +571,7 @@ LogoArea::LogoArea() : Gtk::EventBox()
         draw_logo = false;
     }
     signal_expose_event().connect(sigc::mem_fun(*this, &LogoArea::_on_expose_event));
-    signal_realize().connect(sigc::mem_fun(*this, &LogoArea::_on_realize));
     set_visible_window(false);
-}
-
-void LogoArea::_on_realize()
-{
-    Gdk::Color color = get_style()->get_mid(get_state());
-    layout = this->create_pango_layout("");
-    Glib::ustring markup = Glib::ustring::compose("<span color=\"%1\" size=\"large\">%2</span>",
-        color.to_string(), _("Powered by"));
-        
-    layout->set_markup(markup);
 }
 
 bool LogoArea::_on_expose_event(GdkEventExpose* event)
@@ -588,28 +581,17 @@ bool LogoArea::_on_expose_event(GdkEventExpose* event)
         int y = get_allocation().get_y();
         int width = get_allocation().get_width();
         int height = get_allocation().get_height();
+        int x_logo = x + (width - 220) / 2;
+        int y_logo = y + (height - 76) / 2;
         
         Cairo::RefPtr<Cairo::Context> cr = get_window()->create_cairo_context();
         
         // Draw logo, we mask [read fill] it with the mid colour from the
         // user's GTK theme
         Gdk::Color logo_fill = get_style()->get_mid(get_state());
-        int x_logo = x + width - 12 - 127;
-        int y_logo = y + height - 12 - 44;
 
         Gdk::Cairo::set_source_color(cr, logo_fill);
         cr->mask(logo_mask, x_logo, y_logo);
-
-        // Draw text
-        Pango::Rectangle extents = layout->get_pixel_logical_extents();
-        int text_width = extents.get_width();
-        int text_height = extents.get_height();
-
-        int x_text = x_logo - text_width - 12;
-        int y_text = y + height - text_height - 12;
-            
-        get_style()->paint_layout(get_window(), get_state(), true,
-            Gdk::Rectangle(x, y, width, height), *this, "", x_text, y_text, layout);
     }
     
     return false;
