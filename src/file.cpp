@@ -1468,7 +1468,6 @@ sp_file_import_from_ocal(Gtk::Window &parent_window)
         import_ocal_dialog = new
              Inkscape::UI::Dialog::OCAL::ImportDialog(
                  parent_window,
-                 import_path,
                  Inkscape::UI::Dialog::IMPORT_TYPES,
                  (char const *)_("Import Clip Art"));
 

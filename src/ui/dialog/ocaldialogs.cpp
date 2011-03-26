@@ -283,6 +283,17 @@ ExportPasswordDialog::change_title(const Glib::ustring& title)
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+WrapLabel::WrapLabel() : Gtk::Label()
+{
+    signal_size_allocate().connect(sigc::mem_fun(*this, &WrapLabel::_on_size_allocate));
+}
+
+void WrapLabel::_on_size_allocate(Gtk::Allocation& allocation)
+{
+    set_size_request(allocation.get_width(), -1);
+}
+
+
 LoadingBox::LoadingBox() : Gtk::EventBox()
 {
     set_visible_window(false);
@@ -306,7 +317,6 @@ bool LoadingBox::_on_expose_event(GdkEventExpose* event)
         *this, Glib::ustring::ustring("viewport"), x, y, width, height);
 
     if (draw_spinner) {
-
         int spinner_size = 16;
         int spinner_x = x + (width - spinner_size) / 2;
         int spinner_y = y + (height - spinner_size) / 2;
@@ -357,9 +367,9 @@ PreviewWidget::PreviewWidget() : Gtk::VBox(false, 12)
     box_loading = new LoadingBox();
     image = new Gtk::Image();
 
-    label_title = new Gtk::Label();
-    label_description = new Gtk::Label();
-    label_time = new Gtk::Label();
+    label_title = new WrapLabel();
+    label_description = new WrapLabel();
+    label_time = new WrapLabel();
     
     pack_start(*box_loading, false, false);
     pack_start(*image, false, false);
@@ -369,10 +379,13 @@ PreviewWidget::PreviewWidget() : Gtk::VBox(false, 12)
 
     label_title->set_line_wrap(true);
     label_title->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+    label_title->set_justify(Gtk::JUSTIFY_CENTER);
     label_description->set_line_wrap(true);
     label_description->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+    label_description->set_justify(Gtk::JUSTIFY_CENTER);
     label_time->set_line_wrap(true);
     label_time->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+    label_time->set_justify(Gtk::JUSTIFY_CENTER);
 
     box_loading->set_no_show_all(true);
     image->set_no_show_all(true);
@@ -889,7 +902,7 @@ void ImportDialog::on_button_search_clicked()
 
 void ImportDialog::on_button_close_clicked()
 {
-    hide_all();
+    hide();
 }
 
 /**
@@ -897,6 +910,7 @@ void ImportDialog::on_button_close_clicked()
  */
 void ImportDialog::on_entry_search_activated()
 {
+    preview_files->clear();
     widget_status->start_process(_("Searching clipart..."));
     
     notebook_content->set_current_page(NOTEBOOK_PAGE_LOGO);
@@ -991,9 +1005,7 @@ void ImportDialog::update_label_no_search_results()
 /**
  * Constructor.  Not called directly.  Use the factory.
  */
-ImportDialog::ImportDialog(Gtk::Window& parent_window,
-                                                   const Glib::ustring &/*dir*/,
-                                                   FileDialogType file_types,
+ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types,
                                                    const Glib::ustring &title) :
     FileDialogBase(title, parent_window)
 {
@@ -1027,7 +1039,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     widget_status = new StatusWidget();
     
     // Packing
-    this->add(*vbox);
+    add(*vbox);
     vbox->pack_start(hbox_tags, false, false);
     vbox->pack_start(hbox_files, true, true);
     vbox->pack_start(*hbox_bottom, false, false);
@@ -1065,8 +1077,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window,
     scrolledwindow_list.set_shadow_type(Gtk::SHADOW_IN);
     /// Only show the scrollbars when they are necessary
     scrolledwindow_list.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    scrolledwindow_list.set_size_request(310, 230);
-    drawingarea_logo->set_size_request(310, 230);
+    preview_files->set_size_request(120, -1);
     hbox_files.set_spacing(12);
     label_not_found->set_line_wrap(true);
     label_not_found->set_line_wrap_mode(Pango::WRAP_WORD);

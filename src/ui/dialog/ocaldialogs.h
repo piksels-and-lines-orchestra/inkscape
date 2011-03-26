@@ -83,6 +83,15 @@ public:
     {
         set_title(title);
         sp_transientize((GtkWidget*) gobj());
+        
+        // Allow shrinking of window so labels wrap correctly
+        set_resizable(true);
+
+        Gdk::Geometry geom;
+        geom.min_width = 480;
+        geom.min_height = 320;
+
+        set_geometry_hints(*this, geom, Gdk::HINT_MIN_SIZE);
     }
 
     /*
@@ -262,6 +271,15 @@ private:
 //### F I L E   I M P O R T   F R O M   O C A L
 //#########################################################################
 
+class WrapLabel : public Gtk::Label
+{
+public:
+    WrapLabel();
+
+private:
+    void _on_size_allocate(Gtk::Allocation& allocation);
+};
+
 class LoadingBox : public Gtk::EventBox
 {
 public:
@@ -294,9 +312,9 @@ private:
     LoadingBox* box_loading;
     Gtk::Image* image;
 
-    Gtk::Label* label_title;
-    Gtk::Label* label_description;
-    Gtk::Label* label_time;
+    WrapLabel* label_title;
+    WrapLabel* label_description;
+    WrapLabel* label_time;
 };
 
 /**
@@ -402,8 +420,8 @@ public:
      * @param fileTypes one of FileDialogTypes
      * @param title the title of the dialog
      */
-    ImportDialog(Gtk::Window& parent_window, const Glib::ustring &dir,
-                 FileDialogType file_types, const Glib::ustring &title);
+    ImportDialog(Gtk::Window& parent_window, FileDialogType file_types,
+                const Glib::ustring &title);
 
     /**
      * Destructor.
