@@ -629,6 +629,17 @@ SearchResultList::SearchResultList(guint columns_count) : ListViewText(columns_c
     }
 }
 
+void ImportDialog::on_list_results_selection_changed()
+{
+    Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
+
+    printf("Selected text is: %s", guid.c_str());
+    
+    bool item_selected = (!guid.empty());
+    
+    button_import.set_sensitive(item_selected);
+}
+
 
 void ImportDialog::on_button_import_clicked() {
     std::vector<Gtk::TreeModel::Path> pathlist;
@@ -638,6 +649,9 @@ void ImportDialog::on_button_import_clicked() {
     int row = posArray[0];
 
     download_image(row);
+    button_import->set_sensitive(false);
+    button_close->hide();
+    button_cancel->show();
     widget_status->start_process(_("Downloading image..."));
 }
 
@@ -657,8 +671,6 @@ void ImportDialog::on_list_results_cursor_changed()
 
     update_preview(row);
     download_thumbnail_image(row);
-
-
 }
 void ImportDialog::update_preview(int row)
 {
@@ -744,6 +756,10 @@ void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& res
         widget_status->set_error(_("Could not download image"));
         path = "";
     }
+
+    button_import->set_sensitive(true);
+    button_close->show();
+    button_cancel->hide();
 }
 
 void ImportDialog::download_thumbnail_image(int row)
@@ -920,7 +936,7 @@ void ImportDialog::on_entry_search_activated()
     Glib::ustring search_keywords = entry_search->get_text();
     
     // Create the URI to the OCAL RSS feed
-    xml_uri = Glib::ustring::compose("http://%1/media/feed/rss/%2",
+    Glib::ustring xml_uri = Glib::ustring::compose("http://%1/media/feed/rss/%2",
         prefs->getString("/options/ocalurl/str"), search_keywords);
     // If we are not UTF8
     if (!Glib::get_charset()) {
@@ -928,11 +944,16 @@ void ImportDialog::on_entry_search_activated()
     }
 
     // Open the rss feed
-    xml_file = Gio::File::create_for_uri(xml_uri);
-    xml_file->load_contents_async(sigc::mem_fun(*this, &ImportDialog::on_xml_file_read));
+    Glib::RefPtr<Gio::File> xml_file = Gio::File::create_for_uri(xml_uri);
+    xml_file->load_contents_async(
+        sigc::bind<Glib::RefPtr<Gio::File>, Glib::ustring>(
+        sigc::mem_fun(*this, &ImportDialog::on_xml_file_read),
+        xml_file, xml_uri),
+    );
 }
 
-void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result)
+void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result,
+    Glib::RefPtr<Gio::File> xml_file, Glib::ustring xml_uri)
 {
     widget_status->end_process();
     
@@ -1067,7 +1088,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
     vbox->set_spacing(12);
     hbuttonbox_bottom->set_spacing(6);
     hbuttonbox_bottom->set_layout(Gtk::BUTTONBOX_END);
-    //button_import->set_sensitive(false);
+    button_import->set_sensitive(false);
     entry_search->set_max_length(255);
     hbox_tags.set_spacing(6);
     preview_files->clear();
@@ -1104,6 +1125,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
             sigc::mem_fun(*this, &ImportDialog::on_list_results_cursor_changed));
     list_results->signal_row_activated().connect(
             sigc::mem_fun(*this, &ImportDialog::on_list_results_row_activated));
+    list_results->get_selection()->signal_changed().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_list_results_selection_changed));
 
     show_all_children();
     entry_search->grab_focus();

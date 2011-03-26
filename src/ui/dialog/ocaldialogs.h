@@ -470,12 +470,6 @@ private:
     Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 
-    // XML
-    Glib::RefPtr<Gio::File> xml_file;
-    Glib::RefPtr<Gio::FileInputStream> xml_stream;
-    Glib::ustring xml_uri;
-    char xml_buffer[8192];
-
     void update_label_no_search_results();
     void update_preview(int row);
     void on_list_results_cursor_changed();
@@ -491,6 +485,7 @@ private:
     void on_button_cancel_clicked();
     void on_button_search_clicked();
     void on_entry_search_activated();
+    void on_list_results_selection_changed();
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
     void create_temporary_dirs();
     std::string get_temporary_dir(DownloadType type);
