@@ -486,7 +486,8 @@ private:
     void on_button_search_clicked();
     void on_entry_search_activated();
     void on_list_results_selection_changed();
-    void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result);
+    void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result,
+        Glib::RefPtr<Gio::File> xml_file, Glib::ustring xml_uri);
     void create_temporary_dirs();
     std::string get_temporary_dir(DownloadType type);
 

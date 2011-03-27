@@ -631,13 +631,19 @@ SearchResultList::SearchResultList(guint columns_count) : ListViewText(columns_c
 
 void ImportDialog::on_list_results_selection_changed()
 {
+    std::vector<Gtk::TreeModel::Path> pathlist;
+    pathlist = list_results->get_selection()->get_selected_rows();
+    std::vector<int> posArray(1);
+    posArray = pathlist[0].get_indices();
+    int row = posArray[0];
+    
     Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
 
     printf("Selected text is: %s", guid.c_str());
     
     bool item_selected = (!guid.empty());
     
-    button_import.set_sensitive(item_selected);
+    button_import->set_sensitive(item_selected);
 }
 
 
@@ -943,12 +949,13 @@ void ImportDialog::on_entry_search_activated()
         xml_uri = Glib::filename_to_utf8(xml_uri);
     }
 
-    // Open the rss feed
+    // Open the RSS feed
     Glib::RefPtr<Gio::File> xml_file = Gio::File::create_for_uri(xml_uri);
+    
     xml_file->load_contents_async(
-        sigc::bind<Glib::RefPtr<Gio::File>, Glib::ustring>(
-        sigc::mem_fun(*this, &ImportDialog::on_xml_file_read),
-        xml_file, xml_uri),
+        sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
+            sigc::mem_fun(*this, &ImportDialog::on_xml_file_read),
+            xml_file, xml_uri)
     );
 }
 
