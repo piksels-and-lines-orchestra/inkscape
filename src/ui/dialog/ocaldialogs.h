@@ -393,7 +393,7 @@ enum {
     NOTEBOOK_PAGE_NOT_FOUND,
 };
 
-enum DownloadType {
+enum ResourceType {
     TYPE_THUMBNAIL,
     TYPE_IMAGE,
 };
@@ -473,14 +473,12 @@ private:
     void update_label_no_search_results();
     void update_preview(int row);
     void on_list_results_cursor_changed();
-    void download_thumbnail_image(int row);
-    void on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
-        Glib::RefPtr<Gio::File> file_thumbnail_remote, Glib::ustring path_thumbnail);
-    void handle_thumbnail(Glib::ustring path_thumbnail, bool success);
-    void handle_image(Glib::ustring path, bool success);
-    void download_image(int row);
-    void on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
-        Glib::RefPtr<Gio::File> file_remote, Glib::ustring filename_image);
+    
+    void download_resource(ResourceType type, int row);
+    void on_resource_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
+        Glib::RefPtr<Gio::File> file_remote, Glib::ustring path, ResourceType resource);
+    void on_image_downloaded(Glib::ustring path, bool success);
+    void on_thumbnail_downloaded(Glib::ustring path, bool success);
     void on_list_results_row_activated(const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
     void on_button_import_clicked();
     void on_button_close_clicked();
@@ -491,7 +489,7 @@ private:
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result,
         Glib::RefPtr<Gio::File> xml_file, Glib::ustring xml_uri);
     void create_temporary_dirs();
-    std::string get_temporary_dir(DownloadType type);
+    std::string get_temporary_dir(ResourceType type);
 
 
     /**

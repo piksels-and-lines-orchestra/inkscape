@@ -655,7 +655,7 @@ void ImportDialog::on_button_import_clicked() {
     button_close->hide();
     button_cancel->show();
     widget_status->start_process(_("Downloading image..."));
-    download_image(row);
+    download_resource(TYPE_IMAGE, row);
 }
 
 /*
@@ -669,11 +669,8 @@ void ImportDialog::on_list_results_cursor_changed()
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
-    // FIXME: this would be better as a per-user OCAL cache of files
-    // instead of filling /tmp with downloads.
-
     update_preview(row);
-    download_thumbnail_image(row);
+    download_resource(TYPE_THUMBNAIL, row);
 }
 void ImportDialog::update_preview(int row)
 {
@@ -686,7 +683,7 @@ void ImportDialog::update_preview(int row)
 }
 
 
-std::string ImportDialog::get_temporary_dir(DownloadType type)
+std::string ImportDialog::get_temporary_dir(ResourceType type)
 {
     std::string ocal_tmp_dir = Glib::build_filename(Glib::get_tmp_dir(),
         "openclipart");
@@ -715,47 +712,68 @@ void ImportDialog::create_temporary_dirs()
     }
 }
 
-void ImportDialog::download_image(int row)
+void ImportDialog::download_resource(ResourceType type, int row)
 {
-    // Get Remote File URL
-    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_URL);
-    Glib::RefPtr<Gio::File> file_remote = Gio::File::create_for_uri(url.c_str());
-
-    std::string ocal_tmp_image_dir = get_temporary_dir(TYPE_IMAGE);
+    // Get Temporary Directory
+    std::string ocal_tmp_dir = get_temporary_dir(type);
 
     // Make a unique filename for the clipart, in the form 'GUID.extension'
     Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
-    Glib::ustring original_filename = list_results->get_text(row, RESULTS_COLUMN_FILENAME);
+    Glib::ustring original_filename;
+
+    if (type == TYPE_IMAGE) {
+        original_filename = list_results->get_text(row, RESULTS_COLUMN_FILENAME);
+    } else {
+        original_filename = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_FILENAME);
+    }
     Glib::ustring extension = Inkscape::IO::get_file_extension(original_filename);
 
     Glib::ustring filename = Glib::ustring::compose("%1%2", guid, extension);
-    std::string path = Glib::build_filename(ocal_tmp_image_dir, filename.c_str());
+    std::string path = Glib::build_filename(ocal_tmp_dir, filename.c_str());
+    Glib::RefPtr<Gio::File> file_local = Gio::File::create_for_path(path);
 
     // If the file has already been downloaded, use it
     if (Glib::file_test(path, Glib::FILE_TEST_EXISTS)) {
-        handle_image(path, true);
+        if (type == TYPE_IMAGE) {
+            on_image_downloaded(path, true);
+        } else {
+            on_thumbnail_downloaded(path, true);
+        }
         return;
     }
 
+    // Get Remote File URL
+    Glib::ustring url;
+
+    if (type == TYPE_IMAGE) {
+        url = list_results->get_text(row, RESULTS_COLUMN_URL);
+    } else {
+        url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
+    }
+    
+    Glib::RefPtr<Gio::File> file_remote = Gio::File::create_for_uri(url);
+
     // Download it asynchronously
-    Glib::RefPtr<Gio::File> file_local = Gio::File::create_for_path(path);
     file_remote->copy_async(file_local,
-        sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
-            sigc::mem_fun(*this, &ImportDialog::on_image_downloaded),
-            file_remote, path),
+        sigc::bind<Glib::RefPtr<Gio::File>, Glib::ustring, ResourceType>(
+            sigc::mem_fun(*this, &ImportDialog::on_resource_downloaded),
+            file_remote, path, type),
         Gio::FILE_COPY_OVERWRITE);
 }
 
-void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
-    Glib::RefPtr<Gio::File> file_remote, Glib::ustring path)
+void ImportDialog::on_resource_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
+    Glib::RefPtr<Gio::File> file_remote, Glib::ustring path, ResourceType resource)
 {
-    // Try to import the image
     bool success = file_remote->copy_finish(result);
 
-    handle_image(path, success);
+    if (resource == TYPE_IMAGE) {
+        on_image_downloaded(path, success);
+    } else {
+        on_thumbnail_downloaded(path, success);
+    }
 }
 
-void ImportDialog::handle_image(Glib::ustring path, bool success)
+void ImportDialog::on_image_downloaded(Glib::ustring path, bool success)
 {
     try {
         widget_status->clear();
@@ -768,7 +786,6 @@ void ImportDialog::handle_image(Glib::ustring path, bool success)
     // If anything went wrong, show an error message
     if (!success) {
         widget_status->set_error(_("Could not download image"));
-        path = "";
     }
 
     button_import->set_sensitive(true);
@@ -776,53 +793,11 @@ void ImportDialog::handle_image(Glib::ustring path, bool success)
     button_cancel->hide();
 }
 
-
-void ImportDialog::download_thumbnail_image(int row)
-{
-    // Get Temporary Directory
-    std::string ocal_tmp_thumbnail_dir = get_temporary_dir(TYPE_THUMBNAIL);
-
-    // Make a unique filename for the clipart, in the form 'GUID.extension'
-    Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
-    Glib::ustring original_filename = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_FILENAME);
-    Glib::ustring extension = Inkscape::IO::get_file_extension(original_filename);
-
-    Glib::ustring filename_thumbnail = Glib::ustring::compose("%1%2", guid, extension);
-    std::string path_thumbnail = Glib::build_filename(ocal_tmp_thumbnail_dir, filename_thumbnail.c_str());
-    Glib::RefPtr<Gio::File> file_thumbnail_local = Gio::File::create_for_path(path_thumbnail);
-
-    // If the file has already been downloaded, use it
-    if (Glib::file_test(path_thumbnail, Glib::FILE_TEST_EXISTS)) {
-        handle_thumbnail(path_thumbnail, true);
-        return;
-    }
-
-    // Get Remote File URL
-    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
-    Glib::RefPtr<Gio::File> file_thumbnail_remote = Gio::File::create_for_uri(url);
-
-    // Download it asynchronously
-    file_thumbnail_remote->copy_async(file_thumbnail_local,
-        sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
-            sigc::mem_fun(*this, &ImportDialog::on_thumbnail_image_downloaded),
-            file_thumbnail_remote, path_thumbnail),
-        Gio::FILE_COPY_OVERWRITE);
-}
-
-void ImportDialog::on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
-    Glib::RefPtr<Gio::File> file_thumbnail_remote, Glib::ustring path_thumbnail)
-{
-    // Try to show the the thumbnail in the Preview widget
-    bool success = file_thumbnail_remote->copy_finish(result);
-
-    handle_thumbnail(path_thumbnail, success);
-}
-
-void ImportDialog::handle_thumbnail(Glib::ustring path_thumbnail, bool success)
+void ImportDialog::on_thumbnail_downloaded(Glib::ustring path, bool success)
 {
     try {
         widget_status->clear();
-        preview_files->set_image(path_thumbnail);
+        preview_files->set_image(path);
     } catch(Glib::Error) {
         success = false;
     }
@@ -830,7 +805,6 @@ void ImportDialog::handle_thumbnail(Glib::ustring path_thumbnail, bool success)
     // If anything went wrong, show an error message
     if (!success) {
         widget_status->set_error(_("Could not download thumbnail file"));
-        path_thumbnail = "";
     }
 }
 
