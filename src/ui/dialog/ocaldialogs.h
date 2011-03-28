@@ -476,6 +476,8 @@ private:
     void download_thumbnail_image(int row);
     void on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
         Glib::RefPtr<Gio::File> file_thumbnail_remote, Glib::ustring path_thumbnail);
+    void handle_thumbnail(Glib::ustring path_thumbnail, bool success);
+    void handle_image(Glib::ustring path, bool success);
     void download_image(int row);
     void on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
         Glib::RefPtr<Gio::File> file_remote, Glib::ustring filename_image);

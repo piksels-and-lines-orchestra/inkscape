@@ -638,11 +638,8 @@ void ImportDialog::on_list_results_selection_changed()
     int row = posArray[0];
     
     Glib::ustring guid = list_results->get_text(row, RESULTS_COLUMN_GUID);
-
-    printf("Selected text is: %s", guid.c_str());
     
     bool item_selected = (!guid.empty());
-    
     button_import->set_sensitive(item_selected);
 }
 
@@ -654,11 +651,11 @@ void ImportDialog::on_button_import_clicked() {
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
-    download_image(row);
     button_import->set_sensitive(false);
     button_close->hide();
     button_cancel->show();
     widget_status->start_process(_("Downloading image..."));
+    download_image(row);
 }
 
 /*
@@ -734,6 +731,12 @@ void ImportDialog::download_image(int row)
     Glib::ustring filename = Glib::ustring::compose("%1%2", guid, extension);
     std::string path = Glib::build_filename(ocal_tmp_image_dir, filename.c_str());
 
+    // If the file has already been downloaded, use it
+    if (Glib::file_test(path, Glib::FILE_TEST_EXISTS)) {
+        handle_image(path, true);
+        return;
+    }
+
     // Download it asynchronously
     Glib::RefPtr<Gio::File> file_local = Gio::File::create_for_path(path);
     file_remote->copy_async(file_local,
@@ -746,9 +749,14 @@ void ImportDialog::download_image(int row)
 void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
     Glib::RefPtr<Gio::File> file_remote, Glib::ustring path)
 {
-    // Try to show the the thumbnail in the Preview widget
+    // Try to import the image
     bool success = file_remote->copy_finish(result);
 
+    handle_image(path, success);
+}
+
+void ImportDialog::handle_image(Glib::ustring path, bool success)
+{
     try {
         widget_status->clear();
         m_signal_response.emit(path);
@@ -768,12 +776,10 @@ void ImportDialog::on_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& res
     button_cancel->hide();
 }
 
+
 void ImportDialog::download_thumbnail_image(int row)
 {
-    // Get Remote File URL
-    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
-    Glib::RefPtr<Gio::File> file_thumbnail_remote = Gio::File::create_for_uri(url);
-
+    // Get Temporary Directory
     std::string ocal_tmp_thumbnail_dir = get_temporary_dir(TYPE_THUMBNAIL);
 
     // Make a unique filename for the clipart, in the form 'GUID.extension'
@@ -783,9 +789,19 @@ void ImportDialog::download_thumbnail_image(int row)
 
     Glib::ustring filename_thumbnail = Glib::ustring::compose("%1%2", guid, extension);
     std::string path_thumbnail = Glib::build_filename(ocal_tmp_thumbnail_dir, filename_thumbnail.c_str());
+    Glib::RefPtr<Gio::File> file_thumbnail_local = Gio::File::create_for_path(path_thumbnail);
+
+    // If the file has already been downloaded, use it
+    if (Glib::file_test(path_thumbnail, Glib::FILE_TEST_EXISTS)) {
+        handle_thumbnail(path_thumbnail, true);
+        return;
+    }
+
+    // Get Remote File URL
+    Glib::ustring url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
+    Glib::RefPtr<Gio::File> file_thumbnail_remote = Gio::File::create_for_uri(url);
 
     // Download it asynchronously
-    Glib::RefPtr<Gio::File> file_thumbnail_local = Gio::File::create_for_path(path_thumbnail);
     file_thumbnail_remote->copy_async(file_thumbnail_local,
         sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
             sigc::mem_fun(*this, &ImportDialog::on_thumbnail_image_downloaded),
@@ -793,13 +809,17 @@ void ImportDialog::download_thumbnail_image(int row)
         Gio::FILE_COPY_OVERWRITE);
 }
 
-
 void ImportDialog::on_thumbnail_image_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
     Glib::RefPtr<Gio::File> file_thumbnail_remote, Glib::ustring path_thumbnail)
 {
     // Try to show the the thumbnail in the Preview widget
     bool success = file_thumbnail_remote->copy_finish(result);
 
+    handle_thumbnail(path_thumbnail, success);
+}
+
+void ImportDialog::handle_thumbnail(Glib::ustring path_thumbnail, bool success)
+{
     try {
         widget_status->clear();
         preview_files->set_image(path_thumbnail);
