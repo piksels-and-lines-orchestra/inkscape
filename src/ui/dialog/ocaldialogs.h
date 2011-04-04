@@ -470,6 +470,10 @@ private:
     Gtk::ScrolledWindow scrolledwindow_list;
     Glib::RefPtr<Gtk::TreeSelection> selection;
 
+    Glib::RefPtr<Gio::Cancellable> cancellable_image;
+    Glib::RefPtr<Gio::Cancellable> cancellable_thumbnail;
+    bool downloading_thumbnail;
+
     void update_label_no_search_results();
     void update_preview(int row);
     void on_list_results_cursor_changed();

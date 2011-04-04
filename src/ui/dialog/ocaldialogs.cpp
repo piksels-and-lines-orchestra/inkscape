@@ -669,7 +669,13 @@ void ImportDialog::on_list_results_cursor_changed()
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
+    if (downloading_thumbnail) {
+        printf("Downloading thumbnail \n");
+        cancellable_thumbnail->cancel();
+    }
+
     update_preview(row);
+    downloading_thumbnail = true;
     download_resource(TYPE_THUMBNAIL, row);
 }
 void ImportDialog::update_preview(int row)
@@ -742,13 +748,18 @@ void ImportDialog::download_resource(ResourceType type, int row)
         return;
     }
 
-    // Get Remote File URL
+    // Get Remote File URL and get the respective cancellable object
     Glib::ustring url;
+    Glib::RefPtr<Gio::Cancellable> cancellable;
 
     if (type == TYPE_IMAGE) {
         url = list_results->get_text(row, RESULTS_COLUMN_URL);
+        cancellable_image = Gio::Cancellable::create();
+        cancellable = cancellable_image;
     } else {
         url = list_results->get_text(row, RESULTS_COLUMN_THUMBNAIL_URL);
+        cancellable_thumbnail = Gio::Cancellable::create();
+        cancellable = cancellable_thumbnail;
     }
     
     Glib::RefPtr<Gio::File> file_remote = Gio::File::create_for_uri(url);
@@ -757,14 +768,20 @@ void ImportDialog::download_resource(ResourceType type, int row)
     file_remote->copy_async(file_local,
         sigc::bind<Glib::RefPtr<Gio::File>, Glib::ustring, ResourceType>(
             sigc::mem_fun(*this, &ImportDialog::on_resource_downloaded),
-            file_remote, path, type),
+            file_remote, path, type), cancellable,
         Gio::FILE_COPY_OVERWRITE);
 }
 
 void ImportDialog::on_resource_downloaded(const Glib::RefPtr<Gio::AsyncResult>& result,
     Glib::RefPtr<Gio::File> file_remote, Glib::ustring path, ResourceType resource)
 {
-    bool success = file_remote->copy_finish(result);
+    bool success;
+    
+    try {
+        success = file_remote->copy_finish(result);
+    } catch(Glib::Error) {
+        success = false;
+    }
 
     if (resource == TYPE_IMAGE) {
         on_image_downloaded(path, success);
@@ -783,8 +800,8 @@ void ImportDialog::on_image_downloaded(Glib::ustring path, bool success)
         success = false;
     }
 
-    // If anything went wrong, show an error message
-    if (!success) {
+    // If anything went wrong, show an error message if the user didn't do it
+    if (!success && !cancellable_image->is_cancelled()) {
         widget_status->set_error(_("Could not download image"));
     }
 
@@ -802,10 +819,12 @@ void ImportDialog::on_thumbnail_downloaded(Glib::ustring path, bool success)
         success = false;
     }
 
-    // If anything went wrong, show an error message
-    if (!success) {
+    // If anything went wrong, show an error message if the user didn't do it
+    if (!success && !cancellable_image->is_cancelled()) {
         widget_status->set_error(_("Could not download thumbnail file"));
     }
+
+    downloading_thumbnail = false;
 }
 
 /*
@@ -915,10 +934,15 @@ void ImportDialog::on_button_search_clicked()
     on_entry_search_activated();
 }
 
-
 void ImportDialog::on_button_close_clicked()
 {
     hide();
+}
+
+void ImportDialog::on_button_cancel_clicked()
+{
+    printf("On_button_cancel_clicked \n");
+    cancellable_image->cancel();
 }
 
 /**
@@ -1059,6 +1083,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
     drawingarea_logo = new LogoArea();
     notebook_content = new Gtk::Notebook();
     widget_status = new StatusWidget();
+
+    downloading_thumbnail = false;
     
     // Packing
     add(*vbox);
@@ -1085,7 +1111,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
 
     // Properties
     set_border_width(12);
-    set_default_size(480, 320);
+    set_default_size(480, 330);
     vbox->set_spacing(12);
     hbuttonbox_bottom->set_spacing(6);
     hbuttonbox_bottom->set_layout(Gtk::BUTTONBOX_END);
@@ -1120,6 +1146,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
             sigc::mem_fun(*this, &ImportDialog::on_button_import_clicked));
     button_close->signal_clicked().connect(
             sigc::mem_fun(*this, &ImportDialog::on_button_close_clicked));
+    button_cancel->signal_clicked().connect(
+            sigc::mem_fun(*this, &ImportDialog::on_button_cancel_clicked));
     button_search->signal_clicked().connect(
             sigc::mem_fun(*this, &ImportDialog::on_button_search_clicked));
     list_results->signal_cursor_changed().connect(
@@ -1132,7 +1160,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
     show_all_children();
     entry_search->grab_focus();
 
-    // Make sure the temporary directories needed later exist
+    // Create the temporary directories that will be needed later
     create_temporary_dirs();
 }
 
