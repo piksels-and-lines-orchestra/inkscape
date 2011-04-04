@@ -670,7 +670,6 @@ void ImportDialog::on_list_results_cursor_changed()
     int row = posArray[0];
 
     if (downloading_thumbnail) {
-        printf("Downloading thumbnail \n");
         cancellable_thumbnail->cancel();
     }
 
@@ -941,7 +940,6 @@ void ImportDialog::on_button_close_clicked()
 
 void ImportDialog::on_button_cancel_clicked()
 {
-    printf("On_button_cancel_clicked \n");
     cancellable_image->cancel();
 }
 
