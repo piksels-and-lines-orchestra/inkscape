@@ -36,9 +36,9 @@ public:
     virtual ~FilterColorMatrix();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual bool can_handle_affine(Geom::Matrix const &);
+    virtual bool can_handle_affine(Geom::Affine const &);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
 
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
     virtual void set_type(FilterColorMatrixType type);
     virtual void set_value(gdouble value);
     virtual void set_values(std::vector<gdouble> const &values);

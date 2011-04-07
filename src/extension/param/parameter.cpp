@@ -36,7 +36,6 @@
 #include "bool.h"
 #include "color.h"
 #include "description.h"
-#include "groupheader.h"
 #include "enum.h"
 #include "float.h"
 #include "int.h"
@@ -124,9 +123,17 @@ Parameter::make (Inkscape::XML::Node * in_repr, Inkscape::Extension::Extension *
     if (!strcmp(type, "boolean")) {
         param = new ParamBool(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
     } else if (!strcmp(type, "int")) {
-        param = new ParamInt(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
+        if (appearance && !strcmp(appearance, "full")) {
+            param = new ParamInt(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamInt::FULL);
+        } else {
+            param = new ParamInt(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamInt::MINIMAL);
+        }
     } else if (!strcmp(type, "float")) {
-        param = new ParamFloat(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
+        if (appearance && !strcmp(appearance, "full")) {
+            param = new ParamFloat(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamFloat::FULL);
+        } else {
+            param = new ParamFloat(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamFloat::MINIMAL);
+        }
     } else if (!strcmp(type, "string")) {
         param = new ParamString(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
         const gchar * max_length = in_repr->attribute("max_length");
@@ -135,9 +142,11 @@ Parameter::make (Inkscape::XML::Node * in_repr, Inkscape::Extension::Extension *
         	ps->setMaxLength(atoi(max_length));
         }
     } else if (!strcmp(type, "description")) {
-        param = new ParamDescription(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
-    } else if (!strcmp(type, "groupheader")) {
-        param = new ParamGroupHeader(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);        
+        if (appearance && !strcmp(appearance, "header")) {
+            param = new ParamDescription(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamDescription::HEADER);
+        } else {
+            param = new ParamDescription(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamDescription::DESC);
+        }   
     } else if (!strcmp(type, "enum")) {
         param = new ParamComboBox(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
     } else if (!strcmp(type, "notebook")) {
@@ -349,7 +358,7 @@ Parameter::new_child (Inkscape::XML::Node * parent)
 Inkscape::XML::Node *Parameter::document_param_node(SPDocument * doc)
 {
     Inkscape::XML::Document *xml_doc = doc->getReprDoc();
-    Inkscape::XML::Node * defs = SP_OBJECT_REPR(SP_DOCUMENT_DEFS(doc));
+    Inkscape::XML::Node * defs = SP_DOCUMENT_DEFS(doc)->getRepr();
     Inkscape::XML::Node * params = NULL;
 
     GQuark const name_quark = g_quark_from_string("inkscape:extension-params");

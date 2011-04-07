@@ -14,6 +14,7 @@
  */
 
 #include <glib/gtypes.h>
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include "sp-item.h"
 #include "sp-string.h"
@@ -53,7 +54,7 @@ struct SPText : public SPItem {
     extend zero-length position vectors to length 1 in order to record the
     new position. This is necessary to convert from objects whose position is
     completely specified by transformations. */
-    static void _adjustCoordsRecursive(SPItem *item, Geom::Matrix const &m, double ex, bool is_root = true);
+    static void _adjustCoordsRecursive(SPItem *item, Geom::Affine const &m, double ex, bool is_root = true);
     static void _adjustFontsizeRecursive(SPItem *item, double ex, bool is_root = true);
 	
     /** discards the NRArena objects representing this text. */

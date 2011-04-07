@@ -40,7 +40,7 @@ static guint count_filter_hrefs(SPObject *o, SPFilter *filter)
 
     guint i = 0;
 
-    SPStyle *style = SP_OBJECT_STYLE(o);
+    SPStyle *style = o->style;
     if (style
         && style->filter.set
         && style->getFilter() == filter)
@@ -328,7 +328,7 @@ new_filter_simple_from_item (SPDocument *document, SPItem *item, const char *mod
         width = height = 0;
     }
 
-    Geom::Matrix i2d (item->i2d_affine () );
+    Geom::Affine i2d (item->i2d_affine () );
 
     return (new_filter_blend_gaussian_blur (document, mode, radius, i2d.descrim(), i2d.expansionX(), i2d.expansionY(), width, height));
 }
@@ -354,8 +354,8 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
 
     // If there are more users for this filter, duplicate it
     if (filter->hrefcount > count_filter_hrefs(item, filter)) {
-        Inkscape::XML::Node *repr = SP_OBJECT_REPR(item->style->getFilter())->duplicate(xml_doc);
-        SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+        Inkscape::XML::Node *repr = item->style->getFilter()->getRepr()->duplicate(xml_doc);
+        SPDefs *defs = reinterpret_cast<SPDefs *>(SP_DOCUMENT_DEFS(document));
         defs->appendChild(repr);
 
         filter = SP_FILTER( document->getObjectByRepr(repr) );
@@ -363,7 +363,7 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
     }
 
     // Determine the required standard deviation value
-    Geom::Matrix i2d (item->i2d_affine ());
+    Geom::Affine i2d (item->i2d_affine ());
     double expansion = i2d.descrim();
     double stdDeviation = radius;
     if (expansion != 0)
@@ -381,7 +381,7 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
     }
 
     // Set the filter effects area
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(item->style->getFilter());
+    Inkscape::XML::Node *repr = item->style->getFilter()->getRepr();
     set_filter_area(repr, radius, expansion, i2d.expansionX(),
                     i2d.expansionY(), width, height);
 
@@ -408,7 +408,7 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
     sp_repr_set_svg_double(b_repr, "stdDeviation", stdDeviation);
     
     //set feGaussianBlur as child of filter node
-    SP_OBJECT_REPR(filter)->appendChild(b_repr);
+    filter->getRepr()->appendChild(b_repr);
     Inkscape::GC::release(b_repr);
 
     return filter;
@@ -416,13 +416,14 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
 
 void remove_filter (SPObject *item, bool recursive)
 {
-	SPCSSAttr *css = sp_repr_css_attr_new ();
-	sp_repr_css_unset_property (css, "filter");
-	if (recursive)
-		sp_repr_css_change_recursive(SP_OBJECT_REPR(item), css, "style");
-	else
-		sp_repr_css_change (SP_OBJECT_REPR(item), css, "style");
-      sp_repr_css_attr_unref (css);
+    SPCSSAttr *css = sp_repr_css_attr_new();
+    sp_repr_css_unset_property(css, "filter");
+    if (recursive) {
+        sp_repr_css_change_recursive(item->getRepr(), css, "style");
+    } else {
+        sp_repr_css_change(item->getRepr(), css, "style");
+    }
+    sp_repr_css_attr_unref(css);
 }
 
 /**
@@ -436,7 +437,7 @@ void remove_filter_gaussian_blur (SPObject *item)
 {
     if (item->style && item->style->filter.set && item->style->getFilter()) {
         // Search for the first blur primitive and remove it. (if found)
-        Inkscape::XML::Node *repr = SP_OBJECT_REPR(item->style->getFilter());
+        Inkscape::XML::Node *repr = item->style->getFilter()->getRepr();
         Inkscape::XML::Node *primitive = repr->firstChild();
         while (primitive) {
             if (strcmp("svg:feGaussianBlur", primitive->name()) == 0) {
@@ -455,18 +456,18 @@ void remove_filter_gaussian_blur (SPObject *item)
 
 bool filter_is_single_gaussian_blur(SPFilter *filter)
 {
-    return (SP_OBJECT(filter)->firstChild() && 
-            SP_OBJECT(filter)->firstChild() == SP_OBJECT(filter)->lastChild() &&
-            SP_IS_GAUSSIANBLUR(SP_OBJECT(filter)->firstChild()));
+    return (filter->firstChild() && 
+            (filter->firstChild() == filter->lastChild()) &&
+            SP_IS_GAUSSIANBLUR(filter->firstChild()));
 }
 
 double get_single_gaussian_blur_radius(SPFilter *filter)
 {
-    if (SP_OBJECT(filter)->firstChild() && 
-        SP_OBJECT(filter)->firstChild() == SP_OBJECT(filter)->lastChild() &&
-        SP_IS_GAUSSIANBLUR(SP_OBJECT(filter)->firstChild())) {
+    if (filter->firstChild() && 
+        (filter->firstChild() == filter->lastChild()) &&
+        SP_IS_GAUSSIANBLUR(filter->firstChild())) {
 
-        SPGaussianBlur *gb = SP_GAUSSIANBLUR(SP_OBJECT(filter)->firstChild());
+        SPGaussianBlur *gb = SP_GAUSSIANBLUR(filter->firstChild());
         double x = gb->stdDeviation.getNumber();
         double y = gb->stdDeviation.getOptNumber();
         if (x > 0 && y > 0) {

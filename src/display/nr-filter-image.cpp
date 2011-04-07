@@ -6,7 +6,7 @@
  *   Tavmjong Bah <tavmjong@free.fr>
  *   Abhishek Sharma
  *
- * Copyright (C) 2007 authors
+ * Copyright (C) 2007-2011 authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -48,7 +48,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
 
     //cairo_surface_t *input = slot.getcairo(_input);
 
-    Geom::Matrix m = slot.get_units().get_matrix_user2filterunits().inverse();
+    Geom::Affine m = slot.get_units().get_matrix_user2filterunits().inverse();
     Geom::Point bbox_00 = Geom::Point(0,0) * m;
     Geom::Point bbox_w0 = Geom::Point(1,0) * m;
     Geom::Point bbox_0h = Geom::Point(0,1) * m;
@@ -86,7 +86,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
         }
 
         Geom::Rect area = *optarea;
-        Geom::Matrix pu2pb = slot.get_units().get_matrix_primitiveunits2pb();
+        Geom::Affine pu2pb = slot.get_units().get_matrix_primitiveunits2pb();
 
         double scaleX = feImageWidth / area.width();
         double scaleY = feImageHeight / area.height();
@@ -109,7 +109,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
 
         // Update to renderable state
         NRGC gc(NULL);
-        Geom::Matrix t = Geom::identity();
+        Geom::Affine t = Geom::identity();
         nr_arena_item_set_transform(ai, &t);
         gc.transform.setIdentity();
         nr_arena_item_invoke_update(ai, NULL, &gc,
@@ -189,6 +189,8 @@ void FilterImage::render_cairo(FilterSlot &slot)
     ink_cairo_transform(ct, slot.get_units().get_matrix_primitiveunits2pb());
     // now ct is in the coordinates of feImageX etc.
 
+    // TODO: add preserveAspectRatio support here
+
     double scaleX = feImageWidth / image->get_width();
     double scaleY = feImageHeight / image->get_height();
 
@@ -201,7 +203,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
     slot.set(_output, out);
 }
 
-bool FilterImage::can_handle_affine(Geom::Matrix const &)
+bool FilterImage::can_handle_affine(Geom::Affine const &)
 {
     return true;
 }
@@ -221,11 +223,19 @@ void FilterImage::set_document(SPDocument *doc){
     document = doc;
 }
 
-void FilterImage::set_region(SVGLength x, SVGLength y, SVGLength width, SVGLength height){
+void FilterImage::set_region(SVGLength x, SVGLength y, SVGLength width, SVGLength height) {
         feImageX=x.computed;
         feImageY=y.computed;
         feImageWidth=width.computed;
         feImageHeight=height.computed;
+}
+
+void FilterImage::set_align( unsigned int align ) {
+    aspect_align = align;
+}
+
+void FilterImage::set_clip( unsigned int clip ) {
+    aspect_clip = clip;
 }
 
 } /* namespace Filters */

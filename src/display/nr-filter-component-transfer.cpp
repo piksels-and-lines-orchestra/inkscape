@@ -299,12 +299,12 @@ void FilterComponentTransfer::render_cairo(FilterSlot &slot)
     //cairo_surface_destroy(outtemp);
 }
 
-bool FilterComponentTransfer::can_handle_affine(Geom::Matrix const &)
+bool FilterComponentTransfer::can_handle_affine(Geom::Affine const &)
 {
     return true;
 }
 
-void FilterComponentTransfer::area_enlarge(NRRectL &/*area*/, Geom::Matrix const &/*trans*/)
+void FilterComponentTransfer::area_enlarge(NRRectL &/*area*/, Geom::Affine const &/*trans*/)
 {
 }
 

@@ -344,7 +344,7 @@ RegisteredColorPicker::on_changed (guint32 rgba)
         SPDesktop *dt = SP_ACTIVE_DESKTOP;
         if (!dt)
             return;
-        local_repr = SP_OBJECT_REPR (sp_desktop_namedview(dt));
+        local_repr = sp_desktop_namedview(dt)->getRepr();
         local_doc = sp_desktop_document(dt);
     }
 
@@ -553,7 +553,7 @@ RegisteredTransformedPoint::setValue(Geom::Point const & p)
 }
 
 void
-RegisteredTransformedPoint::setTransform(Geom::Matrix const & canvas_to_svg)
+RegisteredTransformedPoint::setTransform(Geom::Affine const & canvas_to_svg)
 {
     // check if matrix is singular / has inverse
     if ( ! canvas_to_svg.isSingular() ) {

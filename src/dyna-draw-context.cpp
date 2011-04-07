@@ -59,6 +59,7 @@
 #include "sp-shape.h"
 #include "sp-path.h"
 #include "sp-text.h"
+#include "display/sp-canvas.h"
 #include "display/canvas-bpath.h"
 #include "display/canvas-arena.h"
 #include "livarot/Shape.h"
@@ -583,7 +584,7 @@ sp_dyna_draw_context_root_handler(SPEventContext *event_context,
             Geom::Point hatch_unit_vector(0,0);
             Geom::Point nearest(0,0);
             Geom::Point pointer(0,0);
-            Geom::Matrix motion_to_curve(Geom::identity());
+            Geom::Affine motion_to_curve(Geom::identity());
 
             if (event->motion.state & GDK_CONTROL_MASK) { // hatching - sense the item
 
@@ -780,21 +781,21 @@ sp_dyna_draw_context_root_handler(SPEventContext *event_context,
                 if (dc->hatch_spacing == 0 && hatch_dist != 0) {
                     // Haven't set spacing yet: gray, center free, update radius live
                     Geom::Point c = desktop->w2d(motion_w);
-                    Geom::Matrix const sm (Geom::Scale(hatch_dist, hatch_dist) * Geom::Translate(c));
+                    Geom::Affine const sm (Geom::Scale(hatch_dist, hatch_dist) * Geom::Translate(c));
                     sp_canvas_item_affine_absolute(dc->hatch_area, sm);
                     sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(dc->hatch_area), 0x7f7f7fff, 1.0, SP_STROKE_LINEJOIN_MITER, SP_STROKE_LINECAP_BUTT);
                     sp_canvas_item_show(dc->hatch_area);
                 } else if (dc->dragging && !dc->hatch_escaped) {
                     // Tracking: green, center snapped, fixed radius
                     Geom::Point c = motion_dt;
-                    Geom::Matrix const sm (Geom::Scale(dc->hatch_spacing, dc->hatch_spacing) * Geom::Translate(c));
+                    Geom::Affine const sm (Geom::Scale(dc->hatch_spacing, dc->hatch_spacing) * Geom::Translate(c));
                     sp_canvas_item_affine_absolute(dc->hatch_area, sm);
                     sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(dc->hatch_area), 0x00FF00ff, 1.0, SP_STROKE_LINEJOIN_MITER, SP_STROKE_LINECAP_BUTT);
                     sp_canvas_item_show(dc->hatch_area);
                 } else if (dc->dragging && dc->hatch_escaped) {
                     // Tracking escaped: red, center free, fixed radius
                     Geom::Point c = motion_dt;
-                    Geom::Matrix const sm (Geom::Scale(dc->hatch_spacing, dc->hatch_spacing) * Geom::Translate(c));
+                    Geom::Affine const sm (Geom::Scale(dc->hatch_spacing, dc->hatch_spacing) * Geom::Translate(c));
 
                     sp_canvas_item_affine_absolute(dc->hatch_area, sm);
                     sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(dc->hatch_area), 0xFF0000ff, 1.0, SP_STROKE_LINEJOIN_MITER, SP_STROKE_LINECAP_BUTT);
@@ -803,7 +804,7 @@ sp_dyna_draw_context_root_handler(SPEventContext *event_context,
                     // Not drawing but spacing set: gray, center snapped, fixed radius
                     Geom::Point c = (nearest + dc->hatch_spacing * hatch_unit_vector) * motion_to_curve.inverse();
                     if (!IS_NAN(c[Geom::X]) && !IS_NAN(c[Geom::Y])) {
-                        Geom::Matrix const sm (Geom::Scale(dc->hatch_spacing, dc->hatch_spacing) * Geom::Translate(c));
+                        Geom::Affine const sm (Geom::Scale(dc->hatch_spacing, dc->hatch_spacing) * Geom::Translate(c));
                         sp_canvas_item_affine_absolute(dc->hatch_area, sm);
                         sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(dc->hatch_area), 0x7f7f7fff, 1.0, SP_STROKE_LINEJOIN_MITER, SP_STROKE_LINECAP_BUTT);
                         sp_canvas_item_show(dc->hatch_area);
@@ -1086,32 +1087,20 @@ accumulate_calligraphic(SPDynaDrawContext *dc)
             return false; // failure
         }
 
-        Geom::CubicBezier const * dc_cal1_firstseg  = dynamic_cast<Geom::CubicBezier const *>( dc->cal1->first_segment() );
-        Geom::CubicBezier const * rev_cal2_firstseg = dynamic_cast<Geom::CubicBezier const *>( rev_cal2->first_segment() );
-        Geom::CubicBezier const * dc_cal1_lastseg   = dynamic_cast<Geom::CubicBezier const *>( dc->cal1->last_segment() );
-        Geom::CubicBezier const * rev_cal2_lastseg  = dynamic_cast<Geom::CubicBezier const *>( rev_cal2->last_segment() );
-
-        if (
-            !dc_cal1_firstseg ||
-            !rev_cal2_firstseg ||
-            !dc_cal1_lastseg ||
-            !rev_cal2_lastseg
-            ) {
-            rev_cal2->unref();
-            dc->cal1->reset();
-            dc->cal2->reset();
-            return false; // failure
-        }
+        Geom::Curve const * dc_cal1_firstseg  = dc->cal1->first_segment();
+        Geom::Curve const * rev_cal2_firstseg = rev_cal2->first_segment();
+        Geom::Curve const * dc_cal1_lastseg   = dc->cal1->last_segment();
+        Geom::Curve const * rev_cal2_lastseg  = rev_cal2->last_segment();
 
         dc->accumulated->reset(); /*  Is this required ?? */
 
         dc->accumulated->append(dc->cal1, false);
 
-        add_cap(dc->accumulated, (*dc_cal1_lastseg)[3], (*rev_cal2_firstseg)[0], dc->cap_rounding);
+        add_cap(dc->accumulated, dc_cal1_lastseg->finalPoint(), rev_cal2_firstseg->initialPoint(), dc->cap_rounding);
 
         dc->accumulated->append(rev_cal2, true);
 
-        add_cap(dc->accumulated, (*rev_cal2_lastseg)[3], (*dc_cal1_firstseg)[0], dc->cap_rounding);
+        add_cap(dc->accumulated, rev_cal2_lastseg->finalPoint(), dc_cal1_firstseg->initialPoint(), dc->cap_rounding);
 
         dc->accumulated->closepath();
 

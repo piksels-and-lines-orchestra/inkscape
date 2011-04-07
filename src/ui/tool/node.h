@@ -15,6 +15,7 @@
 #include <iterator>
 #include <iosfwd>
 #include <stdexcept>
+#include <cstddef>
 #include <tr1/functional>
 #include <boost/utility.hpp>
 #include <boost/shared_ptr.hpp>
@@ -102,6 +103,7 @@ public:
 protected:
     Handle(NodeSharedData const &data, Geom::Point const &initial_pos, Node *parent);
 
+    virtual bool _eventHandler(GdkEvent *event);
     virtual void dragged(Geom::Point &, GdkEventMotion *);
     virtual bool grabbed(GdkEventMotion *);
     virtual void ungrabbed(GdkEventButton *);
@@ -127,7 +129,7 @@ class Node : ListNode, public SelectableControlPoint {
 public:
     Node(NodeSharedData const &data, Geom::Point const &pos);
     virtual void move(Geom::Point const &p);
-    virtual void transform(Geom::Matrix const &m);
+    virtual void transform(Geom::Affine const &m);
     virtual Geom::Rect bounds();
 
     NodeType type() { return _type; }

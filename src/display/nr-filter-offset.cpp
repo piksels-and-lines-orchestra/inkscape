@@ -38,7 +38,7 @@ void FilterOffset::render_cairo(FilterSlot &slot)
     cairo_surface_t *out = ink_cairo_surface_create_identical(in);
     cairo_t *ct = cairo_create(out);
 
-    Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
+    Geom::Affine trans = slot.get_units().get_matrix_primitiveunits2pb();
     Geom::Point offset(dx, dy);
     offset *= trans;
     offset[X] -= trans[4];
@@ -52,7 +52,7 @@ void FilterOffset::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-bool FilterOffset::can_handle_affine(Geom::Matrix const &)
+bool FilterOffset::can_handle_affine(Geom::Affine const &)
 {
     return true;
 }
@@ -65,7 +65,7 @@ void FilterOffset::set_dy(double amount) {
     dy = amount;
 }
 
-void FilterOffset::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
+void FilterOffset::area_enlarge(NRRectL &area, Geom::Affine const &trans)
 {
     Geom::Point offset(dx, dy);
     offset *= trans;

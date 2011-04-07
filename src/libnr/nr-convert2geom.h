@@ -11,7 +11,7 @@
 
 #include <libnr/nr-rect.h>
 #include <libnr/nr-point.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <2geom/d2.h>
 #include <2geom/transforms.h>
 #include <2geom/point.h>

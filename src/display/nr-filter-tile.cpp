@@ -41,7 +41,7 @@ void FilterTile::render_cairo(FilterSlot &slot)
     slot.set(_output, in);
 }
 
-void FilterTile::area_enlarge(NRRectL &/*area*/, Geom::Matrix const &/*trans*/)
+void FilterTile::area_enlarge(NRRectL &/*area*/, Geom::Affine const &/*trans*/)
 {
 }
 

@@ -26,6 +26,7 @@
 #include <gtkmm/drawingarea.h>
 #include <gtkmm/frame.h>
 #include <gtkmm/filechooserbutton.h>
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include <glibmm/i18n.h>
 
@@ -170,6 +171,19 @@ public:
 protected:
     Glib::ustring _prefs_path;
     Glib::ustring _default_string;
+    Gtk::Button *relatedButton;
+    Gtk::Entry *relatedEntry;
+    void onRelatedEntryChangedCallback();
+    void onRelatedButtonClickedCallback();
+};
+
+class PrefEntryFileButtonHBox : public Gtk::HBox
+{
+public:
+    void init(Glib::ustring const &prefs_path,
+            bool mask);
+protected:
+    Glib::ustring _prefs_path;
     Gtk::Button *relatedButton;
     Gtk::Entry *relatedEntry;
     void onRelatedEntryChangedCallback();

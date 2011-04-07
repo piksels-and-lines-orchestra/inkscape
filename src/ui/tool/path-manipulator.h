@@ -14,15 +14,15 @@
 #include <string>
 #include <memory>
 #include <2geom/pathvector.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
-#include "display/display-forward.h"
 #include "forward.h"
 #include "ui/tool/node.h"
 #include "ui/tool/manipulator.h"
 
 struct SPCanvasItem;
+struct SPCurve;
 
 namespace Inkscape {
 namespace XML { class Node; }
@@ -53,7 +53,7 @@ class PathManipulator : public PointManipulator {
 public:
     typedef SPPath *ItemType;
 
-    PathManipulator(MultiPathManipulator &mpm, SPPath *path, Geom::Matrix const &edit_trans,
+    PathManipulator(MultiPathManipulator &mpm, SPPath *path, Geom::Affine const &edit_trans,
         guint32 outline_color, Glib::ustring lpe_key);
     ~PathManipulator();
     virtual bool event(GdkEvent *);
@@ -65,7 +65,6 @@ public:
     SPPath *item() { return _path; }
 
     void selectSubpaths();
-    void shiftSelection(int dir);
     void invertSelectionInSubpaths();
 
     void insertNodes();
@@ -86,13 +85,16 @@ public:
     void showPathDirection(bool show);
     void setLiveOutline(bool set);
     void setLiveObjects(bool set);
-    void setControlsTransform(Geom::Matrix const &);
+    void setControlsTransform(Geom::Affine const &);
     void hideDragPoint();
     MultiPathManipulator &mpm() { return _multi_path_manipulator; }
 
     NodeList::iterator subdivideSegment(NodeList::iterator after, double t);
     NodeList::iterator extremeNode(NodeList::iterator origin, bool search_selected,
         bool search_unselected, bool closest);
+
+    // this is necessary for Tab-selection in MultiPathManipulator
+    SubpathList &subpathList() { return _subpaths; }
 
     static bool is_item_type(void *item);
 private:
@@ -132,9 +134,9 @@ private:
     SPCanvasItem *_outline;
     CurveDragPoint *_dragpoint; // an invisible control point hoverng over curve
     PathManipulatorObserver *_observer;
-    Geom::Matrix _d2i_transform; ///< desktop-to-item transform
-    Geom::Matrix _i2d_transform; ///< item-to-desktop transform, inverse of _d2i_transform
-    Geom::Matrix _edit_transform; ///< additional transform to apply to editing controls
+    Geom::Affine _d2i_transform; ///< desktop-to-item transform
+    Geom::Affine _i2d_transform; ///< item-to-desktop transform, inverse of _d2i_transform
+    Geom::Affine _edit_transform; ///< additional transform to apply to editing controls
     unsigned _num_selected; ///< number of selected nodes
     bool _show_handles;
     bool _show_outline;

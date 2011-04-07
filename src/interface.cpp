@@ -8,6 +8,7 @@
  *   Jon A. Cruz <jon@joncruz.org>
  *   Abhishek Sharma
  *
+ * Copyright (C) 2010 authors
  * Copyright (C) 1999-2005 authors
  * Copyright (C) 2001-2002 Ximian, Inc.
  * Copyright (C) 2004 David Turner
@@ -272,7 +273,9 @@ sp_create_window(SPViewWidget *vw, gboolean editable)
     win->show();
 
     // needed because the first ACTIVATE_DESKTOP was sent when there was no window yet
-    inkscape_reactivate_desktop(SP_DESKTOP_WIDGET(vw)->desktop);
+    if ( SP_IS_DESKTOP_WIDGET(vw) ) {
+        inkscape_reactivate_desktop(SP_DESKTOP_WIDGET(vw)->desktop);
+    }
 }
 
 void
@@ -294,20 +297,16 @@ sp_ui_new_view()
 
 /* TODO: not yet working */
 /* To be re-enabled (by adding to menu) once it works. */
-void
-sp_ui_new_view_preview()
+void sp_ui_new_view_preview()
 {
-    SPDocument *document;
-    SPViewWidget *dtw;
+    SPDocument *document = SP_ACTIVE_DOCUMENT;
+    if ( document ) {
+        SPViewWidget *dtw = reinterpret_cast<SPViewWidget *>(sp_svg_view_widget_new(document));
+        g_return_if_fail(dtw != NULL);
+        SP_SVG_VIEW_WIDGET(dtw)->setResize(true, 400.0, 400.0);
 
-    document = SP_ACTIVE_DOCUMENT;
-    if (!document) return;
-
-    dtw = (SPViewWidget *) sp_svg_view_widget_new(document);
-    g_return_if_fail(dtw != NULL);
-    sp_svg_view_widget_set_resize(SP_SVG_VIEW_WIDGET(dtw), TRUE, 400.0, 400.0);
-
-    sp_create_window(dtw, FALSE);
+        sp_create_window(dtw, FALSE);
+    }
 }
 
 /**
@@ -641,44 +640,49 @@ static void taskToggled(GtkCheckMenuItem *menuitem, gpointer userData)
 
 
 /**
- *  \brief Callback function to update the status of the radio buttons in the View -> Display mode menu (Normal, No Filters, Outline)
+ *  \brief Callback function to update the status of the radio buttons in the View -> Display mode menu (Normal, No Filters, Outline) and Color display mode
  */
 
 static gboolean
 update_view_menu(GtkWidget *widget, GdkEventExpose */*event*/, gpointer user_data)
 {
-	SPAction *action = (SPAction *) user_data;
-	g_assert(action->id != NULL);
+    SPAction *action = (SPAction *) user_data;
+    g_assert(action->id != NULL);
 
-	Inkscape::UI::View::View *view = (Inkscape::UI::View::View *) g_object_get_data(G_OBJECT(widget), "view");
+    Inkscape::UI::View::View *view = (Inkscape::UI::View::View *) g_object_get_data(G_OBJECT(widget), "view");
     SPDesktop *dt = static_cast<SPDesktop*>(view);
-	Inkscape::RenderMode mode = dt->getMode();
+    Inkscape::RenderMode mode = dt->getMode();
+    Inkscape::ColorRenderMode colormode = dt->getColorMode();
 
-	bool new_state = false;
-	if (!strcmp(action->id, "ViewModeNormal")) {
-    	new_state = mode == Inkscape::RENDERMODE_NORMAL;
-	} else if (!strcmp(action->id, "ViewModeNoFilters")) {
-    	new_state = mode == Inkscape::RENDERMODE_NO_FILTERS;
+    bool new_state = false;
+    if (!strcmp(action->id, "ViewModeNormal")) {
+        new_state = mode == Inkscape::RENDERMODE_NORMAL;
+    } else if (!strcmp(action->id, "ViewModeNoFilters")) {
+        new_state = mode == Inkscape::RENDERMODE_NO_FILTERS;
     } else if (!strcmp(action->id, "ViewModeOutline")) {
-    	new_state = mode == Inkscape::RENDERMODE_OUTLINE;
-    } else if (!strcmp(action->id, "ViewModePrintColorsPreview")) {
-    	new_state = mode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW;
+        new_state = mode == Inkscape::RENDERMODE_OUTLINE;
+    } else if (!strcmp(action->id, "ViewColorModeNormal")) {
+        new_state = colormode == Inkscape::COLORRENDERMODE_NORMAL;
+    } else if (!strcmp(action->id, "ViewColorModeGrayscale")) {
+        new_state = colormode == Inkscape::COLORRENDERMODE_GRAYSCALE;
+    } else if (!strcmp(action->id, "ViewColorModePrintColorsPreview")) {
+        new_state = colormode == Inkscape::COLORRENDERMODE_PRINT_COLORS_PREVIEW;
     } else {
-    	g_warning("update_view_menu does not handle this verb");
+        g_warning("update_view_menu does not handle this verb");
     }
 
-	if (new_state) { //only one of the radio buttons has to be activated; the others will automatically be deactivated
-		if (!gtk_check_menu_item_get_active (GTK_CHECK_MENU_ITEM (widget))) {
-			// When the GtkMenuItem version of the "activate" signal has been emitted by a GtkRadioMenuItem, there is a second
-			// emission as the most recently active item is toggled to inactive. This is dealt with before the original signal is handled.
-			// This emission however should not invoke any actions, hence we block it here:
-			temporarily_block_actions = true;
-			gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (widget), TRUE);
-			temporarily_block_actions = false;
-		}
-	}
+    if (new_state) { //only one of the radio buttons has to be activated; the others will automatically be deactivated
+        if (!gtk_check_menu_item_get_active (GTK_CHECK_MENU_ITEM (widget))) {
+            // When the GtkMenuItem version of the "activate" signal has been emitted by a GtkRadioMenuItem, there is a second
+            // emission as the most recently active item is toggled to inactive. This is dealt with before the original signal is handled.
+            // This emission however should not invoke any actions, hence we block it here:
+            temporarily_block_actions = true;
+            gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (widget), TRUE);
+            temporarily_block_actions = false;
+        }
+    }
 
-	return FALSE;
+    return FALSE;
 }
 
 void
@@ -772,12 +776,20 @@ sp_menu_append_new_templates(GtkWidget *menu, Inkscape::UI::View::View *view)
 
             if (dir) {
                 for (gchar const *file = g_dir_read_name(dir); file != NULL; file = g_dir_read_name(dir)) {
-                    if (!g_str_has_suffix(file, ".svg") && !g_str_has_suffix(file, ".svgz"))
+                    if (!g_str_has_suffix(file, ".svg") && !g_str_has_suffix(file, ".svgz")) {
                         continue; // skip non-svg files
+                    }
 
-                    gchar *basename = g_path_get_basename(file);
-                    if (g_str_has_suffix(basename, ".svg") && g_str_has_prefix(basename, "default."))
-                        continue; // skip default.*.svg (i.e. default.svg and translations) - it's in the menu already
+                    {
+                        gchar *basename = g_path_get_basename(file);
+                        if (g_str_has_suffix(basename, ".svg") && g_str_has_prefix(basename, "default.")) {
+                            g_free(basename);
+                            basename = 0;
+                            continue; // skip default.*.svg (i.e. default.svg and translations) - it's in the menu already
+                        }
+                        g_free(basename);
+                        basename = 0;
+                    }
 
                     gchar const *filepath = g_build_filename(dirname, file, NULL);
                     gchar *dupfile = g_strndup(file, strlen(file) - 4);
@@ -1026,7 +1038,7 @@ sp_ui_main_menubar(Inkscape::UI::View::View *view)
 }
 
 static void leave_group(GtkMenuItem *, SPDesktop *desktop) {
-    desktop->setCurrentLayer(SP_OBJECT_PARENT(desktop->currentLayer()));
+    desktop->setCurrentLayer(desktop->currentLayer()->parent);
 }
 
 static void enter_group(GtkMenuItem *mi, SPDesktop *desktop) {
@@ -1072,13 +1084,13 @@ sp_ui_context_menu(Inkscape::UI::View::View *view, SPItem *item)
     if (item) {
         if (SP_IS_GROUP(item)) {
             group = SP_GROUP(item);
-        } else if ( item != dt->currentRoot() && SP_IS_GROUP(SP_OBJECT_PARENT(item)) ) {
-            group = SP_GROUP(SP_OBJECT_PARENT(item));
+        } else if ( item != dt->currentRoot() && SP_IS_GROUP(item->parent) ) {
+            group = SP_GROUP(item->parent);
         }
     }
 
     if (( group && group != dt->currentLayer() ) ||
-        ( dt->currentLayer() != dt->currentRoot() && SP_OBJECT_PARENT(dt->currentLayer()) != dt->currentRoot() ) ) {
+        ( dt->currentLayer() != dt->currentRoot() && dt->currentLayer()->parent != dt->currentRoot() ) ) {
         /* Separator */
         sp_ui_menu_append_item(GTK_MENU(m), NULL, NULL, NULL, NULL, NULL, NULL);
     }
@@ -1095,7 +1107,7 @@ sp_ui_context_menu(Inkscape::UI::View::View *view, SPItem *item)
     }
 
     if ( dt->currentLayer() != dt->currentRoot() ) {
-        if ( SP_OBJECT_PARENT(dt->currentLayer()) != dt->currentRoot() ) {
+        if ( dt->currentLayer()->parent != dt->currentRoot() ) {
             GtkWidget *w = gtk_menu_item_new_with_label(_("Go to parent"));
             g_signal_connect(G_OBJECT(w), "activate", GCallback(leave_group), dt);
             gtk_widget_show(w);
@@ -1168,10 +1180,10 @@ sp_ui_drag_data_received(GtkWidget *widget,
                             g_free(str);
                             str = 0;
 
-                            SP_OBJECT(item)->setAttribute( 
-                                                    fillnotstroke ? "inkscape:x-fill-tag":"inkscape:x-stroke-tag",
-                                                    palName.c_str(),
-                                                    false );
+                            item->setAttribute( 
+                                fillnotstroke ? "inkscape:x-fill-tag":"inkscape:x-stroke-tag",
+                                palName.c_str(),
+                                false );
                             item->updateRepr();
 
                             sp_repr_css_set_property( css, fillnotstroke ? "fill":"stroke", c );
@@ -1252,9 +1264,9 @@ sp_ui_drag_data_received(GtkWidget *widget,
                             Inkscape::Preferences *prefs = Inkscape::Preferences::get();
                             delta = desktop->d2w(delta);
                             double stroke_tolerance =
-                                ( !SP_OBJECT_STYLE(item)->stroke.isNone() ?
+                                ( !item->style->stroke.isNone() ?
                                   desktop->current_zoom() *
-                                  SP_OBJECT_STYLE (item)->stroke_width.computed *
+                                  item->style->stroke_width.computed *
                                   item->i2d_affine().descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
@@ -1355,9 +1367,9 @@ sp_ui_drag_data_received(GtkWidget *widget,
                             Inkscape::Preferences *prefs = Inkscape::Preferences::get();
                             delta = desktop->d2w(delta);
                             double stroke_tolerance =
-                                ( !SP_OBJECT_STYLE(item)->stroke.isNone() ?
+                                ( !item->style->stroke.isNone() ?
                                   desktop->current_zoom() *
-                                  SP_OBJECT_STYLE (item)->stroke_width.computed *
+                                  item->style->stroke_width.computed *
                                   item->i2d_affine().descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);

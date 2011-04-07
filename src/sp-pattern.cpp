@@ -29,6 +29,7 @@
 #include "uri.h"
 #include "sp-pattern.h"
 #include "xml/repr.h"
+#include "display/grayscale.h"
 
 #include <sigc++/functors/ptr_fun.h>
 #include <sigc++/adaptors/bind.h>
@@ -100,7 +101,7 @@ sp_pattern_class_init (SPPatternClass *klass)
 static void
 sp_pattern_init (SPPattern *pat)
 {
-	pat->ref = new SPPatternReference(SP_OBJECT(pat));
+	pat->ref = new SPPatternReference(pat);
 	pat->ref->changedSignal().connect(sigc::bind(sigc::ptr_fun(pattern_ref_changed), pat));
 
 	pat->patternUnits = SP_PATTERN_UNITS_OBJECTBOUNDINGBOX;
@@ -142,29 +143,27 @@ sp_pattern_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *r
 	document->addResource("pattern", object);
 }
 
-static void
-sp_pattern_release (SPObject *object)
+static void sp_pattern_release(SPObject *object)
 {
-	SPPattern *pat;
+    SPPattern *pat = reinterpret_cast<SPPattern *>(object);
 
-	pat = (SPPattern *) object;
+    if (object->document) {
+        // Unregister ourselves
+        object->document->removeResource("pattern", object);
+    }
 
-	if (SP_OBJECT_DOCUMENT (object)) {
-		/* Unregister ourselves */
-		SP_OBJECT_DOCUMENT (object)->removeResource("pattern", SP_OBJECT (object));
-	}
+    if (pat->ref) {
+        pat->modified_connection.disconnect();
+        pat->ref->detach();
+        delete pat->ref;
+        pat->ref = NULL;
+    }
 
-	if (pat->ref) {
-		pat->modified_connection.disconnect();
-		pat->ref->detach();
-		delete pat->ref;
-		pat->ref = NULL;
-	}
+    pat->modified_connection.~connection();
 
-	pat->modified_connection.~connection();
-
-	if (((SPObjectClass *) pattern_parent_class)->release)
-		((SPObjectClass *) pattern_parent_class)->release (object);
+    if (((SPObjectClass *) pattern_parent_class)->release) {
+        ((SPObjectClass *) pattern_parent_class)->release (object);
+    }
 }
 
 static void
@@ -200,7 +199,7 @@ sp_pattern_set (SPObject *object, unsigned int key, const gchar *value)
 		object->requestModified(SP_OBJECT_MODIFIED_FLAG);
 		break;
 	case SP_ATTR_PATTERNTRANSFORM: {
-		Geom::Matrix t;
+		Geom::Affine t;
 		if (value && sp_svg_transform_read (value, &t)) {
 			pat->patternTransform = t;
 			pat->patternTransform_set = TRUE;
@@ -370,12 +369,12 @@ pattern_ref_changed(SPObject *old_ref, SPObject *ref, SPPattern *pat)
 /**
 Gets called when the referenced <pattern> is changed
 */
-static void
-pattern_ref_modified (SPObject */*ref*/, guint /*flags*/, SPPattern *pattern)
+static void pattern_ref_modified (SPObject */*ref*/, guint /*flags*/, SPPattern *pattern)
 {
-	if (SP_IS_OBJECT (pattern))
-		SP_OBJECT (pattern)->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        /* Conditional to avoid causing infinite loop if there's a cycle in the href chain. */
+    if ( SP_IS_OBJECT(pattern) ) {
+        pattern->requestModified(SP_OBJECT_MODIFIED_FLAG);
+    }
+    // Conditional to avoid causing infinite loop if there's a cycle in the href chain.
 }
 
 
@@ -390,7 +389,7 @@ count_pattern_hrefs(SPObject *o, SPPattern *pat)
 
     guint i = 0;
 
-    SPStyle *style = SP_OBJECT_STYLE(o);
+    SPStyle *style = o->style;
     if (style
         && style->fill.isPaintserver()
         && SP_IS_PATTERN(SP_STYLE_FILL_SERVER(style))
@@ -415,13 +414,13 @@ count_pattern_hrefs(SPObject *o, SPPattern *pat)
 
 SPPattern *pattern_chain(SPPattern *pattern)
 {
-	SPDocument *document = SP_OBJECT_DOCUMENT (pattern);
+	SPDocument *document = pattern->document;
         Inkscape::XML::Document *xml_doc = document->getReprDoc();
-	Inkscape::XML::Node *defsrepr = SP_OBJECT_REPR (SP_DOCUMENT_DEFS (document));
+	Inkscape::XML::Node *defsrepr = SP_DOCUMENT_DEFS(document)->getRepr();
 
 	Inkscape::XML::Node *repr = xml_doc->createElement("svg:pattern");
 	repr->setAttribute("inkscape:collect", "always");
-	gchar *parent_ref = g_strconcat ("#", SP_OBJECT_REPR(pattern)->attribute("id"), NULL);
+	gchar *parent_ref = g_strconcat("#", pattern->getRepr()->attribute("id"), NULL);
 	repr->setAttribute("xlink:href",  parent_ref);
 	g_free (parent_ref);
 
@@ -438,20 +437,20 @@ sp_pattern_clone_if_necessary (SPItem *item, SPPattern *pattern, const gchar *pr
 {
 	if (!pattern->href || pattern->hrefcount > count_pattern_hrefs(item, pattern)) {
 		pattern = pattern_chain (pattern);
-		gchar *href = g_strconcat ("url(#", SP_OBJECT_REPR (pattern)->attribute("id"), ")", NULL);
+		gchar *href = g_strconcat("url(#", pattern->getRepr()->attribute("id"), ")", NULL);
 
 		SPCSSAttr *css = sp_repr_css_attr_new ();
 		sp_repr_css_set_property (css, property, href);
-		sp_repr_css_change_recursive (SP_OBJECT_REPR (item), css, "style");
+		sp_repr_css_change_recursive(item->getRepr(), css, "style");
 	}
 	return pattern;
 }
 
 void
-sp_pattern_transform_multiply (SPPattern *pattern, Geom::Matrix postmul, bool set)
+sp_pattern_transform_multiply (SPPattern *pattern, Geom::Affine postmul, bool set)
 {
 	// this formula is for a different interpretation of pattern transforms as described in (*) in sp-pattern.cpp
-	// for it to work, we also need    sp_object_read_attr (SP_OBJECT (item), "transform");
+	// for it to work, we also need    sp_object_read_attr( item, "transform");
 	//pattern->patternTransform = premul * item->transform * pattern->patternTransform * item->transform.inverse() * postmul;
 
 	// otherwise the formula is much simpler
@@ -463,14 +462,14 @@ sp_pattern_transform_multiply (SPPattern *pattern, Geom::Matrix postmul, bool se
 	pattern->patternTransform_set = TRUE;
 
 	gchar *c=sp_svg_transform_write(pattern->patternTransform);
-	SP_OBJECT_REPR(pattern)->setAttribute("patternTransform", c);
+	pattern->getRepr()->setAttribute("patternTransform", c);
 	g_free(c);
 }
 
-const gchar *pattern_tile(GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Matrix transform, Geom::Matrix move)
+const gchar *pattern_tile(GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Affine transform, Geom::Affine move)
 {
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
-	Inkscape::XML::Node *defsrepr = SP_OBJECT_REPR (SP_DOCUMENT_DEFS (document));
+    Inkscape::XML::Node *defsrepr = SP_DOCUMENT_DEFS(document)->getRepr();
 
 	Inkscape::XML::Node *repr = xml_doc->createElement("svg:pattern");
 	repr->setAttribute("patternUnits", "userSpaceOnUse");
@@ -489,13 +488,13 @@ const gchar *pattern_tile(GSList *reprs, Geom::Rect bounds, SPDocument *document
 	        Inkscape::XML::Node *node = (Inkscape::XML::Node *)(i->data);
 		SPItem *copy = SP_ITEM(pat_object->appendChildRepr(node));
 
-		Geom::Matrix dup_transform;
+		Geom::Affine dup_transform;
 		if (!sp_svg_transform_read (node->attribute("transform"), &dup_transform))
 			dup_transform = Geom::identity();
 		dup_transform *= move;
 
-		copy->doWriteTransform(SP_OBJECT_REPR(copy), dup_transform, NULL, false);
-	}
+        copy->doWriteTransform(copy->getRepr(), dup_transform, NULL, false);
+    }
 
 	Inkscape::GC::release(repr);
 	return pat_id;
@@ -534,7 +533,7 @@ guint pattern_patternContentUnits (SPPattern *pat)
 	return pat->patternContentUnits;
 }
 
-Geom::Matrix const &pattern_patternTransform(SPPattern const *pat)
+Geom::Affine const &pattern_patternTransform(SPPattern const *pat)
 {
 	for (SPPattern const *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
 		if (pat_i->patternTransform_set)
@@ -606,8 +605,8 @@ sp_pattern_create_pattern(SPPaintServer *ps,
                           double opacity)
 {
     SPPattern *pat = SP_PATTERN (ps);
-    Geom::Matrix ps2user;
-    Geom::Matrix vb2ps = Geom::identity();
+    Geom::Affine ps2user;
+    Geom::Affine vb2ps = Geom::identity();
     bool needs_opacity = (1.0 - opacity) >= 1e-3;
     bool visible = opacity >= 1e-3;
 
@@ -648,13 +647,13 @@ sp_pattern_create_pattern(SPPaintServer *ps,
         gdouble tmp_y = pattern_height (pat) / (pattern_viewBox(pat)->y1 - pattern_viewBox(pat)->y0);
 
         // FIXME: preserveAspectRatio must be taken into account here too!
-        vb2ps = Geom::Matrix(tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
+        vb2ps = Geom::Affine(tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
     }
 
     ps2user = pattern_patternTransform(pat);
     if (!pat->viewBox_set && pattern_patternContentUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
         /* BBox to user coordinate system */
-        Geom::Matrix bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        Geom::Affine bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
         ps2user *= bbox2user;
     }
     ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
@@ -665,20 +664,20 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 
     if (pattern_patternUnits(pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
         // interpret x, y, width, height in relation to bbox
-        Geom::Matrix bbox2user(bbox->x1 - bbox->x0, 0,0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        Geom::Affine bbox2user(bbox->x1 - bbox->x0, 0,0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
         pattern_tile = pattern_tile * bbox2user;
     }
 
     cairo_matrix_t cm;
     cairo_get_matrix(base_ct, &cm);
-    Geom::Matrix full(cm.xx, cm.yx, cm.xy, cm.yy, 0, 0);
+    Geom::Affine full(cm.xx, cm.yx, cm.xy, cm.yy, 0, 0);
 
     // oversample the pattern slightly
     // TODO: find optimum value
     Geom::Point c(pattern_tile.dimensions()*ps2user.descrim()*full.descrim()*1.2);
     c[Geom::X] = ceil(c[Geom::X]);
     c[Geom::Y] = ceil(c[Geom::Y]);
-    Geom::Matrix t = Geom::Scale(c) * Geom::Scale(pattern_tile.dimensions()).inverse();
+    Geom::Affine t = Geom::Scale(c) * Geom::Scale(pattern_tile.dimensions()).inverse();
 
     NRRectL one_tile;
     one_tile.x0 = (int) floor(pattern_tile[Geom::X].min());

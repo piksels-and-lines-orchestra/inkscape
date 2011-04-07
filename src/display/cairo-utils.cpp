@@ -18,7 +18,7 @@
 #include <2geom/pathvector.h>
 #include <2geom/bezier-curve.h>
 #include <2geom/hvlinesegment.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <2geom/point.h>
 #include <2geom/path.h>
 #include <2geom/transforms.h>
@@ -73,7 +73,7 @@ CairoContext::CairoContext(cairo_t *obj, bool ref)
     : Cairo::Context(obj, ref)
 {}
 
-void CairoContext::transform(Geom::Matrix const &m)
+void CairoContext::transform(Geom::Affine const &m)
 {
     cairo_matrix_t cm;
     cm.xx = m[0];
@@ -113,7 +113,7 @@ Cairo::RefPtr<CairoContext> CairoContext::create(Cairo::RefPtr<Cairo::Surface> c
  * If optimize_stroke == false, the view Rect is not used.
  */
 static void
-feed_curve_to_cairo(cairo_t *cr, Geom::Curve const &c, Geom::Matrix const & trans, Geom::Rect view, bool optimize_stroke)
+feed_curve_to_cairo(cairo_t *cr, Geom::Curve const &c, Geom::Affine const & trans, Geom::Rect view, bool optimize_stroke)
 {
     if( is_straight_curve(c) )
     {
@@ -203,7 +203,7 @@ feed_path_to_cairo (cairo_t *ct, Geom::Path const &path)
 
 /** Feeds path-creating calls to the cairo context translating them from the Path, with the given transform and shift */
 static void
-feed_path_to_cairo (cairo_t *ct, Geom::Path const &path, Geom::Matrix trans, Geom::OptRect area, bool optimize_stroke, double stroke_width)
+feed_path_to_cairo (cairo_t *ct, Geom::Path const &path, Geom::Affine trans, Geom::OptRect area, bool optimize_stroke, double stroke_width)
 {
     if (!area)
         return;
@@ -214,9 +214,9 @@ feed_path_to_cairo (cairo_t *ct, Geom::Path const &path, Geom::Matrix trans, Geo
     Geom::Point shift = area->min();
     Geom::Rect view = *area;
     view.expandBy (stroke_width);
-    view = view * (Geom::Matrix)Geom::Translate(-shift);
+    view = view * (Geom::Affine)Geom::Translate(-shift);
     //  Pass transformation to feed_curve, so that we don't need to create a whole new path.
-    Geom::Matrix transshift(trans * Geom::Translate(-shift));
+    Geom::Affine transshift(trans * Geom::Translate(-shift));
 
     Geom::Point initial = path.initialPoint() * transshift;
     cairo_move_to(ct, initial[0], initial[1] );
@@ -251,7 +251,7 @@ feed_path_to_cairo (cairo_t *ct, Geom::Path const &path, Geom::Matrix trans, Geo
 /** Feeds path-creating calls to the cairo context translating them from the PathVector, with the given transform and shift
  *  One must have done cairo_new_path(ct); before calling this function. */
 void
-feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv, Geom::Matrix trans, Geom::OptRect area, bool optimize_stroke, double stroke_width)
+feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv, Geom::Affine trans, Geom::OptRect area, bool optimize_stroke, double stroke_width)
 {
     if (!area)
         return;
@@ -288,7 +288,7 @@ ink_cairo_set_source_color(cairo_t *ct, SPColor const &c, double opacity)
     cairo_set_source_rgba(ct, c.v.c[0], c.v.c[1], c.v.c[2], opacity);
 }
 
-void ink_matrix_to_2geom(Geom::Matrix &m, cairo_matrix_t const &cm)
+void ink_matrix_to_2geom(Geom::Affine &m, cairo_matrix_t const &cm)
 {
     m[0] = cm.xx;
     m[2] = cm.xy;
@@ -298,7 +298,7 @@ void ink_matrix_to_2geom(Geom::Matrix &m, cairo_matrix_t const &cm)
     m[5] = cm.y0;
 }
 
-void ink_matrix_to_cairo(cairo_matrix_t &cm, Geom::Matrix const &m)
+void ink_matrix_to_cairo(cairo_matrix_t &cm, Geom::Affine const &m)
 {
     cm.xx = m[0];
     cm.xy = m[2];
@@ -309,7 +309,7 @@ void ink_matrix_to_cairo(cairo_matrix_t &cm, Geom::Matrix const &m)
 }
 
 void
-ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m)
+ink_cairo_transform(cairo_t *ct, Geom::Affine const &m)
 {
     cairo_matrix_t cm;
     ink_matrix_to_cairo(cm, m);
@@ -317,7 +317,7 @@ ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m)
 }
 
 void
-ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m)
+ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Affine const &m)
 {
     cairo_matrix_t cm;
     ink_matrix_to_cairo(cm, m);

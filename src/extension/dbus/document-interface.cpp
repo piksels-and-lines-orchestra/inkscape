@@ -18,27 +18,23 @@
 #include "document-interface.h"
 #include <string.h>
 
-#include "verbs.h"
-#include "helper/action.h" //sp_action_perform
-
-#include "inkscape.h" //inkscape_find_desktop_by_dkey, activate desktops
-
 #include "desktop-handles.h" //sp_desktop_document()
-#include "xml/repr.h" //sp_repr_document_new
-
-#include "sp-object.h"
-
-#include "document.h" // getReprDoc()
-
 #include "desktop-style.h" //sp_desktop_get_style
-
-#include "selection.h" //selection struct
-#include "selection-chemistry.h"// lots of selection functions
-
-#include "sp-ellipse.h"
-
+#include "display/canvas-text.h" //text
+#include "display/sp-canvas.h" //text
+#include "document.h" // getReprDoc()
+#include "extension/output.h" //IO
+#include "extension/system.h" //IO
+#include "file.h" //IO
+#include "helper/action.h" //sp_action_perform
+#include "inkscape.h" //inkscape_find_desktop_by_dkey, activate desktops
 #include "layer-fns.h" //LPOS_BELOW
-
+#include "live_effects/parameter/text.h" //text
+#include "print.h" //IO
+#include "selection-chemistry.h"// lots of selection functions
+#include "selection.h" //selection struct
+#include "sp-ellipse.h"
+#include "sp-object.h"
 #include "style.h" //style_write
 
 #include "file.h" //IO
@@ -51,6 +47,11 @@
 
 #include "live_effects/parameter/text.h" //text
 #include "display/canvas-text.h" //text
+
+#include "display/sp-canvas.h" //text
+#include "text-editing.h"
+#include "verbs.h"
+#include "xml/repr.h" //sp_repr_document_new
 
 //#include "2geom/svg-path-parser.h" //get_node_coordinates
 
@@ -74,13 +75,13 @@ get_repr_by_name (SPDesktop *desk, gchar *name, GError **error)
     /* ALTERNATIVE (is this faster if only repr is needed?)
     Inkscape::XML::Node *node = sp_repr_lookup_name((doc->root)->repr, name);
     */
-    Inkscape::XML::Node * node = sp_desktop_document(desk)->getObjectById(name)->repr;
-    if (!node)
+  SPObject * obj = sp_desktop_document(desk)->getObjectById(name);
+    if (!obj)
     {
         g_set_error(error, INKSCAPE_ERROR, INKSCAPE_ERROR_OBJECT, "Object '%s' not found in document.", name);
         return NULL;
     }
-    return node;
+    return  obj->getRepr();
 }
 
 /* 
@@ -120,7 +121,7 @@ dbus_check_string (gchar *string, GError ** error, const gchar * errorstr)
 const gchar *
 get_name_from_object (SPObject * obj)
 {
-    return obj->repr->attribute("id"); 
+  return obj->getRepr()->attribute("id"); 
 }
 
 /*
@@ -218,7 +219,8 @@ finish_create_shape (DocumentInterface *object, GError **error, Inkscape::XML::N
     object->desk->currentLayer()->updateRepr();
 
     if (object->updates)
-        sp_document_done(sp_desktop_document(object->desk), 0, (gchar *)desc);
+
+      Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  0, (gchar *)desc);
     //else
         //document_interface_pause_updates(object, error);
 
@@ -248,7 +250,7 @@ dbus_call_verb (DocumentInterface *object, int verbid, GError **error)
                     //document_interface_pause_updates (object, error);
                 sp_action_perform( action, NULL );
                 if (object->updates)
-                    sp_document_done(sp_desktop_document(desk2), verb->get_code(), g_strdup(verb->get_tip()));
+                    Inkscape::DocumentUndo::done(sp_desktop_document(desk2),  verb->get_code(), g_strdup(verb->get_tip()));
                 //if (!object->updates)
                     //document_interface_pause_updates (object, error);
                 return TRUE;
@@ -356,8 +358,9 @@ document_interface_call_verb (DocumentInterface *object, gchar *verbid, GError *
             if ( action ) {
                 sp_action_perform( action, NULL );
                 if (object->updates) {
-                    sp_document_done(sp_desktop_document(desk2), verb->get_code(), g_strdup(verb->get_tip()));
+                    Inkscape::DocumentUndo::done(sp_desktop_document(desk2),  verb->get_code(), g_strdup(verb->get_tip()));
                 }
+                return TRUE;
             }
         }
     }
@@ -482,17 +485,20 @@ document_interface_spiral (DocumentInterface *object, int cx, int cy,
     return retval;
 }
 
-gboolean
+gchar*
 document_interface_text (DocumentInterface *object, int x, int y, gchar *text, GError **error)
 {
-    //FIXME: Not selectable (aka broken).  Needs to be rewritten completely.
 
-    SPDesktop *desktop = object->desk;
-    SPCanvasText * canvas_text = (SPCanvasText *) sp_canvastext_new(sp_desktop_tempgroup(desktop), desktop, Geom::Point(0,0), "");
-    sp_canvastext_set_text (canvas_text, text);
-    sp_canvastext_set_coords (canvas_text, x, y);
+  Inkscape::XML::Node *text_node = dbus_create_node(object->desk, "svg:text");
+    sp_repr_set_int(text_node, "x", x);
+    sp_repr_set_int(text_node, "y", y);
+    //just a workaround so i can get an spitem from the name
+    gchar  *name = finish_create_shape (object, error, text_node, (gchar *)"create text");
+    
+    SPItem* text_obj=(SPItem* )get_object_by_name(object->desk, name, error);
+    sp_te_set_repr_text_multiline(text_obj, text);
 
-    return TRUE;
+    return name;
 }
 
 gchar *
@@ -511,7 +517,7 @@ document_interface_image (DocumentInterface *object, int x, int y, gchar *filena
     object->desk->currentLayer()->updateRepr();
 
     if (object->updates)
-        sp_document_done(sp_desktop_document(object->desk), 0, "Imported bitmap.");
+        Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  0, "Imported bitmap.");
 
     //g_free(uri);
     return strdup(newNode->attribute("id"));
@@ -528,7 +534,7 @@ gchar *document_interface_node (DocumentInterface *object, gchar *type, GError *
     object->desk->currentLayer()->updateRepr();
 
     if (object->updates)
-        sp_document_done(sp_desktop_document(object->desk), 0, (gchar *)"created empty node");
+        Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  0, (gchar *)"created empty node");
     //else
         //document_interface_pause_updates(object, error);
 
@@ -541,13 +547,13 @@ gchar *document_interface_node (DocumentInterface *object, gchar *type, GError *
 gdouble
 document_interface_document_get_width (DocumentInterface *object)
 {
-    return sp_document_width(sp_desktop_document(object->desk));
+  return sp_desktop_document(object->desk)->getWidth();
 }
 
 gdouble
 document_interface_document_get_height (DocumentInterface *object)
 {
-    return sp_document_height(sp_desktop_document(object->desk));
+  return sp_desktop_document(object->desk)->getHeight();
 }
 
 gchar *
@@ -821,6 +827,20 @@ document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape
 }
 
 
+gboolean
+document_interface_set_text (DocumentInterface *object, gchar *name, gchar *text, GError **error)
+{
+
+  SPItem* text_obj=(SPItem* )get_object_by_name(object->desk, name, error);
+  //TODO verify object type
+  if (!text_obj)
+    return FALSE;
+  sp_te_set_repr_text_multiline(text_obj, text);
+  return TRUE;
+      
+}
+
+
 /****************************************************************************
      FILE I/O FUNCTIONS
 ****************************************************************************/
@@ -829,9 +849,9 @@ gboolean
 document_interface_save (DocumentInterface *object, GError **error)
 {
     SPDocument * doc = sp_desktop_document(object->desk);
-    printf("1:  %s\n2:  %s\n3:  %s\n", doc->uri, doc->base, doc->name);
-    if (doc->uri)
-        return document_interface_save_as (object, doc->uri, error);
+    printf("1:  %s\n2:  %s\n3:  %s\n", doc->getURI(), doc->getBase(), doc->getName());
+    if (doc->getURI())
+      return document_interface_save_as (object, doc->getURI(), error);
     return FALSE;
 }
 
@@ -843,13 +863,13 @@ document_interface_load (DocumentInterface *object,
     const Glib::ustring file(filename);
     sp_file_open(file, NULL, TRUE, TRUE);
     if (object->updates)
-        sp_document_done(sp_desktop_document(object->desk), SP_VERB_FILE_OPEN, "Opened File");
+        Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  SP_VERB_FILE_OPEN, "Opened File");
     return TRUE;
 }
 
 gboolean 
 document_interface_save_as (DocumentInterface *object, 
-                           gchar *filename, GError **error)
+                           const gchar *filename, GError **error)
 {
     SPDocument * doc = sp_desktop_document(object->desk);
     #ifdef WITH_GNOME_VFS
@@ -950,7 +970,7 @@ document_interface_resume_updates (DocumentInterface *object, GError **error)
     //sp_desktop_document(object->desk)->root->mflags = TRUE;
     //sp_desktop_document(object->desk)->_updateDocument();
     //FIXME: use better verb than rect.
-    sp_document_done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
+    Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  SP_VERB_CONTEXT_RECT, "Multiple actions");
 }
 
 void
@@ -963,7 +983,7 @@ document_interface_update (DocumentInterface *object, GError **error)
     object->desk->disableInteraction();
     sp_desktop_document(object->desk)->root->uflags = FALSE;
     sp_desktop_document(object->desk)->root->mflags = FALSE;
-    //sp_document_done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
+    //Inkscape::DocumentUndo::done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
 }
 
 /****************************************************************************
@@ -982,7 +1002,7 @@ document_interface_selection_get (DocumentInterface *object, char ***out, GError
 
     int i = 0;
     for (GSList const *iter = oldsel; iter != NULL; iter = iter->next) {
-        (*out)[i] = g_strdup(SP_OBJECT(iter->data)->repr->attribute("id"));
+      (*out)[i] = g_strdup(SP_OBJECT(iter->data)->getRepr()->attribute("id"));
         i++;
     }
     (*out)[i] = NULL;
@@ -1188,7 +1208,7 @@ document_interface_selection_move_to_layer (DocumentInterface *object,
     if (!next)
         return FALSE;
 
-    if (strcmp("layer", (next->repr)->attribute("inkscape:groupmode")) == 0) {
+    if (strcmp("layer", (next->getRepr())->attribute("inkscape:groupmode")) == 0) {
 
         sp_selection_cut(dt);
 

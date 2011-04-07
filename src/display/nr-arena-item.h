@@ -14,7 +14,7 @@
 #define SEEN_DISPLAY_NR_ARENA_ITEM_H
 
 #include <cairo.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include "libnr/nr-rect-l.h"
 #include "libnr/nr-object.h"
 #include "gc-soft-ptr.h"
@@ -67,7 +67,7 @@ class Filter;
 struct NRGC {
     NRGC(NRGC const *p) : parent(p) {}
     NRGC const *parent;
-    Geom::Matrix transform;
+    Geom::Affine transform;
 };
 
 struct NRArenaItem : public NRObject {
@@ -93,8 +93,8 @@ struct NRArenaItem : public NRObject {
     NRRectL bbox; ///< Bounding box in pixel grid coordinates; (0,0) is at page origin
     NRRectL drawbox; ///< Bounding box enlarged by filters, shrinked by clips and masks
     Geom::OptRect item_bbox; ///< Bounding box in item coordinates, required by filters
-    Geom::Matrix *transform; ///< Incremental transform of this item, as given by the transform= attribute
-    Geom::Matrix ctm; ///< Total transform from pixel grid to item coords
+    Geom::Affine *transform; ///< Incremental transform of this item, as given by the transform= attribute
+    Geom::Affine ctm; ///< Total transform from pixel grid to item coords
     NRArenaItem *clip; ///< Clipping path
     NRArenaItem *mask; ///< Mask
     Inkscape::Filters::Filter *filter; ///< Filter
@@ -161,8 +161,8 @@ NRArenaItem *nr_arena_item_unparent (NRArenaItem *item);
 
 void nr_arena_item_append_child (NRArenaItem *parent, NRArenaItem *child);
 
-void nr_arena_item_set_transform(NRArenaItem *item, Geom::Matrix const &transform);
-void nr_arena_item_set_transform(NRArenaItem *item, Geom::Matrix const *transform);
+void nr_arena_item_set_transform(NRArenaItem *item, Geom::Affine const &transform);
+void nr_arena_item_set_transform(NRArenaItem *item, Geom::Affine const *transform);
 void nr_arena_item_set_opacity (NRArenaItem *item, double opacity);
 void nr_arena_item_set_sensitive (NRArenaItem *item, unsigned int sensitive);
 void nr_arena_item_set_visible (NRArenaItem *item, unsigned int visible);

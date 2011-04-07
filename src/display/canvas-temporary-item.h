@@ -12,9 +12,12 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include "display/display-forward.h"
 
+#include <stddef.h>
 #include <sigc++/sigc++.h>
+#include <glib/gtypes.h>
+
+struct SPCanvasItem;
 
 namespace Inkscape {
 namespace Display {

@@ -69,7 +69,7 @@ class CairoContext : public Cairo::Context {
 public:
     CairoContext(cairo_t *obj, bool ref = false);
 
-    void transform(Geom::Matrix const &m);
+    void transform(Geom::Affine const &m);
     void set_source_rgba32(guint32 color);
     void append_path(Geom::PathVector const &pv);
 
@@ -80,12 +80,12 @@ public:
 
 void ink_cairo_set_source_color(cairo_t *ct, SPColor const &color, double opacity);
 void ink_cairo_set_source_rgba32(cairo_t *ct, guint32 rgba);
-void ink_cairo_transform(cairo_t *ct, Geom::Matrix const &m);
-void ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Matrix const &m);
+void ink_cairo_transform(cairo_t *ct, Geom::Affine const &m);
+void ink_cairo_pattern_set_matrix(cairo_pattern_t *cp, Geom::Affine const &m);
 void ink_cairo_set_source_argb32_pixbuf(cairo_t *ct, GdkPixbuf *pb, double x, double y);
 
-void ink_matrix_to_2geom(Geom::Matrix &, cairo_matrix_t const &);
-void ink_matrix_to_cairo(cairo_matrix_t &, Geom::Matrix const &);
+void ink_matrix_to_2geom(Geom::Affine &, cairo_matrix_t const &);
+void ink_matrix_to_cairo(cairo_matrix_t &, Geom::Affine const &);
 
 cairo_surface_t *ink_cairo_surface_copy(cairo_surface_t *s);
 cairo_surface_t *ink_cairo_surface_create_identical(cairo_surface_t *s);
@@ -121,7 +121,7 @@ unpremul_alpha(guint32 color, guint32 alpha)
 }
 
 // TODO: move those to 2Geom
-void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv, Geom::Matrix trans, Geom::OptRect area, bool optimize_stroke, double stroke_width);
+void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv, Geom::Affine trans, Geom::OptRect area, bool optimize_stroke, double stroke_width);
 void feed_pathvector_to_cairo (cairo_t *ct, Geom::PathVector const &pathv);
 
 #define EXTRACT_ARGB32(px,a,r,g,b) \

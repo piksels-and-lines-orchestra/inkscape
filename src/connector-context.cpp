@@ -1,12 +1,14 @@
-/*
+/**
  * Connector creation tool
  *
  * Authors:
  *   Michael Wybrow <mjwybrow@users.sourceforge.net>
  *   Abhishek Sharma
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 2005-2008  Michael Wybrow
  * Copyright (C) 2009  Monash University
+ * Copyright (C) 2010  authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  *
@@ -172,6 +174,7 @@
 #include "inkscape.h"
 #include "preferences.h"
 #include "sp-path.h"
+#include "display/sp-canvas.h"
 #include "display/canvas-bpath.h"
 #include "display/sodipodi-ctrl.h"
 #include <glibmm/i18n.h>
@@ -486,7 +489,7 @@ void sp_connector_context_switch_mode(SPEventContext* ec, unsigned int newMode)
         cc->knot_tip = cc_knot_tips[1];
 /*            if (cc->active_shape)
         {
-            cc->selection->set( SP_OBJECT( cc->active_shape ) );
+            cc->selection->set( cc->active_shape );
         }
         else
         {
@@ -494,7 +497,7 @@ void sp_connector_context_switch_mode(SPEventContext* ec, unsigned int newMode)
             if ( item )
             {
                 cc_set_active_shape(cc, item);
-                cc->selection->set( SP_OBJECT( item ) );
+                cc->selection->set( item );
             }
         }*/
     }
@@ -896,7 +899,7 @@ connector_handle_button_press(SPConnectorContext *const cc, GdkEventButton const
                     if ( cc->selected_handle )
                     {
                         cc->state = SP_CONNECTOR_CONTEXT_DRAGGING;
-                        cc->selection->set( SP_OBJECT( cc->active_shape ) );
+                        cc->selection->set( cc->active_shape );
                     }
 
                     ret = TRUE;
@@ -974,8 +977,8 @@ connector_handle_motion_notify(SPConnectorContext *const cc, GdkEventMotion cons
                 m.unSetup();
 
                 // Update the hidden path
-                Geom::Matrix i2d = (cc->clickeditem)->i2d_affine();
-                Geom::Matrix d2i = i2d.inverse();
+                Geom::Affine i2d = (cc->clickeditem)->i2d_affine();
+                Geom::Affine d2i = i2d.inverse();
                 SPPath *path = SP_PATH(cc->clickeditem);
                 SPCurve *curve = path->original_curve ? path->original_curve : path->curve;
                 if (cc->clickedhandle == cc->endpt_handle[0]) {
@@ -1200,7 +1203,7 @@ connector_handle_key_press(SPConnectorContext *const cc, guint const keyval)
                     // Obtain original position
                     ConnectionPoint const& cp = cc->connpthandles[cc->selected_handle];
                     SPDesktop *desktop = SP_EVENT_CONTEXT_DESKTOP(cc);
-                    const Geom::Matrix& i2doc = (cc->active_shape)->i2doc_affine();
+                    const Geom::Affine& i2doc = (cc->active_shape)->i2doc_affine();
                     sp_knot_set_position(cc->selected_handle, cp.pos * i2doc * desktop->doc2dt(), 0);
                     cc->state = SP_CONNECTOR_CONTEXT_IDLE;
                     desktop->messageStack()->flash( Inkscape::NORMAL_MESSAGE,
@@ -1604,7 +1607,7 @@ endpt_handler(SPKnot */*knot*/, GdkEvent *event, SPConnectorContext *cc)
 
                 // Show the red path for dragging.
                 cc->red_curve = SP_PATH(cc->clickeditem)->original_curve ? SP_PATH(cc->clickeditem)->original_curve->copy() : SP_PATH(cc->clickeditem)->curve->copy();
-                Geom::Matrix i2d = (cc->clickeditem)->i2d_affine();
+                Geom::Affine i2d = (cc->clickeditem)->i2d_affine();
                 cc->red_curve->transform(i2d);
                 sp_canvas_bpath_set_bpath(SP_CANVAS_BPATH(cc->red_bpath), cc->red_curve);
 
@@ -1665,7 +1668,7 @@ static void cc_set_active_shape(SPConnectorContext *cc, SPItem *item)
         }
 
         // Listen in case the active shape changes
-        cc->active_shape_repr = SP_OBJECT_REPR(item);
+        cc->active_shape_repr = item->getRepr();
         if (cc->active_shape_repr) {
             Inkscape::GC::anchor(cc->active_shape_repr);
             sp_repr_add_listener(cc->active_shape_repr, &shape_repr_events, cc);
@@ -1763,7 +1766,7 @@ cc_set_active_conn(SPConnectorContext *cc, SPItem *item)
     g_assert( SP_IS_PATH(item) );
 
     SPCurve *curve = SP_PATH(item)->original_curve ? SP_PATH(item)->original_curve : SP_PATH(item)->curve;
-    Geom::Matrix i2d = item->i2d_affine();
+    Geom::Affine i2d = item->i2d_affine();
 
     if (cc->active_conn == item)
     {
@@ -1797,7 +1800,7 @@ cc_set_active_conn(SPConnectorContext *cc, SPItem *item)
     }
 
     // Listen in case the active conn changes
-    cc->active_conn_repr = SP_OBJECT_REPR(item);
+    cc->active_conn_repr = item->getRepr();
     if (cc->active_conn_repr) {
         Inkscape::GC::anchor(cc->active_conn_repr);
         sp_repr_add_listener(cc->active_conn_repr, &shape_repr_events, cc);

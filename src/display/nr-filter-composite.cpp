@@ -101,7 +101,7 @@ void FilterComposite::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-bool FilterComposite::can_handle_affine(Geom::Matrix const &)
+bool FilterComposite::can_handle_affine(Geom::Affine const &)
 {
     return true;
 }

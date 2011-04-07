@@ -27,8 +27,8 @@ bool SPUseReference::_acceptObject(SPObject * const obj) const
 {
     if (SP_IS_ITEM(obj)) {
         SPObject * const owner = getOwner();
-        /* Refuse references to us or to an ancestor. */
-        for ( SPObject *iter = owner ; iter ; iter = SP_OBJECT_PARENT(iter) ) {
+        // Refuse references to us or to an ancestor.
+        for ( SPObject *iter = owner ; iter ; iter = iter->parent ) {
             if ( iter == obj ) {
                 return false;
             }
@@ -41,7 +41,7 @@ bool SPUseReference::_acceptObject(SPObject * const obj) const
 
 
 static void sp_usepath_href_changed(SPObject *old_ref, SPObject *ref, SPUsePath *offset);
-static void sp_usepath_move_compensate(Geom::Matrix const *mp, SPItem *original, SPUsePath *self);
+static void sp_usepath_move_compensate(Geom::Affine const *mp, SPItem *original, SPUsePath *self);
 static void sp_usepath_delete_self(SPObject *deleted, SPUsePath *offset);
 static void sp_usepath_source_modified(SPObject *iSource, guint flags, SPUsePath *offset);
 
@@ -107,7 +107,7 @@ SPUsePath::start_listening(SPObject* to)
         return;
     }
     sourceObject = to;
-    sourceRepr = SP_OBJECT_REPR(to);
+    sourceRepr = to->getRepr();
     _delete_connection = to->connectDelete(sigc::bind(sigc::ptr_fun(&sp_usepath_delete_self), this));
     _transformed_connection = SP_ITEM(to)->connectTransformed(sigc::bind(sigc::ptr_fun(&sp_usepath_move_compensate), this));
     _modified_connection = to->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_usepath_source_modified), this));
@@ -135,11 +135,11 @@ sp_usepath_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPUsePath *off
         offset->start_listening(refobj);
     }
     offset->sourceDirty=true;
-    SP_OBJECT(offset->owner)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+    offset->owner->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
 static void
-sp_usepath_move_compensate(Geom::Matrix const *mp, SPItem *original, SPUsePath *self)
+sp_usepath_move_compensate(Geom::Affine const *mp, SPItem *original, SPUsePath *self)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     guint mode = prefs->getInt("/options/clonecompensation/value", SP_CLONE_COMPENSATION_PARALLEL);
@@ -150,15 +150,15 @@ sp_usepath_move_compensate(Geom::Matrix const *mp, SPItem *original, SPUsePath *
 
 // TODO kill naughty naughty #if 0
 #if 0
-    Geom::Matrix m(*mp);
+    Geom::Affine m(*mp);
     if (!(m.is_translation())) {
         return;
     }
-    Geom::Matrix const t(item->transform);
-    Geom::Matrix clone_move = t.inverse() * m * t;
+    Geom::Affine const t(item->transform);
+    Geom::Affine clone_move = t.inverse() * m * t;
 
     // Calculate the compensation matrix and the advertized movement matrix.
-    Geom::Matrix advertized_move;
+    Geom::Affine advertized_move;
     if (mode == SP_CLONE_COMPENSATION_PARALLEL) {
         //clone_move = clone_move.inverse();
         advertized_move.set_identity();
@@ -171,14 +171,14 @@ sp_usepath_move_compensate(Geom::Matrix const *mp, SPItem *original, SPUsePath *
 
     // Commit the compensation.
     item->transform *= clone_move;
-    sp_item_write_transform(item, SP_OBJECT_REPR(item), item->transform, &advertized_move);
+    sp_item_write_transform(item, item->getRepr(), item->transform, &advertized_move);
 #else
     (void)mp;
     (void)original;
 #endif
 
     self->sourceDirty = true;
-    SP_OBJECT(item)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+    item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
 static void

@@ -190,7 +190,7 @@ void FilterBlend::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-bool FilterBlend::can_handle_affine(Geom::Matrix const &)
+bool FilterBlend::can_handle_affine(Geom::Affine const &)
 {
     // blend is a per-pixel primitive and is immutable under transformations
     return true;

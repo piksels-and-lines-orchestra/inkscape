@@ -63,7 +63,7 @@ void Layout::LineHeight::max(LineHeight const &other)
     if (other.leading > leading) leading = other.leading;
 }
 
-void Layout::_getGlyphTransformMatrix(int glyph_index, Geom::Matrix *matrix) const
+void Layout::_getGlyphTransformMatrix(int glyph_index, Geom::Affine *matrix) const
 {
     Span const &span = _glyphs[glyph_index].span(this);
     double sin_rotation = sin(_glyphs[glyph_index].rotation);
@@ -94,7 +94,7 @@ void Layout::show(NRArenaGroup *in_arena, NRRect const *paintbox) const
         nr_arena_glyphs_group_set_style(nr_group, text_source->style);
         while (glyph_index < (int)_glyphs.size() && _characters[_glyphs[glyph_index].in_character].in_span == span_index) {
             if (_characters[_glyphs[glyph_index].in_character].in_glyph != -1) {
-                Geom::Matrix glyph_matrix;
+                Geom::Affine glyph_matrix;
                 _getGlyphTransformMatrix(glyph_index, &glyph_matrix);
                 nr_arena_glyphs_group_add_component(nr_group, _spans[span_index].font, _glyphs[glyph_index].glyph, glyph_matrix);
             }
@@ -105,7 +105,7 @@ void Layout::show(NRArenaGroup *in_arena, NRRect const *paintbox) const
     nr_arena_item_request_update(NR_ARENA_ITEM(in_arena), NR_ARENA_ITEM_STATE_ALL, FALSE);
 }
 
-void Layout::getBoundingBox(NRRect *bounding_box, Geom::Matrix const &transform, int start, int length) const
+void Layout::getBoundingBox(NRRect *bounding_box, Geom::Affine const &transform, int start, int length) const
 {
     for (unsigned glyph_index = 0 ; glyph_index < _glyphs.size() ; glyph_index++) {
         if (_characters[_glyphs[glyph_index].in_character].in_glyph == -1) continue;
@@ -116,9 +116,9 @@ void Layout::getBoundingBox(NRRect *bounding_box, Geom::Matrix const &transform,
             if ((int) _glyphs[glyph_index].in_character > start + length) continue;
         }
         // this could be faster
-        Geom::Matrix glyph_matrix;
+        Geom::Affine glyph_matrix;
         _getGlyphTransformMatrix(glyph_index, &glyph_matrix);
-        Geom::Matrix total_transform = glyph_matrix;
+        Geom::Affine total_transform = glyph_matrix;
         total_transform *= transform;
         if(_glyphs[glyph_index].span(this).font) {
             Geom::OptRect glyph_rect = _glyphs[glyph_index].span(this).font->BBox(_glyphs[glyph_index].glyph);
@@ -143,11 +143,11 @@ void Layout::getBoundingBox(NRRect *bounding_box, Geom::Matrix const &transform,
 
 void Layout::print(SPPrintContext *ctx,
                    NRRect const *pbox, NRRect const *dbox, NRRect const *bbox,
-                   Geom::Matrix const &ctm) const
+                   Geom::Affine const &ctm) const
 {
     if (_input_stream.empty()) return;
 
-    Geom::Matrix ctm_2geom(ctm);
+    Geom::Affine ctm_2geom(ctm);
     Direction block_progression = _blockProgression();
     bool text_to_path = ctx->module->textToPath();
     for (unsigned glyph_index = 0 ; glyph_index < _glyphs.size() ; ) {
@@ -158,7 +158,7 @@ void Layout::print(SPPrintContext *ctx,
                 glyph_index++;
             continue;
         }
-        Geom::Matrix glyph_matrix;
+        Geom::Affine glyph_matrix;
         Span const &span = _spans[_characters[_glyphs[glyph_index].in_character].in_span];
         InputStreamTextSource const *text_source = static_cast<InputStreamTextSource const *>(_input_stream[span.in_input_stream_item]);
         if (text_to_path || _path_fitted) {
@@ -174,7 +174,7 @@ void Layout::print(SPPrintContext *ctx,
             glyph_index++;
         } else {
             Geom::Point g_pos(0,0);    // all strings are output at (0,0) because we do the translation using the matrix
-            glyph_matrix = Geom::Scale(1.0, -1.0) * (Geom::Matrix)Geom::Rotate(_glyphs[glyph_index].rotation);
+            glyph_matrix = Geom::Scale(1.0, -1.0) * (Geom::Affine)Geom::Rotate(_glyphs[glyph_index].rotation);
             if (block_progression == LEFT_TO_RIGHT || block_progression == RIGHT_TO_LEFT) {
                 glyph_matrix[4] = span.line(this).baseline_y + span.baseline_shift;
                 // since we're outputting character codes, not glyphs, we want the character x
@@ -234,7 +234,7 @@ void Layout::showGlyphs(CairoRenderContext *ctx) const
         Span const &span = _spans[_characters[_glyphs[glyph_index].in_character].in_span];
         InputStreamTextSource const *text_source = static_cast<InputStreamTextSource const *>(_input_stream[span.in_input_stream_item]);
 
-        Geom::Matrix glyph_matrix;
+        Geom::Affine glyph_matrix;
         _getGlyphTransformMatrix(glyph_index, &glyph_matrix);
         if (clip_mode) {
             Geom::PathVector const *pathv = span.font->PathVector(_glyphs[glyph_index].glyph);
@@ -247,7 +247,7 @@ void Layout::showGlyphs(CairoRenderContext *ctx) const
             continue;
         }
 
-        Geom::Matrix font_matrix = glyph_matrix;
+        Geom::Affine font_matrix = glyph_matrix;
         font_matrix[4] = 0;
         font_matrix[5] = 0;
 
@@ -289,7 +289,7 @@ void Layout::showGlyphs(CairoRenderContext *ctx) const
                  && _characters[_glyphs[glyph_index].in_character].in_span == this_span_index);
 
         // remove vertical flip
-        Geom::Matrix flip_matrix;
+        Geom::Affine flip_matrix;
         flip_matrix.setIdentity();
         flip_matrix[3] = -1.0;
         font_matrix = flip_matrix * font_matrix;
@@ -544,7 +544,7 @@ SPCurve *Layout::convertToCurves(iterator const &from_glyph, iterator const &to_
     GSList *cc = NULL;
 
     for (int glyph_index = from_glyph._glyph_index ; glyph_index < to_glyph._glyph_index ; glyph_index++) {
-        Geom::Matrix glyph_matrix;
+        Geom::Affine glyph_matrix;
         Span const &span = _glyphs[glyph_index].span(this);
         _getGlyphTransformMatrix(glyph_index, &glyph_matrix);
 
@@ -573,7 +573,7 @@ SPCurve *Layout::convertToCurves(iterator const &from_glyph, iterator const &to_
     return curve;
 }
 
-void Layout::transform(Geom::Matrix const &transform)
+void Layout::transform(Geom::Affine const &transform)
 {
     // this is all massively oversimplified
     // I can't actually think of anybody who'll want to use it at the moment, so it'll stay simple

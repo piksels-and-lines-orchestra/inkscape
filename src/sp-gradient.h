@@ -18,13 +18,14 @@
  */
 
 #include <gdk/gdktypes.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <glibmm/ustring.h>
 #include "sp-paint-server.h"
 #include "sp-gradient-spread.h"
 #include "sp-gradient-units.h"
 #include "sp-gradient-vector.h"
 
+#include <stddef.h>
 #include <sigc++/connection.h>
 
 struct SPGradientReference;
@@ -84,7 +85,7 @@ private:
 public:
 
     /** gradientTransform attribute */
-    Geom::Matrix gradientTransform;
+    Geom::Affine gradientTransform;
     guint gradientTransform_set : 1;
 
 private:

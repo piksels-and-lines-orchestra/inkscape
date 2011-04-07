@@ -15,6 +15,7 @@
  */
 
 #include "sp-object.h"
+#include "svg/svg-length.h"
 
 #define SP_TYPE_FILTER_PRIMITIVE (sp_filter_primitive_get_type ())
 #define SP_FILTER_PRIMITIVE(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_FILTER_PRIMITIVE, SPFilterPrimitive))
@@ -33,6 +34,9 @@ class FilterPrimitive;
 
 struct SPFilterPrimitive : public SPObject {
     int image_in, image_out;
+
+    /* filter primitive subregion */
+    SVGLength x, y, height, width;
 };
 
 struct SPFilterPrimitiveClass {

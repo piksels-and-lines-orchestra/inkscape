@@ -27,7 +27,7 @@
 #include <2geom/bezier-to-sbasis.h>
 #include <2geom/sbasis-to-bezier.h>
 #include <2geom/d2.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 
 #include "ui/widget/scalar.h"
 #include "libnr/nr-values.h"
@@ -40,13 +40,13 @@ using namespace Geom;
 LPECurveStitch::LPECurveStitch(LivePathEffectObject *lpeobject) :
     Effect(lpeobject),
     strokepath(_("Stitch path:"), _("The path that will be used as stitch."), "strokepath", &wr, this, "M0,0 L1,0"),
-    nrofpaths(_("Number of paths:"), _("The number of paths that will be generated."), "count", &wr, this, 5),
-    startpoint_edge_variation(_("Start edge variance:"), _("The amount of random jitter to move the start points of the stitches inside & outside the guide path"), "startpoint_edge_variation", &wr, this, 0),
-    startpoint_spacing_variation(_("Start spacing variance:"), _("The amount of random shifting to move the start points of the stitches back & forth along the guide path"), "startpoint_spacing_variation", &wr, this, 0),
-    endpoint_edge_variation(_("End edge variance:"), _("The amount of randomness that moves the end points of the stitches inside & outside the guide path"), "endpoint_edge_variation", &wr, this, 0),
-    endpoint_spacing_variation(_("End spacing variance:"), _("The amount of random shifting to move the end points of the stitches back & forth along the guide path"), "endpoint_spacing_variation", &wr, this, 0),
-    prop_scale(_("Scale width:"), _("Scale the width of the stitch path"), "prop_scale", &wr, this, 1),
-    scale_y_rel(_("Scale width relative to length"), _("Scale the width of the stitch path relative to its length"), "scale_y_rel", &wr, this, false)
+    nrofpaths(_("N_umber of paths:"), _("The number of paths that will be generated."), "count", &wr, this, 5),
+    startpoint_edge_variation(_("Sta_rt edge variance:"), _("The amount of random jitter to move the start points of the stitches inside & outside the guide path"), "startpoint_edge_variation", &wr, this, 0),
+    startpoint_spacing_variation(_("Sta_rt spacing variance:"), _("The amount of random shifting to move the start points of the stitches back & forth along the guide path"), "startpoint_spacing_variation", &wr, this, 0),
+    endpoint_edge_variation(_("End ed_ge variance:"), _("The amount of randomness that moves the end points of the stitches inside & outside the guide path"), "endpoint_edge_variation", &wr, this, 0),
+    endpoint_spacing_variation(_("End spa_cing variance:"), _("The amount of random shifting to move the end points of the stitches back & forth along the guide path"), "endpoint_spacing_variation", &wr, this, 0),
+    prop_scale(_("Scale _width:"), _("Scale the width of the stitch path"), "prop_scale", &wr, this, 1),
+    scale_y_rel(_("Scale _width relative to length"), _("Scale the width of the stitch path relative to its length"), "scale_y_rel", &wr, this, false)
 {
     registerParameter( dynamic_cast<Parameter *>(&nrofpaths) );
     registerParameter( dynamic_cast<Parameter *>(&startpoint_edge_variation) );
@@ -120,7 +120,7 @@ LPECurveStitch::doEffect_path (std::vector<Geom::Path> const & path_in)
                         scaling_y = prop_scale;
                     }
 
-                    Matrix transform;
+                    Affine transform;
                     transform.setXAxis( (end-start) / scaling );
                     transform.setYAxis( rot90(unit_vector(end-start)) * scaling_y);
                     transform.setTranslation( start );
@@ -163,7 +163,7 @@ LPECurveStitch::resetDefaults(SPItem * item)
     
     // calculate bounding box:  (isn't there a simpler way?)
     Piecewise<D2<SBasis> > pwd2;
-    std::vector<Geom::Path> temppath = sp_svg_read_pathv( SP_OBJECT_REPR(item)->attribute("inkscape:original-d"));
+    std::vector<Geom::Path> temppath = sp_svg_read_pathv( item->getRepr()->attribute("inkscape:original-d"));
     for (unsigned int i=0; i < temppath.size(); i++) {
         pwd2.concat( temppath[i].toPwSb() );
     }
@@ -195,7 +195,7 @@ LPECurveStitch::resetDefaults(SPItem * item)
  * special casing is probably needed, because rotation should not be propagated to the strokepath.
  */
 void
-LPECurveStitch::transform_multiply(Geom::Matrix const& postmul, bool set)
+LPECurveStitch::transform_multiply(Geom::Affine const& postmul, bool set)
 {
     // only take translations into account
     if (postmul.isTranslation()) {
@@ -203,7 +203,7 @@ LPECurveStitch::transform_multiply(Geom::Matrix const& postmul, bool set)
     } else if (!scale_y_rel.get_value()) {
   // this basically means that for this transformation, the result should be the same as normal scaling the result path
   // don't know how to do this yet.
-//        Geom::Matrix new_postmul;
+//        Geom::Affine new_postmul;
         //new_postmul.setIdentity();
 //        new_postmul.setTranslation(postmul.translation());
 //        Effect::transform_multiply(new_postmul, set);

@@ -66,6 +66,7 @@ extensions = \
 	generate_voronoi.py \
 	gimp_xcf.py \
 	grid_cartesian.py \
+	grid_isometric.py \
 	grid_polar.py \
 	guides_creator.py \
 	guillotine.py \
@@ -168,6 +169,7 @@ otherstuff = \
 	aisvg.xslt \
 	colors.xml \
 	jessyInk_video.svg \
+    svg2fxg.xsl \
 	svg2xaml.xsl \
 	xaml2svg.xsl
 
@@ -232,6 +234,7 @@ modules = \
 	generate_voronoi.inx \
 	gimp_xcf.inx \
 	grid_cartesian.inx \
+	grid_isometric.inx \
 	grid_polar.inx \
 	guides_creator.inx \
 	guillotine.inx \
@@ -293,6 +296,7 @@ modules = \
 	split.inx \
 	straightseg.inx \
 	summersnight.inx \
+    svg2fxg.inx \
 	svg2xaml.inx \
 	svg_and_media_zip_output.inx \
 	svgcalendar.inx \

@@ -3,8 +3,9 @@
  *
  * Authors:
  *   Felipe Corrêa da Silva Sanches <juca@members.fsf.org>
+ *   Tavmjong Bah <tavmjong@free.fr> (use primitive filter region)
  *
- * Copyright (C) 2007 authors
+ * Copyright (C) 2007, 2011 authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -63,7 +64,7 @@ void FilterFlood::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-bool FilterFlood::can_handle_affine(Geom::Matrix const &)
+bool FilterFlood::can_handle_affine(Geom::Affine const &)
 {
     // flood is a per-pixel primitive and is immutable under transformations
     return true;
@@ -81,7 +82,7 @@ void FilterFlood::set_icc(SVGICCColor *icc_color) {
     icc = icc_color;
 }
 
-void FilterFlood::area_enlarge(NRRectL &/*area*/, Geom::Matrix const &/*trans*/)
+void FilterFlood::area_enlarge(NRRectL &/*area*/, Geom::Affine const &/*trans*/)
 {
 }
 

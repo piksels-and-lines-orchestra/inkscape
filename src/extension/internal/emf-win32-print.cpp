@@ -310,7 +310,7 @@ PrintEmfWin32::destroy_brush()
 
 
 void
-PrintEmfWin32::create_pen(SPStyle const *style, const Geom::Matrix &transform)
+PrintEmfWin32::create_pen(SPStyle const *style, const Geom::Affine &transform)
 {
     if (style) {
         float rgb[3];
@@ -459,12 +459,12 @@ PrintEmfWin32::flush_fill()
 }
 
 unsigned int
-PrintEmfWin32::bind(Inkscape::Extension::Print * /*mod*/, Geom::Matrix const *transform, float /*opacity*/)
+PrintEmfWin32::bind(Inkscape::Extension::Print * /*mod*/, Geom::Affine const *transform, float /*opacity*/)
 {
-    Geom::Matrix tr = *transform;
+    Geom::Affine tr = *transform;
     
     if (m_tr_stack.size()) {
-        Geom::Matrix tr_top = m_tr_stack.top();
+        Geom::Affine tr_top = m_tr_stack.top();
         m_tr_stack.push(tr * tr_top);
     } else {
         m_tr_stack.push(tr);
@@ -482,12 +482,12 @@ PrintEmfWin32::release(Inkscape::Extension::Print * /*mod*/)
 
 unsigned int
 PrintEmfWin32::fill(Inkscape::Extension::Print * /*mod*/,
-                    Geom::PathVector const &pathv, Geom::Matrix const * /*transform*/, SPStyle const *style,
+                    Geom::PathVector const &pathv, Geom::Affine const * /*transform*/, SPStyle const *style,
                     NRRect const * /*pbox*/, NRRect const * /*dbox*/, NRRect const * /*bbox*/)
 {
     if (!hdc) return 0;
 
-    Geom::Matrix tf = m_tr_stack.top();
+    Geom::Affine tf = m_tr_stack.top();
 
     flush_fill(); // flush any pending fills
 
@@ -511,12 +511,12 @@ PrintEmfWin32::fill(Inkscape::Extension::Print * /*mod*/,
 
 unsigned int
 PrintEmfWin32::stroke (Inkscape::Extension::Print * /*mod*/,
-                       Geom::PathVector const &pathv, const Geom::Matrix * /*transform*/, const SPStyle *style,
+                       Geom::PathVector const &pathv, const Geom::Affine * /*transform*/, const SPStyle *style,
                        const NRRect * /*pbox*/, const NRRect * /*dbox*/, const NRRect * /*bbox*/)
 {
     if (!hdc) return 0;
 
-    Geom::Matrix tf = m_tr_stack.top();
+    Geom::Affine tf = m_tr_stack.top();
 
     stroke_and_fill = ( pathv == fill_pathv );
 
@@ -550,7 +550,7 @@ PrintEmfWin32::stroke (Inkscape::Extension::Print * /*mod*/,
 
 
 bool
-PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Matrix &transform)
+PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Affine &transform)
 {
     Geom::PathVector pv = pathv_to_linear_and_cubic_beziers( pathv * transform );
     
@@ -681,24 +681,24 @@ PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Mat
     
     if (moves == 1 && moves+lines == nodes && closed) {
         polygon = true;
-        if (nodes==5) {
-            if (lpPoints[0].x == lpPoints[3].x && lpPoints[1].x == lpPoints[2].x &&
-                lpPoints[0].y == lpPoints[1].y && lpPoints[2].y == lpPoints[3].y)
-            {
-                rectangle = true;
-            }
-        }
+//        if (nodes==5) {                             // disable due to LP Bug 407394
+//            if (lpPoints[0].x == lpPoints[3].x && lpPoints[1].x == lpPoints[2].x &&
+//                lpPoints[0].y == lpPoints[1].y && lpPoints[2].y == lpPoints[3].y)
+//            {
+//                rectangle = true;
+//            }
+//        }
     }
     else if (moves == 1 && nodes == 5 && moves+curves == nodes && closed) {
-        if (lpPoints[0].x == lpPoints[1].x && lpPoints[1].x == lpPoints[11].x &&
-            lpPoints[5].x == lpPoints[6].x && lpPoints[6].x == lpPoints[7].x &&
-            lpPoints[2].x == lpPoints[10].x && lpPoints[3].x == lpPoints[9].x && lpPoints[4].x == lpPoints[8].x &&
-            lpPoints[2].y == lpPoints[3].y && lpPoints[3].y == lpPoints[4].y &&
-            lpPoints[8].y == lpPoints[9].y && lpPoints[9].y == lpPoints[10].y &&
-            lpPoints[5].y == lpPoints[1].y && lpPoints[6].y == lpPoints[0].y && lpPoints[7].y == lpPoints[11].y)
-        {
-            ellipse = true;
-        }
+//        if (lpPoints[0].x == lpPoints[1].x && lpPoints[1].x == lpPoints[11].x &&
+//            lpPoints[5].x == lpPoints[6].x && lpPoints[6].x == lpPoints[7].x &&
+//            lpPoints[2].x == lpPoints[10].x && lpPoints[3].x == lpPoints[9].x && lpPoints[4].x == lpPoints[8].x &&
+//            lpPoints[2].y == lpPoints[3].y && lpPoints[3].y == lpPoints[4].y &&
+//            lpPoints[8].y == lpPoints[9].y && lpPoints[9].y == lpPoints[10].y &&
+//            lpPoints[5].y == lpPoints[1].y && lpPoints[6].y == lpPoints[0].y && lpPoints[7].y == lpPoints[11].y)
+//        {                                           // disable due to LP Bug 407394
+//            ellipse = true;
+//        }
     }
 
     if (polygon || ellipse) {
@@ -746,7 +746,7 @@ PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Mat
 }
 
 unsigned int
-PrintEmfWin32::print_pathv(Geom::PathVector const &pathv, const Geom::Matrix &transform)
+PrintEmfWin32::print_pathv(Geom::PathVector const &pathv, const Geom::Affine &transform)
 {
     simple_shape = print_simple_shape(pathv, transform);
 
@@ -863,6 +863,8 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
     if (!hdc) return 0;
 
     HFONT hfont = NULL;
+    Geom::Affine tf = m_tr_stack.top();
+    double rot = 1800.0*std::atan2(tf[1], tf[0])/M_PI;	// 0.1 degree rotation
     
 #ifdef USE_PANGO_WIN32
 /*
@@ -883,8 +885,8 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
             
             lf->lfHeight = style->font_size.computed * IN_PER_PX * dwDPI;
             lf->lfWidth = 0;
-            lf->lfEscapement = 0;
-            lf->lfOrientation = 0;
+            lf->lfEscapement = rot;
+            lf->lfOrientation = rot;
             lf->lfWeight =
                 style->font_weight.computed == SP_CSS_FONT_WEIGHT_100 ? FW_THIN :
                 style->font_weight.computed == SP_CSS_FONT_WEIGHT_200 ? FW_EXTRALIGHT :
@@ -919,8 +921,8 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
             
             lf->lfHeight = style->font_size.computed * IN_PER_PX * dwDPI;
             lf->lfWidth = 0;
-            lf->lfEscapement = 0;
-            lf->lfOrientation = 0;
+            lf->lfEscapement = rot;
+            lf->lfOrientation = rot;
             lf->lfWeight =
                 style->font_weight.computed == SP_CSS_FONT_WEIGHT_100 ? FW_THIN :
                 style->font_weight.computed == SP_CSS_FONT_WEIGHT_200 ? FW_EXTRALIGHT :
@@ -963,8 +965,6 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
 
     // Transparent text background
     SetBkMode(hdc, TRANSPARENT);
-
-    Geom::Matrix tf = m_tr_stack.top();
 
     p = p * tf;
     p[Geom::X] = (p[Geom::X] * IN_PER_PX * dwDPI);

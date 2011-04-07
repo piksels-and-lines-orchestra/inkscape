@@ -40,7 +40,7 @@ static void sp_rect_update(SPObject *object, SPCtx *ctx, guint flags);
 static Inkscape::XML::Node *sp_rect_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
 static gchar *sp_rect_description(SPItem *item);
-static Geom::Matrix sp_rect_set_transform(SPItem *item, Geom::Matrix const &xform);
+static Geom::Affine sp_rect_set_transform(SPItem *item, Geom::Affine const &xform);
 static void sp_rect_convert_to_guides(SPItem *item);
 
 static void sp_rect_set_shape(SPShape *shape);
@@ -230,6 +230,7 @@ sp_rect_set_shape(SPShape *shape)
 
     if ((rect->height.computed < 1e-18) || (rect->width.computed < 1e-18)) {
         SP_SHAPE(rect)->setCurveInsync( NULL, TRUE);
+        SP_SHAPE(rect)->setCurveBeforeLPE( NULL );
         return;
     }
 
@@ -280,6 +281,10 @@ sp_rect_set_shape(SPShape *shape)
 
     c->closepath();
     SP_SHAPE(rect)->setCurveInsync( c, TRUE);
+    SP_SHAPE(rect)->setCurveBeforeLPE( c );
+
+    // LPE is not applied because result can generally not be represented as SPRect
+
     c->unref();
 }
 
@@ -331,8 +336,8 @@ sp_rect_set_ry(SPRect *rect, gboolean set, gdouble value)
 /* fixme: Use preferred units somehow (Lauris) */
 /* fixme: Alternately preserve whatever units there are (lauris) */
 
-static Geom::Matrix
-sp_rect_set_transform(SPItem *item, Geom::Matrix const &xform)
+static Geom::Affine
+sp_rect_set_transform(SPItem *item, Geom::Affine const &xform)
 {
     SPRect *rect = SP_RECT(item);
 
@@ -341,7 +346,7 @@ sp_rect_set_transform(SPItem *item, Geom::Matrix const &xform)
 
     /* This function takes care of translation and scaling, we return whatever parts we can't
        handle. */
-    Geom::Matrix ret(Geom::Matrix(xform).without_translation());
+    Geom::Affine ret(Geom::Affine(xform).withoutTranslation());
     gdouble const sw = hypot(ret[0], ret[1]);
     gdouble const sh = hypot(ret[2], ret[3]);
     if (sw > 1e-9) {
@@ -395,7 +400,7 @@ sp_rect_set_transform(SPItem *item, Geom::Matrix const &xform)
 Returns the ratio in which the vector from p0 to p1 is stretched by transform
  */
 static gdouble
-vector_stretch(Geom::Point p0, Geom::Point p1, Geom::Matrix xform)
+vector_stretch(Geom::Point p0, Geom::Point p1, Geom::Affine xform)
 {
     if (p0 == p1)
         return 0;
@@ -465,7 +470,7 @@ sp_rect_get_rect (SPRect *rect)
 }
 
 void
-sp_rect_compensate_rxry(SPRect *rect, Geom::Matrix xform)
+sp_rect_compensate_rxry(SPRect *rect, Geom::Affine xform)
 {
     if (rect->rx.computed == 0 && rect->ry.computed == 0)
         return; // nothing to compensate
@@ -568,7 +573,7 @@ static void sp_rect_snappoints(SPItem const *item, std::vector<Inkscape::SnapCan
 
     SPRect *rect = SP_RECT(item);
 
-    Geom::Matrix const i2d (item->i2d_affine ());
+    Geom::Affine const i2d (item->i2d_affine ());
 
     Geom::Point p0 = Geom::Point(rect->x.computed, rect->y.computed) * i2d;
     Geom::Point p1 = Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2d;
@@ -607,7 +612,7 @@ sp_rect_convert_to_guides(SPItem *item) {
 
     std::list<std::pair<Geom::Point, Geom::Point> > pts;
 
-    Geom::Matrix const i2d (SP_ITEM(rect)->i2d_affine());
+    Geom::Affine const i2d (SP_ITEM(rect)->i2d_affine());
 
     Geom::Point A1(Geom::Point(rect->x.computed, rect->y.computed) * i2d);
     Geom::Point A2(Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2d);

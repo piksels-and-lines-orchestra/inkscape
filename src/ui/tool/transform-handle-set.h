@@ -14,12 +14,11 @@
 #include <memory>
 #include <gdk/gdk.h>
 #include <2geom/forward.h>
-#include "display/display-forward.h"
 #include "ui/tool/commit-events.h"
 #include "ui/tool/manipulator.h"
 
 class SPDesktop;
-class CtrlRect; // this is not present in display-forward.h!
+class CtrlRect;
 namespace Inkscape {
 namespace UI {
 
@@ -51,10 +50,10 @@ public:
     bool transforming() { return _in_transform; }
     ControlPoint &rotationCenter();
 
-    sigc::signal<void, Geom::Matrix const &> signal_transform;
+    sigc::signal<void, Geom::Affine const &> signal_transform;
     sigc::signal<void, CommitEvent> signal_commit;
 private:
-    void _emitTransform(Geom::Matrix const &);
+    void _emitTransform(Geom::Affine const &);
     void _setActiveHandle(ControlPoint *h);
     void _clearActiveHandle();
     void _updateVisibility(bool v);

@@ -163,7 +163,7 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_set_source_surface(ct, image->surface, 0, 0);
 
         cairo_matrix_t tt;
-        Geom::Matrix total;
+        Geom::Affine total;
         cairo_get_matrix(ct, &tt);
         ink_matrix_to_2geom(total, tt);
 

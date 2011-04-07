@@ -14,6 +14,8 @@
  */
  
 #include <dbus/dbus-glib.h>
+// this is reguired so that giomm headers won't barf
+#undef DBUS_MESSAGE_TYPE_INVALID
 #include "dbus-init.h"
 
 #include "application-interface.h"
@@ -84,7 +86,6 @@ init (void)
         GError *error = NULL;
         DBusGConnection *connection;
         DBusGProxy *proxy;
-	    DocumentInterface *obj;
         connection = dbus_get_connection();
         proxy = dbus_get_proxy(connection);
         org_freedesktop_DBus_request_name (proxy,
@@ -100,16 +101,14 @@ init (void)
 
 gchar *
 init_document (void) {
-        guint   result;
-        GError *error = NULL;
         DBusGConnection *connection;
         DBusGProxy *proxy;
 	SPDocument *doc;
 
-	doc = sp_document_new(NULL, 1, TRUE);
+        doc = SPDocument::createNewDoc(NULL, 1, TRUE);
 
         std::string name("/org/inkscape/");
-	name.append(doc->name);
+	name.append(doc->getName());
         std::replace(name.begin(), name.end(), ' ', '_');
 
         connection = dbus_get_connection();

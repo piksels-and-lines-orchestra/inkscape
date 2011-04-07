@@ -16,6 +16,7 @@
 #include <cairo.h>
 #include <2geom/rect.h>
 #include "display/sp-canvas.h"
+#include "display/sp-canvas-item.h"
 #include "display/nr-arena-item.h"
 
 G_BEGIN_DECLS

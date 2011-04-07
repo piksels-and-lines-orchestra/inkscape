@@ -35,8 +35,8 @@ public:
     virtual ~FilterGaussian();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &m);
-    virtual bool can_handle_affine(Geom::Matrix const &m);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &m);
+    virtual bool can_handle_affine(Geom::Affine const &m);
 
     /**
      * Set the standard deviation value for gaussian blur. Deviation along

@@ -13,6 +13,7 @@
 #include <glibmm/i18n.h>
 #include <string>
 #include <cstring>
+#include <stddef.h>
 #include <sigc++/connection.h>
 #include <sigc++/functors/ptr_fun.h>
 #include <sigc++/adaptors/bind.h>
@@ -141,7 +142,7 @@ sp_object_attributes_dialog (SPObject *object, const gchar *tag)
     if (!strcmp (tag, "Link")) {
         sp_object_attr_show_dialog (object, anchor_desc, tag);
     } else if (!strcmp (tag, "Image")) {
-        Inkscape::XML::Node *ir = SP_OBJECT_REPR(object);
+        Inkscape::XML::Node *ir = object->getRepr();
         const gchar *href = ir->attribute("xlink:href");
         if ( (!href) || ((strncmp(href, "data:", 5) == 0)) ) {
             sp_object_attr_show_dialog (object, image_nohref_desc, tag);

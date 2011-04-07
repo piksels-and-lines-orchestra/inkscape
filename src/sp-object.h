@@ -46,21 +46,13 @@ class SPObjectClass;
 /* Parent, Style, Viewport, User */
 #define SP_OBJECT_MODIFIED_CASCADE (SP_OBJECT_FLAGS_ALL & ~(SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_CHILD_MODIFIED_FLAG))
 
-/* Generic */
-#define SP_OBJECT_IS_CLONED(o) (((SPObject *) (o))->cloned)
-
 /* Write flags */
 #define SP_OBJECT_WRITE_BUILD (1 << 0)
 #define SP_OBJECT_WRITE_EXT (1 << 1)
 #define SP_OBJECT_WRITE_ALL (1 << 2)
 
-/* Convenience stuff */
-#define SP_OBJECT_REPR(o) (((SPObject *) (o))->getRepr())
-#define SP_OBJECT_DOCUMENT(o) (((SPObject *) (o))->document)
-#define SP_OBJECT_PARENT(o) (((SPObject *) (o))->parent)
-#define SP_OBJECT_STYLE(o) (((SPObject *) (o))->style)
-
 #include <glib-object.h>
+#include <stddef.h>
 #include <sigc++/connection.h>
 #include <sigc++/functors/slot.h>
 #include <sigc++/signal.h>

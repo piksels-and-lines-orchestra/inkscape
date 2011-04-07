@@ -33,6 +33,7 @@
 #include "desktop-events.h"
 #include "desktop-handles.h"
 #include "desktop-widget.h"
+#include "display/sp-canvas.h"
 #include "display/canvas-arena.h"
 #include "display/nr-arena.h"
 #include "document.h"
@@ -56,6 +57,7 @@
 #include "ui/widget/layer-selector.h"
 #include "ui/widget/selected-style.h"
 #include "ui/uxmanager.h"
+#include "util/ege-appear-time-tracker.h"
 
 // We're in the "widgets" directory, so no need to explicitly prefix these:
 #include "button.h"
@@ -73,6 +75,7 @@ using Inkscape::round;
 using Inkscape::UnitTracker;
 using Inkscape::UI::UXManager;
 using Inkscape::UI::ToolboxFactory;
+using ege::AppearTimeTracker;
 
 #ifdef WITH_INKBOARD
 #endif
@@ -243,6 +246,8 @@ SPDesktopWidget::window_get_pointer()
     return Geom::Point(x,y);
 }
 
+static GTimer *overallTimer = 0;
+
 /**
  * Registers SPDesktopWidget class and returns its type number.
  */
@@ -263,6 +268,8 @@ GType SPDesktopWidget::getType(void)
             0 // value_table
         };
         type = g_type_register_static(SP_TYPE_VIEW_WIDGET, "SPDesktopWidget", &info, static_cast<GTypeFlags>(0));
+        // Begin a timer to watch for the first desktop to appear on-screen
+        overallTimer = g_timer_new();
     }
     return type;
 }
@@ -564,6 +571,18 @@ void SPDesktopWidget::init( SPDesktopWidget *dtw )
     gtk_widget_show_all (dtw->vbox);
 
     gtk_widget_grab_focus (GTK_WIDGET(dtw->canvas));
+
+    // If this is the first desktop created, report the time it takes to show up
+    if ( overallTimer ) {
+        if ( prefs->getBool("/dialogs/debug/trackAppear", false) ) {
+            // Time tracker takes ownership of the timer.
+            AppearTimeTracker *tracker = new AppearTimeTracker(overallTimer, GTK_WIDGET(dtw), "first SPDesktopWidget");
+            tracker->setAutodelete(true);
+        } else {
+            g_timer_destroy(overallTimer);
+        }
+        overallTimer = 0;
+    }
 }
 
 /**
@@ -619,25 +638,37 @@ SPDesktopWidget::updateTitle(gchar const* uri)
                                ? uri
                                : g_basename(uri) );
         GString *name = g_string_new ("");
+
+        gchar const *grayscalename = "(grayscale) ";
+        gchar const *grayscalenamecomma = ", grayscale";
+        gchar const *printcolorsname = "(print colors preview) ";
+        gchar const *printcolorsnamecomma = ", print colors preview";
+        gchar const *colormodename = "";
+        gchar const *colormodenamecomma = "";
+
+        if (this->desktop->getColorMode() == Inkscape::COLORRENDERMODE_GRAYSCALE) {
+                colormodename = grayscalename;
+                colormodenamecomma = grayscalenamecomma;
+        } else if (this->desktop->getColorMode() == Inkscape::COLORRENDERMODE_PRINT_COLORS_PREVIEW) {
+                colormodename = printcolorsname;
+                colormodenamecomma = printcolorsnamecomma;
+        }
+
         if (this->desktop->number > 1) {
             if (this->desktop->getMode() == Inkscape::RENDERMODE_OUTLINE) {
-                g_string_printf (name, _("%s: %d (outline) - Inkscape"), fname, this->desktop->number);
+                g_string_printf (name, _("%s: %d (outline%s) - Inkscape"), fname, this->desktop->number, colormodenamecomma);
             } else if (this->desktop->getMode() == Inkscape::RENDERMODE_NO_FILTERS) {
-                g_string_printf (name, _("%s: %d (no filters) - Inkscape"), fname, this->desktop->number);
-            } else if (this->desktop->getMode() == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW) {
-                g_string_printf (name, _("%s: %d (print colors preview) - Inkscape"), fname, this->desktop->number);
+                g_string_printf (name, _("%s: %d (no filters%s) - Inkscape"), fname, this->desktop->number, colormodenamecomma);
             } else {
-                g_string_printf (name, _("%s: %d - Inkscape"), fname, this->desktop->number);
+                g_string_printf (name, _("%s: %d %s- Inkscape"), fname, this->desktop->number, colormodename);
             }
         } else {
             if (this->desktop->getMode() == Inkscape::RENDERMODE_OUTLINE) {
-                g_string_printf (name, _("%s (outline) - Inkscape"), fname);
+                g_string_printf (name, _("%s (outline%s) - Inkscape"), fname, colormodenamecomma);
             } else if (this->desktop->getMode() == Inkscape::RENDERMODE_NO_FILTERS) {
-                g_string_printf (name, _("%s (no filters) - Inkscape"), fname);
-            } else if (this->desktop->getMode() == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW) {
-                g_string_printf (name, _("%s (print colors preview) - Inkscape"), fname);
+                g_string_printf (name, _("%s (no filters%s) - Inkscape"), fname, colormodenamecomma);
             } else {
-                g_string_printf (name, _("%s - Inkscape"), fname);
+                g_string_printf (name, _("%s %s- Inkscape"), fname, colormodename);
             }
         }
         window->set_title (name->str);
@@ -912,10 +943,9 @@ SPDesktopWidget::shutdown()
                 GTK_DIALOG_DESTROY_WITH_PARENT,
                 GTK_MESSAGE_WARNING,
                 GTK_BUTTONS_NONE,
-                _("<span weight=\"bold\" size=\"larger\">The file \"%s\" was saved with a format (%s) that may cause data loss!</span>\n\n"
+                _("<span weight=\"bold\" size=\"larger\">The file \"%s\" was saved with a format that may cause data loss!</span>\n\n"
                   "Do you want to save this file as Inkscape SVG?"),
-                doc->getName() ? doc->getName() : "Unnamed",
-                SP_MODULE_KEY_OUTPUT_SVG_INKSCAPE);
+                doc->getName() ? doc->getName() : "Unnamed");
             // fix for bug 1767940:
             GTK_WIDGET_UNSET_FLAGS(GTK_WIDGET(GTK_MESSAGE_DIALOG(dialog)->label), GTK_CAN_FOCUS);
 

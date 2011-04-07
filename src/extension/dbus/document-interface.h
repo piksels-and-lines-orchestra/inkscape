@@ -22,6 +22,14 @@
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-bindings.h>
 #include <dbus/dbus-glib-lowlevel.h>
+
+// this is reguired so that giomm headers won't barf
+#undef DBUS_MESSAGE_TYPE_INVALID
+#undef DBUS_MESSAGE_TYPE_METHOD_CALL
+#undef DBUS_MESSAGE_TYPE_METHOD_RETURN
+#undef DBUS_MESSAGE_TYPE_ERROR
+#undef DBUS_MESSAGE_TYPE_SIGNAL
+
 #include "desktop.h"
 
 #define DBUS_DOCUMENT_INTERFACE_PATH  "/org/inkscape/document"
@@ -107,10 +115,13 @@ gchar*
 document_interface_line (DocumentInterface *object, int x, int y, 
                               int x2, int y2, GError **error);
 
-gboolean
+gchar* 
 document_interface_text (DocumentInterface *object, int x, int y, 
                          gchar *text, GError **error);
-                         
+gboolean
+document_interface_set_text (DocumentInterface *object, gchar *name,
+                             gchar *text, GError **error);
+
 gchar *
 document_interface_image (DocumentInterface *object, int x, int y, 
                           gchar *filename, GError **error);
@@ -224,7 +235,7 @@ document_interface_load (DocumentInterface *object,
 
 gboolean 
 document_interface_save_as (DocumentInterface *object, 
-                           gchar *filename, GError **error);
+                           const gchar *filename, GError **error);
 
 gboolean 
 document_interface_mark_as_unmodified (DocumentInterface *object, GError **error);

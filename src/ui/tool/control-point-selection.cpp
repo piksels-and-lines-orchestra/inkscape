@@ -166,7 +166,7 @@ void ControlPointSelection::spatialGrow(SelectableControlPoint *origin, int dir)
 }
 
 /** Transform all selected control points by the given affine transformation. */
-void ControlPointSelection::transform(Geom::Matrix const &m)
+void ControlPointSelection::transform(Geom::Affine const &m)
 {
     for (iterator i = _points.begin(); i != _points.end(); ++i) {
         SelectableControlPoint *cur = *i;
@@ -273,7 +273,7 @@ void ControlPointSelection::_pointGrabbed(SelectableControlPoint *point)
     _grabbed_point = point;
     _farthest_point = point;
     double maxdist = 0;
-    Geom::Matrix m;
+    Geom::Affine m;
     m.setIdentity();
     for (iterator i = _points.begin(); i != _points.end(); ++i) {
         _original_positions.insert(std::make_pair(*i, (*i)->position()));
@@ -290,11 +290,11 @@ void ControlPointSelection::_pointDragged(Geom::Point &new_pos, GdkEventMotion *
 {
     Geom::Point abs_delta = new_pos - _original_positions[_grabbed_point];
     double fdist = Geom::distance(_original_positions[_grabbed_point], _original_positions[_farthest_point]);
-    if (held_alt(*event) && fdist > 0) {
+    if (held_only_alt(*event) && fdist > 0) {
         // Sculpting
         for (iterator i = _points.begin(); i != _points.end(); ++i) {
             SelectableControlPoint *cur = (*i);
-            Geom::Matrix trans;
+            Geom::Affine trans;
             trans.setIdentity();
             double dist = Geom::distance(_original_positions[cur], _original_positions[_grabbed_point]);
             double deltafrac = 0.5 + 0.5 * cos(M_PI * dist/fdist);
@@ -323,7 +323,7 @@ void ControlPointSelection::_pointDragged(Geom::Point &new_pos, GdkEventMotion *
                 Geom::Point newdx = (newpx - newp) / Geom::EPSILON;
                 Geom::Point newdy = (newpy - newp) / Geom::EPSILON;
 
-                Geom::Matrix itrans(newdx[Geom::X], newdx[Geom::Y], newdy[Geom::X], newdy[Geom::Y], 0, 0);
+                Geom::Affine itrans(newdx[Geom::X], newdx[Geom::Y], newdy[Geom::X], newdy[Geom::Y], 0, 0);
                 if (itrans.isSingular())
                     itrans.setIdentity();
 
@@ -502,7 +502,7 @@ bool ControlPointSelection::_keyboardRotate(GdkEventKey const &event, int dir)
     }
 
     // translate to origin, rotate, translate back to original position
-    Geom::Matrix m = Geom::Translate(-rc)
+    Geom::Affine m = Geom::Translate(-rc)
         * Geom::Rotate(angle) * Geom::Translate(rc);
     transform(m);
     signal_commit.emit(COMMIT_KEYBOARD_ROTATE);
@@ -538,7 +538,7 @@ bool ControlPointSelection::_keyboardScale(GdkEventKey const &event, int dir)
     }
     double scale = (maxext + length_change) / maxext;
     
-    Geom::Matrix m = Geom::Translate(-center) * Geom::Scale(scale) * Geom::Translate(center);
+    Geom::Affine m = Geom::Translate(-center) * Geom::Scale(scale) * Geom::Translate(center);
     transform(m);
     signal_commit.emit(COMMIT_KEYBOARD_SCALE_UNIFORM);
     return true;
@@ -559,7 +559,7 @@ bool ControlPointSelection::_keyboardFlip(Geom::Dim2 d)
         dynamic_cast<SelectableControlPoint*>(ControlPoint::mouseovered_point);
     Geom::Point center = scp ? scp->position() : _handles->rotationCenter().position();
 
-    Geom::Matrix m = Geom::Translate(-center) * scale_transform * Geom::Translate(center);
+    Geom::Affine m = Geom::Translate(-center) * scale_transform * Geom::Translate(center);
     transform(m);
     signal_commit.emit(d == Geom::X ? COMMIT_FLIP_X : COMMIT_FLIP_Y);
     return true;
@@ -641,6 +641,24 @@ bool ControlPointSelection::event(GdkEvent *event)
     }
     return false;
 }
+
+std::vector<Inkscape::SnapCandidatePoint> ControlPointSelection::getOriginalPoints()
+{
+    std::vector<Inkscape::SnapCandidatePoint> points;
+    for (iterator i = _points.begin(); i != _points.end(); ++i) {
+        points.push_back(Inkscape::SnapCandidatePoint(_original_positions[*i], SNAPSOURCE_NODE_HANDLE));
+    }
+    return points;
+}
+
+void ControlPointSelection::setOriginalPoints()
+{
+    _original_positions.clear();
+    for (iterator i = _points.begin(); i != _points.end(); ++i) {
+        _original_positions.insert(std::make_pair(*i, (*i)->position()));
+    }
+}
+
 
 } // namespace UI
 } // namespace Inkscape

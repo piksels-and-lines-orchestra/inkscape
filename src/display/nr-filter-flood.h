@@ -26,11 +26,11 @@ public:
     virtual ~FilterFlood();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual bool can_handle_affine(Geom::Matrix const &);
+    virtual bool can_handle_affine(Geom::Affine const &);
     virtual void set_opacity(double o);
     virtual void set_color(guint32 c);
     virtual void set_icc(SVGICCColor *icc_color);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
 private:
     double opacity;
     guint32 color;

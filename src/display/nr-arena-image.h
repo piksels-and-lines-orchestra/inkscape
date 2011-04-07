@@ -28,7 +28,7 @@ struct NRArenaImage : public NRArenaItem {
     GdkPixbuf *pixbuf;
     cairo_surface_t *surface;
 
-    Geom::Matrix ctm;
+    Geom::Affine ctm;
     Geom::Rect clipbox;
     double ox, oy;
     double sx, sy;

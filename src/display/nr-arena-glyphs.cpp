@@ -17,7 +17,7 @@
 # include <config.h>
 #endif
 #include "libnr/nr-convert2geom.h"
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include "style.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-glyphs.h"
@@ -115,7 +115,7 @@ nr_arena_glyphs_update(NRArenaItem *item, NRRectL */*area*/, NRGC *gc, guint /*s
         return NR_ARENA_ITEM_STATE_ALL;
 
     Geom::OptRect b;
-    Geom::Matrix t = glyphs->g_transform * gc->transform;
+    Geom::Affine t = glyphs->g_transform * gc->transform;
     glyphs->x = t[4];
     glyphs->y = t[5];
 
@@ -183,7 +183,7 @@ nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, gdouble delta, unsigned i
 }
 
 void
-nr_arena_glyphs_set_path(NRArenaGlyphs *glyphs, SPCurve */*curve*/, unsigned int /*lieutenant*/, font_instance *font, gint glyph, Geom::Matrix const *transform)
+nr_arena_glyphs_set_path(NRArenaGlyphs *glyphs, SPCurve */*curve*/, unsigned int /*lieutenant*/, font_instance *font, gint glyph, Geom::Affine const *transform)
 {
     nr_return_if_fail(glyphs != NULL);
     nr_return_if_fail(NR_IS_ARENA_GLYPHS(glyphs));
@@ -308,7 +308,7 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
             NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
 
             Geom::PathVector const * pathv = g->font->PathVector(g->glyph);
-            Geom::Matrix transform = g->g_transform * group->ctm;
+            Geom::Affine transform = g->g_transform * group->ctm;
 
             cairo_new_path(ct);
             ink_cairo_transform(ct, transform);
@@ -397,7 +397,7 @@ nr_arena_glyphs_group_clear(NRArenaGlyphsGroup *sg)
 }
 
 void
-nr_arena_glyphs_group_add_component(NRArenaGlyphsGroup *sg, font_instance *font, int glyph, Geom::Matrix const &transform)
+nr_arena_glyphs_group_add_component(NRArenaGlyphsGroup *sg, font_instance *font, int glyph, Geom::Affine const &transform)
 {
     NRArenaGroup *group;
 

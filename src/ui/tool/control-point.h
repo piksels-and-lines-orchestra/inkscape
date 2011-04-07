@@ -12,12 +12,12 @@
 #define SEEN_UI_TOOL_CONTROL_POINT_H
 
 #include <boost/utility.hpp>
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include <gdkmm.h>
 #include <gtkmm.h>
 #include <2geom/point.h>
 
-#include "display/display-forward.h"
 #include "forward.h"
 #include "util/accumulators.h"
 #include "display/sodipodi-ctrl.h"
@@ -57,7 +57,7 @@ public:
     operator Geom::Point const &() { return _position; }
     virtual void move(Geom::Point const &pos);
     virtual void setPosition(Geom::Point const &pos);
-    virtual void transform(Geom::Matrix const &m);
+    virtual void transform(Geom::Affine const &m);
     /// @}
     
     /// @name Toggle the point's visibility

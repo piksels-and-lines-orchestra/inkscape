@@ -56,7 +56,7 @@ static void sp_tspan_release(SPObject *object);
 static void sp_tspan_set(SPObject *object, unsigned key, gchar const *value);
 static void sp_tspan_update(SPObject *object, SPCtx *ctx, guint flags);
 static void sp_tspan_modified(SPObject *object, unsigned flags);
-static void sp_tspan_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
+static void sp_tspan_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
 static Inkscape::XML::Node *sp_tspan_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 static char *sp_tspan_description (SPItem *item);
 
@@ -203,18 +203,22 @@ static void sp_tspan_modified(SPObject *object, unsigned flags)
     }
 }
 
-static void sp_tspan_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const /*flags*/)
+static void sp_tspan_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const /*flags*/)
 {
     // find out the ancestor text which holds our layout
-    SPObject *parent_text = SP_OBJECT(item);
-    for (; parent_text != NULL && !SP_IS_TEXT(parent_text); parent_text = SP_OBJECT_PARENT (parent_text)){};
-    if (parent_text == NULL) return;
+    SPObject const *parent_text = item;
+    while (parent_text && !SP_IS_TEXT(parent_text)) {
+        parent_text = parent_text->parent;
+    }
+    if (parent_text == NULL) {
+        return;
+    }
 
     // get the bbox of our portion of the layout
     SP_TEXT(parent_text)->layout.getBoundingBox(bbox, transform, sp_text_get_length_upto(parent_text, item), sp_text_get_length_upto(item, NULL) - 1);
 
     // Add stroke width
-    SPStyle* style=SP_OBJECT_STYLE (item);
+    SPStyle* style = item->style;
     if (!style->stroke.isNone()) {
         double const scale = transform.descrim();
         if ( fabs(style->stroke_width.computed * scale) > 0.01 ) { // sinon c'est 0=oon veut pas de bord
@@ -267,7 +271,7 @@ sp_tspan_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML
             } else if ( SP_IS_TEXTPATH(child) ) {
                 //c_repr = child->updateRepr(xml_doc, NULL, flags); // shouldn't happen
             } else if ( SP_IS_STRING(child) ) {
-                SP_OBJECT_REPR(child)->setContent(SP_STRING(child)->string.c_str());
+                child->getRepr()->setContent(SP_STRING(child)->string.c_str());
             }
         }
     }
@@ -364,7 +368,7 @@ sp_textpath_init(SPTextPath *textpath)
     textpath->originalPath = NULL;
     textpath->isUpdating=false;
     // set up the uri reference
-    textpath->sourcePath = new SPUsePath(SP_OBJECT(textpath));
+    textpath->sourcePath = new SPUsePath(textpath);
     textpath->sourcePath->user_unlink = sp_textpath_to_text;
 }
 
@@ -522,7 +526,7 @@ sp_textpath_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
         if (textpath->startOffset.unit == SVGLength::PERCENT) {
 	        Inkscape::SVGOStringStream os;
             os << (textpath->startOffset.computed * 100.0) << "%";
-            SP_OBJECT_REPR(textpath)->setAttribute("startOffset", os.str().c_str());
+            textpath->getRepr()->setAttribute("startOffset", os.str().c_str());
         } else {
             /* FIXME: This logic looks rather undesirable if e.g. startOffset is to be
                in ems. */
@@ -559,7 +563,7 @@ sp_textpath_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::
             } else if ( SP_IS_TEXTPATH(child) ) {
                 //c_repr = child->updateRepr(xml_doc, NULL, flags); // shouldn't happen
             } else if ( SP_IS_STRING(child) ) {
-                SP_OBJECT_REPR(child)->setContent(SP_STRING(child)->string.c_str());
+                child->getRepr()->setContent(SP_STRING(child)->string.c_str());
             }
         }
     }
@@ -586,7 +590,7 @@ sp_textpath_get_path_item(SPTextPath *tp)
 void
 sp_textpath_to_text(SPObject *tp)
 {
-    SPObject *text = SP_OBJECT_PARENT(tp);
+    SPObject *text = tp->parent;
 
     Geom::OptRect bbox;
     SP_ITEM(text)->invoke_bbox(bbox, SP_ITEM(text)->i2doc_affine(), TRUE);
@@ -595,17 +599,17 @@ sp_textpath_to_text(SPObject *tp)
 
     // make a list of textpath children
     GSList *tp_reprs = NULL;
-    for (SPObject *o = SP_OBJECT(tp)->firstChild() ; o != NULL; o = o->next) {
-        tp_reprs = g_slist_prepend(tp_reprs, SP_OBJECT_REPR(o));
+    for (SPObject *o = tp->firstChild() ; o != NULL; o = o->next) {
+        tp_reprs = g_slist_prepend(tp_reprs, o->getRepr());
     }
 
     for ( GSList *i = tp_reprs ; i ; i = i->next ) {
         // make a copy of each textpath child
-        Inkscape::XML::Node *copy = ((Inkscape::XML::Node *) i->data)->duplicate(SP_OBJECT_REPR(text)->document());
+        Inkscape::XML::Node *copy = ((Inkscape::XML::Node *) i->data)->duplicate(text->getRepr()->document());
         // remove the old repr from under textpath
-        SP_OBJECT_REPR(tp)->removeChild((Inkscape::XML::Node *) i->data);
+        tp->getRepr()->removeChild((Inkscape::XML::Node *) i->data);
         // put its copy under text
-        SP_OBJECT_REPR(text)->addChild(copy, NULL); // fixme: copy id
+        text->getRepr()->addChild(copy, NULL); // fixme: copy id
     }
 
     //remove textpath
@@ -615,8 +619,8 @@ sp_textpath_to_text(SPObject *tp)
     // set x/y on text
     /* fixme: Yuck, is this really the right test? */
     if (xy[Geom::X] != 1e18 && xy[Geom::Y] != 1e18) {
-        sp_repr_set_svg_double(SP_OBJECT_REPR(text), "x", xy[Geom::X]);
-        sp_repr_set_svg_double(SP_OBJECT_REPR(text), "y", xy[Geom::Y]);
+        sp_repr_set_svg_double(text->getRepr(), "x", xy[Geom::X]);
+        sp_repr_set_svg_double(text->getRepr(), "y", xy[Geom::Y]);
     }
 }
 

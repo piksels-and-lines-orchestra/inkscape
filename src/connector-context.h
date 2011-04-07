@@ -12,11 +12,11 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include <sigc++/connection.h>
 #include "event-context.h"
 #include <forward.h>
-#include <display/display-forward.h>
 #include <2geom/point.h>
 #include "libavoid/connector.h"
 #include "connection-points.h"
@@ -29,6 +29,8 @@
 #define SP_IS_CONNECTOR_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE((k), SP_TYPE_CONNECTOR_CONTEXT))
 
 struct SPKnot;
+struct SPCurve;
+
 namespace Inkscape
 {
   class Selection;

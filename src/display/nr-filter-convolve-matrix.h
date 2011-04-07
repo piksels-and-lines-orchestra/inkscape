@@ -35,7 +35,7 @@ public:
     virtual ~FilterConvolveMatrix();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
 
     void set_targetY(int coord);
     void set_targetX(int coord);

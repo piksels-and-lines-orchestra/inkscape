@@ -393,7 +393,7 @@ void InkscapePreferences::initPageTools()
     Gtk::TreeModel::iterator iter_tools = this->AddPage(_page_tools, _("Tools"), PREFS_PAGE_TOOLS);
     _path_tools = _page_list.get_model()->get_path(iter_tools);
 
-    _page_tools.add_group_header( _("Bounding box to use:"));
+    _page_tools.add_group_header( _("Bounding box to use"));
     _t_bbox_visual.init ( _("Visual bounding box"), "/tools/bounding_box", 0, false, 0); // 0 means visual
     _page_tools.add_line( true, "", _t_bbox_visual, "",
                             _("This bounding box includes stroke width, markers, filter margins, etc."));
@@ -401,7 +401,7 @@ void InkscapePreferences::initPageTools()
     _page_tools.add_line( true, "", _t_bbox_geometric, "",
                             _("This bounding box includes only the bare path"));
 
-    _page_tools.add_group_header( _("Conversion to guides:"));
+    _page_tools.add_group_header( _("Conversion to guides"));
     _t_cvg_keep_objects.init ( _("Keep objects after conversion to guides"), "/tools/cvg_keep_objects", false);
     _page_tools.add_line( true, "", _t_cvg_keep_objects, "",
                             _("When converting an object to guides, don't delete the object after the conversion"));
@@ -418,14 +418,14 @@ void InkscapePreferences::initPageTools()
     this->AddPage(_page_selector, _("Selector"), iter_tools, PREFS_PAGE_TOOLS_SELECTOR);
 
     AddSelcueCheckbox(_page_selector, "/tools/select", false);
-    _page_selector.add_group_header( _("When transforming, show:"));
+    _page_selector.add_group_header( _("When transforming, show"));
     _t_sel_trans_obj.init ( _("Objects"), "/tools/select/show", "content", true, 0);
     _page_selector.add_line( true, "", _t_sel_trans_obj, "",
                             _("Show the actual objects when moving or transforming"));
     _t_sel_trans_outl.init ( _("Box outline"), "/tools/select/show", "outline", false, &_t_sel_trans_obj);
     _page_selector.add_line( true, "", _t_sel_trans_outl, "",
                             _("Show only a box outline of the objects when moving or transforming"));
-    _page_selector.add_group_header( _("Per-object selection cue:"));
+    _page_selector.add_group_header( _("Per-object selection cue"));
     _t_sel_cue_none.init ( _("None"), "/options/selcue/value", Inkscape::SelCue::NONE, false, 0);
     _page_selector.add_line( true, "", _t_sel_cue_none, "",
                             _("No per-object selection indication"));
@@ -646,20 +646,20 @@ void InkscapePreferences::initPageClones()
     _clone_option_delete.init ( _("Are deleted"), "/options/cloneorphans/value",
                                   SP_CLONE_ORPHANS_DELETE, false, &_clone_option_unlink);
 
-    _page_clones.add_group_header( _("When the original moves, its clones and linked offsets:"));
+    _page_clones.add_group_header( _("Moving original: clones and linked offsets"));
     _page_clones.add_line( true, "", _clone_option_parallel, "",
                            _("Clones are translated by the same vector as their original"));
     _page_clones.add_line( true, "", _clone_option_stay, "",
                            _("Clones preserve their positions when their original is moved"));
     _page_clones.add_line( true, "", _clone_option_transform, "",
                            _("Each clone moves according to the value of its transform= attribute; for example, a rotated clone will move in a different direction than its original"));
-    _page_clones.add_group_header( _("When the original is deleted, its clones:"));
+    _page_clones.add_group_header( _("Deleting original: clones"));
     _page_clones.add_line( true, "", _clone_option_unlink, "",
                            _("Orphaned clones are converted to regular objects"));
     _page_clones.add_line( true, "", _clone_option_delete, "",
                            _("Orphaned clones are deleted along with their original"));
 
-    _page_clones.add_group_header( _("When duplicating original+clones:"));
+    _page_clones.add_group_header( _("Duplicating original+clones/linked offset"));
 
     _clone_relink_on_duplicate.init ( _("Relink duplicated clones"), "/options/relinkclonesonduplicate/value", false);
     _page_clones.add_line(true, "", _clone_relink_on_duplicate, "",
@@ -1220,24 +1220,8 @@ void InkscapePreferences::initPageBitmaps()
     _misc_bitmap_autoreload.init(_("Automatically reload bitmaps"), "/options/bitmapautoreload/value", true);
     _page_bitmaps.add_line( false, "", _misc_bitmap_autoreload, "",
                            _("Automatically reload linked images when file is changed on disk"));
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    Glib::ustring choices = prefs->getString("/options/bitmapeditor/choices");
-    if (!choices.empty()) {
-        gchar** splits = g_strsplit(choices.data(), ",", 0);
-        gint numIems = g_strv_length(splits);
-
-        Glib::ustring labels[numIems];
-        int values[numIems];
-        for ( gint i = 0; i < numIems; i++) {
-            values[i] = i;
-            labels[i] = splits[i];
-        }
-        _misc_bitmap_editor.init("/options/bitmapeditor/value", labels, values, numIems, 0);
-        _page_bitmaps.add_line( false, _("Bitmap editor:"), _misc_bitmap_editor, "", "", false);
-
-        g_strfreev(splits);
-    }
-
+    _misc_bitmap_editor.init("/options/bitmapeditor/value", true);
+    _page_bitmaps.add_line( false, _("Bitmap editor:"), _misc_bitmap_editor, "", "", true);
     _bitmap_copy_res.init("/options/createbitmap/resolution", 1.0, 6000.0, 1.0, 1.0, PX_PER_IN, true, false);
     _page_bitmaps.add_line( false, _("Resolution for Create Bitmap Copy:"), _bitmap_copy_res, _("dpi"),
                             _("Resolution used by the Create Bitmap Copy command"), false);

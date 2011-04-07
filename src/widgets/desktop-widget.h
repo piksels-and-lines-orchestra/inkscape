@@ -15,7 +15,6 @@
 #include <gtk/gtktooltips.h>
 #include <gtk/gtkwindow.h>
 
-#include "display/display-forward.h"
 #include "libnr/nr-point.h"
 #include "forward.h"
 #include "sp-object.h"
@@ -23,10 +22,12 @@
 #include "ui/view/view-widget.h"
 #include "ui/view/edit-widget-interface.h"
 
+#include <stddef.h>
 #include <sigc++/connection.h>
 
 // forward declaration
 typedef struct _EgeColorProfTracker EgeColorProfTracker;
+struct SPCanvas;
 
 
 #define SP_TYPE_DESKTOP_WIDGET SPDesktopWidget::getType()

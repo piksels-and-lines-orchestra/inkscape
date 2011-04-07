@@ -86,6 +86,19 @@ sp_export_jpg_file(SPDocument *doc, gchar const *filename,
      else return false;
 }
 
+/**
+    generates a bitmap from given items
+    the bitmap is stored in RAM and not written to file
+    @param x0
+    @param y0
+    @param x1
+    @param y1
+    @param width
+    @param height
+    @param xdpi
+    @param ydpi
+    @return the created GdkPixbuf structure or NULL if no memory is allocable
+*/
 GdkPixbuf*
 sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
                             double x0, double y0, double x1, double y1,
@@ -114,7 +127,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
      origin[Geom::Y] = origin[Geom::Y] + (screen[Geom::Y].extent() * ((1 - padding) / 2));
 
      Geom::Scale scale( (xdpi / PX_PER_IN),   (ydpi / PX_PER_IN));
-     Geom::Matrix affine = scale * Geom::Translate(-origin * scale);
+     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
 
      /* Create ArenaItems and set transform */
      NRArenaItem *root = SP_ITEM(doc->getRoot())->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);

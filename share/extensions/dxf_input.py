@@ -88,6 +88,10 @@ def export_SPLINE():
             path = 'M %f,%f Q %f,%f %f,%f' % (vals[groups['10']][0], vals[groups['20']][0], vals[groups['10']][1], vals[groups['20']][1], vals[groups['10']][2], vals[groups['20']][2])
             attribs = {'d': path, 'style': style}
             inkex.etree.SubElement(layer, 'path', attribs)
+        if not (vals[groups['70']][0] & 3) and len(vals[groups['10']]) == 5 and len(vals[groups['20']]) == 5:
+            path = 'M %f,%f Q %f,%f %f,%f Q %f,%f %f,%f' % (vals[groups['10']][0], vals[groups['20']][0], vals[groups['10']][1], vals[groups['20']][1], vals[groups['10']][2], vals[groups['20']][2], vals[groups['10']][3], vals[groups['20']][3], vals[groups['10']][4], vals[groups['20']][4])
+            attribs = {'d': path, 'style': style}
+            inkex.etree.SubElement(layer, 'path', attribs)
 
 def export_CIRCLE():
     # mandatory group codes : (10, 20, 40) (x, y, radius)
@@ -307,7 +311,7 @@ def get_group(group):
 
 #   define DXF Entities and specify which Group Codes to monitor
 
-entities = {'MTEXT': export_MTEXT, 'TEXT': export_MTEXT, 'POINT': export_POINT, 'LINE': export_LINE, 'SPLINE': export_SPLINE, 'CIRCLE': export_CIRCLE, 'ARC': export_ARC, 'ELLIPSE': export_ELLIPSE, 'LEADER': export_LEADER, 'LWPOLYLINE': export_LWPOLYLINE, 'HATCH': export_HATCH, 'DIMENSION': export_DIMENSION, 'INSERT': export_INSERT, 'BLOCK': export_BLOCK, 'ENDBLK': export_ENDBLK, 'ATTDEF': export_ATTDEF, 'VIEWPORT': False, 'DICTIONARY': False}
+entities = {'MTEXT': export_MTEXT, 'TEXT': export_MTEXT, 'POINT': export_POINT, 'LINE': export_LINE, 'SPLINE': export_SPLINE, 'CIRCLE': export_CIRCLE, 'ARC': export_ARC, 'ELLIPSE': export_ELLIPSE, 'LEADER': export_LEADER, 'LWPOLYLINE': export_LWPOLYLINE, 'HATCH': export_HATCH, 'DIMENSION': export_DIMENSION, 'INSERT': export_INSERT, 'BLOCK': export_BLOCK, 'ENDBLK': export_ENDBLK, 'ATTDEF': export_ATTDEF, 'VIEWPORT': False, 'EOF': False}
 groups = {'1': 0, '2': 1, '3': 2, '6': 3, '8': 4, '10': 5, '11': 6, '13': 7, '14': 8, '20': 9, '21': 10, '23': 11, '24': 12, '40': 13, '41': 14, '42': 15, '50': 16, '51': 17, '62': 18, '70': 19, '72': 20, '73': 21, '92': 22, '93': 23, '370': 24}
 colors = {  1: '#FF0000',   2: '#FFFF00',   3: '#00FF00',   4: '#00FFFF',   5: '#0000FF',
             6: '#FF00FF',   8: '#414141',   9: '#808080',  12: '#BD0000',  30: '#FF7F00',
@@ -322,7 +326,7 @@ parser.add_option("--font", action="store", type="string", dest="font", default=
 parser.add_option("--tab", action="store", type="string", dest="tab", default="Options")
 parser.add_option("--inputhelp", action="store", type="string", dest="inputhelp", default="")
 (options, args) = parser.parse_args(inkex.sys.argv[1:])
-doc = inkex.etree.parse(StringIO('<svg xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"></svg>'))
+doc = inkex.etree.parse(StringIO('<svg xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" width="%s" height="%s"></svg>' % (210*90/25.4, 297*90/25.4)))
 desc = inkex.etree.SubElement(doc.getroot(), 'desc', {})
 defs = inkex.etree.SubElement(doc.getroot(), 'defs', {})
 marker = inkex.etree.SubElement(defs, 'marker', {'id': 'DistanceX', 'orient': 'auto', 'refX': '0.0', 'refY': '0.0', 'style': 'overflow:visible'})
@@ -401,7 +405,7 @@ for linename in linetypes.keys():                   # scale the dashed lines
 
 entity = ''
 block = defs                                        # initiallize with dummy
-while line[0] and line[1] != 'DICTIONARY':
+while line[0] and line[1] != 'EOF':
     line = get_line()
     if entity and groups.has_key(line[0]):
         seqs.append(line[0])                        # list of group codes

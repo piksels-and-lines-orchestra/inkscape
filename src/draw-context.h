@@ -14,10 +14,10 @@
  * Released under GNU GPL
  */
 
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include "event-context.h"
 #include <forward.h>
-#include <display/display-forward.h>
 #include <libnr/nr-point.h>
 #include "live_effects/effect.h"
 

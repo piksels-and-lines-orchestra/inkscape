@@ -13,6 +13,7 @@
 #include <glib/gi18n.h>
 #include "desktop.h"
 #include "desktop-handles.h"
+#include "display/sp-canvas-group.h"
 #include "display/canvas-bpath.h"
 #include "display/curve.h"
 #include "display/sp-canvas.h"
@@ -479,10 +480,11 @@ gint ink_node_tool_root_handler(SPEventContext *event_context, GdkEvent *event)
                 nt->flash_tempitem = NULL;
                 nt->flashed_item = NULL;
             }
-            if (!SP_IS_PATH(over_item)) break; // for now, handle only paths
+            if (!SP_IS_SHAPE(over_item)) break; // for now, handle only shapes
 
             nt->flashed_item = over_item;
-            SPCurve *c = sp_path_get_curve_for_edit(SP_PATH(over_item));
+            SPCurve *c = SP_SHAPE(over_item)->getCurveBeforeLPE();
+            if (!c) break; // break out when curve doesn't exist
             c->transform(over_item->i2d_affine());
             SPCanvasItem *flash = sp_canvas_bpath_new(sp_desktop_tempgroup(desktop), c);
             sp_canvas_bpath_set_stroke(SP_CANVAS_BPATH(flash),

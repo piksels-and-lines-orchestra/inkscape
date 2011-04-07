@@ -96,23 +96,26 @@ Implementation::save(Inkscape::Extension::Output */*module*/, SPDocument */*doc*
     return;
 } /* Implementation::save */
 
-Gtk::Widget *
-Implementation::prefs_effect(Inkscape::Extension::Effect *module, Inkscape::UI::View::View * view, sigc::signal<void> * changeSignal, ImplementationDocumentCache * docCache) {
-    if (module->param_visible_count() == 0) return NULL;
+Gtk::Widget *Implementation::prefs_effect(Inkscape::Extension::Effect *module, Inkscape::UI::View::View * view, sigc::signal<void> * changeSignal, ImplementationDocumentCache * /*docCache*/)
+{
+    if (module->param_visible_count() == 0) {
+        return NULL;
+    }
 
     SPDocument * current_document = view->doc();
 
     using Inkscape::Util::GSListConstIterator;
     GSListConstIterator<SPItem *> selected =
            sp_desktop_selection((SPDesktop *)view)->itemList();
-    Inkscape::XML::Node * first_select = NULL;
+    Inkscape::XML::Node const* first_select = NULL;
     if (selected != NULL) {
         const SPItem * item = *selected;
-        first_select = SP_OBJECT_REPR(item);
+        first_select = item->getRepr();
     }
 
-    return module->autogui(current_document, first_select, changeSignal);
-} /* Implementation::prefs_effect */
+    // TODO deal with this broken const correctness:
+    return module->autogui(current_document, const_cast<Inkscape::XML::Node *>(first_select), changeSignal);
+} // Implementation::prefs_effect
 
 void
 Implementation::effect(Inkscape::Extension::Effect */*module*/, Inkscape::UI::View::View */*document*/, ImplementationDocumentCache * /*docCache*/) {
@@ -148,7 +151,7 @@ Implementation::finish(Inkscape::Extension::Print */*module*/)
 
 /* Rendering methods */
 unsigned int
-Implementation::bind(Inkscape::Extension::Print */*module*/, Geom::Matrix const */*transform*/, float /*opacity*/)
+Implementation::bind(Inkscape::Extension::Print */*module*/, Geom::Affine const */*transform*/, float /*opacity*/)
 {
     return 0;
 }
@@ -166,14 +169,14 @@ Implementation::comment(Inkscape::Extension::Print */*module*/, char const */*co
 }
 
 unsigned int
-Implementation::fill(Inkscape::Extension::Print */*module*/, Geom::PathVector const &/*pathv*/, Geom::Matrix const */*ctm*/, SPStyle const */*style*/,
+Implementation::fill(Inkscape::Extension::Print */*module*/, Geom::PathVector const &/*pathv*/, Geom::Affine const */*ctm*/, SPStyle const */*style*/,
                      NRRect const */*pbox*/, NRRect const */*dbox*/, NRRect const */*bbox*/)
 {
     return 0;
 }
 
 unsigned int
-Implementation::stroke(Inkscape::Extension::Print */*module*/, Geom::PathVector const &/*pathv*/, Geom::Matrix const */*transform*/, SPStyle const */*style*/,
+Implementation::stroke(Inkscape::Extension::Print */*module*/, Geom::PathVector const &/*pathv*/, Geom::Affine const */*transform*/, SPStyle const */*style*/,
                        NRRect const */*pbox*/, NRRect const */*dbox*/, NRRect const */*bbox*/)
 {
     return 0;
@@ -181,7 +184,7 @@ Implementation::stroke(Inkscape::Extension::Print */*module*/, Geom::PathVector 
 
 unsigned int
 Implementation::image(Inkscape::Extension::Print */*module*/, unsigned char */*px*/, unsigned int /*w*/, unsigned int /*h*/, unsigned int /*rs*/,
-                      Geom::Matrix const */*transform*/, SPStyle const */*style*/)
+                      Geom::Affine const */*transform*/, SPStyle const */*style*/)
 {
     return 0;
 }

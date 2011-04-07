@@ -45,7 +45,7 @@
 #include "xml/attribute-record.h"
 
 #include "util/glib-list-iterators.h"
-
+#include "path-prefix.h"
 
 
 #ifdef WIN32
@@ -189,7 +189,6 @@ Script::solve_reldir(Inkscape::XML::Node *reprin) {
     }
 
     Glib::ustring reldir = s;
-
     for (unsigned int i=0;
         i < Inkscape::Extension::Extension::search_path.size();
         i++) {
@@ -200,7 +199,7 @@ Script::solve_reldir(Inkscape::XML::Node *reprin) {
            NULL);
         Glib::ustring filename = fname;
         g_free(fname);
-
+        //printf("Filename: %s\n", filename.c_str());
         if ( Inkscape::IO::file_test(filename.c_str(), G_FILE_TEST_EXISTS) ) {
             return Glib::filename_from_utf8(filename);
         }
@@ -229,14 +228,13 @@ Script::solve_reldir(Inkscape::XML::Node *reprin) {
 */
 bool Script::check_existence(const std::string &command)
 {
-
     // Check the simple case first
     if (command.empty()) {
         return false;
     }
 
     //Don't search when it is an absolute path. */
-    if (!Glib::path_is_absolute(command)) {
+    if (Glib::path_is_absolute(command)) {
         if (Glib::file_test(command, Glib::FILE_TEST_EXISTS)) {
             return true;
         } else {
@@ -244,12 +242,11 @@ bool Script::check_existence(const std::string &command)
         }
     }
 
-    std::string path = Glib::getenv("PATH");
-    if (path.empty()) {
-       /* There is no `PATH' in the environment.
-           The default search path is the current directory */
-        path = G_SEARCHPATH_SEPARATOR_S;
-    }
+    // First search in the current directory
+    std::string path = G_SEARCHPATH_SEPARATOR_S;
+    path.append(";");
+    // And then in the PATH environment variable.
+    path.append(Glib::getenv("PATH"));
 
     std::string::size_type pos  = 0;
     std::string::size_type pos2 = 0;
@@ -379,8 +376,11 @@ Script::check(Inkscape::Extension::Extension *module)
                     if (!command_text.empty()) {
                         /* I've got the command */
                         bool existance = check_existence(command_text);
-                        if (!existance)
+                        if (!existance) {
                             return false;
+                        }
+                    } else {
+                        return false;
                     }
                 }
 
@@ -603,7 +603,7 @@ void Script::save(Inkscape::Extension::Output *module,
 
     file_listener fileout;
     int data_read = execute(command, params, tempfilename_in, fileout);
-    
+
     bool success = false;
 
     if (data_read > 0) {

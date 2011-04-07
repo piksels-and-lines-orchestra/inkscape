@@ -42,7 +42,7 @@
 
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <2geom/rect.h>
 #include "svg/svg-length.h"
 #include "sp-filter-units.h"
@@ -112,7 +112,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
     FilterQuality const filterquality = (FilterQuality)item->arena->filterquality;
     int const blurquality = item->arena->blurquality;
 
-    Geom::Matrix trans = item->ctm;
+    Geom::Affine trans = item->ctm;
 
     Geom::Rect item_bbox;
     {
@@ -154,7 +154,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
     }
 
     units.set_paraller(false);
-    Geom::Matrix pbtrans = units.get_matrix_display2pb();
+    Geom::Affine pbtrans = units.get_matrix_display2pb();
     for (unsigned i = 0 ; i < _primitive.size() ; i++) {
         if (!_primitive[i]->can_handle_affine(pbtrans)) {
             units.set_paraller(true);
@@ -283,7 +283,7 @@ Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
         minp[Y] = _region_y.computed;
         maxp[Y] = minp[Y] + _region_height.computed;
     } else {
-        g_warning("Error in Inkscape::Filters::Filter::bbox_enlarge: unrecognized value of _filter_units");
+        g_warning("Error in Inkscape::Filters::Filter::filter_effect_area: unrecognized value of _filter_units");
     }
     Geom::Rect area(minp, maxp);
     return area;
@@ -432,7 +432,7 @@ int Filter::_resolution_limit(FilterQuality const quality) const {
 }
 
 std::pair<double,double> Filter::_filter_resolution(
-    Geom::Rect const &area, Geom::Matrix const &trans,
+    Geom::Rect const &area, Geom::Affine const &trans,
     FilterQuality const filterquality) const
 {
     std::pair<double,double> resolution;

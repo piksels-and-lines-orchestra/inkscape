@@ -267,7 +267,7 @@ unsigned long SPDocument::serial() const {
 
 void SPDocument::queueForOrphanCollection(SPObject *object) {
     g_return_if_fail(object != NULL);
-    g_return_if_fail(SP_OBJECT_DOCUMENT(object) == this);
+    g_return_if_fail(object->document == this);
 
     sp_object_ref(object, NULL);
     _collection_queue = g_slist_prepend(_collection_queue, object);
@@ -550,7 +550,7 @@ void SPDocument::setWidth(gdouble width, const SPUnit *unit)
             root->viewBox.x1 = root->viewBox.x0 + (root->width.computed / old_computed) * (root->viewBox.x1 - root->viewBox.x0);
     }
 
-    SP_OBJECT (root)->updateRepr();
+    root->updateRepr();
 }
 
 void SPDocument::setHeight(gdouble height, const SPUnit *unit)
@@ -576,7 +576,7 @@ void SPDocument::setHeight(gdouble height, const SPUnit *unit)
             root->viewBox.y1 = root->viewBox.y0 + (root->height.computed / old_computed) * (root->viewBox.y1 - root->viewBox.y0);
     }
 
-    SP_OBJECT (root)->updateRepr();
+    root->updateRepr();
 }
 
 gdouble SPDocument::getHeight() const
@@ -632,9 +632,9 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
                 margin_units = &px;
             }
             margin_top = nv->getMarginLength("fit-margin-top",margin_units, &px, w, h, false);
-            margin_top = nv->getMarginLength("fit-margin-left",margin_units, &px, w, h, true);
-            margin_top = nv->getMarginLength("fit-margin-right",margin_units, &px, w, h, true);
-            margin_top = nv->getMarginLength("fit-margin-bottom",margin_units, &px, w, h, false);
+            margin_left = nv->getMarginLength("fit-margin-left",margin_units, &px, w, h, true);
+            margin_right = nv->getMarginLength("fit-margin-right",margin_units, &px, w, h, true);
+            margin_bottom = nv->getMarginLength("fit-margin-bottom",margin_units, &px, w, h, false);
         }
     }
     
@@ -848,7 +848,11 @@ SPObject *SPDocument::getObjectById(gchar const *id) const
     g_return_val_if_fail(id != NULL, NULL);
 
     GQuark idq = g_quark_from_string(id);
-    return (SPObject*)g_hash_table_lookup(priv->iddef, GINT_TO_POINTER(idq));
+    gpointer rv = g_hash_table_lookup(priv->iddef, GINT_TO_POINTER(idq));
+    if(rv != NULL)
+        return (SPObject*)rv;
+    else
+        return NULL;
 }
 
 sigc::connection SPDocument::connectIdChanged(gchar const *id,

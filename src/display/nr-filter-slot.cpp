@@ -45,7 +45,7 @@ FilterSlot::FilterSlot(NRArenaItem *item, cairo_t *bgct, NRRectL const *bgarea,
         Geom::Point(_source_graphic_area->x0, _source_graphic_area->y0),
         Geom::Point(_source_graphic_area->x1, _source_graphic_area->y1));
 
-    Geom::Matrix trans = _units.get_matrix_display2pb();
+    Geom::Affine trans = _units.get_matrix_display2pb();
 
     Geom::Rect bbox_trans = bbox * trans;
     Geom::Point min = bbox_trans.min();
@@ -125,7 +125,7 @@ cairo_surface_t *FilterSlot::getcairo(int slot_nr)
 
 cairo_surface_t *FilterSlot::_get_transformed_source_graphic()
 {
-    Geom::Matrix trans = _units.get_matrix_display2pb();
+    Geom::Affine trans = _units.get_matrix_display2pb();
 
     if (trans.isIdentity()) {
         cairo_surface_reference(_source_graphic);
@@ -150,7 +150,7 @@ cairo_surface_t *FilterSlot::_get_transformed_source_graphic()
 
 cairo_surface_t *FilterSlot::_get_transformed_background()
 {
-    Geom::Matrix trans = _units.get_matrix_display2pb();
+    Geom::Affine trans = _units.get_matrix_display2pb();
 
     cairo_surface_t *bg = cairo_get_target(_background_ct);
     cairo_surface_t *tbg = cairo_surface_create_similar(
@@ -171,7 +171,7 @@ cairo_surface_t *FilterSlot::_get_transformed_background()
 
 cairo_surface_t *FilterSlot::get_result(int res)
 {
-    Geom::Matrix trans = _units.get_matrix_pb2display();
+    Geom::Affine trans = _units.get_matrix_pb2display();
     if (trans.isIdentity()) {
         cairo_surface_t *result = getcairo(res);
         cairo_surface_reference(result);

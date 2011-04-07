@@ -27,8 +27,8 @@ public:
     virtual ~FilterOffset();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
-    virtual bool can_handle_affine(Geom::Matrix const &);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
+    virtual bool can_handle_affine(Geom::Affine const &);
 
     void set_dx(double amount);
     void set_dy(double amount);

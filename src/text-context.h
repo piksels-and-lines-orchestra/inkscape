@@ -15,11 +15,11 @@
  */
 
 /*  #include <gdk/gdkic.h> */
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include <gtk/gtkimcontext.h>
 
 #include "event-context.h"
-#include <display/display-forward.h>
 #include <2geom/point.h>
 #include "libnrtype/Layout-TNG.h"
 

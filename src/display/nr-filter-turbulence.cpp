@@ -346,7 +346,7 @@ void FilterTurbulence::set_updated(bool u){
 }
 
 struct Turbulence {
-    Turbulence(TurbulenceGenerator const &gen, Geom::Matrix const &trans, int x0, int y0)
+    Turbulence(TurbulenceGenerator const &gen, Geom::Affine const &trans, int x0, int y0)
         : _gen(gen)
         , _trans(trans)
         , _x0(x0), _y0(y0)
@@ -358,7 +358,7 @@ struct Turbulence {
     }
 private:
     TurbulenceGenerator const &_gen;
-    Geom::Matrix _trans;
+    Geom::Affine _trans;
     int _x0, _y0;
 };
 
@@ -375,8 +375,7 @@ void FilterTurbulence::render_cairo(FilterSlot &slot)
             type == TURBULENCE_FRACTALNOISE, numOctaves);
     }
 
-    // TODO: convert this to ink_cairo_surface_synthesize
-    Geom::Matrix unit_trans = slot.get_units().get_matrix_primitiveunits2pb().inverse();
+    Geom::Affine unit_trans = slot.get_units().get_matrix_primitiveunits2pb().inverse();
     NRRectL const &slot_area = slot.get_slot_area();
 
     ink_cairo_surface_synthesize(out, Turbulence(*gen, unit_trans, slot_area.x0, slot_area.y0));

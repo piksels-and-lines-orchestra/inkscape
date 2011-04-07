@@ -1,5 +1,3 @@
-#define __NR_ARENA_SHAPE_C__
-
 /*
  * RGBA display list system for inkscape
  *
@@ -13,8 +11,8 @@
  */
 
 #include <cairo.h>
-#include <fenv.h>
 #include <glib.h>
+#include <fenv.h>
 #include <typeinfo>
 
 #include <2geom/curves.h>
@@ -348,7 +346,6 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
     }
 
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
-    //bool print_colors_preview = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW);
 
     if (outline) { // cairo outline rendering
 

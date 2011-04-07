@@ -182,12 +182,12 @@ void FilterColorMatrix::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-bool FilterColorMatrix::can_handle_affine(Geom::Matrix const &)
+bool FilterColorMatrix::can_handle_affine(Geom::Affine const &)
 {
     return true;
 }
 
-void FilterColorMatrix::area_enlarge(NRRectL &/*area*/, Geom::Matrix const &/*trans*/)
+void FilterColorMatrix::area_enlarge(NRRectL &/*area*/, Geom::Affine const &/*trans*/)
 {
 }
 

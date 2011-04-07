@@ -247,7 +247,7 @@ static gchar *svgConvertGfxRGB(GfxRGB *color) {
 
 static void svgSetTransform(Inkscape::XML::Node *node, double c0, double c1,
                             double c2, double c3, double c4, double c5) {
-    Geom::Matrix matrix(c0, c1, c2, c3, c4, c5);
+    Geom::Affine matrix(c0, c1, c2, c3, c4, c5);
     gchar *transform_text = sp_svg_transform_write(matrix);
     node->setAttribute("transform", transform_text);
     g_free(transform_text);
@@ -531,7 +531,7 @@ void SvgBuilder::setClipPath(GfxState *state, bool even_odd) {
     clip_path->appendChild(path);
     Inkscape::GC::release(path);
     // Append clipPath to defs and get id
-    SP_OBJECT_REPR (SP_DOCUMENT_DEFS (_doc))->appendChild(clip_path);
+    SP_DOCUMENT_DEFS(_doc)->getRepr()->appendChild(clip_path);
     gchar *urltext = g_strdup_printf ("url(#%s)", clip_path->attribute("id"));
     Inkscape::GC::release(clip_path);
     _container->setAttribute("clip-path", urltext);
@@ -544,7 +544,7 @@ void SvgBuilder::setClipPath(GfxState *state, bool even_odd) {
  * \return true on success; false on invalid transformation
  */
 bool SvgBuilder::getTransform(double *transform) {
-    Geom::Matrix svd;
+    Geom::Affine svd;
     gchar const *tr = _container->attribute("transform");
     bool valid = sp_svg_transform_read(tr, &svd);
     if (valid) {
@@ -634,7 +634,7 @@ gchar *SvgBuilder::_createTilingPattern(GfxTilingPattern *tiling_pattern,
     Inkscape::XML::Node *pattern_node = _xml_doc->createElement("svg:pattern");
     // Set pattern transform matrix
     double *p2u = tiling_pattern->getMatrix();
-    Geom::Matrix pat_matrix(p2u[0], p2u[1], p2u[2], p2u[3], p2u[4], p2u[5]);
+    Geom::Affine pat_matrix(p2u[0], p2u[1], p2u[2], p2u[3], p2u[4], p2u[5]);
     gchar *transform_text = sp_svg_transform_write(pat_matrix);
     pattern_node->setAttribute("patternTransform", transform_text);
     g_free(transform_text);
@@ -678,7 +678,7 @@ gchar *SvgBuilder::_createTilingPattern(GfxTilingPattern *tiling_pattern,
     delete pattern_builder;
 
     // Append the pattern to defs
-    SP_OBJECT_REPR (SP_DOCUMENT_DEFS (_doc))->appendChild(pattern_node);
+    SP_DOCUMENT_DEFS(_doc)->getRepr()->appendChild(pattern_node);
     gchar *id = g_strdup(pattern_node->attribute("id"));
     Inkscape::GC::release(pattern_node);
 
@@ -732,10 +732,10 @@ gchar *SvgBuilder::_createGradient(GfxShading *shading, double *matrix, bool for
     gradient->setAttribute("gradientUnits", "userSpaceOnUse");
     // If needed, flip the gradient transform around the y axis
     if (matrix) {
-        Geom::Matrix pat_matrix(matrix[0], matrix[1], matrix[2], matrix[3],
+        Geom::Affine pat_matrix(matrix[0], matrix[1], matrix[2], matrix[3],
                               matrix[4], matrix[5]);
         if ( !for_shading && _is_top_level ) {
-            Geom::Matrix flip(1.0, 0.0, 0.0, -1.0, 0.0, _height * PT_PER_PX);
+            Geom::Affine flip(1.0, 0.0, 0.0, -1.0, 0.0, _height * PT_PER_PX);
             pat_matrix *= flip;
         }
         gchar *transform_text = sp_svg_transform_write(pat_matrix);
@@ -752,7 +752,7 @@ gchar *SvgBuilder::_createGradient(GfxShading *shading, double *matrix, bool for
         return NULL;
     }
 
-    Inkscape::XML::Node *defs = SP_OBJECT_REPR (SP_DOCUMENT_DEFS (_doc));
+    Inkscape::XML::Node *defs = SP_DOCUMENT_DEFS(_doc)->getRepr();
     defs->appendChild(gradient);
     gchar *id = g_strdup(gradient->attribute("id"));
     Inkscape::GC::release(gradient);
@@ -1149,7 +1149,7 @@ void SvgBuilder::updateTextMatrix(GfxState *state) {
         max_scale = h_scale;
     }
     // Calculate new text matrix
-    Geom::Matrix new_text_matrix(text_matrix[0] * state->getHorizScaling(),
+    Geom::Affine new_text_matrix(text_matrix[0] * state->getHorizScaling(),
                                text_matrix[1] * state->getHorizScaling(),
                                -text_matrix[2], -text_matrix[3],
                                0.0, 0.0);
@@ -1184,7 +1184,7 @@ void SvgBuilder::_flushText() {
 
     Inkscape::XML::Node *text_node = _xml_doc->createElement("svg:text");
     // Set text matrix
-    Geom::Matrix text_transform(_text_matrix);
+    Geom::Affine text_transform(_text_matrix);
     text_transform[4] = first_glyph.position[0];
     text_transform[5] = first_glyph.position[1];
     gchar *transform = sp_svg_transform_write(text_transform);
@@ -1635,9 +1635,9 @@ Inkscape::XML::Node *SvgBuilder::_createMask(double width, double height) {
     sp_repr_set_svg_double(mask_node, "height", height);
     // Append mask to defs
     if (_is_top_level) {
-        SP_OBJECT_REPR (SP_DOCUMENT_DEFS (_doc))->appendChild(mask_node);
+        SP_DOCUMENT_DEFS(_doc)->getRepr()->appendChild(mask_node);
         Inkscape::GC::release(mask_node);
-        return SP_OBJECT_REPR (SP_DOCUMENT_DEFS (_doc))->lastChild();
+        return SP_DOCUMENT_DEFS(_doc)->getRepr()->lastChild();
     } else {    // Work around for renderer bug when mask isn't defined in pattern
         static int mask_count = 0;
         Inkscape::XML::Node *defs = _root->firstChild();
@@ -1719,7 +1719,7 @@ void SvgBuilder::addMaskedImage(GfxState *state, Stream *str, int width, int hei
         mask_image_node->setAttribute("transform", NULL);
         mask_node->appendChild(mask_image_node);
         // Scale the mask to the size of the image
-        Geom::Matrix mask_transform((double)width, 0.0, 0.0, (double)height, 0.0, 0.0);
+        Geom::Affine mask_transform((double)width, 0.0, 0.0, (double)height, 0.0, 0.0);
         gchar *transform_text = sp_svg_transform_write(mask_transform);
         mask_node->setAttribute("maskTransform", transform_text);
         g_free(transform_text);

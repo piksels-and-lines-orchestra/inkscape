@@ -5,7 +5,9 @@
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   bulia byak <buliabyak@users.sf.net>
  *   Abhishek Sharma
+ *   Jon A. Cruz <jon@joncruz.org>
  *
+ * Copyright (C) 2010      authors
  * Copyright (C) 2006      Johan Engelen <johan@shouraizou.nl>
  * Copyright (C) 1999-2005 Authors
  *
@@ -40,6 +42,8 @@
 #include "selection-describer.h"
 #include "seltrans.h"
 #include "box3d.h"
+#include "display/sp-canvas.h"
+#include "display/nr-arena-item.h"
 
 using Inkscape::DocumentUndo;
 
@@ -109,6 +113,10 @@ sp_select_context_init(SPSelectContext *sc)
     sc->button_press_shift = false;
     sc->button_press_ctrl = false;
     sc->button_press_alt = false;
+    sc->cycling_items = NULL;
+    sc->cycling_items_cmp = NULL;
+    sc->cycling_items_selected_before = NULL;
+    sc->cycling_cur_item = NULL;
     sc->_seltrans = NULL;
     sc->_describer = NULL;
 
@@ -176,7 +184,7 @@ sp_select_context_setup(SPEventContext *ec)
                 desktop->selection, 
                 desktop->messageStack(),
                 _("Click selection to toggle scale/rotation handles"),
-                _("No objects selected. Click, Shift+click, or drag around objects to select.")
+                _("No objects selected. Click, Shift+click, Alt+scroll mouse on top of objects, or drag around objects to select.")
         );
 
     select_context->_seltrans = new Inkscape::SelTrans(desktop);
@@ -222,11 +230,11 @@ sp_select_context_abort(SPEventContext *event_context)
 
             if (sc->item) {
                 // only undo if the item is still valid
-                if (SP_OBJECT_DOCUMENT( SP_OBJECT(sc->item))) {
+                if (sc->item->document) {
                     DocumentUndo::undo(sp_desktop_document(desktop));
                 }
 
-                sp_object_unref( SP_OBJECT(sc->item), NULL);
+                sp_object_unref( sc->item, NULL);
             } else if (sc->button_press_ctrl) {
                 // NOTE:  This is a workaround to a bug.
                 // When the ctrl key is held, sc->item is not defined
@@ -278,9 +286,9 @@ sp_select_context_up_one_layer(SPDesktop *desktop)
      */
     SPObject *const current_layer = desktop->currentLayer();
     if (current_layer) {
-        SPObject *const parent = SP_OBJECT_PARENT(current_layer);
+        SPObject *const parent = current_layer->parent;
         if ( parent
-             && ( SP_OBJECT_PARENT(parent)
+             && ( parent->parent
                   || !( SP_IS_GROUP(current_layer)
                         && ( SPGroup::LAYER
                              == SP_GROUP(current_layer)->layerMode() ) ) ) )
@@ -305,7 +313,7 @@ sp_select_context_item_handler(SPEventContext *event_context, SPItem *item, GdkE
     tolerance = prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 
     // make sure we still have valid objects to move around
-    if (sc->item && SP_OBJECT_DOCUMENT( SP_OBJECT(sc->item))==NULL) {
+    if (sc->item && sc->item->document == NULL) {
         sp_select_context_abort(event_context);
     }
 
@@ -401,6 +409,43 @@ sp_select_context_item_handler(SPEventContext *event_context, SPItem *item, GdkE
     return ret;
 }
 
+static void
+sp_select_context_cycle_through_items(SPSelectContext *sc, Inkscape::Selection *selection, GdkEventScroll *scroll_event, bool shift_pressed) {
+    if (!sc->cycling_cur_item)
+        return;
+
+    NRArenaItem *arenaitem;
+    SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
+    SPItem *item = SP_ITEM(sc->cycling_cur_item->data);
+
+    // Deactivate current item
+    if (!g_list_find(sc->cycling_items_selected_before, item) && selection->includes(item))
+        selection->remove(item);
+    arenaitem = item->get_arenaitem(desktop->dkey);
+    nr_arena_item_set_opacity (arenaitem, 0.3);
+
+    // Find next item and activate it
+    GList *next;
+    if (scroll_event->direction == GDK_SCROLL_UP) {
+        next = sc->cycling_cur_item->next;
+        if (next == NULL)
+            next = sc->cycling_items;
+    } else {
+        next = sc->cycling_cur_item->prev;
+        if (next == NULL)
+            next = g_list_last(sc->cycling_items);
+    }
+    sc->cycling_cur_item = next;
+    item = SP_ITEM(sc->cycling_cur_item->data);
+    arenaitem = item->get_arenaitem(desktop->dkey);
+    nr_arena_item_set_opacity (arenaitem, 1.0);
+
+    if (shift_pressed)
+        selection->add(item);
+    else
+        selection->set(item);
+}
+
 static gint
 sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 {
@@ -415,7 +460,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     // make sure we still have valid objects to move around
-    if (sc->item && SP_OBJECT_DOCUMENT( SP_OBJECT(sc->item))==NULL) {
+    if (sc->item && sc->item->document == NULL) {
         sp_select_context_abort(event_context);
     }
 
@@ -481,6 +526,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
             break;
 
         case GDK_MOTION_NOTIFY:
+        {
         	tolerance = prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
         	if (event->motion.state & GDK_BUTTON1_MASK && !event_context->space_panning) {
                 Geom::Point const motion_pt(event->motion.x, event->motion.y);
@@ -567,6 +613,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                 }
             }
             break;
+        }
         case GDK_BUTTON_RELEASE:
             xp = yp = 0;
             if ((event->button.button == 1) && (sc->grabbed) && !event_context->space_panning) {
@@ -605,7 +652,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     sp_canvas_end_forced_full_redraws(desktop->canvas);
 
                     if (sc->item) {
-                        sp_object_unref( SP_OBJECT(sc->item), NULL);
+                        sp_object_unref( sc->item, NULL);
                     }
                     sc->item = NULL;
                 } else {
@@ -699,6 +746,89 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
             sc->button_press_alt = false;
             break;
 
+        case GDK_SCROLL:
+        {
+            SPSelectContext *sc = SP_SELECT_CONTEXT(event_context);
+            GdkEventScroll *scroll_event = (GdkEventScroll*) event;
+
+            if (scroll_event->state & GDK_MOD1_MASK) { // alt modified pressed
+                bool shift_pressed = scroll_event->state & GDK_SHIFT_MASK;
+
+                /* Rebuild list of items underneath the mouse pointer */
+                Geom::Point p = desktop->d2w(desktop->point());
+                SPItem *item = desktop->getItemAtPoint(p, true, NULL);
+
+                // Save pointer to current cycle-item so that we can find it again later, in the freshly built list
+                SPItem *tmp_cur_item = sc->cycling_cur_item ? SP_ITEM(sc->cycling_cur_item->data) : NULL;
+                g_list_free(sc->cycling_items);
+                sc->cycling_items = NULL;
+                sc->cycling_cur_item = NULL;
+
+                while(item != NULL) {
+                    sc->cycling_items = g_list_append(sc->cycling_items, item);
+                    item = desktop->getItemAtPoint(p, true, item);
+                }
+
+                /* Compare current item list with item list during previous scroll ... */
+                GList *l1, *l2;
+                bool item_lists_differ = false;
+                // Note that we can do an 'or' comparison in the loop because it is safe to call g_list_next with a NULL pointer.
+                for (l1 = sc->cycling_items, l2 = sc->cycling_items_cmp; l1 != NULL || l2 != NULL; l1 = g_list_next(l1), l2 = g_list_next(l2)) {
+                    if ((l1 !=NULL && l2 == NULL) || (l1 == NULL && l2 != NULL) || (l1->data != l2->data)) {
+                        item_lists_differ = true;
+                        break;
+                    }
+                }
+
+                /* If list of items under mouse pointer hasn't changed ... */
+                if (!item_lists_differ) {
+                    // ... find current item in the freshly built list and continue cycling ...
+                    // TODO: This wouldn't be necessary if cycling_cur_item pointed to an element of cycling_items_cmp instead
+                    sc->cycling_cur_item = g_list_find(sc->cycling_items, tmp_cur_item);
+                    g_assert(sc->cycling_cur_item != NULL || sc->cycling_items == NULL);
+                } else {
+                    // ... otherwise reset opacities for outdated items ...
+                    NRArenaItem *arenaitem;
+                    for(GList *l = sc->cycling_items_cmp; l != NULL; l = l->next) {
+                        arenaitem = SP_ITEM(l->data)->get_arenaitem(desktop->dkey);
+                        nr_arena_item_set_opacity (arenaitem, 1.0);
+                        //if (!shift_pressed && !g_list_find(sc->cycling_items_selected_before, SP_ITEM(l->data)) && selection->includes(SP_ITEM(l->data)))
+                        if (!g_list_find(sc->cycling_items_selected_before, SP_ITEM(l->data)) && selection->includes(SP_ITEM(l->data)))
+                            selection->remove(SP_ITEM(l->data));
+                    }
+
+                    // ... clear the lists ...
+                    g_list_free(sc->cycling_items_cmp);
+                    g_list_free(sc->cycling_items_selected_before);
+                    sc->cycling_items_cmp = NULL;
+                    sc->cycling_items_selected_before = NULL;
+                    sc->cycling_cur_item = NULL;
+
+                    // ... and rebuild them with the new items.
+                    sc->cycling_items_cmp = g_list_copy(sc->cycling_items);
+                    SPItem *item;
+                    for(GList *l = sc->cycling_items; l != NULL; l = l->next) {
+                        item = SP_ITEM(l->data);
+                        arenaitem = item->get_arenaitem(desktop->dkey);
+                        nr_arena_item_set_opacity (arenaitem, 0.3);
+                        if (selection->includes(item)) {
+                            // already selected items are stored separately, too
+                            sc->cycling_items_selected_before = g_list_append(sc->cycling_items_selected_before, item);
+                        }
+                    }
+
+                    // set the current item to the bottommost one so that the cycling step below re-starts at the top
+                    sc->cycling_cur_item = g_list_last(sc->cycling_items);
+                }
+
+                // Cycle through the items underneath the mouse pointer, one-by-one
+                sp_select_context_cycle_through_items(sc, selection, scroll_event, shift_pressed);
+
+                ret = TRUE;
+            }
+            break;
+        }
+
         case GDK_KEY_PRESS: // keybindings for select context
 
 			{
@@ -727,7 +857,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     sp_event_show_modifier_tip (event_context->defaultMessageContext(), event,
                                                 _("<b>Ctrl</b>: click to select in groups; drag to move hor/vert"),
                                                 _("<b>Shift</b>: click to toggle select; drag for rubberband selection"),
-                                                _("<b>Alt</b>: click to select under; drag to move selected or select by touch"));
+                                                _("<b>Alt</b>: click to select under; scroll mouse-wheel to cycle-select; drag to move selected or select by touch"));
                     // if Alt and nonempty selection, show moving cursor ("move selected"):
                     if (alt && !selection->isEmpty() && !desktop->isWaitingCursor()) {
                         gdk_window_set_cursor(GTK_WIDGET(sp_desktop_canvas(desktop))->window, CursorSelectDragging);
@@ -815,6 +945,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         selection->clear();
                     ret = TRUE;
                     break;
+
                 case GDK_a:
                 case GDK_A:
                     if (MOD__CTRL_ONLY) {
@@ -950,7 +1081,25 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                 if (alt) {
                     Inkscape::Rubberband::get(desktop)->setMode(RUBBERBAND_MODE_RECT);
                 }
+            } else {
+                if (alt) { // TODO: Should we have a variable like is_cycling or is it harmless to run this piece of code each time?
+                    // quit cycle-selection and reset opacities
+                    SPSelectContext *sc = SP_SELECT_CONTEXT(event_context);
+                    NRArenaItem *arenaitem;
+                    for (GList *l = sc->cycling_items; l != NULL; l = g_list_next(l)) {
+                        arenaitem = SP_ITEM(l->data)->get_arenaitem(desktop->dkey);
+                        nr_arena_item_set_opacity (arenaitem, 1.0);
+                    }
+                    g_list_free(sc->cycling_items);
+                    g_list_free(sc->cycling_items_selected_before);
+                    g_list_free(sc->cycling_items_cmp);
+                    sc->cycling_items = NULL;
+                    sc->cycling_items_selected_before = NULL;
+                    sc->cycling_cur_item = NULL;
+                    sc->cycling_items_cmp = NULL;
+                }
             }
+
             }
             // set cursor to default.
             if (!desktop->isWaitingCursor()) {

@@ -102,14 +102,14 @@ private:
 void build_segment(Geom::PathBuilder &, Node *, Node *);
 
 PathManipulator::PathManipulator(MultiPathManipulator &mpm, SPPath *path,
-        Geom::Matrix const &et, guint32 outline_color, Glib::ustring lpe_key)
+        Geom::Affine const &et, guint32 outline_color, Glib::ustring lpe_key)
     : PointManipulator(mpm._path_data.node_data.desktop, *mpm._path_data.node_data.selection)
     , _subpaths(*this)
     , _multi_path_manipulator(mpm)
     , _path(path)
     , _spcurve(new SPCurve())
     , _dragpoint(new CurveDragPoint(*this))
-    , /* XML Tree being used here directly while it shouldn't be*/_observer(new PathManipulatorObserver(this, SP_OBJECT(path)->getRepr()))
+    , /* XML Tree being used here directly while it shouldn't be*/_observer(new PathManipulatorObserver(this, path->getRepr()))
     , _edit_transform(et)
     , _num_selected(0)
     , _show_handles(true)
@@ -191,7 +191,7 @@ void PathManipulator::writeXML()
     if (!_path) return;
     _observer->block();
     if (!empty()) {
-        SP_OBJECT(_path)->updateRepr();
+        _path->updateRepr();
         _getXMLNode()->setAttribute(_nodetypesKey().data(), _createTypeString().data());
     } else {
         // this manipulator will have to be destroyed right after this call
@@ -215,7 +215,7 @@ void PathManipulator::clear()
 /** Select all nodes in subpaths that have something selected. */
 void PathManipulator::selectSubpaths()
 {
-    for (std::list<SubpathPtr>::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
+    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
         NodeList::iterator sp_start = (*i)->begin(), sp_end = (*i)->end();
         for (NodeList::iterator j = sp_start; j != sp_end; ++j) {
             if (j->selected()) {
@@ -225,63 +225,6 @@ void PathManipulator::selectSubpaths()
                     _selection.insert(ins.ptr());
                 continue;
             }
-        }
-    }
-}
-
-/** Move the selection forward or backward by one node in each subpath, based on the sign
- * of the parameter. */
-void PathManipulator::shiftSelection(int dir)
-{
-    if (dir == 0) return;
-    if (_num_selected == 0) {
-        // select the first node of the path.
-        SubpathList::iterator s = _subpaths.begin();
-        if (s == _subpaths.end()) return;
-        NodeList::iterator n = (*s)->begin();
-        if (n != (*s)->end())
-            _selection.insert(n.ptr());
-        return;
-    }
-    // We cannot do any tricks here, like iterating in different directions based on
-    // the sign and only setting the selection of nodes behind us, because it would break
-    // for closed paths.
-    for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
-        std::deque<bool> sels; // I hope this is specialized for bools!
-        unsigned num = 0;
-        
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            sels.push_back(j->selected());
-            _selection.erase(j.ptr());
-            ++num;
-        }
-        if (num == 0) continue; // should never happen! zero-node subpaths are not allowed
-
-        num = 0;
-        // In closed subpath, shift the selection cyclically. In an open one,
-        // let the selection 'slide into nothing' at ends.
-        if (dir > 0) {
-            if ((*i)->closed()) {
-                bool last = sels.back();
-                sels.pop_back();
-                sels.push_front(last);
-            } else {
-                sels.push_front(false);
-            }
-        } else {
-            if ((*i)->closed()) {
-                bool first = sels.front();
-                sels.pop_front();
-                sels.push_back(first);
-            } else {
-                sels.push_back(false);
-                num = 1;
-            }
-        }
-
-        for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
-            if (sels[num]) _selection.insert(j.ptr());
-            ++num;
         }
     }
 }
@@ -332,22 +275,31 @@ void PathManipulator::duplicateNodes()
                 NodeList::iterator k = j.next();
                 Node *n = new Node(_multi_path_manipulator._path_data.node_data, *j);
 
-                // Move the new node to the bottom of the Z-order. This way you can drag all
-                // nodes that were selected before this operation without deselecting
-                // everything because there is a new node above.
-                n->sink();
+                if (k) {
+                    // Move the new node to the bottom of the Z-order. This way you can drag all
+                    // nodes that were selected before this operation without deselecting
+                    // everything because there is a new node above.
+                    n->sink();
+                }
 
                 n->front()->setPosition(*j->front());
                 j->front()->retract();
                 j->setType(NODE_CUSP, false);
                 (*i)->insert(k, n);
 
-                // We need to manually call the selection change callback to refresh
-                // the handle display correctly.
-                // This call changes num_selected, but we call this once for a selected node
-                // and once for an unselected node, so in the end the number stays correct.
-                _selectionChanged(j.ptr(), true);
-                _selectionChanged(n, false);
+                if (k) {
+                    // We need to manually call the selection change callback to refresh
+                    // the handle display correctly.
+                    // This call changes num_selected, but we call this once for a selected node
+                    // and once for an unselected node, so in the end the number stays correct.
+                    _selectionChanged(j.ptr(), true);
+                    _selectionChanged(n, false);
+                } else {
+                    // select the new end node instead of the node just before it
+                    _selection.erase(j.ptr());
+                    _selection.insert(n);
+                    break; // this was the end node, nothing more to do
+                }
             }
         }
     }
@@ -895,9 +847,9 @@ void PathManipulator::setLiveObjects(bool set)
     _live_objects = set;
 }
 
-void PathManipulator::setControlsTransform(Geom::Matrix const &tnew)
+void PathManipulator::setControlsTransform(Geom::Affine const &tnew)
 {
-    Geom::Matrix delta = _i2d_transform.inverse() * _edit_transform.inverse() * tnew * _i2d_transform;
+    Geom::Affine delta = _i2d_transform.inverse() * _edit_transform.inverse() * tnew * _i2d_transform;
     _edit_transform = tnew;
     for (SubpathList::iterator i = _subpaths.begin(); i != _subpaths.end(); ++i) {
         for (NodeList::iterator j = (*i)->begin(); j != (*i)->end(); ++j) {
@@ -1023,7 +975,7 @@ void PathManipulator::_externalChange(unsigned type)
         _updateOutline();
         } break;
     case PATH_CHANGE_TRANSFORM: {
-        Geom::Matrix i2d_change = _d2i_transform;
+        Geom::Affine i2d_change = _d2i_transform;
         _i2d_transform = SP_ITEM(_path)->i2d_affine();
         _d2i_transform = _i2d_transform.inverse();
         i2d_change *= _i2d_transform;
@@ -1087,13 +1039,14 @@ void PathManipulator::_createControlPointsFromGeometry()
                 subpath->push_back(current_node);
             }
             // if this is a bezier segment, move handles appropriately
-            if (Geom::CubicBezier const *cubic_bezier =
-                dynamic_cast<Geom::CubicBezier const*>(&*cit))
+            // TODO: I don't know why the dynamic cast below doesn't want to work
+            //       when I replace BezierCurve with CubicBezier. Might be a bug
+            //       somewhere in pathv_to_linear_and_cubic_beziers
+            Geom::BezierCurve const *bezier = dynamic_cast<Geom::BezierCurve const*>(&*cit);
+            if (bezier && bezier->order() == 3)
             {
-                std::vector<Geom::Point> points = cubic_bezier->points();
-
-                previous_node->front()->setPosition(points[1]);
-                current_node ->back() ->setPosition(points[2]);
+                previous_node->front()->setPosition((*bezier)[1]);
+                current_node ->back() ->setPosition((*bezier)[2]);
             }
             previous_node = current_node;
         }
@@ -1436,7 +1389,7 @@ void PathManipulator::_commit(Glib::ustring const &annotation, gchar const *key)
  * point of the path. */
 void PathManipulator::_updateDragPoint(Geom::Point const &evp)
 {
-    Geom::Matrix to_desktop = _edit_transform * _i2d_transform;
+    Geom::Affine to_desktop = _edit_transform * _i2d_transform;
     Geom::PathVector pv = _spcurve->get_pathvector();
     boost::optional<Geom::PathVectorPosition> pvp
         = Geom::nearestPoint(pv, _desktop->w2d(evp) * to_desktop.inverse());
@@ -1477,8 +1430,8 @@ double PathManipulator::_getStrokeTolerance()
      * drag tolerance setting.  */
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     double ret = prefs->getIntLimited("/options/dragtolerance/value", 2, 0, 100);
-    if (_path && SP_OBJECT_STYLE(_path) && !SP_OBJECT_STYLE(_path)->stroke.isNone()) {
-        ret += SP_OBJECT_STYLE(_path)->stroke_width.computed * 0.5
+    if (_path && _path->style && !_path->style->stroke.isNone()) {
+        ret += _path->style->stroke_width.computed * 0.5
             * (_edit_transform * _i2d_transform).descrim() // scale to desktop coords
             * _desktop->current_zoom(); // == _d2w.descrim() - scale to window coords
     }

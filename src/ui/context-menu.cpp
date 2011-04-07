@@ -278,20 +278,20 @@ sp_item_create_link(GtkMenuItem *menuitem, SPItem *item)
 
     Inkscape::XML::Document *xml_doc = desktop->doc()->getReprDoc();
     Inkscape::XML::Node *repr = xml_doc->createElement("svg:a");
-    SP_OBJECT_REPR(SP_OBJECT_PARENT(item))->addChild(repr, SP_OBJECT_REPR(item));
-    SPObject *object = SP_OBJECT_DOCUMENT(item)->getObjectByRepr(repr);
+    item->parent->getRepr()->addChild(repr, item->getRepr());
+    SPObject *object = item->document->getObjectByRepr(repr);
     g_return_if_fail(SP_IS_ANCHOR(object));
 
-    const char *id = SP_OBJECT_REPR(item)->attribute("id");
-    Inkscape::XML::Node *child = SP_OBJECT_REPR(item)->duplicate(xml_doc);
-    SP_OBJECT(item)->deleteObject(false);
+    const char *id = item->getRepr()->attribute("id");
+    Inkscape::XML::Node *child = item->getRepr()->duplicate(xml_doc);
+    item->deleteObject(false);
     repr->addChild(child, NULL);
     child->setAttribute("id", id);
 
     Inkscape::GC::release(repr);
     Inkscape::GC::release(child);
 
-    DocumentUndo::done(SP_OBJECT_DOCUMENT(object), SP_VERB_NONE,
+    DocumentUndo::done(object->document, SP_VERB_NONE,
                        _("Create link"));
 
     sp_object_attributes_dialog(object, "SPAnchor");
@@ -371,7 +371,7 @@ sp_anchor_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 static void
 sp_anchor_link_properties(GtkMenuItem */*menuitem*/, SPAnchor *anchor)
 {
-    sp_object_attributes_dialog(SP_OBJECT(anchor), "Link");
+    sp_object_attributes_dialog(anchor, "Link");
 }
 
 static void
@@ -420,7 +420,7 @@ sp_image_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
     gtk_signal_connect(GTK_OBJECT(w), "activate", GTK_SIGNAL_FUNC(sp_image_image_edit), item);
     gtk_widget_show(w);
     gtk_menu_append(GTK_MENU(m), w);
-    Inkscape::XML::Node *ir = SP_OBJECT_REPR(object);
+    Inkscape::XML::Node *ir = object->getRepr();
     const gchar *href = ir->attribute("xlink:href");
     if ( (!href) || ((strncmp(href, "data:", 5) == 0)) ) {
         gtk_widget_set_sensitive( w, FALSE );
@@ -430,23 +430,16 @@ sp_image_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 static void
 sp_image_image_properties(GtkMenuItem */*menuitem*/, SPAnchor *anchor)
 {
-    sp_object_attributes_dialog(SP_OBJECT(anchor), "Image");
+    sp_object_attributes_dialog(anchor, "Image");
 }
 
 static gchar* getImageEditorName() {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     gchar* value = 0;
-    Glib::ustring choices = prefs->getString("/options/bitmapeditor/choices");
+    Glib::ustring choices = prefs->getString("/options/bitmapeditor/value");
     if (!choices.empty()) {
-        gchar** splits = g_strsplit(choices.data(), ",", 0);
-        gint numIems = g_strv_length(splits);
-
-        int setting = prefs->getIntLimited("/options/bitmapeditor/value", 0, 0, numIems);
-        value = g_strdup(splits[setting]);
-
-        g_strfreev(splits);
+        value = g_strdup(choices.c_str());
     }
-
     if (!value) {
         value = g_strdup("gimp");
     }
@@ -455,21 +448,51 @@ static gchar* getImageEditorName() {
 
 static void sp_image_image_edit(GtkMenuItem *menuitem, SPAnchor *anchor)
 {
-    SPObject* obj = SP_OBJECT(anchor);
-    Inkscape::XML::Node *ir = SP_OBJECT_REPR(obj);
+    SPObject* obj = anchor;
+    Inkscape::XML::Node *ir = obj->getRepr();
     const gchar *href = ir->attribute("xlink:href");
 
     GError* errThing = 0;
-    gchar* editorBin = getImageEditorName();
-    gchar const* args[] = {editorBin, href, 0};
-    g_spawn_async(0, // working dir
-                  const_cast<gchar **>(args),
-                  0, //envp
-                  G_SPAWN_SEARCH_PATH,
-                  0, // child_setup
-                  0, // user_data
-                  0, //GPid *child_pid
-                  &errThing);
+    Glib::ustring cmdline = getImageEditorName();
+    Glib::ustring fullname;
+    
+#ifdef WIN32
+    // g_spawn_command_line_sync parsing is done according to Unix shell rules,
+    // not Windows command interpreter rules. Thus we need to enclose the
+    // executable path with sigle quotes.
+    int index = cmdline.find(".exe");
+    if ( index < 0 ) index = cmdline.find(".bat");
+    if ( index < 0 ) index = cmdline.find(".com");
+    if ( index >= 0 ) {
+        Glib::ustring editorBin = cmdline.substr(0, index + 4).c_str();
+				Glib::ustring args = cmdline.substr(index + 4, cmdline.length()).c_str();
+        editorBin.insert(0, "'");
+        editorBin.append("'");
+        cmdline = editorBin;
+        cmdline.append(args);
+    } else {
+        // Enclose the whole command line if no executable path can be extracted.
+        cmdline.insert(0, "'");
+        cmdline.append("'");
+    }
+#endif
+
+    if (strncmp (href,"file:",5) == 0) {
+    // URI to filename conversion
+      fullname = g_filename_from_uri(href, NULL, NULL);
+    } else {
+      fullname.append(href);
+    }
+    
+    cmdline.append(" '");
+    cmdline.append(fullname.c_str());
+    cmdline.append("'");
+
+    //printf("##Command line: %s\n", cmdline.c_str());
+
+    g_spawn_command_line_async(cmdline.c_str(),
+                  &errThing); 
+ 
     if ( errThing ) {
         g_warning("Problem launching editor (%d). %s", errThing->code, errThing->message);
         SPDesktop *desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
@@ -477,7 +500,6 @@ static void sp_image_image_edit(GtkMenuItem *menuitem, SPAnchor *anchor)
         g_error_free(errThing);
         errThing = 0;
     }
-    g_free(editorBin);
 }
 
 /* Fill and Stroke entry */

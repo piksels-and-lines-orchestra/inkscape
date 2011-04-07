@@ -332,7 +332,6 @@ static gchar const * ui_descr =
         "  <toolbar name='SprayToolbar'>"
         "    <toolitem action='SprayModeAction' />"
         "    <separator />"
-        "    <separator />"
         "    <toolitem action='SprayWidthAction' />"
         "    <toolitem action='SprayPressureAction' />"
         "    <toolitem action='SprayPopulationAction' />"
@@ -469,9 +468,9 @@ static gchar const * ui_descr =
         "  </toolbar>"
 
         "  <toolbar name='EraserToolbar'>"
-        "    <toolitem action='EraserWidthAction' />"
-        "    <separator />"
         "    <toolitem action='EraserModeAction' />"
+        "    <separator />"
+        "    <toolitem action='EraserWidthAction' />"
         "  </toolbar>"
 
         "  <toolbar name='TextToolbar'>"
@@ -2041,14 +2040,14 @@ static void toggle_snap_callback(GtkToggleAction *act, gpointer data) //data poi
 
     SPDesktop *dt = reinterpret_cast<SPDesktop*>(ptr);
     SPNamedView *nv = sp_desktop_namedview(dt);
-    SPDocument *doc = SP_OBJECT_DOCUMENT(nv);
+    SPDocument *doc = nv->document;
 
     if (dt == NULL || nv == NULL) {
         g_warning("No desktop or namedview specified (in toggle_snap_callback)!");
         return;
     }
 
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(nv);
+    Inkscape::XML::Node *repr = nv->getRepr();
 
     if (repr == NULL) {
         g_warning("This namedview doesn't have a xml representation attached!");
@@ -2520,13 +2519,14 @@ static void sp_stb_magnitude_value_changed( GtkAdjustment *adj, GObject *dataKlu
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     GSList const *items = selection->itemList();
     for (; items != NULL; items = items->next) {
-        if (SP_IS_STAR((SPItem *) items->data)) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+        SPItem *item = reinterpret_cast<SPItem*>(items->data);
+        if (SP_IS_STAR(item)) {
+            Inkscape::XML::Node *repr = item->getRepr();
             sp_repr_set_int(repr,"sodipodi:sides",(gint)adj->value);
             sp_repr_set_svg_double(repr, "sodipodi:arg2",
                                    (sp_repr_get_double_attribute(repr, "sodipodi:arg1", 0.5)
                                     + M_PI / (gint)adj->value));
-            SP_OBJECT((SPItem *) items->data)->updateRepr();
+            item->updateRepr();
             modmade = true;
         }
     }
@@ -2561,8 +2561,9 @@ static void sp_stb_proportion_value_changed( GtkAdjustment *adj, GObject *dataKl
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     GSList const *items = selection->itemList();
     for (; items != NULL; items = items->next) {
-        if (SP_IS_STAR((SPItem *) items->data)) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+        SPItem *item = reinterpret_cast<SPItem *>(items->data);
+        if (SP_IS_STAR(item)) {
+            Inkscape::XML::Node *repr = item->getRepr();
 
             gdouble r1 = sp_repr_get_double_attribute(repr, "sodipodi:r1", 1.0);
             gdouble r2 = sp_repr_get_double_attribute(repr, "sodipodi:r2", 1.0);
@@ -2572,7 +2573,7 @@ static void sp_stb_proportion_value_changed( GtkAdjustment *adj, GObject *dataKl
                 sp_repr_set_svg_double(repr, "sodipodi:r1", r2*adj->value);
             }
 
-            SP_OBJECT((SPItem *) items->data)->updateRepr();
+            item->updateRepr();
             modmade = true;
         }
     }
@@ -2613,10 +2614,11 @@ static void sp_stb_sides_flat_state_changed( EgeSelectOneAction *act, GObject *d
     }
 
     for (; items != NULL; items = items->next) {
-        if (SP_IS_STAR((SPItem *) items->data)) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+        SPItem *item = reinterpret_cast<SPItem *>(items->data);
+        if (SP_IS_STAR(item)) {
+            Inkscape::XML::Node *repr = item->getRepr();
             repr->setAttribute("inkscape:flatsided", flat ? "true" : "false" );
-            SP_OBJECT((SPItem *) items->data)->updateRepr();
+            item->updateRepr();
             modmade = true;
         }
     }
@@ -2651,10 +2653,11 @@ static void sp_stb_rounded_value_changed( GtkAdjustment *adj, GObject *dataKludg
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     GSList const *items = selection->itemList();
     for (; items != NULL; items = items->next) {
-        if (SP_IS_STAR((SPItem *) items->data)) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+        SPItem *item = reinterpret_cast<SPItem*>(items->data);
+        if (SP_IS_STAR(item)) {
+            Inkscape::XML::Node *repr = item->getRepr();
             sp_repr_set_svg_double(repr, "inkscape:rounded", (gdouble) adj->value);
-            SP_OBJECT(items->data)->updateRepr();
+            item->updateRepr();
             modmade = true;
         }
     }
@@ -2688,10 +2691,11 @@ static void sp_stb_randomized_value_changed( GtkAdjustment *adj, GObject *dataKl
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     GSList const *items = selection->itemList();
     for (; items != NULL; items = items->next) {
-        if (SP_IS_STAR((SPItem *) items->data)) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+        SPItem *item = reinterpret_cast<SPItem *>(items->data);
+        if (SP_IS_STAR(item)) {
+            Inkscape::XML::Node *repr = item->getRepr();
             sp_repr_set_svg_double(repr, "inkscape:randomized", (gdouble) adj->value);
-            SP_OBJECT(items->data)->updateRepr();
+            item->updateRepr();
             modmade = true;
         }
     }
@@ -2783,9 +2787,10 @@ sp_star_toolbox_selection_changed(Inkscape::Selection *selection, GObject *tbl)
          items != NULL;
          items = items->next)
     {
-        if (SP_IS_STAR((SPItem *) items->data)) {
+        SPItem* item = reinterpret_cast<SPItem *>(items->data);
+        if (SP_IS_STAR(item)) {
             n_selected++;
-            repr = SP_OBJECT_REPR((SPItem *) items->data);
+            repr = item->getRepr();
         }
     }
 
@@ -3055,7 +3060,7 @@ static void sp_rtb_value_changed(GtkAdjustment *adj, GObject *tbl, gchar const *
             if (adj->value != 0) {
                 setter(SP_RECT(items->data), sp_units_get_pixels(adj->value, *unit));
             } else {
-                SP_OBJECT_REPR(items->data)->setAttribute(value_name, NULL);
+                SP_OBJECT(items->data)->getRepr()->setAttribute(value_name, NULL);
             }
             modmade = true;
         }
@@ -3184,10 +3189,10 @@ static void sp_rect_toolbox_selection_changed(Inkscape::Selection *selection, GO
     for (GSList const *items = selection->itemList();
          items != NULL;
          items = items->next) {
-        if (SP_IS_RECT((SPItem *) items->data)) {
+        if (SP_IS_RECT(reinterpret_cast<SPItem *>(items->data))) {
             n_selected++;
-            item = (SPItem *) items->data;
-            repr = SP_OBJECT_REPR(item);
+            item = reinterpret_cast<SPItem *>(items->data);
+            repr = item->getRepr();
         }
     }
 
@@ -3474,7 +3479,7 @@ static void box3d_toolbox_selection_changed(Inkscape::Selection *selection, GObj
         // FIXME: Also deal with multiple selected boxes
         SPBox3D *box = SP_BOX3D(item);
         Persp3D *persp = box3d_get_perspective(box);
-        persp_repr = SP_OBJECT_REPR(persp);
+        persp_repr = persp->getRepr();
         if (persp_repr) {
             g_object_set_data(tbl, "repr", persp_repr);
             Inkscape::GC::anchor(persp_repr);
@@ -3513,7 +3518,7 @@ static void box3d_angle_value_changed(GtkAdjustment *adj, GObject *dataKludge, P
     Persp3D *persp = sel_persps.front();
 
     persp->perspective_impl->tmat.set_infinite_direction (axis, adj->value);
-    SP_OBJECT(persp)->updateRepr();
+    persp->updateRepr();
 
     // TODO: use the correct axis here, too
     DocumentUndo::maybeDone(document, "perspangle", SP_VERB_CONTEXT_3DBOX, _("3D Box: Change perspective (angle of infinite axis)"));
@@ -3731,10 +3736,11 @@ static void sp_spl_tb_value_changed(GtkAdjustment *adj, GObject *tbl, Glib::ustr
          items != NULL;
          items = items->next)
     {
-        if (SP_IS_SPIRAL((SPItem *) items->data)) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+        SPItem *item = reinterpret_cast<SPItem*>(items->data);
+        if (SP_IS_SPIRAL(item)) {
+            Inkscape::XML::Node *repr = item->getRepr();
             sp_repr_set_svg_double( repr, namespaced_name, adj->value );
-            SP_OBJECT((SPItem *) items->data)->updateRepr();
+            item->updateRepr();
             modmade = true;
         }
     }
@@ -3841,9 +3847,10 @@ static void sp_spiral_toolbox_selection_changed(Inkscape::Selection *selection, 
          items != NULL;
          items = items->next)
     {
-        if (SP_IS_SPIRAL((SPItem *) items->data)) {
+        SPItem *item = reinterpret_cast<SPItem*>(items->data);
+        if (SP_IS_SPIRAL(item)) {
             n_selected++;
-            repr = SP_OBJECT_REPR((SPItem *) items->data);
+            repr = item->getRepr();
         }
     }
 
@@ -4601,10 +4608,10 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
 
     {
         /* Mean */
-        gchar const* labels[] = {_("(minimum mean)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum mean)")};
-        gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
+        gchar const* labels[] = {_("(default)"), 0, 0, 0, 0, 0, 0, _("(maximum mean)")};
+        gdouble values[] = {0, 5, 10, 20, 30, 50, 70, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayMeanAction",
-                                                              _("Focus"), _("Focus:"), _("0 to spray a spot. Increase to enlarge the ring radius."),
+                                                              _("Focus"), _("Focus:"), _("0 to spray a spot; increase to enlarge the ring radius"),
                                                               "/tools/spray/mean", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-mean",
                                                               0, 100, 1.0, 10.0,
@@ -4617,13 +4624,10 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
 
     {
         /* Standard_deviation */
-        gchar const* labels[] = {_("(minimum scatter)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum scatter)")};
+        gchar const* labels[] = {_("(minimum scatter)"), 0, 0, 0, 0, 0, _("(default)"), _("(maximum scatter)")};
         gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
-
-        //TRANSLATORS: only translate "string" in "context|string".
-        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayStandard_deviationAction",
-                                                              Q_("Toolbox|Scatter"), Q_("Toolbox|Scatter:"), _("Increase to scatter sprayed objects."),
+                                                              C_("Spray tool", "Scatter"), C_("Spray tool", "Scatter:"), _("Increase to scatter sprayed objects"),
                                                               "/tools/spray/standard_deviation", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-standard_deviation",
                                                               1, 100, 1.0, 10.0,
@@ -4680,11 +4684,11 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     }
 
     {   /* Population */
-        gchar const* labels[] = {_("(low population)"), 0, 0, _("(default)"), 0, 0, _("(high population)")};
-        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
+        gchar const* labels[] = {_("(low population)"), 0, 0, 0, _("(default)"), 0, _("(high population)")};
+        gdouble values[] = {5, 20, 35, 50, 70, 85, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayPopulationAction",
                                                               _("Amount"), _("Amount:"),
-                                                              _("Adjusts the number of items sprayed per clic."),
+                                                              _("Adjusts the number of items sprayed per clic"),
                                                               "/tools/spray/population", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-population",
                                                               1, 100, 1.0, 10.0,
@@ -4700,21 +4704,22 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     {
         InkToggleAction* act = ink_toggle_action_new( "SprayPressureAction",
                                                       _("Pressure"),
-                                                      _("Use the pressure of the input device to alter the amount of sprayed objects."),
+                                                      _("Use the pressure of the input device to alter the amount of sprayed objects"),
                                                       "use_pressure",
                                                       Inkscape::ICON_SIZE_DECORATION );
-        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
-        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_spray_pressure_state_changed), NULL);
-        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), prefs->getBool("/tools/spray/usepressure", true) );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
+        PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/spray/usepressure");
+        g_signal_connect(holder, "destroy", G_CALLBACK(delete_prefspusher), pusher);
+        
     }
 
     {   /* Rotation */
-        gchar const* labels[] = {_("(low rotation variation)"), 0, 0, _("(default)"), 0, 0, _("(high rotation variation)")};
-        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
+        gchar const* labels[] = {_("(default)"), 0, 0, 0, 0, 0, 0, _("(high rotation variation)")};
+        gdouble values[] = {0, 10, 25, 35, 50, 60, 80, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayRotationAction",
                                                               _("Rotation"), _("Rotation:"),
                                                               // xgettext:no-c-format
-                                                              _("Variation of the rotation of the sprayed objects. 0% for the same rotation than the original object."),
+                                                              _("Variation of the rotation of the sprayed objects; 0% for the same rotation than the original object"),
                                                               "/tools/spray/rotation_variation", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-rotation",
                                                               0, 100, 1.0, 10.0,
@@ -4727,15 +4732,12 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     }
 
     {   /* Scale */
-        gchar const* labels[] = {_("(low scale variation)"), 0, 0, _("(default)"), 0, 0, _("(high scale variation)")};
-        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
-
-        //TRANSLATORS: only translate "string" in "context|string".
-        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
+        gchar const* labels[] = {_("(default)"), 0, 0, 0, 0, 0, 0, _("(high scale variation)")};
+        gdouble values[] = {0, 10, 25, 35, 50, 60, 80, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayScaleAction",
-                                                              Q_("Toolbox|Scale"), Q_("Toolbox|Scale:"),
+                                                              C_("Spray tool", "Scale"), C_("Spray tool", "Scale:"),
                                                               // xgettext:no-c-format
-                                                              _("Variation in the scale of the sprayed objects. 0% for the same scale than the original object."),
+                                                              _("Variation in the scale of the sprayed objects; 0% for the same scale than the original object"),
                                                               "/tools/spray/scale_variation", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-scale",
                                                               0, 100, 1.0, 10.0,
@@ -5395,10 +5397,11 @@ static void sp_arctb_open_state_changed( EgeSelectOneAction *act, GObject *tbl )
              items != NULL;
              items = items->next)
         {
-            if (SP_IS_ARC((SPItem *) items->data)) {
-                Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+            SPItem *item = reinterpret_cast<SPItem*>(items->data);
+            if (SP_IS_ARC(item)) {
+                Inkscape::XML::Node *repr = item->getRepr();
                 repr->setAttribute("sodipodi:open", "true");
-                SP_OBJECT((SPItem *) items->data)->updateRepr();
+                item->updateRepr();
                 modmade = true;
             }
         }
@@ -5407,10 +5410,11 @@ static void sp_arctb_open_state_changed( EgeSelectOneAction *act, GObject *tbl )
              items != NULL;
              items = items->next)
         {
-            if (SP_IS_ARC((SPItem *) items->data)) {
-                Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) items->data);
+            SPItem *item = reinterpret_cast<SPItem *>(items->data);
+            if (SP_IS_ARC(item)) {
+                Inkscape::XML::Node *repr = item->getRepr();
                 repr->setAttribute("sodipodi:open", NULL);
-                SP_OBJECT((SPItem *) items->data)->updateRepr();
+                item->updateRepr();
                 modmade = true;
             }
         }
@@ -5496,9 +5500,10 @@ static void sp_arc_toolbox_selection_changed(Inkscape::Selection *selection, GOb
          items != NULL;
          items = items->next)
     {
-        if (SP_IS_ARC((SPItem *) items->data)) {
+        SPItem *item = reinterpret_cast<SPItem *>(items->data);
+        if (SP_IS_ARC(item)) {
             n_selected++;
-            repr = SP_OBJECT_REPR((SPItem *) items->data);
+            repr = item->getRepr();
         }
     }
 
@@ -6107,23 +6112,6 @@ static void sp_erasertb_mode_changed( EgeSelectOneAction *act, GObject *tbl )
 static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder)
 {
     {
-        /* Width */
-        gchar const* labels[] = {_("(hairline)"), 0, 0, 0, _("(default)"), 0, 0, 0, 0, _("(broad stroke)")};
-        gdouble values[] = {1, 3, 5, 10, 15, 20, 30, 50, 75, 100};
-        EgeAdjustmentAction *eact = create_adjustment_action( "EraserWidthAction",
-                                                              _("Pen Width"), _("Width:"),
-                                                              _("The width of the eraser pen (relative to the visible canvas area)"),
-                                                              "/tools/eraser/width", 15,
-                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-eraser",
-                                                              1, 100, 1.0, 10.0,
-                                                              labels, values, G_N_ELEMENTS(labels),
-                                                              sp_erc_width_value_changed, 1, 0);
-        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
-        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
-        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
-    }
-
-    {
         GtkListStore* model = gtk_list_store_new( 3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING );
 
         GtkTreeIter iter;
@@ -6142,9 +6130,10 @@ static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActio
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "EraserModeAction", (""), (""), NULL, GTK_TREE_MODEL(model) );
+        g_object_set( act, "short_label", _("Mode:"), NULL );
         gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
         g_object_set_data( holder, "eraser_mode_action", act );
-
+        
         ege_select_one_action_set_appearance( act, "full" );
         ege_select_one_action_set_radio_action_type( act, INK_RADIO_ACTION_TYPE );
         g_object_set( G_OBJECT(act), "icon-property", "iconId", NULL );
@@ -6156,6 +6145,23 @@ static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActio
         gint eraserMode = prefs->getBool("/tools/eraser/mode") ? 1 : 0;
         ege_select_one_action_set_active( act, eraserMode );
         g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(sp_erasertb_mode_changed), holder );
+    }
+
+    {
+        /* Width */
+        gchar const* labels[] = {_("(hairline)"), 0, 0, 0, _("(default)"), 0, 0, 0, 0, _("(broad stroke)")};
+        gdouble values[] = {1, 3, 5, 10, 15, 20, 30, 50, 75, 100};
+        EgeAdjustmentAction *eact = create_adjustment_action( "EraserWidthAction",
+                                                              _("Pen Width"), _("Width:"),
+                                                              _("The width of the eraser pen (relative to the visible canvas area)"),
+                                                              "/tools/eraser/width", 15,
+                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-eraser",
+                                                              1, 100, 1.0, 10.0,
+                                                              labels, values, G_N_ELEMENTS(labels),
+                                                              sp_erc_width_value_changed, 1, 0);
+        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
     }
 
 }
@@ -6185,7 +6191,7 @@ static void       sp_print_font( SPStyle *query ) {
               << (query->text->font_specification.value ? query->text->font_specification.value : "No value")
               << std::endl;
 }
-        
+
 static void       sp_print_fontweight( SPStyle *query ) {
     const gchar* names[] = {"100", "200", "300", "400", "500", "600", "700", "800", "900",
                             "NORMAL", "BOLD", "LIGHTER", "BOLDER", "Out of range"};
@@ -6385,8 +6391,10 @@ static void sp_text_fontfamily_value_changed( Ink_ComboBoxEntry_Action *act, GOb
     g_free (family);
 
     // Save for undo
-    DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
+    if (result_fontspec != QUERY_STYLE_NOTHING) {
+        DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
                        _("Text: Change font family"));
+    }
     sp_repr_css_attr_unref (css);
 
     // unfreeze
@@ -6431,10 +6439,6 @@ static void sp_text_fontsize_value_changed( Ink_ComboBoxEntry_Action *act, GObje
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
     sp_desktop_set_style (desktop, css, true, true);
 
-    // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:size", SP_VERB_NONE,
-                             _("Text: Change font size"));
-
     // If no selected objects, set default.
     SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
     int result_numbers =
@@ -6443,7 +6447,12 @@ static void sp_text_fontsize_value_changed( Ink_ComboBoxEntry_Action *act, GObje
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->mergeStyle("/tools/text/style", css);
+    } else {
+        // Save for undo
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:size", SP_VERB_NONE,
+                             _("Text: Change font size"));
     }
+
     sp_style_unref(query);
 
     sp_repr_css_attr_unref (css);
@@ -6578,8 +6587,10 @@ static void sp_text_style_changed( InkToggleAction* act, GObject *tbl )
     // Do we need to update other CSS values?
     SPDesktop   *desktop    = SP_ACTIVE_DESKTOP;
     sp_desktop_set_style (desktop, css, true, true);
-    DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
+    if (result_fontspec != QUERY_STYLE_NOTHING) {
+        DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
                        _("Text: Change font style"));
+    }
     sp_repr_css_attr_unref (css);
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
@@ -6655,9 +6666,10 @@ static void sp_text_script_changed( InkToggleAction* act, GObject *tbl )
     sp_desktop_set_style (desktop, css, true, false);
 
     // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:script", SP_VERB_NONE,
+    if(result_baseline != QUERY_STYLE_NOTHING) {
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:script", SP_VERB_NONE,
                              _("Text: Change superscript or subscript"));
-
+    }
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
 
@@ -6682,7 +6694,7 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
         if (SP_IS_TEXT((SPItem *) items->data)) {
             SPItem *item = SP_ITEM(items->data);
 
-            unsigned writing_mode = SP_OBJECT_STYLE(item)->writing_mode.value;
+            unsigned writing_mode = item->style->writing_mode.value;
             // below, variable names suggest horizontal move, but we check the writing direction
             // and move in the corresponding axis
             int axis;
@@ -6702,7 +6714,7 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
             // frame (currently unused)
             double left_slack = 0;
             double right_slack = 0;
-            unsigned old_align = SP_OBJECT_STYLE(item)->text_align.value;
+            unsigned old_align = item->style->text_align.value;
             double move = 0;
             if (old_align == SP_CSS_TEXT_ALIGN_START || old_align == SP_CSS_TEXT_ALIGN_LEFT) {
                 switch (mode) {
@@ -6748,8 +6760,8 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
                 XY = XY + Geom::Point (0, move);
             }
             SP_TEXT(item)->attributes.setFirstXY(XY);
-            SP_OBJECT(item)->updateRepr();
-            SP_OBJECT(item)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+            item->updateRepr();
+            item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
         }
     }
 
@@ -6799,8 +6811,11 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
     sp_style_unref(query);
 
     sp_desktop_set_style (desktop, css, true, true);
-    DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
+    if (result_numbers != QUERY_STYLE_NOTHING)
+    {
+        DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
                        _("Text: Change alignment"));
+    }
     sp_repr_css_attr_unref (css);
 
     gtk_widget_grab_focus (GTK_WIDGET(desktop->canvas));
@@ -6831,15 +6846,19 @@ static void sp_text_lineheight_value_changed( GtkAdjustment *adj, GObject *tbl )
     // Until deprecated sodipodi:linespacing purged:
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     GSList const *items = selection->itemList();
+    bool modmade = false;
     for (; items != NULL; items = items->next) {
         if (SP_IS_TEXT (items->data)) {
-            SP_OBJECT_REPR(items->data)->setAttribute("sodipodi:linespacing", sp_repr_css_property (css, "line-height", NULL));
+            SP_OBJECT(items->data)->getRepr()->setAttribute("sodipodi:linespacing", sp_repr_css_property (css, "line-height", NULL));
+            modmade = true;
         }
     }
 
     // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:line-height", SP_VERB_NONE,
+    if(modmade) {
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:line-height", SP_VERB_NONE,
                              _("Text: Change line-height"));
+    }
 
     // If no selected objects, set default.
     SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
@@ -6876,10 +6895,6 @@ static void sp_text_wordspacing_value_changed( GtkAdjustment *adj, GObject *tbl 
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
     sp_desktop_set_style (desktop, css, true, false);
 
-    // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:word-spacing", SP_VERB_NONE,
-                             _("Text: Change word-spacing"));
-
     // If no selected objects, set default.
     SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
     int result_numbers =
@@ -6888,6 +6903,10 @@ static void sp_text_wordspacing_value_changed( GtkAdjustment *adj, GObject *tbl 
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->mergeStyle("/tools/text/style", css);
+    } else {
+        // Save for undo
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:word-spacing", SP_VERB_NONE,
+                             _("Text: Change word-spacing"));
     }
     sp_style_unref(query);
 
@@ -6915,9 +6934,6 @@ static void sp_text_letterspacing_value_changed( GtkAdjustment *adj, GObject *tb
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
     sp_desktop_set_style (desktop, css, true, false);
 
-    // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:letter-spacing", SP_VERB_NONE,
-                             _("Text: Change letter-spacing"));
 
     // If no selected objects, set default.
     SPStyle *query = sp_style_new (SP_ACTIVE_DOCUMENT);
@@ -6928,7 +6944,15 @@ static void sp_text_letterspacing_value_changed( GtkAdjustment *adj, GObject *tb
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->mergeStyle("/tools/text/style", css);
     }
+    else
+    {
+        // Save for undo
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:letter-spacing", SP_VERB_NONE,
+                             _("Text: Change letter-spacing"));
+    }
+
     sp_style_unref(query);
+
 
     sp_repr_css_attr_unref (css);
 
@@ -6945,6 +6969,7 @@ static void sp_text_dx_value_changed( GtkAdjustment *adj, GObject *tbl )
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
 
     gdouble new_dx = adj->value;
+    bool modmade = false;
 
     if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
         SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
@@ -6956,14 +6981,16 @@ static void sp_text_dx_value_changed( GtkAdjustment *adj, GObject *tbl )
                 double old_dx = attributes->getDx( char_index );
                 double delta_dx = new_dx - old_dx;
                 sp_te_adjust_dx( tc->text, tc->text_sel_start, tc->text_sel_end, SP_ACTIVE_DESKTOP, delta_dx );
+                modmade = true;
             }
         }
     }
 
-    // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:dx", SP_VERB_NONE,
+    if(modmade) {
+        // Save for undo
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:dx", SP_VERB_NONE,
                              _("Text: Change dx (kern)"));
-
+    }
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
 
@@ -6976,6 +7003,7 @@ static void sp_text_dy_value_changed( GtkAdjustment *adj, GObject *tbl )
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE) );
 
     gdouble new_dy = adj->value;
+    bool modmade = false;
 
     if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
         SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
@@ -6987,13 +7015,16 @@ static void sp_text_dy_value_changed( GtkAdjustment *adj, GObject *tbl )
                 double old_dy = attributes->getDy( char_index );
                 double delta_dy = new_dy - old_dy;
                 sp_te_adjust_dy( tc->text, tc->text_sel_start, tc->text_sel_end, SP_ACTIVE_DESKTOP, delta_dy );
+                modmade = true;
             }
         }
     }
 
-    // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:dy", SP_VERB_NONE,
+    if(modmade) {
+        // Save for undo
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:dy", SP_VERB_NONE,
                             _("Text: Change dy"));
+    }
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
@@ -7008,6 +7039,7 @@ static void sp_text_rotation_value_changed( GtkAdjustment *adj, GObject *tbl )
 
     gdouble new_degrees = adj->value;
 
+    bool modmade = false;
     if( SP_IS_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context) ) {
         SPTextContext *const tc = SP_TEXT_CONTEXT((SP_ACTIVE_DESKTOP)->event_context);
         if( tc ) {
@@ -7018,13 +7050,16 @@ static void sp_text_rotation_value_changed( GtkAdjustment *adj, GObject *tbl )
                 double old_degrees = attributes->getRotate( char_index );
                 double delta_deg = new_degrees - old_degrees;
                 sp_te_adjust_rotation( tc->text, tc->text_sel_start, tc->text_sel_end, SP_ACTIVE_DESKTOP, delta_deg );
-            } 
+                modmade = true;
+            }
         }
     }
 
     // Save for undo
-    DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:rotate", SP_VERB_NONE,
+    if(modmade) {
+        DocumentUndo::maybeDone(sp_desktop_document(SP_ACTIVE_DESKTOP), "ttb:rotate", SP_VERB_NONE,
                             _("Text: Change rotate"));
+    }
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
@@ -7068,8 +7103,11 @@ static void sp_text_orientation_mode_changed( EgeSelectOneAction *act, GObject *
     }
 
     sp_desktop_set_style (SP_ACTIVE_DESKTOP, css, true, true);
-    DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
+    if(result_numbers != QUERY_STYLE_NOTHING)
+    {
+        DocumentUndo::done(sp_desktop_document(SP_ACTIVE_DESKTOP), SP_VERB_CONTEXT_TEXT,
                        _("Text: Change orientation"));
+    }
     sp_repr_css_attr_unref (css);
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
@@ -7217,7 +7255,7 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
 
         // Superscript
         gboolean superscriptSet =
-            ((result_baseline == QUERY_STYLE_SINGLE || result_baseline == QUERY_STYLE_MULTIPLE_SAME ) && 
+            ((result_baseline == QUERY_STYLE_SINGLE || result_baseline == QUERY_STYLE_MULTIPLE_SAME ) &&
              query->baseline_shift.set &&
              query->baseline_shift.type == SP_BASELINE_SHIFT_LITERAL &&
              query->baseline_shift.literal == SP_CSS_BASELINE_SHIFT_SUPER );
@@ -7228,7 +7266,7 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
 
         // Subscript
         gboolean subscriptSet =
-            ((result_baseline == QUERY_STYLE_SINGLE || result_baseline == QUERY_STYLE_MULTIPLE_SAME ) && 
+            ((result_baseline == QUERY_STYLE_SINGLE || result_baseline == QUERY_STYLE_MULTIPLE_SAME ) &&
              query->baseline_shift.set &&
              query->baseline_shift.type == SP_BASELINE_SHIFT_LITERAL &&
              query->baseline_shift.literal == SP_CSS_BASELINE_SHIFT_SUB );
@@ -7302,7 +7340,7 @@ static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/
         double letterSpacing;
         if (query->letter_spacing.normal) letterSpacing = 0.0;
         else letterSpacing = query->letter_spacing.computed; // Assume no units (change in desktop-style.cpp)
- 
+
         GtkAction* letterSpacingAction = GTK_ACTION( g_object_get_data( tbl, "TextLetterSpacingAction" ) );
         GtkAdjustment *letterSpacingAdjustment =
             ege_adjustment_action_get_adjustment(EGE_ADJUSTMENT_ACTION( letterSpacingAction ));
@@ -7639,7 +7677,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     /* Line height */
     {
         // Drop down menu
-        gchar const* labels[] = {_("Smaller spacing"), 0, 0, 0, 0, _("Normal"), 0, 0, 0, 0, 0, _("Larger spacing")};
+        gchar const* labels[] = {_("Smaller spacing"), 0, 0, 0, 0, C_("Text tool", "Normal"), 0, 0, 0, 0, 0, _("Larger spacing")};
         gdouble values[] = { 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1,2, 1.3, 1.4, 1.5, 2.0};
 
         EgeAdjustmentAction *eact = create_adjustment_action(
@@ -7670,7 +7708,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     /* Word spacing */
     {
         // Drop down menu
-        gchar const* labels[] = {_("Negative spacing"), 0, 0, 0, _("Normal"), 0, 0, 0, 0, 0, 0, 0, _("Positive spacing")};
+        gchar const* labels[] = {_("Negative spacing"), 0, 0, 0, C_("Text tool", "Normal"), 0, 0, 0, 0, 0, 0, 0, _("Positive spacing")};
         gdouble values[] = {-2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0};
 
         EgeAdjustmentAction *eact = create_adjustment_action(
@@ -7701,7 +7739,7 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
     /* Letter spacing */
     {
         // Drop down menu
-        gchar const* labels[] = {_("Negative spacing"), 0, 0, 0, _("Normal"), 0, 0, 0, 0, 0, 0, 0, _("Positive spacing")};
+        gchar const* labels[] = {_("Negative spacing"), 0, 0, 0, C_("Text tool", "Normal"), 0, 0, 0, 0, 0, 0, 0, _("Positive spacing")};
         gdouble values[] = {-2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0};
 
         EgeAdjustmentAction *eact = create_adjustment_action(
@@ -7913,10 +7951,11 @@ static void sp_connector_orthogonal_toggled( GtkToggleAction* act, GObject *tbl 
     if (!modmade) {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->setBool("/tools/connector/orthogonal", is_orthog);
-    }
+    } else {
 
-    DocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
+        DocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
                        is_orthog ? _("Set connector type: orthogonal"): _("Set connector type: polyline"));
+    }
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
@@ -7962,9 +8001,10 @@ static void connector_curvature_changed(GtkAdjustment *adj, GObject* tbl)
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->setDouble(Glib::ustring("/tools/connector/curvature"), newValue);
     }
-
-    DocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
+    else {
+        DocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
                        _("Change connector curvature"));
+    }
 
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
@@ -7979,7 +8019,7 @@ static void connector_spacing_changed(GtkAdjustment *adj, GObject* tbl)
         return;
     }
 
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(desktop->namedview);
+    Inkscape::XML::Node *repr = desktop->namedview->getRepr();
 
     if ( !repr->attribute("inkscape:connector-spacing") &&
             ( adj->value == defaultConnSpacing )) {
@@ -7998,22 +8038,24 @@ static void connector_spacing_changed(GtkAdjustment *adj, GObject* tbl)
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(TRUE));
 
     sp_repr_set_css_double(repr, "inkscape:connector-spacing", adj->value);
-    SP_OBJECT(desktop->namedview)->updateRepr();
+    desktop->namedview->updateRepr();
+    bool modmade = false;
 
     GSList *items = get_avoided_items(NULL, desktop->currentRoot(), desktop);
     for ( GSList const *iter = items ; iter != NULL ; iter = iter->next ) {
         SPItem *item = reinterpret_cast<SPItem *>(iter->data);
-        Geom::Matrix m = Geom::identity();
+        Geom::Affine m = Geom::identity();
         avoid_item_move(&m, item);
+        modmade = true;
     }
 
     if (items) {
         g_slist_free(items);
     }
-
-    DocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
+    if(modmade) {
+        DocumentUndo::done(doc, SP_VERB_CONTEXT_CONNECTOR,
                        _("Change connector spacing"));
-
+    }
     g_object_set_data( tbl, "freeze", GINT_TO_POINTER(FALSE) );
 }
 
@@ -8278,7 +8320,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
 
     // Code to watch for changes to the connector-spacing attribute in
     // the XML.
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(desktop->namedview);
+    Inkscape::XML::Node *repr = desktop->namedview->getRepr();
     g_assert(repr != NULL);
 
     purge_repr_listener( holder, holder );
@@ -8411,7 +8453,7 @@ static void sp_paintbucket_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
             _("Grow/shrink by"), _("Grow/shrink by:"),
             _("The amount to grow (positive) or shrink (negative) the created fill path"),
             "/tools/paintbucket/offset", 0, GTK_WIDGET(desktop->canvas), NULL/*us*/, holder, TRUE,
-            "inkscape:paintbucket-offset", -1e6, 1e6, 0.1, 0.5,
+            "inkscape:paintbucket-offset", -1e4, 1e4, 0.1, 0.5,
             0, 0, 0,
             paintbucket_offset_changed, 1, 2);
         tracker->addAdjustment( ege_adjustment_action_get_adjustment(eact) );

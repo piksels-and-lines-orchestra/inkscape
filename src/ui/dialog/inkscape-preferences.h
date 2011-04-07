@@ -28,6 +28,7 @@
 #include <gtkmm/frame.h>
 #include <gtkmm/notebook.h>
 #include "ui/widget/preferences-widget.h"
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include <glibmm/i18n.h>
 #include <gtkmm/textview.h>
@@ -297,7 +298,7 @@ protected:
     UI::Widget::PrefCheckButton _spell_ignoreallcaps;
 
     UI::Widget::PrefCombo       _misc_overs_bitmap;
-    UI::Widget::PrefCombo       _misc_bitmap_editor;
+    UI::Widget::PrefEntryFileButtonHBox       _misc_bitmap_editor;
     UI::Widget::PrefCheckButton _misc_bitmap_autoreload;
     UI::Widget::PrefSpinButton  _bitmap_copy_res;
 

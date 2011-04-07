@@ -95,7 +95,7 @@ findShadowedTime(Geom::Path const &patha, std::vector<Geom::Point> const &pt_and
     Point N = T.cw();
     Point A = pt_and_dir[0]-3*width*T, B = A+6*width*T;
 
-    Matrix mat = from_basis( T, N, pt_and_dir[0] );
+    Affine mat = from_basis( T, N, pt_and_dir[0] );
     mat = mat.inverse();
     Path p = patha * mat;
     
@@ -340,11 +340,11 @@ CrossingPoints::inherit_signs(CrossingPoints const &other, int default_value)
 LPEKnot::LPEKnot(LivePathEffectObject *lpeobject) :
     Effect(lpeobject),
     // initialise your parameters here:
-    interruption_width(_("Fixed width:"), _("Size of hidden region of lower string"), "interruption_width", &wr, this, 3),
-    prop_to_stroke_width(_("In units of stroke width"), _("Consider 'Interruption width' as a ratio of stroke width"), "prop_to_stroke_width", &wr, this, true),
-    add_stroke_width(_("Stroke width"), _("Add the stroke width to the interruption size"), "add_stroke_width", &wr, this, true),
-    add_other_stroke_width(_("Crossing path stroke width"), _("Add crossed stroke width to the interruption size"), "add_other_stroke_width", &wr, this, true),
-    switcher_size(_("Switcher size:"), _("Orientation indicator/switcher size"), "switcher_size", &wr, this, 15),
+    interruption_width(_("Fi_xed width:"), _("Size of hidden region of lower string"), "interruption_width", &wr, this, 3),
+    prop_to_stroke_width(_("_In units of stroke width"), _("Consider 'Interruption width' as a ratio of stroke width"), "prop_to_stroke_width", &wr, this, true),
+    add_stroke_width(_("St_roke width"), _("Add the stroke width to the interruption size"), "add_stroke_width", &wr, this, true),
+    add_other_stroke_width(_("_Crossing path stroke width"), _("Add crossed stroke width to the interruption size"), "add_other_stroke_width", &wr, this, true),
+    switcher_size(_("S_witcher size:"), _("Orientation indicator/switcher size"), "switcher_size", &wr, this, 15),
     crossing_points_vector(_("Crossing Signs"), _("Crossings signs"), "crossing_points_vector", &wr, this),
     gpaths(),gstroke_widths()
 {
@@ -611,7 +611,7 @@ LPEKnot::addCanvasIndicators(SPLPEItem */*lpeitem*/, std::vector<Geom::PathVecto
         svgd = "M 10,0 C 10,5.52 5.52,10 0,10 -5.52,10 -10,5.52 -10,0 c 0,-5.52 4.48,-10 10,-10 5.52,0 10,4.48 10,10 z";
     }
     PathVector pathv = sp_svg_read_pathv(svgd);
-    pathv *= Matrix(r,0,0,r,0,0);
+    pathv *= Affine(r,0,0,r,0,0);
     pathv+=switcher;
     hp_vec.push_back(pathv);
 }

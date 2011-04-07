@@ -300,7 +300,7 @@ sp_spiral_update_patheffect(SPLPEItem *lpeitem, bool write)
     sp_spiral_set_shape(shape);
 
     if (write) {
-        Inkscape::XML::Node *repr = SP_OBJECT_REPR(shape);
+        Inkscape::XML::Node *repr = shape->getRepr();
         if ( shape->curve != NULL ) {
             gchar *str = sp_svg_write_path(shape->curve->get_pathvector());
             repr->setAttribute("d", str);
@@ -422,11 +422,12 @@ sp_spiral_set_shape (SPShape *shape)
 
     if (sp_lpe_item_has_broken_path_effect(SP_LPE_ITEM(shape))) {
         g_warning ("The spiral shape has unknown LPE on it! Convert to path to make it editable preserving the appearance; editing it as spiral will remove the bad LPE");
-        if (SP_OBJECT_REPR(shape)->attribute("d")) {
+        if (shape->getRepr()->attribute("d")) {
             // unconditionally read the curve from d, if any, to preserve appearance
-            Geom::PathVector pv = sp_svg_read_pathv(SP_OBJECT_REPR(shape)->attribute("d"));
+            Geom::PathVector pv = sp_svg_read_pathv(shape->getRepr()->attribute("d"));
             SPCurve *cold = new SPCurve(pv);
             shape->setCurveInsync( cold, TRUE);
+            shape->setCurveBeforeLPE( cold );
             cold->unref();
         }
         return;
@@ -435,7 +436,7 @@ sp_spiral_set_shape (SPShape *shape)
     Geom::Point darray[SAMPLE_SIZE + 1];
     double t;
 
-    SP_OBJECT (spiral)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+    spiral->requestModified(SP_OBJECT_MODIFIED_FLAG);
 
     SPCurve *c = new SPCurve ();
 
@@ -470,6 +471,7 @@ sp_spiral_set_shape (SPShape *shape)
     /* Reset the shape'scurve to the "original_curve"
      * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
     shape->setCurveInsync( c, TRUE);
+    shape->setCurveBeforeLPE( c );
     if (sp_lpe_item_has_path_effect(SP_LPE_ITEM(shape)) && sp_lpe_item_path_effects_enabled(SP_LPE_ITEM(shape))) {
         SPCurve *c_lpe = c->copy();
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM (shape), c_lpe);
@@ -532,7 +534,7 @@ static void sp_spiral_snappoints(SPItem const *item, std::vector<Inkscape::SnapC
     }
 
     if (snapprefs->getSnapObjectMidpoints()) {
-        Geom::Matrix const i2d (item->i2d_affine ());
+        Geom::Affine const i2d (item->i2d_affine ());
         SPSpiral *spiral = SP_SPIRAL(item);
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(spiral->cx, spiral->cy) * i2d, Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
         // This point is the start-point of the spiral, which is also returned when _snap_to_itemnode has been set

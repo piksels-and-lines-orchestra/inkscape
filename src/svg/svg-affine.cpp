@@ -30,7 +30,7 @@
 #endif
 
 bool
-sp_svg_transform_read(gchar const *str, Geom::Matrix *transform)
+sp_svg_transform_read(gchar const *str, Geom::Affine *transform)
 {
     int idx;
     char keyword[32];
@@ -40,7 +40,7 @@ sp_svg_transform_read(gchar const *str, Geom::Matrix *transform)
 
     if (str == NULL) return false;
 
-    Geom::Matrix a(Geom::identity());
+    Geom::Affine a(Geom::identity());
 
     idx = 0;
     while (str[idx]) {
@@ -100,7 +100,7 @@ sp_svg_transform_read(gchar const *str, Geom::Matrix *transform)
         /* ok, have parsed keyword and args, now modify the transform */
         if (!strcmp (keyword, "matrix")) {
             if (n_args != 6) return false;
-            a = (*((Geom::Matrix *) &(args)[0])) * a;
+            a = (*((Geom::Affine *) &(args)[0])) * a;
         } else if (!strcmp (keyword, "translate")) {
             if (n_args == 1) {
                 args[1] = 0;
@@ -124,19 +124,19 @@ sp_svg_transform_read(gchar const *str, Geom::Matrix *transform)
                 a = ( Geom::Translate(-args[1], -args[2])
                       * rot
                       * Geom::Translate(args[1], args[2])
-                      * Geom::Matrix(a) );
+                      * Geom::Affine(a) );
             } else {
                 a = rot * a;
             }
         } else if (!strcmp (keyword, "skewX")) {
             if (n_args != 1) return false;
-            a = ( Geom::Matrix(1, 0,
+            a = ( Geom::Affine(1, 0,
                      tan(args[0] * M_PI / 180.0), 1,
                      0, 0)
                   * a );
         } else if (!strcmp (keyword, "skewY")) {
             if (n_args != 1) return false;
-            a = ( Geom::Matrix(1, tan(args[0] * M_PI / 180.0),
+            a = ( Geom::Affine(1, tan(args[0] * M_PI / 180.0),
                      0, 1,
                      0, 0)
                   * a );
@@ -154,7 +154,7 @@ sp_svg_transform_read(gchar const *str, Geom::Matrix *transform)
 #define EQ(a,b) (fabs ((a) - (b)) < 1e-9)
 
 gchar *
-sp_svg_transform_write(Geom::Matrix const &transform)
+sp_svg_transform_write(Geom::Affine const &transform)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
@@ -243,7 +243,7 @@ sp_svg_transform_write(Geom::Matrix const &transform)
 
 
 gchar *
-sp_svg_transform_write(Geom::Matrix const *transform)
+sp_svg_transform_write(Geom::Affine const *transform)
 {
     return sp_svg_transform_write(*transform);
 }

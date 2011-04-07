@@ -58,6 +58,8 @@
 
 #include "io/sys.h"
 
+#include "svg/stringstream.h"
+
 #include <cairo.h>
 
 // include support for only the compiled-in surface types
@@ -516,7 +518,7 @@ CairoRenderContext::getClipMode(void) const
 CairoRenderState*
 CairoRenderContext::_createState(void)
 {
-    CairoRenderState *state = (CairoRenderState*)g_malloc(sizeof(CairoRenderState));
+    CairoRenderState *state = (CairoRenderState*)g_try_malloc(sizeof(CairoRenderState));
     g_assert( state != NULL );
 
     state->has_filtereffect = FALSE;
@@ -626,7 +628,7 @@ CairoRenderContext::popLayer(void)
 
                 // copy over the correct CTM
                 // It must be stored in item_transform of current state after pushState.
-                Geom::Matrix item_transform;
+                Geom::Affine item_transform;
                 if (_state->parent_has_userspace)
                     item_transform = getParentState()->transform * _state->item_transform;
                 else
@@ -785,6 +787,13 @@ CairoRenderContext::setupSurface(double width, double height)
     _width = width;
     _height = height;
 
+    Inkscape::SVGOStringStream os_bbox;
+    Inkscape::SVGOStringStream os_pagebbox;
+    os_bbox.setf(std::ios::fixed); // don't use scientific notation
+    os_pagebbox.setf(std::ios::fixed); // don't use scientific notation
+    os_bbox << "%%BoundingBox: 0 0 " << (int)ceil(width) << (int)ceil(height);  // apparently, the numbers should be integers. (see bug 380501)
+    os_pagebbox << "%%PageBoundingBox: 0 0 " << (int)ceil(width) << (int)ceil(height);
+
     cairo_surface_t *surface = NULL;
     cairo_matrix_t ctm;
     cairo_matrix_init_identity (&ctm);
@@ -796,7 +805,7 @@ CairoRenderContext::setupSurface(double width, double height)
         case CAIRO_SURFACE_TYPE_PDF:
             surface = cairo_pdf_surface_create_for_stream(Inkscape::Extension::Internal::_write_callback, _stream, width, height);
 #if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 10, 0))
-            cairo_pdf_surface_restrict_to_version(surface, (cairo_pdf_version_t)_pdf_level);	
+            cairo_pdf_surface_restrict_to_version(surface, (cairo_pdf_version_t)_pdf_level);
 #endif
             break;
 #endif
@@ -812,10 +821,9 @@ CairoRenderContext::setupSurface(double width, double height)
 #endif
             // Cairo calculates the bounding box itself, however we want to override this. See Launchpad bug #380501
 #if (CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 11, 2))
-            if (override_bbox) {
-                cairo_ps_dsc_comment(surface, "%%BoundingBox: 100 100 200 200");
-                cairo_ps_dsc_comment(surface, "%%PageBoundingBox: 100 100 200 200");
-            }
+//            cairo_ps_dsc_comment(surface, os_bbox.str().c_str());
+//            cairo_ps_dsc_begin_page(surface);
+//            cairo_ps_dsc_comment(surface, os_pagebbox.str().c_str());
 #endif
             break;
 #endif
@@ -908,7 +916,7 @@ CairoRenderContext::finish(void)
 }
 
 void
-CairoRenderContext::transform(Geom::Matrix const *transform)
+CairoRenderContext::transform(Geom::Affine const *transform)
 {
     g_assert( _is_valid );
 
@@ -921,7 +929,7 @@ CairoRenderContext::transform(Geom::Matrix const *transform)
 }
 
 void
-CairoRenderContext::setTransform(Geom::Matrix const *transform)
+CairoRenderContext::setTransform(Geom::Affine const *transform)
 {
     g_assert( _is_valid );
 
@@ -932,7 +940,7 @@ CairoRenderContext::setTransform(Geom::Matrix const *transform)
 }
 
 void
-CairoRenderContext::getTransform(Geom::Matrix *copy) const
+CairoRenderContext::getTransform(Geom::Affine *copy) const
 {
     g_assert( _is_valid );
 
@@ -947,12 +955,12 @@ CairoRenderContext::getTransform(Geom::Matrix *copy) const
 }
 
 void
-CairoRenderContext::getParentTransform(Geom::Matrix *copy) const
+CairoRenderContext::getParentTransform(Geom::Affine *copy) const
 {
     g_assert( _is_valid );
 
     CairoRenderState *parent_state = getParentState();
-    memcpy(copy, &parent_state->transform, sizeof(Geom::Matrix));
+    memcpy(copy, &parent_state->transform, sizeof(Geom::Affine));
 }
 
 void
@@ -1001,7 +1009,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
 
     SPPattern *pat = SP_PATTERN (paintserver);
 
-    Geom::Matrix ps2user, pcs2dev;
+    Geom::Affine ps2user, pcs2dev;
     ps2user = Geom::identity();
     pcs2dev = Geom::identity();
 
@@ -1015,7 +1023,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
     TRACE(("%f x %f pattern\n", width, height));
 
     if (pbox && pattern_patternUnits(pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
-        //Geom::Matrix bbox2user (pbox->x1 - pbox->x0, 0.0, 0.0, pbox->y1 - pbox->y0, pbox->x0, pbox->y0);
+        //Geom::Affine bbox2user (pbox->x1 - pbox->x0, 0.0, 0.0, pbox->y1 - pbox->y0, pbox->x0, pbox->y0);
         bbox_width_scaler = pbox->x1 - pbox->x0;
         bbox_height_scaler = pbox->y1 - pbox->y0;
         ps2user[4] = x * bbox_width_scaler + pbox->x0;
@@ -1028,7 +1036,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
     }
 
     // apply pattern transformation
-    Geom::Matrix pattern_transform(pattern_patternTransform(pat));
+    Geom::Affine pattern_transform(pattern_patternTransform(pat));
     ps2user *= pattern_transform;
     Geom::Point ori (ps2user[4], ps2user[5]);
 
@@ -1150,7 +1158,7 @@ CairoRenderContext::_createPatternForPaintServer(SPPaintServer const *const pain
             Geom::Point p2 (lg->x2.computed, lg->y2.computed);
             if (pbox && SP_GRADIENT(lg)->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
                 // convert to userspace
-                Geom::Matrix bbox2user(pbox->x1 - pbox->x0, 0, 0, pbox->y1 - pbox->y0, pbox->x0, pbox->y0);
+                Geom::Affine bbox2user(pbox->x1 - pbox->x0, 0, 0, pbox->y1 - pbox->y0, pbox->x0, pbox->y0);
                 p1 *= bbox2user;
                 p2 *= bbox2user;
             }
@@ -1413,16 +1421,27 @@ CairoRenderContext::renderPathVector(Geom::PathVector const & pathv, SPStyle con
 
 bool
 CairoRenderContext::renderImage(guchar *px, unsigned int w, unsigned int h, unsigned int rs,
-                                Geom::Matrix const *image_transform, SPStyle const *style)
+                                Geom::Affine const *image_transform, SPStyle const *style)
 {
     g_assert( _is_valid );
 
     if (_render_mode == RENDER_MODE_CLIP)
         return true;
 
-    guchar* px_rgba = (guchar*)g_malloc(4 * w * h);
-    if (!px_rgba)
+    guchar* px_rgba = NULL;
+    guint64 size = 4L * (guint64)w * (guint64)h;
+
+    if(size < (guint64)G_MAXSIZE) {
+        px_rgba = (guchar*)g_try_malloc(4 * w * h);
+        if (!px_rgba) {
+            g_warning ("Could not allocate %lu bytes for pixel buffer!", (long unsigned) size);
+            return false;
+        }
+    } else {
+        g_warning ("the requested memory exceeds the system limit");
         return false;
+    }
+
 
     float opacity;
     if (_state->merge_opacity)
@@ -1432,15 +1451,16 @@ CairoRenderContext::renderImage(guchar *px, unsigned int w, unsigned int h, unsi
 
     // make a copy of the original pixbuf with premultiplied alpha
     // if we pass the original pixbuf it will get messed up
+    /// @todo optimize this code, it costs a lot of time
     for (unsigned i = 0; i < h; i++) {
+        guchar const *src = px + i * rs;
+        guint32 *dst = (guint32 *)(px_rgba + i * rs);
     	for (unsigned j = 0; j < w; j++) {
-            guchar const *src = px + i * rs + j * 4;
-            guint32 *dst = (guint32 *)(px_rgba + i * rs + j * 4);
             guchar r, g, b, alpha_dst;
 
             // calculate opacity-modified alpha
             alpha_dst = src[3];
-            if (opacity != 1.0 && _vector_based_target)
+            if ((opacity != 1.0) && _vector_based_target)
                 alpha_dst = (guchar)ceil((float)alpha_dst * opacity);
 
             // premul alpha (needed because this will be undone by cairo-pdf)
@@ -1449,6 +1469,9 @@ CairoRenderContext::renderImage(guchar *px, unsigned int w, unsigned int h, unsi
             b = src[2]*alpha_dst/255;
 
             *dst = (((alpha_dst) << 24) | (((r)) << 16) | (((g)) << 8) | (b));
+
+            dst++;  // pointer to 4byte variables
+            src += 4;   // pointer to 1byte variables
     	}
     }
 
@@ -1497,8 +1520,13 @@ CairoRenderContext::_showGlyphs(cairo_t *cr, PangoFont *font, std::vector<CairoG
     cairo_glyph_t glyph_array[GLYPH_ARRAY_SIZE];
     cairo_glyph_t *glyphs = glyph_array;
     unsigned int num_glyphs = glyphtext.size();
-    if (num_glyphs > GLYPH_ARRAY_SIZE)
-        glyphs = (cairo_glyph_t*)g_malloc(sizeof(cairo_glyph_t) * num_glyphs);
+    if (num_glyphs > GLYPH_ARRAY_SIZE) {
+        glyphs = (cairo_glyph_t*)g_try_malloc(sizeof(cairo_glyph_t) * num_glyphs);
+        if(glyphs == NULL) {
+            g_warning("CairorenderContext::_showGlyphs: can not allocate memory for %d glyphs.", num_glyphs);
+            return 0;
+        }
+    }
 
     unsigned int num_invalid_glyphs = 0;
     unsigned int i = 0; // is a counter for indexing the glyphs array, only counts the valid glyphs
@@ -1530,7 +1558,7 @@ CairoRenderContext::_showGlyphs(cairo_t *cr, PangoFont *font, std::vector<CairoG
 }
 
 bool
-CairoRenderContext::renderGlyphtext(PangoFont *font, Geom::Matrix const *font_matrix,
+CairoRenderContext::renderGlyphtext(PangoFont *font, Geom::Affine const *font_matrix,
                                     std::vector<CairoGlyphInfo> const &glyphtext, SPStyle const *style)
 {
     // create a cairo_font_face from PangoFont
@@ -1648,7 +1676,7 @@ CairoRenderContext::_concatTransform(cairo_t *cr, double xx, double yx, double x
 }
 
 void
-CairoRenderContext::_initCairoMatrix(cairo_matrix_t *matrix, Geom::Matrix const *transform)
+CairoRenderContext::_initCairoMatrix(cairo_matrix_t *matrix, Geom::Affine const *transform)
 {
     matrix->xx = (*transform)[0];
     matrix->yx = (*transform)[1];
@@ -1659,7 +1687,7 @@ CairoRenderContext::_initCairoMatrix(cairo_matrix_t *matrix, Geom::Matrix const 
 }
 
 void
-CairoRenderContext::_concatTransform(cairo_t *cr, Geom::Matrix const *transform)
+CairoRenderContext::_concatTransform(cairo_t *cr, Geom::Affine const *transform)
 {
     _concatTransform(cr, (*transform)[0], (*transform)[1],
                      (*transform)[2], (*transform)[3],

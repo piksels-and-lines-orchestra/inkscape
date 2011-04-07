@@ -23,9 +23,10 @@ ink_common_sources += \
 	display/canvas-text.h	\
 	display/curve.cpp	\
 	display/curve.h	\
-	display/display-forward.h	\
 	display/gnome-canvas-acetate.cpp	\
 	display/gnome-canvas-acetate.h	\
+	display/grayscale.cpp	\
+	display/grayscale.h	\
 	display/guideline.cpp	\
 	display/guideline.h	\
 	display/nr-3dutils.cpp \

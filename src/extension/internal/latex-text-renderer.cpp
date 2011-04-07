@@ -246,7 +246,7 @@ LaTeXTextRenderer::sp_use_render(SPItem *item)
     SPUse *use = SP_USE(item);
 
     if ((use->x._set && use->x.computed != 0) || (use->y._set && use->y.computed != 0)) {
-        Geom::Matrix tp(Geom::Translate(use->x.computed, use->y.computed));
+        Geom::Affine tp(Geom::Translate(use->x.computed, use->y.computed));
         push_transform(tp);
         translated = true;
     }
@@ -264,7 +264,7 @@ void
 LaTeXTextRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
-    SPStyle *style = SP_OBJECT_STYLE (SP_OBJECT(item));
+    SPStyle *style = item->style;
 
     gchar *str = sp_te_get_string_multiline(item);
     if (!str) {
@@ -311,8 +311,8 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
     }
 
     // get rotation
-    Geom::Matrix i2doc = item->i2doc_affine();
-    Geom::Matrix wotransl = i2doc.without_translation();
+    Geom::Affine i2doc = item->i2doc_affine();
+    Geom::Affine wotransl = i2doc.withoutTranslation();
     double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
     bool has_rotation = !Geom::are_near(degrees,0.);
 
@@ -331,7 +331,44 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
         os << "\\rotatebox{" << degrees << "}{";
     }
     os << "\\makebox(0,0)" << alignment << "{";
-    os << "\\smash{" << str << "}";  // smash the text, to be able to put the makebox coordinates at the baseline
+    os << "\\smash{";  // smash the text, to be able to put the makebox coordinates at the baseline
+
+        // Walk through all spans in the text object.
+        // Write span strings to LaTeX, associated with font weight and style.
+        Inkscape::Text::Layout const &layout = *(te_get_layout (item));
+        for (Inkscape::Text::Layout::iterator li = layout.begin(), le = layout.end(); 
+             li != le; li.nextStartOfSpan())
+        {
+            SPStyle const &spanstyle = *(sp_te_style_at_position (item, li));
+            bool is_bold = false, is_italic = false;
+
+            if (spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_500 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_600 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_700 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_800 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_900 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_BOLD ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_BOLDER) 
+            {
+                is_bold = true;
+                os << "{\\bfseries{}";
+            }
+            if (spanstyle.font_style.computed == SP_CSS_FONT_STYLE_ITALIC) 
+            {
+                is_italic = true;
+                os << "{\\itshape{}";
+            }
+
+            Inkscape::Text::Layout::iterator ln = li; 
+            ln.nextStartOfSpan();
+            Glib::ustring spanstr = sp_te_get_string_multiline (item, li, ln);
+            os << spanstr;
+
+            if (is_italic) { os << "}"; } // italic end
+            if (is_bold) { os << "}"; } // bold end
+        }
+
+    os << "}"; // smash end
     if (has_rotation) {
         os << "}"; // rotatebox end
     }
@@ -350,7 +387,7 @@ Flowing in rectangle is possible, not in arb shape.
 */
 
     SPFlowtext *flowtext = SP_FLOWTEXT(item);
-    SPStyle *style = SP_OBJECT_STYLE (SP_OBJECT(item));
+    SPStyle *style = item->style;
 
     gchar *strtext = sp_te_get_string_multiline(item);
     if (!strtext) {
@@ -412,8 +449,8 @@ Flowing in rectangle is possible, not in arb shape.
     }
 
     // get rotation
-    Geom::Matrix i2doc = item->i2doc_affine();
-    Geom::Matrix wotransl = i2doc.without_translation();
+    Geom::Affine i2doc = item->i2doc_affine();
+    Geom::Affine wotransl = i2doc.withoutTranslation();
     double degrees = -180/M_PI * Geom::atan2(wotransl.xAxis());
     bool has_rotation = !Geom::are_near(degrees,0.);
 
@@ -434,7 +471,42 @@ Flowing in rectangle is possible, not in arb shape.
     os << "\\makebox(0,0)" << alignment << "{";
     os << "\\begin{minipage}{" << framebox.width() << "\\unitlength}";
     os << justification;
-    os << str;
+
+        // Walk through all spans in the text object.
+        // Write span strings to LaTeX, associated with font weight and style.
+        Inkscape::Text::Layout const &layout = *(te_get_layout (item));
+        for (Inkscape::Text::Layout::iterator li = layout.begin(), le = layout.end(); 
+             li != le; li.nextStartOfSpan())
+        {
+            SPStyle const &spanstyle = *(sp_te_style_at_position (item, li));
+            bool is_bold = false, is_italic = false;
+
+            if (spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_500 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_600 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_700 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_800 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_900 ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_BOLD ||
+                spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_BOLDER) 
+            {
+                is_bold = true;
+                os << "{\\bfseries{}";
+            }
+            if (spanstyle.font_style.computed == SP_CSS_FONT_STYLE_ITALIC) 
+            {
+                is_italic = true;
+                os << "{\\itshape{}";
+            }
+
+            Inkscape::Text::Layout::iterator ln = li; 
+            ln.nextStartOfSpan();
+            Glib::ustring spanstr = sp_te_get_string_multiline (item, li, ln);
+            os << spanstr;
+
+            if (is_italic) { os << "}"; } // italic end
+            if (is_bold) { os << "}"; } // bold end
+        }
+
     os << "\\end{minipage}";
     if (has_rotation) {
         os << "}"; // rotatebox end
@@ -528,10 +600,16 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
 
     os << "  \\ifx\\svgwidth\\undefined\n";
     os << "    \\setlength{\\unitlength}{" << d->width() * PT_PER_PX << "pt}\n";
+    os << "    \\ifx\\svgscale\\undefined\n";
+    os << "      \\relax\n";
+    os << "    \\else\n";
+    os << "      \\setlength{\\unitlength}{\\unitlength * \\real{\\svgscale}}\n";
+    os << "    \\fi\n";
     os << "  \\else\n";
     os << "    \\setlength{\\unitlength}{\\svgwidth}\n";
     os << "  \\fi\n";
     os << "  \\global\\let\\svgwidth\\undefined\n";
+    os << "  \\global\\let\\svgscale\\undefined\n";
     os << "  \\makeatother\n";
 
     os << "  \\begin{picture}(" << _width << "," << _height << ")%\n";
@@ -543,17 +621,17 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
     return true;
 }
 
-Geom::Matrix const &
+Geom::Affine const &
 LaTeXTextRenderer::transform()
 {
     return _transform_stack.top();
 }
 
 void
-LaTeXTextRenderer::push_transform(Geom::Matrix const &tr)
+LaTeXTextRenderer::push_transform(Geom::Affine const &tr)
 {
     if(_transform_stack.size()){
-        Geom::Matrix tr_top = _transform_stack.top();
+        Geom::Affine tr_top = _transform_stack.top();
         _transform_stack.push(tr * tr_top);
     } else {
         _transform_stack.push(tr);

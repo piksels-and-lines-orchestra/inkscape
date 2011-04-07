@@ -178,6 +178,7 @@
         
         /* use poppler for pdf import? */
         #define HAVE_POPPLER                  1
+	#define HAVE_POPPLER_GLIB             1
         #define HAVE_POPPLER_CAIRO            1
 
         /* do we want bitmap manipulation? */
@@ -302,7 +303,6 @@
              refreshCache="${refresh}">
         <fileset dir="${src}">
             <!-- THINGS TO EXCLUDE -->
-            <exclude name="2geom/chebyshev.cpp"/>
             <exclude name="ast/.*"/>
             <exclude name="bonobo/.*"/>
             <exclude name="deptool.cpp"/>
@@ -687,6 +687,7 @@
     <copy todir="${dist}" file="${devlibs}/bin/libwpd-stream-0.8.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libjpeg-7.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libpng12-0.dll"/>
+    <copy todir="${dist}" file="${devlibs}/bin/libpng14-14.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libtiff-3.dll"/>
 	<copy todir="${dist}" file="${devlibs}/bin/libopenjpeg-2.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/msvcr70.dll"/>
@@ -704,7 +705,7 @@
     <copy file="${devlibs}/bin/intl.dll" tofile="${dist}/libintl-2.dll"/>
     <!-- MINGW support DLLs needed for openmp support  -->
     <copy todir="${dist}" file="${mingw_bin}/mingwm10.dll"/>
-	<copy todir="${dist}" file="${mingw}/lib/gcc/mingw32/bin/libgomp-1.dll"/>
+	<copy todir="${dist}" file="${mingw_bin}/libgomp-1.dll"/>
 
     <!-- MSGFMT files -->
     <copy todir="${dist}">

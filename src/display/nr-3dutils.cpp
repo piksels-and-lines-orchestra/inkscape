@@ -14,11 +14,11 @@
 #include "display/nr-3dutils.h"
 #include <cmath>
 #include <2geom/point.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 
 namespace NR {
 
-void convert_coord(gdouble &x, gdouble &y, gdouble &z, Geom::Matrix const &trans) {
+void convert_coord(gdouble &x, gdouble &y, gdouble &z, Geom::Affine const &trans) {
     Geom::Point p = Geom::Point(x, y);
     p *= trans;
     x = p[Geom::X];

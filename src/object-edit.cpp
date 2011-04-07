@@ -73,8 +73,8 @@ sp_item_knot_holder(SPItem *item, SPDesktop *desktop)
         knotholder = new OffsetKnotHolder(desktop, item, NULL);
     } else if (SP_IS_FLOWTEXT(item) && SP_FLOWTEXT(item)->has_internal_frame()) {
         knotholder = new FlowtextKnotHolder(desktop, SP_FLOWTEXT(item)->get_frame(NULL), NULL);
-    } else if ((SP_OBJECT(item)->style->fill.isPaintserver())
-               && SP_IS_PATTERN(SP_STYLE_FILL_SERVER(SP_OBJECT(item)->style))) {
+    } else if ((item->style->fill.isPaintserver())
+               && SP_IS_PATTERN(item->style->getFillPaintServer())) {
         knotholder = new KnotHolder(desktop, item, NULL);
         knotholder->add_pattern_knotholder();
     }
@@ -157,11 +157,11 @@ RectKnotHolderEntityRX::knot_click(guint state)
 
     if (state & GDK_SHIFT_MASK) {
         /* remove rounding from rectangle */
-        SP_OBJECT_REPR(rect)->setAttribute("rx", NULL);
-        SP_OBJECT_REPR(rect)->setAttribute("ry", NULL);
+        rect->getRepr()->setAttribute("rx", NULL);
+        rect->getRepr()->setAttribute("ry", NULL);
     } else if (state & GDK_CONTROL_MASK) {
         /* Ctrl-click sets the vertical rounding to be the same as the horizontal */
-        SP_OBJECT_REPR(rect)->setAttribute("ry", SP_OBJECT_REPR(rect)->attribute("rx"));
+        rect->getRepr()->setAttribute("ry", rect->getRepr()->attribute("rx"));
     }
 
 }
@@ -215,11 +215,11 @@ RectKnotHolderEntityRY::knot_click(guint state)
 
     if (state & GDK_SHIFT_MASK) {
         /* remove rounding */
-        SP_OBJECT_REPR(rect)->setAttribute("rx", NULL);
-        SP_OBJECT_REPR(rect)->setAttribute("ry", NULL);
+        rect->getRepr()->setAttribute("rx", NULL);
+        rect->getRepr()->setAttribute("ry", NULL);
     } else if (state & GDK_CONTROL_MASK) {
         /* Ctrl-click sets the vertical rounding to be the same as the horizontal */
-        SP_OBJECT_REPR(rect)->setAttribute("rx", SP_OBJECT_REPR(rect)->attribute("ry"));
+        rect->getRepr()->setAttribute("rx", rect->getRepr()->attribute("ry"));
     }
 }
 
@@ -474,7 +474,7 @@ Box3DKnotHolderEntity::knot_set_generic(SPItem *item, unsigned int knot_id, Geom
 
     g_assert(item != NULL);
     SPBox3D *box = SP_BOX3D(item);
-    Geom::Matrix const i2d (item->i2d_affine ());
+    Geom::Affine const i2d (item->i2d_affine ());
 
     Box3D::Axis movement;
     if ((knot_id < 4) != (state & GDK_SHIFT_MASK)) {
@@ -650,7 +650,7 @@ Box3DKnotHolderEntityCenter::knot_set(Geom::Point const &new_pos, Geom::Point co
     Geom::Point const s = snap_knot_position(new_pos);
 
     SPBox3D *box = SP_BOX3D(item);
-    Geom::Matrix const i2d (item->i2d_affine ());
+    Geom::Affine const i2d (item->i2d_affine ());
 
     box3d_set_center (SP_BOX3D(item), s * i2d, origin * i2d, !(state & GDK_SHIFT_MASK) ? Box3D::XY : Box3D::Z,
                       state & GDK_CONTROL_MASK);

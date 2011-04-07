@@ -14,7 +14,7 @@
 #include <gtkmm/box.h>
 #include <gtkmm.h>
 
-#include "display/sp-canvas.h"
+#include "sp-canvas-item.h"
 #include "xml/repr.h"
 #include "ui/widget/color-picker.h"
 #include "ui/widget/scalar-unit.h"
@@ -26,6 +26,7 @@
 
 struct SPDesktop;
 struct SPNamedView;
+struct SPCanvasBuf;
 class SPDocument;
 
 namespace Inkscape {
@@ -78,7 +79,7 @@ public:
 
     GridCanvasItem * createCanvasItem(SPDesktop * desktop);
 
-    virtual void Update (Geom::Matrix const &affine, unsigned int flags) = 0;
+    virtual void Update (Geom::Affine const &affine, unsigned int flags) = 0;
     virtual void Render (SPCanvasBuf *buf) = 0;
 
     virtual void readRepr() = 0;
@@ -128,7 +129,7 @@ public:
     CanvasXYGrid(SPNamedView * nv, Inkscape::XML::Node * in_repr, SPDocument * in_doc);
     virtual ~CanvasXYGrid();
 
-    void Update (Geom::Matrix const &affine, unsigned int flags);
+    void Update (Geom::Affine const &affine, unsigned int flags);
     void Render (SPCanvasBuf *buf);
 
     void readRepr();

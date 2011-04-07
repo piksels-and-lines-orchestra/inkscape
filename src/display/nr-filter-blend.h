@@ -38,7 +38,7 @@ public:
     virtual ~FilterBlend();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual bool can_handle_affine(Geom::Matrix const &);
+    virtual bool can_handle_affine(Geom::Affine const &);
 
     virtual void set_input(int slot);
     virtual void set_input(int input, int slot);

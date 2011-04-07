@@ -53,11 +53,13 @@
 #define PS_JOIN_MASK (PS_JOIN_BEVEL|PS_JOIN_MITER|PS_JOIN_ROUND)
 #endif
 
+#define DPA 0x00A000C9    // TernaryRasterOperation
 
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
+static float device_scale = DEVICESCALE;
 
 EmfWin32::EmfWin32 (void) // The null constructor
 {
@@ -102,7 +104,7 @@ emf_print_document_to_file(SPDocument *doc, gchar const *filename)
     /* Create new arena */
     mod->base = SP_ITEM(doc->getRoot());
     mod->arena = NRArena::create();
-    mod->dkey = sp_item_display_key_new(1);
+    mod->dkey = SPItem::display_key_new(1);
     mod->root = mod->base->invoke_show(mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
     /* Print document */
     ret = mod->begin(doc);
@@ -205,7 +207,7 @@ typedef struct emf_callback_data {
 static void
 output_style(PEMF_CALLBACK_DATA d, int iType)
 {
-    SVGOStringStream tmp_id;
+//    SVGOStringStream tmp_id;
     SVGOStringStream tmp_style;
     char tmp[1024] = {0};
 
@@ -215,8 +217,8 @@ output_style(PEMF_CALLBACK_DATA d, int iType)
     float stroke_rgb[3];
     sp_color_get_rgb_floatv(&(d->dc[d->level].style.stroke.value.color), stroke_rgb);
 
-    tmp_id << "\n\tid=\"" << (d->id++) << "\"";
-    *(d->outsvg) += tmp_id.str().c_str();
+//    tmp_id << "\n\tid=\"" << (d->id++) << "\"";
+//    *(d->outsvg) += tmp_id.str().c_str();
     *(d->outsvg) += "\n\tstyle=\"";
     if (iType == EMR_STROKEPATH || !d->dc[d->level].fill_set) {
         tmp_style << "fill:none;";
@@ -318,7 +320,7 @@ pix_to_x_point(PEMF_CALLBACK_DATA d, double px, double py)
     double ppy = _pix_y_to_point(d, py);
 
     double x = ppx * d->dc[d->level].worldTransform.eM11 + ppy * d->dc[d->level].worldTransform.eM21 + d->dc[d->level].worldTransform.eDx;
-    x *= d->dc[d->level].ScaleOutX ? d->dc[d->level].ScaleOutX : DEVICESCALE;
+    x *= d->dc[d->level].ScaleOutX ? d->dc[d->level].ScaleOutX : device_scale;
     
     return x;
 }
@@ -330,7 +332,7 @@ pix_to_y_point(PEMF_CALLBACK_DATA d, double px, double py)
     double ppy = _pix_y_to_point(d, py);
 
     double y = ppx * d->dc[d->level].worldTransform.eM12 + ppy * d->dc[d->level].worldTransform.eM22 + d->dc[d->level].worldTransform.eDy;
-    y *= d->dc[d->level].ScaleOutY ? d->dc[d->level].ScaleOutY : DEVICESCALE;
+    y *= d->dc[d->level].ScaleOutY ? d->dc[d->level].ScaleOutY : device_scale;
     
     return y;
 }
@@ -342,9 +344,9 @@ pix_to_size_point(PEMF_CALLBACK_DATA d, double px)
     double ppy = 0;
 
     double dx = ppx * d->dc[d->level].worldTransform.eM11 + ppy * d->dc[d->level].worldTransform.eM21;
-    dx *= d->dc[d->level].ScaleOutX ? d->dc[d->level].ScaleOutX : DEVICESCALE;
+    dx *= d->dc[d->level].ScaleOutX ? d->dc[d->level].ScaleOutX : device_scale;
     double dy = ppx * d->dc[d->level].worldTransform.eM12 + ppy * d->dc[d->level].worldTransform.eM22;
-    dy *= d->dc[d->level].ScaleOutY ? d->dc[d->level].ScaleOutY : DEVICESCALE;
+    dy *= d->dc[d->level].ScaleOutY ? d->dc[d->level].ScaleOutY : device_scale;
 
     double tmp = sqrt(dx * dx + dy * dy);
     return tmp;
@@ -664,7 +666,7 @@ select_font(PEMF_CALLBACK_DATA d, int index)
         g_free(d->dc[d->level].tstyle.font_family.value);
     d->dc[d->level].tstyle.font_family.value =
         (gchar *) g_utf16_to_utf8( (gunichar2*) pEmr->elfw.elfLogFont.lfFaceName, -1, NULL, NULL, NULL );
-    d->dc[d->level].style.text_transform.value = ((pEmr->elfw.elfLogFont.lfEscapement + 3600) % 3600) / 10;
+    d->dc[d->level].style.baseline_shift.value = ((pEmr->elfw.elfLogFont.lfEscapement + 3600) % 3600) / 10;	// use baseline_shift instead of text_transform to avoid overflow
 }
 
 static void
@@ -763,24 +765,28 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             d->xDPI = 2540;
             d->yDPI = 2540;
 
-            d->dc[d->level].PixelsInX = pEmr->rclFrame.right - pEmr->rclFrame.left;
-            d->dc[d->level].PixelsInY = pEmr->rclFrame.bottom - pEmr->rclFrame.top;
+            d->dc[d->level].PixelsInX = pEmr->rclFrame.right;  // - pEmr->rclFrame.left;
+            d->dc[d->level].PixelsInY = pEmr->rclFrame.bottom; // - pEmr->rclFrame.top;
 
             d->MMX = d->dc[d->level].PixelsInX / 100.0;
             d->MMY = d->dc[d->level].PixelsInY / 100.0;
 
             d->dc[d->level].PixelsOutX = d->MMX * PX_PER_MM;
             d->dc[d->level].PixelsOutY = d->MMY * PX_PER_MM;
+
+            // calculate ratio of Inkscape dpi/device dpi
+            if (pEmr->szlMillimeters.cx && pEmr->szlDevice.cx)
+                device_scale = PX_PER_MM*pEmr->szlMillimeters.cx/pEmr->szlDevice.cx;
             
             tmp_outsvg <<
                 "  width=\"" << d->MMX << "mm\"\n" <<
-                "  height=\"" << d->MMY << "mm\"\n";
-            tmp_outsvg <<
-                "  id=\"" << (d->id++) << "\">\n";
+                "  height=\"" << d->MMY << "mm\">\n";
+//            tmp_outsvg <<
+//                "  id=\"" << (d->id++) << "\">\n";
 
-            tmp_outsvg <<
-                "<g\n" <<
-                "  id=\"" << (d->id++) << "\">\n";
+            tmp_outsvg << "<g>\n";
+//                "<g\n" <<
+//                "  id=\"" << (d->id++) << "\">\n";
 
             if (pEmr->nHandles) {
                 d->n_obj = pEmr->nHandles;
@@ -1049,8 +1055,8 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 d->dc[d->level].ScaleOutY = (double) d->dc[d->level].PixelsOutY / (double) d->dc[d->level].sizeView.cy;
             }
             else {
-                d->dc[d->level].ScaleOutX = DEVICESCALE;
-                d->dc[d->level].ScaleOutY = DEVICESCALE;
+                d->dc[d->level].ScaleOutX = device_scale;
+                d->dc[d->level].ScaleOutY = device_scale;
             }
 
             break;
@@ -1100,8 +1106,8 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 d->dc[d->level].ScaleOutY = (double) d->dc[d->level].PixelsOutY / (double) d->dc[d->level].sizeView.cy;
             }
             else {
-                d->dc[d->level].ScaleOutX = DEVICESCALE;
-                d->dc[d->level].ScaleOutY = DEVICESCALE;
+                d->dc[d->level].ScaleOutX = device_scale;
+                d->dc[d->level].ScaleOutY = device_scale;
             }
 
             break;
@@ -1536,8 +1542,42 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             break;
         }
         case EMR_ROUNDRECT:
+        {
             dbg_str << "<!-- EMR_ROUNDRECT -->\n";
+
+            PEMRROUNDRECT pEmr = (PEMRROUNDRECT) lpEMFR;
+            RECTL rc = pEmr->rclBox;
+            SIZEL corner = pEmr->szlCorner;
+            double f = 4.*(sqrt(2) - 1)/3;
+
+            double l = pix_to_x_point(d, rc.left, rc.top);
+            double t = pix_to_y_point(d, rc.left, rc.top);
+            double r = pix_to_x_point(d, rc.right, rc.bottom);
+            double b = pix_to_y_point(d, rc.right, rc.bottom);
+            double cnx = pix_to_size_point(d, corner.cx/2);
+            double cny = pix_to_size_point(d, corner.cy/2);
+
+            SVGOStringStream tmp_rectangle;
+            tmp_rectangle << "d=\"";
+            tmp_rectangle << "\n\tM " << l << ", " << t + cny << " ";
+            tmp_rectangle << "\n\tC " << l << ", " << t + (1-f)*cny << " " << l + (1-f)*cnx << ", " << t << " " << l + cnx << ", " << t << " ";
+            tmp_rectangle << "\n\tL " << r - cnx << ", " << t << " ";
+            tmp_rectangle << "\n\tC " << r - (1-f)*cnx << ", " << t << " " << r << ", " << t + (1-f)*cny << " " << r << ", " << t + cny << " ";
+            tmp_rectangle << "\n\tL " << r << ", " << b - cny << " ";
+            tmp_rectangle << "\n\tC " << r << ", " << b - (1-f)*cny << " " << r - (1-f)*cnx << ", " << b << " " << r - cnx << ", " << b << " ";
+            tmp_rectangle << "\n\tL " << l + cnx << ", " << b << " ";
+            tmp_rectangle << "\n\tC " << l + (1-f)*cnx << ", " << b << " " << l << ", " << b - (1-f)*cny << " " << l << ", " << b - cny << " ";
+            tmp_rectangle << "\n\tz";
+            assert_empty_path(d, "EMR_ROUNDRECT");
+
+            *(d->outsvg) += "    <path ";
+            output_style(d, lpEMFR->iType);
+            *(d->outsvg) += "\n\t";
+            *(d->outsvg) += tmp_rectangle.str().c_str();
+            *(d->outsvg) += " \" /> \n";
+            *(d->path) = "";
             break;
+        }
         case EMR_ARC:
             dbg_str << "<!-- EMR_ARC -->\n";
             break;
@@ -1700,8 +1740,36 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             dbg_str << "<!-- EMR_EXTSELECTCLIPRGN -->\n";
             break;
         case EMR_BITBLT:
+        {
             dbg_str << "<!-- EMR_BITBLT -->\n";
+
+            PEMRBITBLT pEmr = (PEMRBITBLT) lpEMFR;
+            if (pEmr->dwRop == DPA) {
+                // should be an application of a DIBPATTERNBRUSHPT, use a solid color instead
+                double l = pix_to_x_point( d, pEmr->xDest, pEmr->yDest);
+                double t = pix_to_y_point( d, pEmr->xDest, pEmr->yDest);
+                double r = pix_to_x_point( d, pEmr->xDest + pEmr->cxDest, pEmr->yDest + pEmr->cyDest);
+                double b = pix_to_y_point( d, pEmr->xDest + pEmr->cxDest, pEmr->yDest + pEmr->cyDest);
+
+                SVGOStringStream tmp_rectangle;
+                tmp_rectangle << "d=\"";
+                tmp_rectangle << "\n\tM " << l << " " << t << " ";
+                tmp_rectangle << "\n\tL " << r << " " << t << " ";
+                tmp_rectangle << "\n\tL " << r << " " << b << " ";
+                tmp_rectangle << "\n\tL " << l << " " << b << " ";
+                tmp_rectangle << "\n\tz";
+
+                assert_empty_path(d, "EMR_BITBLT");
+
+                *(d->outsvg) += "    <path ";
+                output_style(d, lpEMFR->iType);
+                *(d->outsvg) += "\n\t";
+                *(d->outsvg) += tmp_rectangle.str().c_str();
+                *(d->outsvg) += " \" /> \n";
+                *(d->path) = "";
+            }
             break;
+        }
         case EMR_STRETCHBLT:
             dbg_str << "<!-- EMR_STRETCHBLT -->\n";
             break;
@@ -1750,8 +1818,13 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             }
 
             if (!(d->dc[d->level].textAlign & TA_BOTTOM))
-                y1 += fabs(d->dc[d->level].style.font_size.computed);
-            
+                if (d->dc[d->level].style.baseline_shift.value) {
+                    x1 += std::sin(d->dc[d->level].style.baseline_shift.value*M_PI/180.0)*fabs(d->dc[d->level].style.font_size.computed);
+                    y1 += std::cos(d->dc[d->level].style.baseline_shift.value*M_PI/180.0)*fabs(d->dc[d->level].style.font_size.computed);
+                }
+                else
+                    y1 += fabs(d->dc[d->level].style.font_size.computed);
+
             double x = pix_to_x_point(d, x1, y1);
             double y = pix_to_y_point(d, x1, y1);
 
@@ -1761,28 +1834,28 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 (gchar *) g_utf16_to_utf8( (gunichar2 *) wide_text, pEmr->emrtext.nChars, NULL, NULL, NULL );
 
             if (ansi_text) {
-                gchar *p = ansi_text;
-                while (*p) {
-                    if (*p < 32 || *p >= 127) {
-                        g_free(ansi_text);
-                        ansi_text = g_strdup("");
-                        break;
-                    }
-                    p++;
-                }
+//                gchar *p = ansi_text;
+//                while (*p) {
+//                    if (*p < 32 || *p >= 127) {
+//                        g_free(ansi_text);
+//                        ansi_text = g_strdup("");
+//                        break;
+//                    }
+//                    p++;
+//                }
 
                 SVGOStringStream ts;
 
                 gchar *escaped_text = g_markup_escape_text(ansi_text, -1);
 
-                float text_rgb[3];
-                sp_color_get_rgb_floatv( &(d->dc[d->level].style.fill.value.color), text_rgb );
+//                float text_rgb[3];
+//                sp_color_get_rgb_floatv( &(d->dc[d->level].style.fill.value.color), text_rgb );
 
-                if (!d->dc[d->level].textColorSet) {
-                    d->dc[d->level].textColor = RGB(SP_COLOR_F_TO_U(text_rgb[0]),
-                                       SP_COLOR_F_TO_U(text_rgb[1]),
-                                       SP_COLOR_F_TO_U(text_rgb[2]));
-                }
+//                if (!d->dc[d->level].textColorSet) {
+//                    d->dc[d->level].textColor = RGB(SP_COLOR_F_TO_U(text_rgb[0]),
+//                                       SP_COLOR_F_TO_U(text_rgb[1]),
+//                                       SP_COLOR_F_TO_U(text_rgb[2]));
+//                }
 
                 char tmp[128];
                 snprintf(tmp, 127,
@@ -1800,13 +1873,13 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 assert_empty_path(d, "EMR_EXTTEXTOUTW");
 
                 ts << "    <text\n";
-                ts << "        id=\"" << (d->id++) << "\"\n";
+//                ts << "        id=\"" << (d->id++) << "\"\n";
                 ts << "        xml:space=\"preserve\"\n";
                 ts << "        x=\"" << x << "\"\n";
                 ts << "        y=\"" << y << "\"\n";
-                if (d->dc[d->level].style.text_transform.value) {
+                if (d->dc[d->level].style.baseline_shift.value) {
                     ts << "        transform=\""
-                       << "rotate(-" << d->dc[d->level].style.text_transform.value
+                       << "rotate(-" << d->dc[d->level].style.baseline_shift.value
                        << " " << x << " " << y << ")"
                        << "\"\n";
                 }
@@ -2053,8 +2126,17 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             dbg_str << "<!-- EMR_CREATEMONOBRUSH -->\n";
             break;
         case EMR_CREATEDIBPATTERNBRUSHPT:
+        {
             dbg_str << "<!-- EMR_CREATEDIBPATTERNBRUSHPT -->\n";
+
+            PEMRCREATEDIBPATTERNBRUSHPT pEmr = (PEMRCREATEDIBPATTERNBRUSHPT) lpEMFR;
+            int index = pEmr->ihBrush;
+
+            EMRCREATEDIBPATTERNBRUSHPT *pBrush =
+                (EMRCREATEDIBPATTERNBRUSHPT *) malloc( sizeof(EMRCREATEDIBPATTERNBRUSHPT) );
+            insert_object(d, index, EMR_CREATEDIBPATTERNBRUSHPT, (ENHMETARECORD *) pBrush);
             break;
+        }
         case EMR_EXTCREATEPEN:
         {
             dbg_str << "<!-- EMR_EXTCREATEPEN -->\n";
@@ -2347,7 +2429,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
 
 //    std::cout << "SVG Output: " << std::endl << *(d.outsvg) << std::endl;
 
-    SPDocument *doc = SPDocument::createNewDocFromMem(d.outsvg->c_str(), d.outsvg->length(), TRUE);
+    SPDocument *doc = SPDocument::createNewDocFromMem(d.outsvg->c_str(), strlen(d.outsvg->c_str()), TRUE);
 
     delete d.outsvg;
     delete d.path;

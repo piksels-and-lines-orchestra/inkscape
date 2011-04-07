@@ -28,10 +28,12 @@ public:
     virtual ~FilterImage();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual bool can_handle_affine(Geom::Matrix const &);
+    virtual bool can_handle_affine(Geom::Affine const &);
     void set_document( SPDocument *document );
     void set_href(const gchar *href);
     void set_region(SVGLength x, SVGLength y, SVGLength width, SVGLength height);
+    void set_align( unsigned int align );
+    void set_clip( unsigned int clip );
     bool from_element;
     SPItem* SVGElem;
 
@@ -40,7 +42,8 @@ private:
     gchar *feImageHref;
     Glib::RefPtr<Gdk::Pixbuf> image;
     cairo_surface_t *image_surface;
-    float feImageX,feImageY,feImageWidth,feImageHeight;
+    float feImageX, feImageY, feImageWidth, feImageHeight;
+    unsigned int aspect_align, aspect_clip;
     bool broken_ref;
 };
 

@@ -1,5 +1,3 @@
-#define CANVAS_AXONOMGRID_C
-
 /*
  * Copyright (C) 2006-2008 Johan Engelen <johan@shouraizou.nl>
  */
@@ -19,6 +17,7 @@
 
 #include "2geom/line.h"
 #include "desktop.h"
+#include "canvas-grid.h"
 #include "desktop-handles.h"
 #include "display/cairo-utils.h"
 #include "display/canvas-axonomgrid.h"
@@ -475,7 +474,7 @@ CanvasAxonomGrid::updateWidgets()
 
 
 void
-CanvasAxonomGrid::Update (Geom::Matrix const &affine, unsigned int /*flags*/)
+CanvasAxonomGrid::Update (Geom::Affine const &affine, unsigned int /*flags*/)
 {
     ow = origin * affine;
     sw = Geom::Point(fabs(affine[0]),fabs(affine[3]));

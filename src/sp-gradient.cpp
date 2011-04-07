@@ -44,6 +44,7 @@
 #include "uri.h"
 #include "xml/repr.h"
 #include "style.h"
+#include "display/grayscale.h"
 
 #define SP_MACROS_SILENT
 #include "macros.h"
@@ -371,7 +372,7 @@ void SPGradientImpl::classInit(SPGradientClass *klass)
  */
 void SPGradientImpl::init(SPGradient *gr)
 {
-    gr->ref = new SPGradientReference(SP_OBJECT(gr));
+    gr->ref = new SPGradientReference(gr);
     gr->ref->changedSignal().connect(sigc::bind(sigc::ptr_fun(SPGradientImpl::gradientRefChanged), gr));
 
     /** \todo
@@ -441,9 +442,9 @@ void SPGradientImpl::release(SPObject *object)
     g_print("Releasing gradient %s\n", object->getId());
 #endif
 
-    if (SP_OBJECT_DOCUMENT(object)) {
-        /* Unregister ourselves */
-        SP_OBJECT_DOCUMENT(object)->removeResource("gradient", SP_OBJECT(object));
+    if (object->document) {
+        // Unregister ourselves
+        object->document->removeResource("gradient", object);
     }
 
     if (gradient->ref) {
@@ -482,7 +483,7 @@ void SPGradientImpl::setGradientAttr(SPObject *object, unsigned key, gchar const
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
         case SP_ATTR_GRADIENTTRANSFORM: {
-            Geom::Matrix t;
+            Geom::Affine t;
             if (value && sp_svg_transform_read(value, &t)) {
                 gr->gradientTransform = t;
                 gr->gradientTransform_set = TRUE;
@@ -921,7 +922,7 @@ SPGradientUnits SPGradient::fetchUnits()
 void
 sp_gradient_repr_clear_vector(SPGradient *gr)
 {
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(gr);
+    Inkscape::XML::Node *repr = gr->getRepr();
 
     /* Collect stops from original repr */
     GSList *sl = NULL;
@@ -951,8 +952,8 @@ sp_gradient_repr_write_vector(SPGradient *gr)
     g_return_if_fail(gr != NULL);
     g_return_if_fail(SP_IS_GRADIENT(gr));
 
-    Inkscape::XML::Document *xml_doc = SP_OBJECT_DOCUMENT(gr)->getReprDoc();
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(gr);
+    Inkscape::XML::Document *xml_doc = gr->document->getReprDoc();
+    Inkscape::XML::Node *repr = gr->getRepr();
 
     /* We have to be careful, as vector may be our own, so construct repr list at first */
     GSList *cl = NULL;
@@ -984,7 +985,7 @@ sp_gradient_repr_write_vector(SPGradient *gr)
 void SPGradientImpl::gradientRefModified(SPObject */*href*/, guint /*flags*/, SPGradient *gradient)
 {
     if ( gradient->invalidateVector() ) {
-        SP_OBJECT(gradient)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+        gradient->requestModified(SP_OBJECT_MODIFIED_FLAG);
         // Conditional to avoid causing infinite loop if there's a cycle in the href chain.
     }
 }
@@ -1101,34 +1102,34 @@ void SPGradient::rebuildVector()
     vector.built = true;
 }
 
-Geom::Matrix
-sp_gradient_get_g2d_matrix(SPGradient const *gr, Geom::Matrix const &ctm, Geom::Rect const &bbox)
+Geom::Affine
+sp_gradient_get_g2d_matrix(SPGradient const *gr, Geom::Affine const &ctm, Geom::Rect const &bbox)
 {
     if (gr->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
         return ( Geom::Scale(bbox.dimensions())
                  * Geom::Translate(bbox.min())
-                 * Geom::Matrix(ctm) );
+                 * Geom::Affine(ctm) );
     } else {
         return ctm;
     }
 }
 
-Geom::Matrix
-sp_gradient_get_gs2d_matrix(SPGradient const *gr, Geom::Matrix const &ctm, Geom::Rect const &bbox)
+Geom::Affine
+sp_gradient_get_gs2d_matrix(SPGradient const *gr, Geom::Affine const &ctm, Geom::Rect const &bbox)
 {
     if (gr->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
         return ( gr->gradientTransform
                  * Geom::Scale(bbox.dimensions())
                  * Geom::Translate(bbox.min())
-                 * Geom::Matrix(ctm) );
+                 * Geom::Affine(ctm) );
     } else {
         return gr->gradientTransform * ctm;
     }
 }
 
 void
-sp_gradient_set_gs2d_matrix(SPGradient *gr, Geom::Matrix const &ctm,
-                            Geom::Rect const &bbox, Geom::Matrix const &gs2d)
+sp_gradient_set_gs2d_matrix(SPGradient *gr, Geom::Affine const &ctm,
+                            Geom::Rect const &bbox, Geom::Affine const &gs2d)
 {
     gr->gradientTransform = gs2d * ctm.inverse();
     if (gr->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX ) {
@@ -1138,7 +1139,7 @@ sp_gradient_set_gs2d_matrix(SPGradient *gr, Geom::Matrix const &ctm,
     }
     gr->gradientTransform_set = TRUE;
 
-    SP_OBJECT(gr)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+    gr->requestModified(SP_OBJECT_MODIFIED_FLAG);
 }
 
 /*
@@ -1301,7 +1302,7 @@ sp_lineargradient_set_position(SPLinearGradient *lg,
     lg->x2.set(SVGLength::NONE, x2, x2);
     lg->y2.set(SVGLength::NONE, y2, y2);
 
-    SP_OBJECT(lg)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+    lg->requestModified(SP_OBJECT_MODIFIED_FLAG);
 }
 
 /*
@@ -1485,7 +1486,7 @@ sp_radialgradient_set_position(SPRadialGradient *rg,
     rg->fy.set(SVGLength::NONE, fy, fy);
     rg->r.set(SVGLength::NONE, r, r);
 
-    SP_OBJECT(rg)->requestModified(SP_OBJECT_MODIFIED_FLAG);
+    rg->requestModified(SP_OBJECT_MODIFIED_FLAG);
 }
 
 /* CAIRO RENDERING STUFF */
@@ -1520,9 +1521,9 @@ sp_gradient_pattern_common_setup(cairo_pattern_t *cp,
     }
 
     // set pattern matrix
-    Geom::Matrix gs2user = gr->gradientTransform;
+    Geom::Affine gs2user = gr->gradientTransform;
     if (gr->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
-        Geom::Matrix bbox2user(bbox->x1 - bbox->x0, 0, 0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        Geom::Affine bbox2user(bbox->x1 - bbox->x0, 0, 0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
         gs2user *= bbox2user;
     }
     ink_cairo_pattern_set_matrix(cp, gs2user.inverse());

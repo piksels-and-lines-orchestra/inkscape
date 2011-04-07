@@ -38,8 +38,8 @@ cubic_bbox (Geom::Coord x000, Geom::Coord y000, Geom::Coord x001, Geom::Coord y0
 {
     Geom::Coord a, b, c, D;
 
-    bbox[0].extendTo(x111);
-    bbox[1].extendTo(y111);
+    bbox[0].expandTo(x111);
+    bbox[1].expandTo(y111);
 
     // It already contains (x000,y000) and (x111,y111)
     // All points of the Bezier lie in the convex hull of (x000,y000), (x001,y001), (x011,y011) and (x111,y111)
@@ -81,7 +81,7 @@ cubic_bbox (Geom::Coord x000, Geom::Coord y000, Geom::Coord x001, Geom::Coord y0
                 if ((s > 0.0) && (s < 1.0)) {
                     t = 1.0 - s;
                     xttt = s * s * s * x000 + 3 * s * s * t * x001 + 3 * s * t * t * x011 + t * t * t * x111;
-                    bbox[0].extendTo(xttt);
+                    bbox[0].expandTo(xttt);
                 }
             }
         } else {
@@ -95,13 +95,13 @@ cubic_bbox (Geom::Coord x000, Geom::Coord y000, Geom::Coord x001, Geom::Coord y0
                 if ((s > 0.0) && (s < 1.0)) {
                     t = 1.0 - s;
                     xttt = s * s * s * x000 + 3 * s * s * t * x001 + 3 * s * t * t * x011 + t * t * t * x111;
-                    bbox[0].extendTo(xttt);
+                    bbox[0].expandTo(xttt);
                 }
                 s = (-b - d) / (2 * a);
                 if ((s > 0.0) && (s < 1.0)) {
                     t = 1.0 - s;
                     xttt = s * s * s * x000 + 3 * s * s * t * x001 + 3 * s * t * t * x011 + t * t * t * x111;
-                    bbox[0].extendTo(xttt);
+                    bbox[0].expandTo(xttt);
                 }
             }
         }
@@ -120,7 +120,7 @@ cubic_bbox (Geom::Coord x000, Geom::Coord y000, Geom::Coord x001, Geom::Coord y0
                 if ((s > 0.0) && (s < 1.0)) {
                     t = 1.0 - s;
                     yttt = s * s * s * y000 + 3 * s * s * t * y001 + 3 * s * t * t * y011 + t * t * t * y111;
-                    bbox[1].extendTo(yttt);
+                    bbox[1].expandTo(yttt);
                 }
             }
         } else {
@@ -134,13 +134,13 @@ cubic_bbox (Geom::Coord x000, Geom::Coord y000, Geom::Coord x001, Geom::Coord y0
                 if ((s > 0.0) && (s < 1.0)) {
                     t = 1.0 - s;
                     yttt = s * s * s * y000 + 3 * s * s * t * y001 + 3 * s * t * t * y011 + t * t * t * y111;
-                    bbox[1].extendTo(yttt);
+                    bbox[1].expandTo(yttt);
                 }
                 s = (-b - d) / (2 * a);
                 if ((s > 0.0) && (s < 1.0)) {
                     t = 1.0 - s;
                     yttt = s * s * s * y000 + 3 * s * s * t * y001 + 3 * s * t * t * y011 + t * t * t * y111;
-                    bbox[1].extendTo(yttt);
+                    bbox[1].expandTo(yttt);
                 }
             }
         }
@@ -148,14 +148,14 @@ cubic_bbox (Geom::Coord x000, Geom::Coord y000, Geom::Coord x001, Geom::Coord y0
 }
 
 Geom::OptRect
-bounds_fast_transformed(Geom::PathVector const & pv, Geom::Matrix const & t)
+bounds_fast_transformed(Geom::PathVector const & pv, Geom::Affine const & t)
 {
     return bounds_exact_transformed(pv, t); //use this as it is faster for now! :)
 //    return Geom::bounds_fast(pv * t);
 }
 
 Geom::OptRect
-bounds_exact_transformed(Geom::PathVector const & pv, Geom::Matrix const & t)
+bounds_exact_transformed(Geom::PathVector const & pv, Geom::Affine const & t)
 {
     if (pv.empty())
         return Geom::OptRect();
@@ -352,7 +352,7 @@ geom_cubic_bbox_wind_distance (Geom::Coord x000, Geom::Coord y000,
 }
 
 static void
-geom_curve_bbox_wind_distance(Geom::Curve const & c, Geom::Matrix const &m,
+geom_curve_bbox_wind_distance(Geom::Curve const & c, Geom::Affine const &m,
                  Geom::Point const &pt,
                  Geom::Rect *bbox, int *wind, Geom::Coord *dist,
                  Geom::Coord tolerance, Geom::Rect const *viewbox,
@@ -415,7 +415,7 @@ geom_curve_bbox_wind_distance(Geom::Curve const & c, Geom::Matrix const &m,
    Returns bounding box in *bbox if bbox!=NULL.
  */
 void
-pathv_matrix_point_bbox_wind_distance (Geom::PathVector const & pathv, Geom::Matrix const &m, Geom::Point const &pt,
+pathv_matrix_point_bbox_wind_distance (Geom::PathVector const & pathv, Geom::Affine const &m, Geom::Point const &pt,
                          Geom::Rect *bbox, int *wind, Geom::Coord *dist,
                          Geom::Coord tolerance, Geom::Rect const *viewbox)
 {
@@ -474,15 +474,19 @@ pathv_to_linear_and_cubic_beziers( Geom::PathVector const &pathv )
         output.back().close( pit->closed() );
 
         for (Geom::Path::const_iterator cit = pit->begin(); cit != pit->end_open(); ++cit) {
-            if( dynamic_cast<Geom::CubicBezier const*>(&*cit) || 
-                is_straight_curve(*cit) )
-            {
-                output.back().append(*cit);
-            }
-            else {
-                // convert all other curve types to cubicbeziers
-                Geom::Path cubicbezier_path = Geom::cubicbezierpath_from_sbasis(cit->toSBasis(), 0.1);
-                output.back().append(cubicbezier_path);
+            if (is_straight_curve(*cit)) {
+                Geom::LineSegment l(cit->initialPoint(), cit->finalPoint());
+                output.back().append(l);
+            } else {
+                Geom::BezierCurve const *curve = dynamic_cast<Geom::BezierCurve const *>(&*cit);
+                if (curve && curve->order() == 3) {
+                    Geom::CubicBezier b((*curve)[0], (*curve)[1], (*curve)[2], (*curve)[3]);
+                    output.back().append(b);
+                } else {
+                    // convert all other curve types to cubicbeziers
+                    Geom::Path cubicbezier_path = Geom::cubicbezierpath_from_sbasis(cit->toSBasis(), 0.1);
+                    output.back().append(cubicbezier_path);
+                }
             }
         }
     }
@@ -505,7 +509,7 @@ void round_rectangle_outwards(Geom::Rect & rect) {
 
 namespace Geom {
 
-bool transform_equalp(Geom::Matrix const &m0, Geom::Matrix const &m1, Geom::Coord const epsilon) {
+bool transform_equalp(Geom::Affine const &m0, Geom::Affine const &m1, Geom::Coord const epsilon) {
     return
         NR_DF_TEST_CLOSE(m0[0], m1[0], epsilon) &&
         NR_DF_TEST_CLOSE(m0[1], m1[1], epsilon) &&
@@ -514,12 +518,12 @@ bool transform_equalp(Geom::Matrix const &m0, Geom::Matrix const &m1, Geom::Coor
 }
 
 
-bool translate_equalp(Geom::Matrix const &m0, Geom::Matrix const &m1, Geom::Coord const epsilon) {
+bool translate_equalp(Geom::Affine const &m0, Geom::Affine const &m1, Geom::Coord const epsilon) {
     return NR_DF_TEST_CLOSE(m0[4], m1[4], epsilon) && NR_DF_TEST_CLOSE(m0[5], m1[5], epsilon);
 }
 
 
-bool matrix_equalp(Geom::Matrix const &m0, Geom::Matrix const &m1, Geom::Coord const epsilon) {
+bool matrix_equalp(Geom::Affine const &m0, Geom::Affine const &m1, Geom::Coord const epsilon) {
     return transform_equalp(m0, m1, epsilon) && translate_equalp(m0, m1, epsilon);
 }
 
@@ -528,7 +532,7 @@ bool matrix_equalp(Geom::Matrix const &m0, Geom::Matrix const &m1, Geom::Coord c
 The following predefined objects are for reference
 and comparison.
 */
-Geom::Matrix GEOM_MATRIX_IDENTITY = Geom::identity();
+Geom::Affine GEOM_MATRIX_IDENTITY = Geom::identity();
 
 /*
   Local Variables:

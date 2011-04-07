@@ -33,7 +33,7 @@
 #include "display/nr-filter-types.h"
 #include "display/nr-filter-units.h"
 #include "display/nr-filter-slot.h"
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include "util/fixed_point.h"
 #include "preferences.h"
 
@@ -78,15 +78,46 @@ template<typename T> static inline T clip(T const& v, T const& a, T const& b) {
 }
 
 template<typename Tt, typename Ts>
-static inline Tt round_cast(Ts const& v) {
+static inline Tt round_cast(Ts v) {
     static Ts const rndoffset(.5);
     return static_cast<Tt>(v+rndoffset);
 }
 
+template<>
+inline unsigned char round_cast(double v) {
+    // This (fast) rounding method is based on:
+    // http://stereopsis.com/sree/fpu2006.html
+#if G_BYTE_ORDER==G_LITTLE_ENDIAN
+    double const dmr = 6755399441055744.0;
+    v = v + dmr;
+    return ((unsigned char*)&v)[0];
+#elif G_BYTE_ORDER==G_BIG_ENDIAN
+    double const dmr = 6755399441055744.0;
+    v = v + dmr;
+    return ((unsigned char*)&v)[7];
+#else
+    static double const rndoffset(.5);
+    return static_cast<unsigned char>(v+rndoffset);
+#endif
+}
+
 template<typename Tt, typename Ts>
-static inline Tt clip_round_cast(Ts const& v, Tt const minval=std::numeric_limits<Tt>::min(), Tt const maxval=std::numeric_limits<Tt>::max()) {
-    if ( v < minval ) return minval;
-    if ( v > maxval ) return maxval;
+static inline Tt clip_round_cast(Ts const v) {
+    Ts const minval = std::numeric_limits<Tt>::min();
+    Ts const maxval = std::numeric_limits<Tt>::max();
+    Tt const minval_rounded = std::numeric_limits<Tt>::min();
+    Ts const maxval_rounded = std::numeric_limits<Tt>::max();
+    if ( v < minval ) return minval_rounded;
+    if ( v > maxval ) return maxval_rounded;
+    return round_cast<Tt>(v);
+}
+
+template<typename Tt, typename Ts>
+static inline Tt clip_round_cast_varmax(Ts const v, Ts const maxval, Tt const maxval_rounded) {
+    Ts const minval = std::numeric_limits<Tt>::min();
+    Tt const minval_rounded = std::numeric_limits<Tt>::min();
+    if ( v < minval ) return minval_rounded;
+    if ( v > maxval ) return maxval_rounded;
     return round_cast<Tt>(v);
 }
 
@@ -313,7 +344,7 @@ filter2D_IIR(PT *const dest, int const dstr1, int const dstr2,
         dstimg -= dstr1;
         if ( PREMULTIPLIED_ALPHA ) {
             dstimg[alpha_PC] = clip_round_cast<PT>(v[0][alpha_PC]);
-            PREMUL_ALPHA_LOOP dstimg[c] = clip_round_cast<PT>(v[0][c], std::numeric_limits<PT>::min(), dstimg[alpha_PC]);
+            PREMUL_ALPHA_LOOP dstimg[c] = clip_round_cast_varmax<PT>(v[0][c], v[0][alpha_PC], dstimg[alpha_PC]);
         } else {
             for(unsigned int c=0; c<PC; c++) dstimg[c] = clip_round_cast<PT>(v[0][c]);
         }
@@ -328,7 +359,7 @@ filter2D_IIR(PT *const dest, int const dstr1, int const dstr2,
             dstimg -= dstr1;
             if ( PREMULTIPLIED_ALPHA ) {
                 dstimg[alpha_PC] = clip_round_cast<PT>(v[0][alpha_PC]);
-                PREMUL_ALPHA_LOOP dstimg[c] = clip_round_cast<PT>(v[0][c], std::numeric_limits<PT>::min(), dstimg[alpha_PC]);
+                PREMUL_ALPHA_LOOP dstimg[c] = clip_round_cast_varmax<PT>(v[0][c], v[0][alpha_PC], dstimg[alpha_PC]);
             } else {
                 for(unsigned int c=0; c<PC; c++) dstimg[c] = clip_round_cast<PT>(v[0][c]);
             }
@@ -534,7 +565,7 @@ void FilterGaussian::render_cairo(FilterSlot &slot)
         return;
     }
 
-    Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
+    Geom::Affine trans = slot.get_units().get_matrix_primitiveunits2pb();
 
     int w_orig = ink_cairo_surface_get_width(in);
     int h_orig = ink_cairo_surface_get_height(in);
@@ -635,7 +666,7 @@ void FilterGaussian::render_cairo(FilterSlot &slot)
     }
 }
 
-void FilterGaussian::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
+void FilterGaussian::area_enlarge(NRRectL &area, Geom::Affine const &trans)
 {
     int area_x = _effect_area_scr(_deviation_x * trans.expansionX());
     int area_y = _effect_area_scr(_deviation_y * trans.expansionY());
@@ -648,7 +679,7 @@ void FilterGaussian::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
     area.y1 += area_max;
 }
 
-bool FilterGaussian::can_handle_affine(Geom::Matrix const &)
+bool FilterGaussian::can_handle_affine(Geom::Affine const &)
 {
     // Previously we tried to be smart and return true for rotations.
     // However, the transform passed here is NOT the total transform

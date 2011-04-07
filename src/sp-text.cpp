@@ -27,7 +27,7 @@
 # include "config.h"
 #endif
 
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <libnrtype/FontFactory.h>
 #include <libnrtype/font-instance.h>
 #include <libnrtype/font-style-to-pos.h>
@@ -71,12 +71,12 @@ static void sp_text_update (SPObject *object, SPCtx *ctx, guint flags);
 static void sp_text_modified (SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_text_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static void sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
+static void sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
 static NRArenaItem *sp_text_show (SPItem *item, NRArena *arena, unsigned key, unsigned flags);
 static void sp_text_hide (SPItem *item, unsigned key);
 static char *sp_text_description (SPItem *item);
 static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
-static Geom::Matrix sp_text_set_transform(SPItem *item, Geom::Matrix const &xform);
+static Geom::Affine sp_text_set_transform(SPItem *item, Geom::Affine const &xform);
 static void sp_text_print (SPItem *item, SPPrintContext *gpc);
 
 static SPItemClass *text_parent_class;
@@ -226,18 +226,18 @@ static void sp_text_update(SPObject *object, SPCtx *ctx, guint flags)
     // Create temporary list of children
     GSList *l = NULL;
     for (SPObject *child = object->firstChild() ; child ; child = child->getNext() ) {
-        sp_object_ref (SP_OBJECT (child), object);
+        sp_object_ref(child, object);
         l = g_slist_prepend (l, child);
     }
     l = g_slist_reverse (l);
     while (l) {
-        SPObject *child = SP_OBJECT (l->data);
+        SPObject *child = reinterpret_cast<SPObject*>(l->data); // We just built this list, so cast is safe.
         l = g_slist_remove (l, child);
         if (cflags || (child->uflags & (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_CHILD_MODIFIED_FLAG))) {
             /* fixme: Do we need transform? */
             child->updateDisplay(ctx, cflags);
         }
-        sp_object_unref (SP_OBJECT (child), object);
+        sp_object_unref(child, object);
     }
     if (flags & ( SP_OBJECT_STYLE_MODIFIED_FLAG |
                   SP_OBJECT_CHILD_MODIFIED_FLAG |
@@ -252,7 +252,7 @@ static void sp_text_update(SPObject *object, SPCtx *ctx, guint flags)
         text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
             text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
-            nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), SP_OBJECT_STYLE(object));
+            nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
             // pass the bbox of the text object as paintbox (used for paintserver fills)
             text->layout.show(NR_ARENA_GROUP(v->arenaitem), &paintbox);
         }
@@ -280,7 +280,7 @@ static void sp_text_modified(SPObject *object, guint flags)
         text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
             text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
-            nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), SP_OBJECT_STYLE(object));
+            nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
             text->layout.show(NR_ARENA_GROUP(v->arenaitem), &paintbox);
         }
     }
@@ -288,17 +288,17 @@ static void sp_text_modified(SPObject *object, guint flags)
     // Create temporary list of children
     GSList *l = NULL;
     for (SPObject *child = object->firstChild() ; child ; child = child->getNext() ) {
-        sp_object_ref (SP_OBJECT (child), object);
+        sp_object_ref(child, object);
         l = g_slist_prepend (l, child);
     }
     l = g_slist_reverse (l);
     while (l) {
-        SPObject *child = SP_OBJECT (l->data);
+        SPObject *child = reinterpret_cast<SPObject*>(l->data); // We just built this list, so cast is safe.
         l = g_slist_remove (l, child);
         if (cflags || (child->mflags & (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_CHILD_MODIFIED_FLAG))) {
             child->emitModified(cflags);
         }
-        sp_object_unref (SP_OBJECT (child), object);
+        sp_object_unref(child, object);
     }
 }
 
@@ -336,7 +336,7 @@ static Inkscape::XML::Node *sp_text_write(SPObject *object, Inkscape::XML::Docum
                 continue;
             }
             if (SP_IS_STRING(child)) {
-                SP_OBJECT_REPR(child)->setContent(SP_STRING(child)->string.c_str());
+                child->getRepr()->setContent(SP_STRING(child)->string.c_str());
             } else {
                 child->updateRepr(flags);
             }
@@ -349,9 +349,9 @@ static Inkscape::XML::Node *sp_text_write(SPObject *object, Inkscape::XML::Docum
     if (text->style->line_height.set && !text->style->line_height.inherit && !text->style->line_height.normal && text->style->line_height.unit == SP_CSS_UNIT_PERCENT) {
         Inkscape::SVGOStringStream os;
         os << (text->style->line_height.value * 100.0) << "%";
-        SP_OBJECT_REPR(text)->setAttribute("sodipodi:linespacing", os.str().c_str());
+        text->getRepr()->setAttribute("sodipodi:linespacing", os.str().c_str());
     } else {
-        SP_OBJECT_REPR(text)->setAttribute("sodipodi:linespacing", NULL);
+        text->getRepr()->setAttribute("sodipodi:linespacing", NULL);
     }
 
     if (((SPObjectClass *) (text_parent_class))->write) {
@@ -362,12 +362,12 @@ static Inkscape::XML::Node *sp_text_write(SPObject *object, Inkscape::XML::Docum
 }
 
 static void
-sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const /*flags*/)
+sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const /*flags*/)
 {
     SP_TEXT(item)->layout.getBoundingBox(bbox, transform);
 
     // Add stroke width
-    SPStyle* style=SP_OBJECT_STYLE (item);
+    SPStyle* style = item->style;
     if (!style->stroke.isNone()) {
         double const scale = transform.descrim();
         if ( fabs(style->stroke_width.computed * scale) > 0.01 ) { // sinon c'est 0=oon veut pas de bord
@@ -408,11 +408,10 @@ sp_text_hide(SPItem *item, unsigned key)
         ((SPItemClass *) text_parent_class)->hide (item, key);
 }
 
-static char *
-sp_text_description(SPItem *item)
+static char * sp_text_description(SPItem *item)
 {
-    SPText *text = (SPText *) item;
-    SPStyle *style = SP_OBJECT_STYLE(text);
+    SPText *text = reinterpret_cast<SPText *>(item);
+    SPStyle *style = text->style;
 
     font_instance *tf = font_factory::Default()->FaceFromStyle(style);
 
@@ -455,8 +454,8 @@ static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCan
     }
 }
 
-static Geom::Matrix
-sp_text_set_transform (SPItem *item, Geom::Matrix const &xform)
+static Geom::Affine
+sp_text_set_transform (SPItem *item, Geom::Affine const &xform)
 {
     SPText *text = SP_TEXT(item);
 
@@ -478,7 +477,7 @@ sp_text_set_transform (SPItem *item, Geom::Matrix const &xform)
         return xform;
     }
 
-    Geom::Matrix ret(Geom::Matrix(xform).without_translation());
+    Geom::Affine ret(Geom::Affine(xform).withoutTranslation());
     ret[0] /= ex;
     ret[1] /= ex;
     ret[2] /= ex;
@@ -514,9 +513,9 @@ sp_text_print (SPItem *item, SPPrintContext *ctx)
     item->getBboxDesktop (&bbox);
     dbox.x0 = 0.0;
     dbox.y0 = 0.0;
-    dbox.x1 = SP_OBJECT_DOCUMENT (item)->getWidth ();
-    dbox.y1 = SP_OBJECT_DOCUMENT (item)->getHeight ();
-    Geom::Matrix const ctm (item->i2d_affine());
+    dbox.x1 = item->document->getWidth();
+    dbox.y1 = item->document->getHeight();
+    Geom::Affine const ctm (item->i2d_affine());
 
     group->layout.print(ctx,&pbox,&dbox,&bbox,ctm);
 }
@@ -622,7 +621,7 @@ void SPText::rebuildLayout()
 
 void SPText::_adjustFontsizeRecursive(SPItem *item, double ex, bool is_root)
 {
-    SPStyle *style = SP_OBJECT_STYLE (item);
+    SPStyle *style = item->style;
 
     if (style && !Geom::are_near(ex, 1.0)) {
         if (!style->font_size.set && is_root) {
@@ -641,7 +640,7 @@ void SPText::_adjustFontsizeRecursive(SPItem *item, double ex, bool is_root)
     }
 }
 
-void SPText::_adjustCoordsRecursive(SPItem *item, Geom::Matrix const &m, double ex, bool is_root)
+void SPText::_adjustCoordsRecursive(SPItem *item, Geom::Affine const &m, double ex, bool is_root)
 {
     if (SP_IS_TSPAN(item))
         SP_TSPAN(item)->attributes.transform(m, ex, ex, is_root);
@@ -902,7 +901,7 @@ void TextTagAttributes::joinSingleAttribute(std::vector<SVGLength> *dest_vector,
     }
 }
 
-void TextTagAttributes::transform(Geom::Matrix const &matrix, double scale_x, double scale_y, bool extend_zero_length)
+void TextTagAttributes::transform(Geom::Affine const &matrix, double scale_x, double scale_y, bool extend_zero_length)
 {
     SVGLength zero_length;
     zero_length = 0.0;

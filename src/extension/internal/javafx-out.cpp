@@ -86,12 +86,11 @@ static double effective_opacity(const SPStyle *style)
 {
     double val = 1.0;
     for (SPObject const *obj = style->object; obj ; obj = obj->parent)
-        {
-        style = SP_OBJECT_STYLE(obj);
-        if (style) {
-            val *= SP_SCALE24_TO_FLOAT(style->opacity.value);
+    {
+        if (obj->style) {
+            val *= SP_SCALE24_TO_FLOAT(obj->style->opacity.value);
         }
-        }
+    }
     return val;
 }
 
@@ -488,13 +487,13 @@ bool JavaFXOutput::doCurve(SPItem *item, const String &id)
     /**
      * Output the style information
      */
-    if (!doStyle(SP_OBJECT_STYLE(shape))) {
+    if (!doStyle(shape->style)) {
         return false;
     }
 
     // convert the path to only lineto's and cubic curveto's:
     Geom::Scale yflip(1.0, -1.0);
-    Geom::Matrix tf = item->i2d_affine() * yflip;
+    Geom::Affine tf = item->i2d_affine() * yflip;
     Geom::PathVector pathv = pathv_to_linear_and_cubic_beziers( curve->get_pathvector() * tf );
 
     //Count the NR_CURVETOs/LINETOs (including closing line segment)
@@ -630,13 +629,13 @@ bool JavaFXOutput::doCurve(SPItem *item, const String &id)
     /**
      * Output the style information
      */
-    if (!doStyle(SP_OBJECT_STYLE(shape))) {
+    if (!doStyle(shape->style)) {
         return false;
     }
 
     // convert the path to only lineto's and cubic curveto's:
     Geom::Scale yflip(1.0, -1.0);
-    Geom::Matrix tf = item->i2d_affine() * yflip;
+    Geom::Affine tf = item->i2d_affine() * yflip;
     Geom::PathVector pathv = pathv_to_linear_and_cubic_beziers( curve->get_pathvector() * tf );
 
     //Count the NR_CURVETOs/LINETOs (including closing line segment)

@@ -32,7 +32,7 @@ public:
     virtual ~FilterMorphology();
 
     virtual void render_cairo(FilterSlot &slot);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
     void set_operator(FilterMorphologyOperator &o);
     void set_xradius(double x);
     void set_yradius(double y);

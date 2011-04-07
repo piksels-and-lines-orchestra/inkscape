@@ -140,8 +140,8 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
 
     if (bop == bool_op_diff || bop == bool_op_cut || bop == bool_op_slice) {
         // check in the tree to find which element of the selection list is topmost (for 2-operand commands only)
-        Inkscape::XML::Node *a = SP_OBJECT_REPR(il->data);
-        Inkscape::XML::Node *b = SP_OBJECT_REPR(il->next->data);
+        Inkscape::XML::Node *a = reinterpret_cast<SPObject *>(il->data)->getRepr();
+        Inkscape::XML::Node *b = reinterpret_cast<SPObject *>(il->next->data)->getRepr();
 
         if (a == NULL || b == NULL) {
             desktop->messageStack()->flash(Inkscape::ERROR_MESSAGE, _("Unable to determine the <b>z-order</b> of the objects selected for difference, XOR, division, or path cut."));
@@ -205,7 +205,7 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
         curOrig = 0;
         for (GSList *l = il; l != NULL; l = l->next)
         {
-            SPCSSAttr *css = sp_repr_css_attr(SP_OBJECT_REPR(il->data), "style");
+            SPCSSAttr *css = sp_repr_css_attr(reinterpret_cast<SPObject *>(il->data)->getRepr(), "style");
             gchar const *val = sp_repr_css_property(css, "fill-rule", NULL);
             if (val && strcmp(val, "nonzero") == 0) {
                 origWind[curOrig]= fill_nonZero;
@@ -451,13 +451,13 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
     // adjust style properties that depend on a possible transform in the source object in order
     // to get a correct style attribute for the new path
     SPItem* item_source = SP_ITEM(source);
-    Geom::Matrix i2doc(item_source->i2doc_affine());
+    Geom::Affine i2doc(item_source->i2doc_affine());
     item_source->adjust_stroke(i2doc.descrim());
     item_source->adjust_pattern(i2doc);
     item_source->adjust_gradient(i2doc);
     item_source->adjust_livepatheffect(i2doc);
 
-    Inkscape::XML::Node *repr_source = SP_OBJECT_REPR(source);
+    Inkscape::XML::Node *repr_source = source->getRepr();
 
     // remember important aspects of the source path, to be restored
     gint pos = repr_source->position();
@@ -472,7 +472,7 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
     selection->clear();
     for (GSList *l = il; l != NULL; l = l->next) {
         // if this is the bottommost object,
-        if (!strcmp(SP_OBJECT_REPR(l->data)->attribute("id"), id)) {
+        if (!strcmp(reinterpret_cast<SPObject *>(l->data)->getRepr()->attribute("id"), id)) {
             // delete it so that its clones don't get alerted; this object will be restored shortly, with the same id
             SP_OBJECT(l->data)->deleteObject(false);
         } else {
@@ -484,7 +484,7 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
 
     // premultiply by the inverse of parent's repr
     SPItem *parent_item = SP_ITEM(sp_desktop_document(desktop)->getObjectByRepr(parent));
-    Geom::Matrix local (parent_item->i2doc_affine());
+    Geom::Affine local (parent_item->i2doc_affine());
     gchar *transform = sp_svg_transform_write(local.inverse());
 
     // now that we have the result, add it on the canvas
@@ -600,14 +600,14 @@ sp_selected_path_boolop(SPDesktop *desktop, bool_op bop, const unsigned int verb
 }
 
 static
-void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Matrix marker_transform,
-                                          Geom::Scale stroke_scale, Geom::Matrix transform,
+void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Affine marker_transform,
+                                          Geom::Scale stroke_scale, Geom::Affine transform,
                                           Inkscape::XML::Node *g_repr, Inkscape::XML::Document *xml_doc, SPDocument * doc )
 {
     SPMarker* marker = SP_MARKER (marker_object);
-    SPItem* marker_item = sp_item_first_item_child (SP_OBJECT (marker_object));
+    SPItem* marker_item = sp_item_first_item_child(marker_object);
 
-    Geom::Matrix tr(marker_transform);
+    Geom::Affine tr(marker_transform);
 
     if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH) {
         tr = stroke_scale * tr;
@@ -616,8 +616,8 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Matrix 
     // total marker transform
     tr = marker_item->transform * marker->c2p * tr * transform;
 
-    if (SP_OBJECT_REPR(marker_item)) {
-        Inkscape::XML::Node *m_repr = SP_OBJECT_REPR(marker_item)->duplicate(xml_doc);
+    if (marker_item->getRepr()) {
+        Inkscape::XML::Node *m_repr = marker_item->getRepr()->duplicate(xml_doc);
         g_repr->appendChild(m_repr);
         SPItem *marker_item = (SPItem *) doc->getObjectByRepr(m_repr);
         marker_item->doWriteTransform(m_repr, tr);
@@ -625,42 +625,62 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Matrix 
 }
 
 static
-void item_outline_add_marker( SPObject const *marker_object, Geom::Matrix marker_transform,
+void item_outline_add_marker_child( SPItem const *item, Geom::Affine marker_transform, Geom::PathVector* pathv_in )
+{
+    Geom::Affine tr(marker_transform);
+    tr = item->transform * tr;
+
+    // note: a marker child item can be an item group!
+    if (SP_IS_GROUP(item)) {
+        // recurse through all childs:
+        for (SPObject const *o = item->firstChild() ; o ; o = o->getNext() ) {
+            if ( SP_IS_ITEM(o) ) {
+                item_outline_add_marker_child(SP_ITEM(o), tr, pathv_in);
+            }
+        }
+    } else {
+        Geom::PathVector* marker_pathv = item_outline(item);
+
+        if (marker_pathv) {
+            for (unsigned int j=0; j < marker_pathv->size(); j++) {
+                pathv_in->push_back((*marker_pathv)[j] * tr);
+            }
+            delete marker_pathv;
+        }
+    }
+}
+
+static
+void item_outline_add_marker( SPObject const *marker_object, Geom::Affine marker_transform,
                               Geom::Scale stroke_scale, Geom::PathVector* pathv_in )
 {
-    SPMarker* marker = SP_MARKER (marker_object);
-    SPItem* marker_item = sp_item_first_item_child(SP_OBJECT(marker_object));
+    SPMarker const * marker = SP_MARKER(marker_object);
 
-    Geom::Matrix tr(marker_transform);
+    Geom::Affine tr(marker_transform);
     if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH) {
         tr = stroke_scale * tr;
     }
     // total marker transform
-    tr = marker_item->transform * marker->c2p * tr;
+    tr = marker->c2p * tr;
 
-    Geom::PathVector* marker_pathv = item_outline(marker_item);
-    
-    if (marker_pathv) {
-        for (unsigned int j=0; j < marker_pathv->size(); j++) {
-            pathv_in->push_back((*marker_pathv)[j] * tr);
-        }
-        delete marker_pathv;
-    }
+    SPItem const * marker_item = sp_item_first_item_child(marker_object); // why only consider the first item? can a marker only consist of a single item (that may be a group)?
+    item_outline_add_marker_child(marker_item, tr, pathv_in);
 }
 
 /**
  *  Returns a pathvector that is the outline of the stroked item, with markers.
- *  item must be SPShape of SPText.
+ *  item must be SPShape or SPText.
  */
 Geom::PathVector* item_outline(SPItem const *item)
 {
     Geom::PathVector *ret_pathv = NULL;
 
-    if (!SP_IS_SHAPE(item) && !SP_IS_TEXT(item))
+    if (!SP_IS_SHAPE(item) && !SP_IS_TEXT(item)) {
         return ret_pathv;
+    }
 
     // no stroke: no outline
-    if (!SP_OBJECT_STYLE(item) || SP_OBJECT_STYLE(item)->stroke.noneSet) {
+    if (!item->style || item->style->stroke.noneSet) {
         return ret_pathv;
     }
 
@@ -679,9 +699,9 @@ Geom::PathVector* item_outline(SPItem const *item)
     }
 
     // remember old stroke style, to be set on fill
-    SPStyle *i_style = SP_OBJECT_STYLE(item);
+    SPStyle *i_style = item->style;
 
-    Geom::Matrix const transform(item->transform);
+    Geom::Affine const transform(item->transform);
     float const scale = transform.descrim();
 
     float o_width, o_miter;
@@ -793,7 +813,7 @@ Geom::PathVector* item_outline(SPItem const *item)
             // START marker
             for (int i = 0; i < 2; i++) {  // SP_MARKER_LOC and SP_MARKER_LOC_START
                 if ( SPObject *marker_obj = shape->marker[i] ) {
-                    Geom::Matrix const m (sp_shape_marker_get_transform_at_start(pathv.front().front()));
+                    Geom::Affine const m (sp_shape_marker_get_transform_at_start(pathv.front().front()));
                     item_outline_add_marker( marker_obj, m,
                                              Geom::Scale(i_style->stroke_width.computed),
                                              ret_pathv );
@@ -808,7 +828,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                     if ( path_it != pathv.begin() 
                          && ! ((path_it == (pathv.end()-1)) && (path_it->size_default() == 0)) ) // if this is the last path and it is a moveto-only, there is no mid marker there
                     {
-                        Geom::Matrix const m (sp_shape_marker_get_transform_at_start(path_it->front()));
+                        Geom::Affine const m (sp_shape_marker_get_transform_at_start(path_it->front()));
                         item_outline_add_marker( midmarker_obj, m,
                                                  Geom::Scale(i_style->stroke_width.computed),
                                                  ret_pathv );
@@ -823,7 +843,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                              * Loop to end_default (so including closing segment), because when a path is closed,
                              * there should be a midpoint marker between last segment and closing straight line segment
                              */
-                            Geom::Matrix const m (sp_shape_marker_get_transform(*curve_it1, *curve_it2));
+                            Geom::Affine const m (sp_shape_marker_get_transform(*curve_it1, *curve_it2));
                             item_outline_add_marker( midmarker_obj, m,
                                                      Geom::Scale(i_style->stroke_width.computed),
                                                      ret_pathv);
@@ -835,7 +855,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                     // END position
                     if ( path_it != (pathv.end()-1) && !path_it->empty()) {
                         Geom::Curve const &lastcurve = path_it->back_default();
-                        Geom::Matrix const m = sp_shape_marker_get_transform_at_end(lastcurve);
+                        Geom::Affine const m = sp_shape_marker_get_transform_at_end(lastcurve);
                         item_outline_add_marker( midmarker_obj, m,
                                                  Geom::Scale(i_style->stroke_width.computed),
                                                  ret_pathv );
@@ -854,7 +874,7 @@ Geom::PathVector* item_outline(SPItem const *item)
                     }
                     Geom::Curve const &lastcurve = path_last[index];
 
-                    Geom::Matrix const m = sp_shape_marker_get_transform_at_end(lastcurve);
+                    Geom::Affine const m = sp_shape_marker_get_transform_at_end(lastcurve);
                     item_outline_add_marker( marker_obj, m,
                                              Geom::Scale(i_style->stroke_width.computed),
                                              ret_pathv );
@@ -909,14 +929,14 @@ sp_selected_path_outline(SPDesktop *desktop)
         }
 
         // pas de stroke pas de chocolat
-        if (!SP_OBJECT_STYLE(item) || SP_OBJECT_STYLE(item)->stroke.noneSet) {
+        if (!item->style || item->style->stroke.noneSet) {
             curve->unref();
             continue;
         }
 
         // remember old stroke style, to be set on fill
-        SPStyle *i_style = SP_OBJECT_STYLE(item);
-        SPCSSAttr *ncss;
+        SPStyle *i_style = item->style;
+        SPCSSAttr *ncss = 0;
         {
             ncss = sp_css_attr_from_style(i_style, SP_STYLE_FLAG_ALWAYS);
             gchar const *s_val = sp_repr_css_property(ncss, "stroke", NULL);
@@ -935,10 +955,10 @@ sp_selected_path_outline(SPDesktop *desktop)
             sp_repr_css_unset_property(ncss, "marker-end");
         }
 
-        Geom::Matrix const transform(item->transform);
+        Geom::Affine const transform(item->transform);
         float const scale = transform.descrim();
-        gchar const *mask = SP_OBJECT_REPR(item)->attribute("mask");
-        gchar const *clip_path = SP_OBJECT_REPR(item)->attribute("clip-path");
+        gchar const *mask = item->getRepr()->attribute("mask");
+        gchar const *clip_path = item->getRepr()->attribute("clip-path");
 
         float o_width, o_miter;
         JoinType o_join;
@@ -1052,11 +1072,11 @@ sp_selected_path_outline(SPDesktop *desktop)
         did = true;
 
         // remember the position of the item
-        gint pos = SP_OBJECT_REPR(item)->position();
+        gint pos = item->getRepr()->position();
         // remember parent
-        Inkscape::XML::Node *parent = SP_OBJECT_REPR(item)->parent();
+        Inkscape::XML::Node *parent = item->getRepr()->parent();
         // remember id
-        char const *id = SP_OBJECT_REPR(item)->attribute("id");
+        char const *id = item->getRepr()->attribute("id");
         // remember title
         gchar *title = item->title();
         // remember description
@@ -1111,7 +1131,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                 // START marker
                 for (int i = 0; i < 2; i++) {  // SP_MARKER_LOC and SP_MARKER_LOC_START
                     if ( SPObject *marker_obj = shape->marker[i] ) {
-                        Geom::Matrix const m (sp_shape_marker_get_transform_at_start(pathv.front().front()));
+                        Geom::Affine const m (sp_shape_marker_get_transform_at_start(pathv.front().front()));
                         sp_selected_path_outline_add_marker( marker_obj, m,
                                                              Geom::Scale(i_style->stroke_width.computed), transform,
                                                              g_repr, xml_doc, doc );
@@ -1126,7 +1146,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                         if ( path_it != pathv.begin() 
                              && ! ((path_it == (pathv.end()-1)) && (path_it->size_default() == 0)) ) // if this is the last path and it is a moveto-only, there is no mid marker there
                         {
-                            Geom::Matrix const m (sp_shape_marker_get_transform_at_start(path_it->front()));
+                            Geom::Affine const m (sp_shape_marker_get_transform_at_start(path_it->front()));
                             sp_selected_path_outline_add_marker( midmarker_obj, m,
                                                                  Geom::Scale(i_style->stroke_width.computed), transform,
                                                                  g_repr, xml_doc, doc );
@@ -1141,7 +1161,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                                  * Loop to end_default (so including closing segment), because when a path is closed,
                                  * there should be a midpoint marker between last segment and closing straight line segment
                                  */
-                                Geom::Matrix const m (sp_shape_marker_get_transform(*curve_it1, *curve_it2));
+                                Geom::Affine const m (sp_shape_marker_get_transform(*curve_it1, *curve_it2));
                                 sp_selected_path_outline_add_marker(midmarker_obj, m,
                                                                     Geom::Scale(i_style->stroke_width.computed), transform,
                                                                     g_repr, xml_doc, doc);
@@ -1153,7 +1173,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                         // END position
                         if ( path_it != (pathv.end()-1) && !path_it->empty()) {
                             Geom::Curve const &lastcurve = path_it->back_default();
-                            Geom::Matrix const m = sp_shape_marker_get_transform_at_end(lastcurve);
+                            Geom::Affine const m = sp_shape_marker_get_transform_at_end(lastcurve);
                             sp_selected_path_outline_add_marker( midmarker_obj, m,
                                                                  Geom::Scale(i_style->stroke_width.computed), transform,
                                                                  g_repr, xml_doc, doc );
@@ -1172,7 +1192,7 @@ sp_selected_path_outline(SPDesktop *desktop)
                         }
                         Geom::Curve const &lastcurve = path_last[index];
 
-                        Geom::Matrix const m = sp_shape_marker_get_transform_at_end(lastcurve);
+                        Geom::Affine const m = sp_shape_marker_get_transform_at_end(lastcurve);
                         sp_selected_path_outline_add_marker( marker_obj, m,
                                                              Geom::Scale(i_style->stroke_width.computed), transform,
                                                              g_repr, xml_doc, doc );
@@ -1212,11 +1232,17 @@ sp_selected_path_outline(SPDesktop *desktop)
 
             curve->unref();
             selection->remove(item);
-            SP_OBJECT(item)->deleteObject(false);
+            item->deleteObject(false);
 
         }
-        if (title) g_free(title);
-        if (desc) g_free(desc);
+        if (title) {
+            g_free(title);
+            title = 0;
+        }
+        if (desc) {
+            g_free(desc);
+            desc = 0;
+        }
 
         delete res;
         delete orig;
@@ -1326,24 +1352,23 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
             return;
     }
 
-    Geom::Matrix const transform(item->transform);
+    Geom::Affine const transform(item->transform);
 
-    item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
+    item->doWriteTransform(item->getRepr(), Geom::identity());
 
 	//XML Tree being used directly here while it shouldn't be...
-    style = g_strdup(SP_OBJECT(item)->getRepr()->attribute("style"));
+    style = g_strdup(item->getRepr()->attribute("style"));
 
     // remember the position of the item
-    gint pos = SP_OBJECT_REPR(item)->position();
+    gint pos = item->getRepr()->position();
     // remember parent
-    Inkscape::XML::Node *parent = SP_OBJECT_REPR(item)->parent();
+    Inkscape::XML::Node *parent = item->getRepr()->parent();
 
     {
-        SPStyle *i_style = SP_OBJECT(item)->style;
-        int jointype, captype;
+        SPStyle *i_style = item->style;
+        int jointype = i_style->stroke_linejoin.value;
+        int captype = i_style->stroke_linecap.value;
 
-        jointype = i_style->stroke_linejoin.value;
-        captype = i_style->stroke_linecap.value;
         o_width = i_style->stroke_width.computed;
         if (jointype == SP_STROKE_LINEJOIN_MITER)
         {
@@ -1398,7 +1423,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
         orig->ConvertWithBackData(1.0);
         orig->Fill(theShape, 0);
 
-        SPCSSAttr *css = sp_repr_css_attr(SP_OBJECT_REPR(item), "style");
+        SPCSSAttr *css = sp_repr_css_attr(item->getRepr(), "style");
         gchar const *val = sp_repr_css_property(css, "fill-rule", NULL);
         if (val && strcmp(val, "nonzero") == 0)
         {
@@ -1461,7 +1486,8 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
         if ( updating ) {
 
 			//XML Tree being used directly here while it shouldn't be
-            char const *id = SP_OBJECT(item)->getRepr()->attribute("id");
+            item->doWriteTransform(item->getRepr(), transform);
+            char const *id = item->getRepr()->attribute("id");
             char const *uri = g_strdup_printf("#%s", id);
             repr->setAttribute("xlink:href", uri);
             g_free((void *) uri);
@@ -1479,19 +1505,15 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
 
         SPItem *nitem = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
 
-        if ( updating ) {
-            // on conserve l'original
-            // we reapply the transform to the original (offset will feel it)
-            item->doWriteTransform(SP_OBJECT_REPR(item), transform);
-        } else {
+        if ( !updating ) {
             // delete original, apply the transform to the offset
-            SP_OBJECT(item)->deleteObject(false);
+            item->deleteObject(false);
             nitem->doWriteTransform(repr, transform);
         }
 
         // The object just created from a temporary repr is only a seed.
         // We need to invoke its write which will update its real repr (in particular adding d=)
-        SP_OBJECT(nitem)->updateRepr();
+        nitem->updateRepr();
 
         Inkscape::GC::release(repr);
 
@@ -1554,22 +1576,21 @@ sp_selected_path_do_offset(SPDesktop *desktop, bool expand, double prefOffset)
                 continue;
         }
 
-        Geom::Matrix const transform(item->transform);
+        Geom::Affine const transform(item->transform);
 
-        item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
+        item->doWriteTransform(item->getRepr(), Geom::identity());
 
-        gchar *style = g_strdup(SP_OBJECT_REPR(item)->attribute("style"));
+        gchar *style = g_strdup(item->getRepr()->attribute("style"));
 
         float o_width, o_miter;
         JoinType o_join;
         ButtType o_butt;
 
         {
-            SPStyle *i_style = SP_OBJECT(item)->style;
-            int jointype, captype;
+            SPStyle *i_style = item->style;
+            int jointype = i_style->stroke_linejoin.value;
+            int captype = i_style->stroke_linecap.value;
 
-            jointype = i_style->stroke_linejoin.value;
-            captype = i_style->stroke_linecap.value;
             o_width = i_style->stroke_width.computed;
 
             switch (jointype) {
@@ -1620,7 +1641,7 @@ sp_selected_path_do_offset(SPDesktop *desktop, bool expand, double prefOffset)
             orig->ConvertWithBackData(0.03);
             orig->Fill(theShape, 0);
 
-            SPCSSAttr *css = sp_repr_css_attr(SP_OBJECT_REPR(item), "style");
+            SPCSSAttr *css = sp_repr_css_attr(item->getRepr(), "style");
             gchar const *val = sp_repr_css_property(css, "fill-rule", NULL);
             if (val && strcmp(val, "nonzero") == 0)
             {
@@ -1696,14 +1717,14 @@ sp_selected_path_do_offset(SPDesktop *desktop, bool expand, double prefOffset)
 
         curve->unref();
         // remember the position of the item
-        gint pos = SP_OBJECT_REPR(item)->position();
+        gint pos = item->getRepr()->position();
         // remember parent
-        Inkscape::XML::Node *parent = SP_OBJECT_REPR(item)->parent();
+        Inkscape::XML::Node *parent = item->getRepr()->parent();
         // remember id
-        char const *id = SP_OBJECT_REPR(item)->attribute("id");
+        char const *id = item->getRepr()->attribute("id");
 
         selection->remove(item);
-        SP_OBJECT(item)->deleteObject(false);
+        item->deleteObject(false);
 
         if (res->descr_cmd.size() > 1) { // if there's 0 or 1 node left, drop this path altogether
 
@@ -1782,64 +1803,48 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
                                                false);
     }
 
-
-    SPCurve *curve = NULL;
-
-    if (SP_IS_SHAPE(item)) {
-        curve = SP_SHAPE(item)->getCurve();
-        if (!curve)
-            return false;
-    }
-
-    if (SP_IS_TEXT(item)) {
-        curve = SP_TEXT(item)->getNormalizedBpath();
-        if (!curve)
-            return false;
+    // get path to simplify (note that the path *before* LPE calculation is needed)
+    Path *orig = Path_for_item_before_LPE(item, false);
+    if (orig == NULL) {
+        return false;
     }
 
     // correct virtual size by full transform (bug #166937)
     size /= item->i2doc_affine().descrim();
 
     // save the transform, to re-apply it after simplification
-    Geom::Matrix const transform(item->transform);
+    Geom::Affine const transform(item->transform);
 
     /*
        reset the transform, effectively transforming the item by transform.inverse();
        this is necessary so that the item is transformed twice back and forth,
        allowing all compensations to cancel out regardless of the preferences
     */
-    item->doWriteTransform(SP_OBJECT_REPR(item), Geom::identity());
+    item->doWriteTransform(item->getRepr(), Geom::identity());
 
-    gchar *style = g_strdup(SP_OBJECT_REPR(item)->attribute("style"));
-    gchar *mask = g_strdup(SP_OBJECT_REPR(item)->attribute("mask"));
-    gchar *clip_path = g_strdup(SP_OBJECT_REPR(item)->attribute("clip-path"));
+    gchar *style = g_strdup(item->getRepr()->attribute("style"));
+    gchar *mask = g_strdup(item->getRepr()->attribute("mask"));
+    gchar *clip_path = g_strdup(item->getRepr()->attribute("clip-path"));
 
-    Path *orig = Path_for_item(item, false);
-    if (orig == NULL) {
-        g_free(style);
-        curve->unref();
-        return false;
-    }
-
-    curve->unref();
     // remember the position of the item
-    gint pos = SP_OBJECT_REPR(item)->position();
+    gint pos = item->getRepr()->position();
     // remember parent
-    Inkscape::XML::Node *parent = SP_OBJECT_REPR(item)->parent();
+    Inkscape::XML::Node *parent = item->getRepr()->parent();
     // remember id
-    char const *id = SP_OBJECT_REPR(item)->attribute("id");
+    char const *id = item->getRepr()->attribute("id");
     // remember path effect
-    char const *patheffect = SP_OBJECT_REPR(item)->attribute("inkscape:path-effect");
+    char const *patheffect = item->getRepr()->attribute("inkscape:path-effect");
     // remember title
     gchar *title = item->title();
     // remember description
     gchar *desc = item->desc();
     
     //If a group was selected, to not change the selection list
-    if (modifySelection)
+    if (modifySelection) {
         selection->remove(item);
+    }
 
-    SP_OBJECT(item)->deleteObject(false);
+    item->deleteObject(false);
 
     if ( justCoalesce ) {
         orig->Coalesce(threshold * size);
@@ -2083,12 +2088,33 @@ Path_for_item(SPItem *item, bool doTransformation, bool transformFull)
     return dest;
 }
 
+/**
+ * Obtains an item's Path before the LPE stack has been applied.
+ */
+Path *
+Path_for_item_before_LPE(SPItem *item, bool doTransformation, bool transformFull)
+{
+    SPCurve *curve = curve_for_item_before_LPE(item);
+
+    if (curve == NULL)
+        return NULL;
+    
+    Geom::PathVector *pathv = pathvector_for_curve(item, curve, doTransformation, transformFull, Geom::identity(), Geom::identity());
+    curve->unref();
+    
+    Path *dest = new Path;
+    dest->LoadPathVector(*pathv);
+    delete pathv;
+
+    return dest;
+}
+
 /* 
  * NOTE: Returns empty pathvector if curve == NULL
  * TODO: see if calling this method can be optimized. All the pathvector copying might be slow.
  */
 Geom::PathVector*
-pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool transformFull, Geom::Matrix extraPreAffine, Geom::Matrix extraPostAffine)
+pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool transformFull, Geom::Affine extraPreAffine, Geom::Affine extraPostAffine)
 {
     if (curve == NULL)
         return NULL;
@@ -2100,7 +2126,7 @@ pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool t
         if (transformFull) {
             *dest *= extraPreAffine * item->i2doc_affine() * extraPostAffine;
         } else {
-            *dest *= extraPreAffine * (Geom::Matrix)item->transform * extraPostAffine;
+            *dest *= extraPreAffine * (Geom::Affine)item->transform * extraPostAffine;
         }
     } else {
         *dest *= extraPreAffine * extraPostAffine;
@@ -2109,6 +2135,10 @@ pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool t
     return dest;
 }
 
+/**
+ * Obtains an item's curve. For SPPath, it is the path *before* LPE. For SPShapes other than path, it is the path *after* LPE.
+ * So the result is somewhat ill-defined, and probably this method should not be used... See curve_for_item_before_LPE.
+ */
 SPCurve* curve_for_item(SPItem *item)
 {
     if (!item) 
@@ -2129,6 +2159,31 @@ SPCurve* curve_for_item(SPItem *item)
     else if (SP_IS_IMAGE(item))
     {
     curve = sp_image_get_curve(SP_IMAGE(item));
+    }
+    
+    return curve; // do not forget to unref the curve at some point!
+}
+
+/**
+ * Obtains an item's curve *before* LPE.
+ * The returned SPCurve should be unreffed by the caller.
+ */
+SPCurve* curve_for_item_before_LPE(SPItem *item)
+{
+    if (!item) 
+        return NULL;
+    
+    SPCurve *curve = NULL;
+    if (SP_IS_SHAPE(item)) {
+        curve = SP_SHAPE(item)->getCurveBeforeLPE();
+    }
+    else if (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item))
+    {
+        curve = te_get_layout(item)->convertToCurves();
+    }
+    else if (SP_IS_IMAGE(item))
+    {
+        curve = sp_image_get_curve(SP_IMAGE(item));
     }
     
     return curve; // do not forget to unref the curve at some point!

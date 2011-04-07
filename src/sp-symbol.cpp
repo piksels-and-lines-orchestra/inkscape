@@ -38,7 +38,7 @@ static Inkscape::XML::Node *sp_symbol_write (SPObject *object, Inkscape::XML::Do
 
 static NRArenaItem *sp_symbol_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
 static void sp_symbol_hide (SPItem *item, unsigned int key);
-static void sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags);
+static void sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
 static void sp_symbol_print (SPItem *item, SPPrintContext *ctx);
 
 static SPGroupClass *parent_class;
@@ -257,7 +257,7 @@ sp_symbol_update (SPObject *object, SPCtx *ctx, guint flags)
     symbol = SP_SYMBOL (object);
     ictx = (SPItemCtx *) ctx;
 
-    if (SP_OBJECT_IS_CLONED (object)) {
+    if (object->cloned) {
         /* Cloned <symbol> is actually renderable */
 
         /* fixme: We have to set up clip here too */
@@ -267,7 +267,7 @@ sp_symbol_update (SPObject *object, SPCtx *ctx, guint flags)
 
         /* Calculate child to parent transformation */
         /* Apply parent <use> translation (set up as vewport) */
-        symbol->c2p = Geom::Matrix(Geom::Translate(rctx.vp.x0, rctx.vp.y0));
+        symbol->c2p = Geom::Affine(Geom::Translate(rctx.vp.x0, rctx.vp.y0));
 
         if (symbol->viewBox_set) {
             double x, y, width, height;
@@ -330,7 +330,7 @@ sp_symbol_update (SPObject *object, SPCtx *ctx, guint flags)
                 }
             }
             /* Compose additional transformation from scale and position */
-            Geom::Matrix q;
+            Geom::Affine q;
             q[0] = width / (symbol->viewBox.x1 - symbol->viewBox.x0);
             q[1] = 0.0;
             q[2] = 0.0;
@@ -341,7 +341,7 @@ sp_symbol_update (SPObject *object, SPCtx *ctx, guint flags)
             symbol->c2p = q * symbol->c2p;
         }
 
-        rctx.i2doc = symbol->c2p * (Geom::Matrix)rctx.i2doc;
+        rctx.i2doc = symbol->c2p * (Geom::Affine)rctx.i2doc;
 
         /* If viewBox is set initialize child viewport */
         /* Otherwise <use> has set it up already */
@@ -411,7 +411,7 @@ sp_symbol_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int fla
 
     symbol = SP_SYMBOL (item);
 
-    if (SP_OBJECT_IS_CLONED (symbol)) {
+    if (symbol->cloned) {
         /* Cloned <symbol> is actually renderable */
         if (((SPItemClass *) (parent_class))->show) {
             ai = ((SPItemClass *) (parent_class))->show (item, arena, key, flags);
@@ -435,7 +435,7 @@ sp_symbol_hide (SPItem *item, unsigned int key)
 
     symbol = SP_SYMBOL (item);
 
-    if (SP_OBJECT_IS_CLONED (symbol)) {
+    if (symbol->cloned) {
         /* Cloned <symbol> is actually renderable */
         if (((SPItemClass *) (parent_class))->hide)
             ((SPItemClass *) (parent_class))->hide (item, key);
@@ -443,15 +443,15 @@ sp_symbol_hide (SPItem *item, unsigned int key)
 }
 
 static void
-sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Matrix const &transform, unsigned const flags)
+sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags)
 {
     SPSymbol const *symbol = SP_SYMBOL(item);
 
-    if (SP_OBJECT_IS_CLONED (symbol)) {
+    if (symbol->cloned) {
         /* Cloned <symbol> is actually renderable */
 
         if (((SPItemClass *) (parent_class))->bbox) {
-            Geom::Matrix const a( symbol->c2p * transform );
+            Geom::Affine const a( symbol->c2p * transform );
             ((SPItemClass *) (parent_class))->bbox(item, bbox, a, flags);
         }
     }
@@ -461,7 +461,7 @@ static void
 sp_symbol_print (SPItem *item, SPPrintContext *ctx)
 {
     SPSymbol *symbol = SP_SYMBOL(item);
-    if (SP_OBJECT_IS_CLONED (symbol)) {
+    if (symbol->cloned) {
         /* Cloned <symbol> is actually renderable */
 
         sp_print_bind(ctx, &symbol->c2p, 1.0);

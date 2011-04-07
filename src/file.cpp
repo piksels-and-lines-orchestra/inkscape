@@ -963,7 +963,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
         prevent_id_clashes(doc, in_doc);
 
         SPObject *in_defs = SP_DOCUMENT_DEFS(in_doc);
-        Inkscape::XML::Node *last_def = SP_OBJECT_REPR(in_defs)->lastChild();
+        Inkscape::XML::Node *last_def = in_defs->getRepr()->lastChild();
 
         SPCSSAttr *style = sp_css_attr_from_object(doc->getRoot());
 
@@ -977,7 +977,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
 
         // Create a new group if necessary.
         Inkscape::XML::Node *newgroup = NULL;
-        if ((style && style->firstChild()) || items_count > 1) {
+        if ((style && style->attributeList()) || items_count > 1) {
             newgroup = xml_in_doc->createElement("svg:g");
             sp_repr_css_set(newgroup, style, "style");
         }
@@ -999,7 +999,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
         SPObject *new_obj = NULL;
         for ( SPObject *child = doc->getRoot()->firstChild(); child; child = child->getNext() ) {
             if (SP_IS_ITEM(child)) {
-                Inkscape::XML::Node *newitem = SP_OBJECT_REPR(child)->duplicate(xml_in_doc);
+                Inkscape::XML::Node *newitem = child->getRepr()->duplicate(xml_in_doc);
 
                 // convert layers to groups, and make sure they are unlocked
                 // FIXME: add "preserve layers" mode where each layer from
@@ -1012,15 +1012,15 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
             }
 
             // don't lose top-level defs or style elements
-            else if (SP_OBJECT_REPR(child)->type() == Inkscape::XML::ELEMENT_NODE) {
-                const gchar *tag = SP_OBJECT_REPR(child)->name();
+            else if (child->getRepr()->type() == Inkscape::XML::ELEMENT_NODE) {
+                const gchar *tag = child->getRepr()->name();
                 if (!strcmp(tag, "svg:defs")) {
                     for ( SPObject *x = child->firstChild(); x; x = x->getNext() ) {
-                        SP_OBJECT_REPR(in_defs)->addChild(SP_OBJECT_REPR(x)->duplicate(xml_in_doc), last_def);
+                        in_defs->getRepr()->addChild(x->getRepr()->duplicate(xml_in_doc), last_def);
                     }
                 }
                 else if (!strcmp(tag, "svg:style")) {
-                    in_doc->getRoot()->appendChildRepr(SP_OBJECT_REPR(child)->duplicate(xml_in_doc));
+                    in_doc->getRoot()->appendChildRepr(child->getRepr()->duplicate(xml_in_doc));
                 }
             }
         }
@@ -1038,7 +1038,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
             // preserve parent and viewBox transformations
             // c2p is identity matrix at this point unless ensureUpToDate is called
             doc->ensureUpToDate();
-            Geom::Matrix affine = SP_ROOT(doc->getRoot())->c2p * SP_ITEM(place_to_insert)->i2doc_affine().inverse();
+            Geom::Affine affine = SP_ROOT(doc->getRoot())->c2p * SP_ITEM(place_to_insert)->i2doc_affine().inverse();
             sp_selection_apply_affine(selection, desktop->dt2doc() * affine * desktop->doc2dt(), true, false);
 
             // move to mouse pointer

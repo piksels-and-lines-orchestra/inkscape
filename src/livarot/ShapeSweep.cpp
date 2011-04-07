@@ -11,7 +11,7 @@
 #include <cstring>
 #include <glib.h>
 #include <glib/gmem.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include "Shape.h"
 #include "livarot/sweep-event-queue.h"
 #include "livarot/sweep-tree-list.h"
@@ -2605,7 +2605,7 @@ Shape::TesteIntersection (Shape * ils, Shape * irs, int ilb, int irb,
   usvs = irs->pData[rSt].rx - ils->pData[lSt].rx;
 
   // pas sur de l'ordre des coefs de m
-  Geom::Matrix m(ldir[0], ldir[1],
+  Geom::Affine m(ldir[0], ldir[1],
 	       rdir[0], rdir[1],
 	       0, 0);
   double det = m.det();

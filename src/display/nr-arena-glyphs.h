@@ -1,5 +1,5 @@
-#ifndef __NR_ARENA_GLYPHS_H__
-#define __NR_ARENA_GLYPHS_H__
+#ifndef SEEN_NR_ARENA_GLYPHS_H
+#define SEEN_NR_ARENA_GLYPHS_H
 
 /*
  * RGBA display list system for inkscape
@@ -26,13 +26,15 @@
 
 #define test_glyph_liv
 
+struct SPCurve;
 class Shape;
 
 NRType nr_arena_glyphs_get_type (void);
 
 struct NRArenaGlyphs : public NRArenaItem {
 	/* Glyphs data */
-	Geom::Matrix g_transform;
+	Geom::Affine g_transform;
+
 	font_instance *font;
 	gint glyph;
 	float x, y;
@@ -51,7 +53,7 @@ struct NRArenaGlyphsClass {
 void nr_arena_glyphs_set_path ( NRArenaGlyphs *glyphs,
                                 SPCurve *curve, unsigned int lieutenant,
                                 font_instance *font, int glyph,
-                                Geom::Matrix const *transform   );
+                                Geom::Affine const *transform   );
 void nr_arena_glyphs_set_style (NRArenaGlyphs *glyphs, SPStyle *style);
 
 /* Integrated group of component glyphss */
@@ -86,10 +88,21 @@ struct NRArenaGlyphsGroupClass {
 
 void nr_arena_glyphs_group_clear (NRArenaGlyphsGroup *group);
 
-void nr_arena_glyphs_group_add_component (NRArenaGlyphsGroup *group, font_instance *font, int glyph, Geom::Matrix const &transform);
+void nr_arena_glyphs_group_add_component (NRArenaGlyphsGroup *group, font_instance *font, int glyph, Geom::Affine const &transform);
 
 void nr_arena_glyphs_group_set_style (NRArenaGlyphsGroup *group, SPStyle *style);
 
 void nr_arena_glyphs_group_set_paintbox (NRArenaGlyphsGroup *group, const NRRect *pbox);
 
-#endif
+#endif // SEEN_NR_ARENA_GLYPHS_H
+
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0)(case-label . +))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4 :

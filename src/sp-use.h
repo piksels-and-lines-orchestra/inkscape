@@ -13,6 +13,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <stddef.h>
 #include <sigc++/sigc++.h>
 #include "svg/svg-length.h"
 #include "sp-item.h"
@@ -59,8 +60,8 @@ GType sp_use_get_type (void);
 
 SPItem *sp_use_unlink (SPUse *use);
 SPItem *sp_use_get_original (SPUse *use);
-Geom::Matrix sp_use_get_parent_transform (SPUse *use);
-Geom::Matrix sp_use_get_root_transform(SPUse *use);
+Geom::Affine sp_use_get_parent_transform (SPUse *use);
+Geom::Affine sp_use_get_root_transform(SPUse *use);
 
 SPItem *sp_use_root(SPUse *use);
 #endif

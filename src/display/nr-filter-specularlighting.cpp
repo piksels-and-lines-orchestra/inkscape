@@ -91,7 +91,7 @@ private:
 
 struct SpecularPointLight : public SpecularLight {
     SpecularPointLight(cairo_surface_t *bumpmap, SPFePointLight *light, guint32 color,
-            Geom::Matrix const &trans, double scale, double specular_constant,
+            Geom::Affine const &trans, double scale, double specular_constant,
             double specular_exponent, double x0, double y0)
         : SpecularLight(bumpmap, scale, specular_constant, specular_exponent)
         , _light(light, color, trans)
@@ -115,7 +115,7 @@ private:
 
 struct SpecularSpotLight : public SpecularLight {
     SpecularSpotLight(cairo_surface_t *bumpmap, SPFeSpotLight *light, guint32 color,
-            Geom::Matrix const &trans, double scale, double specular_constant,
+            Geom::Affine const &trans, double scale, double specular_constant,
             double specular_exponent, double x0, double y0)
         : SpecularLight(bumpmap, scale, specular_constant, specular_exponent)
         , _light(light, color, trans)
@@ -141,7 +141,7 @@ void FilterSpecularLighting::render_cairo(FilterSlot &slot)
     cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
 
     NRRectL const &slot_area = slot.get_slot_area();
-    Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
+    Geom::Affine trans = slot.get_units().get_matrix_primitiveunits2pb();
     double x0 = slot_area.x0, y0 = slot_area.y0;
     double scale = surfaceScale * trans.descrim();
     double ks = specularConstant;
@@ -195,7 +195,7 @@ int FilterSpecularLighting::render(FilterSlot &slot, FilterUnits const &units) {
     int dx = 1; //TODO setup
     int dy = 1; //TODO setup
     //surface scale
-    Geom::Matrix trans = units.get_matrix_primitiveunits2pb();
+    Geom::Affine trans = units.get_matrix_primitiveunits2pb();
     gdouble ss = surfaceScale * trans[0];
     gdouble ks = specularConstant; //diffuse lighting constant
     NR::Fvector L, N, LC, H;
@@ -303,7 +303,7 @@ int FilterSpecularLighting::render(FilterSlot &slot, FilterUnits const &units) {
     return 0;
 }*/
 
-void FilterSpecularLighting::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
+void FilterSpecularLighting::area_enlarge(NRRectL &area, Geom::Affine const &trans)
 {
     // TODO: support kernelUnitLength
 

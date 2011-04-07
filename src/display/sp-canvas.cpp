@@ -1,5 +1,3 @@
-#define __SP_CANVAS_C__
-
 /** \file
  * Port of GnomeCanvas for Inkscape needs
  *
@@ -28,9 +26,10 @@
 
 #include "helper/sp-marshal.h"
 #include <helper/recthull.h>
-#include <display/sp-canvas.h>
 #include "display-forward.h"
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
+#include "display/sp-canvas.h"
+#include "display/sp-canvas-group.h"
 #include "preferences.h"
 #include "inkscape.h"
 #include "sodipodi-ctrlrect.h"
@@ -169,7 +168,7 @@ sp_canvas_item_init (SPCanvasItem *item)
     // that should be initially invisible; examples of such items: node handles, the CtrlRect
     // used for rubberbanding, path outline, etc.
     item->flags |= SP_CANVAS_ITEM_VISIBLE;
-    item->xform = Geom::Matrix(Geom::identity());
+    item->xform = Geom::Affine(Geom::identity());
 }
 
 /**
@@ -282,10 +281,10 @@ sp_canvas_item_dispose (GObject *object)
  * NB! affine is parent2canvas.
  */
 static void
-sp_canvas_item_invoke_update (SPCanvasItem *item, Geom::Matrix const &affine, unsigned int flags)
+sp_canvas_item_invoke_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int flags)
 {
     /* Apply the child item's transform */
-    Geom::Matrix child_affine = item->xform * affine;
+    Geom::Affine child_affine = item->xform * affine;
 
     /* apply object flags to child flags */
     int child_flags = flags & ~SP_CANVAS_UPDATE_REQUESTED;
@@ -329,7 +328,7 @@ sp_canvas_item_invoke_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **a
  * @affine: An affine transformation matrix.
  */
 void
-sp_canvas_item_affine_absolute (SPCanvasItem *item, Geom::Matrix const &affine)
+sp_canvas_item_affine_absolute (SPCanvasItem *item, Geom::Affine const &affine)
 {
     item->xform = affine;
 
@@ -596,11 +595,11 @@ sp_canvas_item_ungrab (SPCanvasItem *item, guint32 etime)
  * Returns the product of all transformation matrices from the root item down
  * to the item.
  */
-Geom::Matrix sp_canvas_item_i2w_affine(SPCanvasItem const *item)
+Geom::Affine sp_canvas_item_i2w_affine(SPCanvasItem const *item)
 {
     g_assert (SP_IS_CANVAS_ITEM (item)); // should we get this?
 
-    Geom::Matrix affine = Geom::identity();
+    Geom::Affine affine = Geom::identity();
 
     while (item) {
         affine *= item->xform;
@@ -695,7 +694,7 @@ static void sp_canvas_group_class_init (SPCanvasGroupClass *klass);
 static void sp_canvas_group_init (SPCanvasGroup *group);
 static void sp_canvas_group_destroy (GtkObject *object);
 
-static void sp_canvas_group_update (SPCanvasItem *item, Geom::Matrix const &affine, unsigned int flags);
+static void sp_canvas_group_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int flags);
 static double sp_canvas_group_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_item);
 static void sp_canvas_group_render (SPCanvasItem *item, SPCanvasBuf *buf);
 
@@ -780,7 +779,7 @@ sp_canvas_group_destroy (GtkObject *object)
  * Update handler for canvas groups
  */
 static void
-sp_canvas_group_update (SPCanvasItem *item, Geom::Matrix const &affine, unsigned int flags)
+sp_canvas_group_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int flags)
 {
     SPCanvasGroup const *group = SP_CANVAS_GROUP (item);
     Geom::RectHull corners(Geom::Point(0, 0));
@@ -846,6 +845,12 @@ sp_canvas_group_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_
             } else
                 has_point = FALSE;
 
+            // This metric should be improved, because in case of (partly) overlapping items we will now
+            // always select the last one that has been added to the group. We could instead select the one
+            // of which the center is the closest, for example. One can then move to the center
+            // of the item to be focused, and have that one selected. Of course this will only work if the
+            // centers are not coincident, but at least it's better than what we have now.
+            // See the extensive comment in Inkscape::SelTrans::_updateHandles()
             if (has_point && point_item && ((int) (dist + 0.5) <= item->canvas->close_enough)) {
                 best = dist;
                 *actual_item = point_item;

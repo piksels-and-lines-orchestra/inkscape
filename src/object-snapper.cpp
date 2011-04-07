@@ -84,7 +84,7 @@ void Inkscape::ObjectSnapper::_findCandidates(SPObject* parent,
                                               bool const &first_point,
                                               Geom::Rect const &bbox_to_snap,
                                               bool const clip_or_mask,
-                                              Geom::Matrix const additional_affine) const // transformation of the item being clipped / masked
+                                              Geom::Affine const additional_affine) const // transformation of the item being clipped / masked
 {
     if (!ThisSnapperMightSnap()) {
         return;
@@ -198,7 +198,7 @@ void Inkscape::ObjectSnapper::_collectNodes(Inkscape::SnapSourceType const &t,
         }
 
         for (std::vector<SnapCandidateItem>::const_iterator i = _candidates->begin(); i != _candidates->end(); i++) {
-            //Geom::Matrix i2doc(Geom::identity());
+            //Geom::Affine i2doc(Geom::identity());
             SPItem *root_item = (*i).item;
             if (SP_IS_USE((*i).item)) {
                 root_item = sp_use_root(SP_USE((*i).item));
@@ -378,7 +378,7 @@ void Inkscape::ObjectSnapper::_collectPaths(Geom::Point /*p*/,
         for (std::vector<SnapCandidateItem>::const_iterator i = _candidates->begin(); i != _candidates->end(); i++) {
 
             /* Transform the requested snap point to this item's coordinates */
-            Geom::Matrix i2doc(Geom::identity());
+            Geom::Affine i2doc(Geom::identity());
             SPItem *root_item = NULL;
             /* We might have a clone at hand, so make sure we get the root item */
             if (SP_IS_USE((*i).item)) {
@@ -414,8 +414,13 @@ void Inkscape::ObjectSnapper::_collectPaths(Geom::Point /*p*/,
                         very_complex_path = sp_nodes_in_path(SP_PATH(root_item)) > 500;
                     }
 
-                    if (!very_lenghty_prose && !very_complex_path) {
-                        SPCurve *curve = curve_for_item(root_item);
+                    if (!very_lenghty_prose && !very_complex_path && root_item) {
+                        SPCurve *curve = NULL;
+                        if (SP_IS_SHAPE(root_item)) {
+                           curve = SP_SHAPE(root_item)->getCurve();
+                        } else if (SP_IS_TEXT(root_item) || SP_IS_FLOWTEXT(root_item)) {
+                           curve = te_get_layout(root_item)->convertToCurves();
+                        }
                         if (curve) {
                             // We will get our own copy of the pathvector, which must be freed at some point
 

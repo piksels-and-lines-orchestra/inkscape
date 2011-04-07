@@ -1,5 +1,5 @@
-#ifndef __INKSCAPE_CTRLLINE_H__
-#define __INKSCAPE_CTRLLINE_H__
+#ifndef SEEN_INKSCAPE_CTRLLINE_H
+#define SEEN_INKSCAPE_CTRLLINE_H
 
 /*
  * Simple straight line
@@ -14,7 +14,7 @@
  * Released under GNU GPL
  */
 
-#include "sp-canvas.h"
+#include "sp-canvas-item.h"
 
 struct SPItem;
 
@@ -26,7 +26,7 @@ struct SPCtrlLine : public SPCanvasItem{
     SPItem *item;  // the item to which this line belongs in some sense; may be NULL for some users
     guint32 rgba;
     Geom::Point s, e;
-    Geom::Matrix affine;
+    Geom::Affine affine;
 };
 struct SPCtrlLineClass : public SPCanvasItemClass{};
 
@@ -38,7 +38,7 @@ void sp_ctrlline_set_coords (SPCtrlLine *cl, const Geom::Point start, const Geom
 
 
 
-#endif
+#endif // SEEN_INKSCAPE_CTRLLINE_H
 
 /*
   Local Variables:

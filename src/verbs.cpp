@@ -1580,7 +1580,7 @@ TextVerb::perform(SPAction *action, void */*data*/, void */*pdata*/)
 
     SPDocument *doc = sp_desktop_document(dt);
     (void)doc;
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(dt->namedview);
+    Inkscape::XML::Node *repr = dt->namedview->getRepr();
     (void)repr;
 }
 
@@ -1595,7 +1595,7 @@ ZoomVerb::perform(SPAction *action, void *data, void */*pdata*/)
 
     SPDocument *doc = sp_desktop_document(dt);
 
-    Inkscape::XML::Node *repr = SP_OBJECT_REPR(dt->namedview);
+    Inkscape::XML::Node *repr = dt->namedview->getRepr();
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     gdouble zoom_inc =
@@ -1715,11 +1715,20 @@ ZoomVerb::perform(SPAction *action, void *data, void */*pdata*/)
         case SP_VERB_VIEW_MODE_OUTLINE:
             dt->setDisplayModeOutline();
             break;
-//        case SP_VERB_VIEW_MODE_PRINT_COLORS_PREVIEW:
-//            dt->setDisplayModePrintColorsPreview();
-//            break;
         case SP_VERB_VIEW_MODE_TOGGLE:
             dt->displayModeToggle();
+            break;
+        case SP_VERB_VIEW_COLOR_MODE_NORMAL:
+            dt->setDisplayColorModeNormal();
+            break;
+        case SP_VERB_VIEW_COLOR_MODE_GRAYSCALE:
+            dt->setDisplayColorModeGrayscale();
+            break;
+//        case SP_VERB_VIEW_COLOR_MODE_PRINT_COLORS_PREVIEW:
+//            dt->setDisplayColorModePrintColorsPreview();
+//            break;
+        case SP_VERB_VIEW_COLOR_MODE_TOGGLE:
+            dt->displayColorModeToggle();
             break;
         case SP_VERB_VIEW_CMS_TOGGLE:
             dt->toggleColorProfAdjust();
@@ -2414,7 +2423,7 @@ Verb *Verb::_base_verbs[] = {
     // Advanced tutorial for more info
     new SelectionVerb(SP_VERB_SELECTION_BREAK_APART, "SelectionBreakApart", N_("Break _Apart"),
                       N_("Break selected paths into subpaths"), INKSCAPE_ICON_PATH_BREAK_APART),
-    new SelectionVerb(SP_VERB_SELECTION_GRIDTILE, "DialogGridArrange", N_("Rows and Columns..."),
+    new SelectionVerb(SP_VERB_SELECTION_GRIDTILE, "DialogGridArrange", N_("Ro_ws and Columns..."),
                       N_("Arrange selected objects in a table"), INKSCAPE_ICON_DIALOG_ROWS_AND_COLUMNS),
     /* Layer */
     new LayerVerb(SP_VERB_LAYER_NEW, "LayerNew", N_("_Add Layer..."),
@@ -2437,7 +2446,7 @@ Verb *Verb::_base_verbs[] = {
                   N_("Raise the current layer"), INKSCAPE_ICON_LAYER_RAISE),
     new LayerVerb(SP_VERB_LAYER_LOWER, "LayerLower", N_("_Lower Layer"),
                   N_("Lower the current layer"), INKSCAPE_ICON_LAYER_LOWER),
-    new LayerVerb(SP_VERB_LAYER_DUPLICATE, "LayerDuplicate", N_("Duplicate Current Layer"),
+    new LayerVerb(SP_VERB_LAYER_DUPLICATE, "LayerDuplicate", N_("D_uplicate Current Layer"),
                   N_("Duplicate an existing layer"), NULL),
     new LayerVerb(SP_VERB_LAYER_DELETE, "LayerDelete", N_("_Delete Current Layer"),
                   N_("Delete the current layer"), INKSCAPE_ICON_LAYER_DELETE),
@@ -2602,10 +2611,16 @@ Verb *Verb::_base_verbs[] = {
                  N_("Switch to normal display without filters"), NULL),
     new ZoomVerb(SP_VERB_VIEW_MODE_OUTLINE, "ViewModeOutline", N_("_Outline"),
                  N_("Switch to outline (wireframe) display mode"), NULL),
-//    new ZoomVerb(SP_VERB_VIEW_MODE_PRINT_COLORS_PREVIEW, "ViewModePrintColorsPreview", N_("_Print Colors Preview"),
-//                 N_("Switch to print colors preview mode"), NULL),
     new ZoomVerb(SP_VERB_VIEW_MODE_TOGGLE, "ViewModeToggle", N_("_Toggle"),
                  N_("Toggle between normal and outline display modes"), NULL),
+    new ZoomVerb(SP_VERB_VIEW_COLOR_MODE_NORMAL, "ViewColorModeNormal", N_("_Normal"),
+                 N_("Switch to normal color display mode"), NULL),
+     new ZoomVerb(SP_VERB_VIEW_COLOR_MODE_GRAYSCALE, "ViewColorModeGrayscale", N_("_Grayscale"),
+                 N_("Switch to grayscale display mode"), NULL),
+//    new ZoomVerb(SP_VERB_VIEW_COLOR_MODE_PRINT_COLORS_PREVIEW, "ViewColorModePrintColorsPreview", N_("_Print Colors Preview"),
+//                 N_("Switch to print colors preview mode"), NULL),
+     new ZoomVerb(SP_VERB_VIEW_COLOR_MODE_TOGGLE, "ViewColorModeToggle", N_("_Toggle"),
+                 N_("Toggle between normal and grayscale color display modes"), NULL),
 
     new ZoomVerb(SP_VERB_VIEW_CMS_TOGGLE, "ViewCmsToggle", N_("Color-managed view"),
                  N_("Toggle color-managed display for this document window"), INKSCAPE_ICON_COLOR_MANAGEMENT),
@@ -2673,7 +2688,7 @@ Verb *Verb::_base_verbs[] = {
                    N_("Query information about extensions"), NULL),
     new DialogVerb(SP_VERB_DIALOG_LAYERS, "DialogLayers", N_("Layer_s..."),
                    N_("View Layers"), INKSCAPE_ICON_DIALOG_LAYERS),
-    new DialogVerb(SP_VERB_DIALOG_LIVE_PATH_EFFECT, "DialogLivePathEffect", N_("Path Effect Editor..."),
+    new DialogVerb(SP_VERB_DIALOG_LIVE_PATH_EFFECT, "DialogLivePathEffect", N_("Path E_ffect Editor..."),
                    N_("Manage, edit, and apply path effects"), NULL),
     new DialogVerb(SP_VERB_DIALOG_FILTER_EFFECTS, "DialogFilterEffects", N_("Filter Editor..."),
                    N_("Manage, edit, and apply SVG filters"), NULL),

@@ -83,7 +83,7 @@ private:
 
 struct DiffusePointLight : public DiffuseLight {
     DiffusePointLight(cairo_surface_t *bumpmap, SPFePointLight *light, guint32 color,
-            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
+            Geom::Affine const &trans, double scale, double diffuse_constant, double x0, double y0)
         : DiffuseLight(bumpmap, scale, diffuse_constant)
         , _light(light, color, trans)
         , _x0(x0)
@@ -105,7 +105,7 @@ private:
 
 struct DiffuseSpotLight : public DiffuseLight {
     DiffuseSpotLight(cairo_surface_t *bumpmap, SPFeSpotLight *light, guint32 color,
-            Geom::Matrix const &trans, double scale, double diffuse_constant, double x0, double y0)
+            Geom::Affine const &trans, double scale, double diffuse_constant, double x0, double y0)
         : DiffuseLight(bumpmap, scale, diffuse_constant)
         , _light(light, color, trans)
         , _x0(x0)
@@ -129,7 +129,7 @@ void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
     cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
 
     NRRectL const &slot_area = slot.get_slot_area();
-    Geom::Matrix trans = slot.get_units().get_matrix_primitiveunits2pb();
+    Geom::Affine trans = slot.get_units().get_matrix_primitiveunits2pb();
     double x0 = slot_area.x0, y0 = slot_area.y0;
     double scale = surfaceScale * trans.descrim();
 
@@ -159,7 +159,7 @@ void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
+void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Affine const &trans)
 {
     // TODO: support kernelUnitLength
 

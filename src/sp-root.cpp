@@ -371,7 +371,7 @@ static void sp_root_remove_child(SPObject *object, Inkscape::XML::Node *child)
 {
     SPRoot *root = (SPRoot *) object;
 
-    if ( root->defs && SP_OBJECT_REPR(root->defs) == child ) {
+    if ( root->defs && (root->defs->getRepr() == child) ) {
         SPObject *iter = 0;
         // We search for first remaining <defs> node - it is not beautiful, but works
         for ( iter = object->firstChild() ; iter ; iter = iter->getNext() ) {
@@ -433,7 +433,7 @@ sp_root_update(SPObject *object, SPCtx *ctx, guint flags)
          * fixme: height seems natural, as this makes the inner svg element
          * fixme: self-contained. The spec is vague here.
          */
-        root->c2p = Geom::Matrix(Geom::Translate(root->x.computed,
+        root->c2p = Geom::Affine(Geom::Translate(root->x.computed,
                                                  root->y.computed));
     }
 
@@ -562,7 +562,7 @@ sp_root_modified(SPObject *object, guint flags)
 
     /* fixme: (Lauris) */
     if (!object->parent && (flags & SP_OBJECT_VIEWPORT_MODIFIED_FLAG)) {
-        SP_OBJECT_DOCUMENT(root)->emitResizedSignal(root->width.computed, root->height.computed);
+        root->document->emitResizedSignal(root->width.computed, root->height.computed);
     }
 }
 

@@ -14,6 +14,7 @@
  */
 
 #include <glib/gslist.h>
+#include <stddef.h>
 #include <sigc++/connection.h>
 
 struct SPDesktop;
@@ -65,7 +66,7 @@ private:
 
 extern GSList *get_avoided_items(GSList *list, SPObject *from,
         SPDesktop *desktop, bool initialised = true);
-extern void avoid_item_move(Geom::Matrix const *mp, SPItem *moved_item);
+extern void avoid_item_move(Geom::Affine const *mp, SPItem *moved_item);
 extern void init_avoided_shape_geometry(SPDesktop *desktop);
 
 static const double defaultConnSpacing = 3.0;

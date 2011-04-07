@@ -32,7 +32,7 @@ public:
     virtual void set_scale(double s);
     virtual void set_channel_selector(int s, FilterDisplacementMapChannelSelector channel);
     virtual void render_cairo(FilterSlot &slot);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
 
 private:
     double scale;

@@ -32,7 +32,7 @@ public:
     static FilterPrimitive *create();
     virtual ~FilterDiffuseLighting();
     virtual void render_cairo(FilterSlot &slot);
-    virtual void area_enlarge(NRRectL &area, Geom::Matrix const &trans);
+    virtual void area_enlarge(NRRectL &area, Geom::Affine const &trans);
 
     union {
         SPFeDistantLight *distant;

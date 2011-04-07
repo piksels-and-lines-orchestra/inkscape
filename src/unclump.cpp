@@ -287,7 +287,7 @@ unclump_push (SPItem *from, SPItem *what, double dist)
     Geom::Point p = unclump_center (from);
     Geom::Point by = dist * Geom::unit_vector (- (p - it));
 
-    Geom::Matrix move = Geom::Translate (by);
+    Geom::Affine move = Geom::Translate (by);
 
     std::map<const gchar *, Geom::Point>::iterator i = c_cache.find(what->getId());
     if ( i != c_cache.end() ) {
@@ -297,7 +297,7 @@ unclump_push (SPItem *from, SPItem *what, double dist)
     //g_print ("push %s at %g,%g from %g,%g by %g,%g, dist %g\n", what->getId(), it[Geom::X],it[Geom::Y], p[Geom::X],p[Geom::Y], by[Geom::X],by[Geom::Y], dist);
 
     what->set_i2d_affine(what->i2d_affine() * move);
-    what->doWriteTransform(SP_OBJECT_REPR(what), what->transform, NULL);
+    what->doWriteTransform(what->getRepr(), what->transform, NULL);
 }
 
 /**
@@ -310,7 +310,7 @@ unclump_pull (SPItem *to, SPItem *what, double dist)
     Geom::Point p = unclump_center (to);
     Geom::Point by = dist * Geom::unit_vector (p - it);
 
-    Geom::Matrix move = Geom::Translate (by);
+    Geom::Affine move = Geom::Translate (by);
 
     std::map<const gchar *, Geom::Point>::iterator i = c_cache.find(what->getId());
     if ( i != c_cache.end() ) {
@@ -320,7 +320,7 @@ unclump_pull (SPItem *to, SPItem *what, double dist)
     //g_print ("pull %s at %g,%g to %g,%g by %g,%g, dist %g\n", what->getId(), it[Geom::X],it[Geom::Y], p[Geom::X],p[Geom::Y], by[Geom::X],by[Geom::Y], dist);
 
     what->set_i2d_affine(what->i2d_affine() * move);
-    what->doWriteTransform(SP_OBJECT_REPR(what), what->transform, NULL);
+    what->doWriteTransform(what->getRepr(), what->transform, NULL);
 }
 
 

@@ -161,11 +161,11 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
 
     // Create a copy repr of the marker with id="sample"
     Inkscape::XML::Document *xml_doc = sandbox->getReprDoc();
-    Inkscape::XML::Node *mrepr = SP_OBJECT_REPR (marker)->duplicate(xml_doc);
+    Inkscape::XML::Node *mrepr = marker->getRepr()->duplicate(xml_doc);
     mrepr->setAttribute("id", "sample");
 
     // Replace the old sample in the sandbox by the new one
-    Inkscape::XML::Node *defsrepr = SP_OBJECT_REPR (sandbox->getObjectById("defs"));
+    Inkscape::XML::Node *defsrepr = sandbox->getObjectById("defs")->getRepr();
     SPObject *oldmarker = sandbox->getObjectById("sample");
     if (oldmarker)
         oldmarker->deleteObject(false);
@@ -186,7 +186,7 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
         return NULL; // sandbox broken?
 
     // Find object's bbox in document
-    Geom::Matrix const i2doc(SP_ITEM(object)->i2doc_affine());
+    Geom::Affine const i2doc(SP_ITEM(object)->i2doc_affine());
     Geom::OptRect dbox = SP_ITEM(object)->getBounds(i2doc);
 
     if (!dbox) {
@@ -225,7 +225,7 @@ ink_marker_list_get (SPDocument *source)
 
     GSList *ml   = NULL;
     SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS (source);
-    for ( SPObject *child = SP_OBJECT(defs)->firstChild(); child; child = child->getNext() )
+    for ( SPObject *child = defs->firstChild(); child; child = child->getNext() )
     {
         if (SP_IS_MARKER(child)) {
             ml = g_slist_prepend (ml, child);
@@ -248,14 +248,15 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
     NRArenaItem *root =  SP_ITEM(sandbox->getRoot())->invoke_show((NRArena *) arena, visionkey, SP_ITEM_SHOW_DISPLAY);
 
     for (; marker_list != NULL; marker_list = marker_list->next) {
-        Inkscape::XML::Node *repr = SP_OBJECT_REPR((SPItem *) marker_list->data);
+        Inkscape::XML::Node *repr = reinterpret_cast<SPItem *>(marker_list->data)->getRepr();
         Gtk::MenuItem *i = new Gtk::MenuItem();
         i->show();
 
-        if (repr->attribute("inkscape:stockid"))
+        if (repr->attribute("inkscape:stockid")) {
             i->set_data("stockid", (void *) "true");
-        else
+        } else {
             i->set_data("stockid", (void *) "false");
+        }
 
         gchar const *markid = repr->attribute("id");
         i->set_data("marker", (void *) markid);
@@ -468,7 +469,7 @@ sp_marker_select(Gtk::OptionMenu *mnu, Gtk::Container *spw, SPMarkerLoc const wh
        if (!strcmp(stockid,"true")) markurn = g_strconcat("urn:inkscape:marker:",markid,NULL);
        SPObject *mark = get_stock_item(markurn);
        if (mark) {
-            Inkscape::XML::Node *repr = SP_OBJECT_REPR(mark);
+           Inkscape::XML::Node *repr = mark->getRepr();
             marker = g_strconcat("url(#", repr->attribute("id"), ")", NULL);
         }
     } else {
@@ -486,16 +487,17 @@ sp_marker_select(Gtk::OptionMenu *mnu, Gtk::Container *spw, SPMarkerLoc const wh
     Inkscape::Selection *selection = sp_desktop_selection(desktop);
     GSList const *items = selection->itemList();
     for (; items != NULL; items = items->next) {
-         SPItem *item = (SPItem *) items->data;
-         if (!SP_IS_SHAPE(item) || SP_IS_RECT(item)) // can't set marker to rect, until it's converted to using <path>
-             continue;
-         Inkscape::XML::Node *selrepr = SP_OBJECT_REPR((SPItem *) items->data);
-         if (selrepr) {
-             sp_repr_css_change_recursive(selrepr, css, "style");
-         }
-         SP_OBJECT(items->data)->requestModified(SP_OBJECT_MODIFIED_FLAG);
-         SP_OBJECT(items->data)->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG);
-     }
+        SPItem *item = reinterpret_cast<SPItem *>(items->data);
+        if (!SP_IS_SHAPE(item) || SP_IS_RECT(item)) { // can't set marker to rect, until it's converted to using <path>
+            continue;
+        }
+        Inkscape::XML::Node *selrepr = item->getRepr();
+        if (selrepr) {
+            sp_repr_css_change_recursive(selrepr, css, "style");
+        }
+        item->requestModified(SP_OBJECT_MODIFIED_FLAG);
+        item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG);
+    }
 
     sp_repr_css_attr_unref(css);
     css = 0;
@@ -673,7 +675,7 @@ sp_stroke_style_line_widget_new(void)
 
     gint i = 0;
 
-    spw_label(t, C_("Stroke width", "Width:"), 0, i);
+    //spw_label(t, C_("Stroke width", "_Width:"), 0, i);
 
     hb = spw_hbox(t, 3, 1, i);
 
@@ -689,6 +691,7 @@ sp_stroke_style_line_widget_new(void)
     sb = new Gtk::SpinButton(*a, 0.1, 3);
     tt->set_tip(*sb, _("Stroke width"));
     sb->show();
+    spw_label(t, C_("Stroke width", "_Width:"), 0, i, sb);
 
     sp_dialog_defocus_on_enter_cpp(sb);
 
@@ -711,7 +714,7 @@ sp_stroke_style_line_widget_new(void)
     /* Join type */
     // TRANSLATORS: The line join style specifies the shape to be used at the
     //  corners of paths. It can be "miter", "round" or "bevel".
-    spw_label(t, _("Join:"), 0, i);
+    spw_label(t, _("Join:"), 0, i, NULL);
 
     hb = spw_hbox(t, 3, 1, i);
 
@@ -755,7 +758,7 @@ sp_stroke_style_line_widget_new(void)
     //  spike that extends well beyond the connection point. The purpose of the
     //  miter limit is to cut off such spikes (i.e. convert them into bevels)
     //  when they become too long.
-    spw_label(t, _("Miter limit:"), 0, i);
+    //spw_label(t, _("Miter _limit:"), 0, i);
 
     hb = spw_hbox(t, 3, 1, i);
 
@@ -765,6 +768,7 @@ sp_stroke_style_line_widget_new(void)
     sb = new Gtk::SpinButton(*a, 0.1, 2);
     tt->set_tip(*sb, _("Maximum length of the miter (in units of stroke width)"));
     sb->show();
+    spw_label(t, _("Miter _limit:"), 0, i, sb);
     spw->set_data("miterlimit_sb", sb);
     sp_dialog_defocus_on_enter_cpp(sb);
 
@@ -775,7 +779,8 @@ sp_stroke_style_line_widget_new(void)
 
     /* Cap type */
     // TRANSLATORS: cap type specifies the shape for the ends of lines
-    spw_label(t, _("Cap:"), 0, i);
+    //spw_label(t, _("_Cap:"), 0, i);
+    spw_label(t, _("Cap:"), 0, i, NULL);
 
     hb = spw_hbox(t, 3, 1, i);
 
@@ -809,7 +814,11 @@ sp_stroke_style_line_widget_new(void)
 
 
     /* Dash */
-    spw_label(t, _("Dashes:"), 0, i);
+    spw_label(t, _("Dashes:"), 0, i, NULL); //no mnemonic for now
+                                            //decide what to do:
+                                            //   implement a set_mnemonic_source function in the
+                                            //   SPDashSelector class, so that we do not have to
+                                            //   expose any of the underlying widgets?
     ds = manage(new SPDashSelector);
 
     ds->show();
@@ -826,8 +835,9 @@ sp_stroke_style_line_widget_new(void)
 
     // TRANSLATORS: Path markers are an SVG feature that allows you to attach arbitrary shapes
     // (arrowheads, bullets, faces, whatever) to the start, end, or middle nodes of a path.
-    spw_label(t, _("Start Markers:"), 0, i);
+    //spw_label(t, _("_Start Markers:"), 0, i);
     marker_start_menu = ink_marker_menu(spw ,"marker-start", sandbox);
+    spw_label(t, _("_Start Markers:"), 0, i, marker_start_menu);
     tt->set_tip(*marker_start_menu, _("Start Markers are drawn on the first node of a path or shape"));
     marker_start_menu_connection = marker_start_menu->signal_changed().connect(
         sigc::bind<Gtk::OptionMenu *, Gtk::Container *, SPMarkerLoc>(
@@ -837,8 +847,9 @@ sp_stroke_style_line_widget_new(void)
     spw->set_data("start_mark_menu", marker_start_menu);
 
     i++;
-    spw_label(t, _("Mid Markers:"), 0, i);
+    //spw_label(t, _("_Mid Markers:"), 0, i);
     marker_mid_menu = ink_marker_menu(spw ,"marker-mid", sandbox);
+    spw_label(t, _("_Mid Markers:"), 0, i, marker_mid_menu);
     tt->set_tip(*marker_mid_menu, _("Mid Markers are drawn on every node of a path or shape except the first and last nodes"));
     marker_mid_menu_connection = marker_mid_menu->signal_changed().connect(
         sigc::bind<Gtk::OptionMenu *, Gtk::Container *, SPMarkerLoc>(
@@ -848,8 +859,9 @@ sp_stroke_style_line_widget_new(void)
     spw->set_data("mid_mark_menu", marker_mid_menu);
 
     i++;
-    spw_label(t, _("End Markers:"), 0, i);
+    //spw_label(t, _("_End Markers:"), 0, i);
     marker_end_menu = ink_marker_menu(spw ,"marker-end", sandbox);
+    spw_label(t, _("_End Markers:"), 0, i, marker_end_menu);
     tt->set_tip(*marker_end_menu, _("End Markers are drawn on the last node of a path or shape"));
     marker_end_menu_connection = marker_end_menu->signal_changed().connect(
         sigc::bind<Gtk::OptionMenu *, Gtk::Container *, SPMarkerLoc>(
@@ -1081,7 +1093,7 @@ sp_stroke_style_line_update(Gtk::Container *spw, Inkscape::Selection *sel)
 
     GSList const *objects = sel->itemList();
     SPObject * const object = SP_OBJECT(objects->data);
-    SPStyle * const style = SP_OBJECT_STYLE(object);
+    SPStyle * const style = object->style;
 
     /* Markers */
     sp_stroke_style_update_marker_menus(spw, objects); // FIXME: make this desktop query too
@@ -1164,7 +1176,7 @@ sp_stroke_style_scale_line(Gtk::Container *spw)
             if (unit->base == SP_UNIT_ABSOLUTE || unit->base == SP_UNIT_DEVICE) {
                 width = sp_units_get_pixels (width_typed, *unit);
             } else { // percentage
-                gdouble old_w = SP_OBJECT_STYLE (i->data)->stroke_width.computed;
+                gdouble old_w = SP_OBJECT(i->data)->style->stroke_width.computed;
                 width = old_w * width_typed / 100;
             }
 
@@ -1352,14 +1364,16 @@ ink_marker_menu_set_current(SPObject *marker, Gtk::OptionMenu *mnu)
     Gtk::Menu *m = mnu->get_menu();
     if (marker != NULL) {
         bool mark_is_stock = false;
-        if (SP_OBJECT_REPR(marker)->attribute("inkscape:stockid"))
+        if (marker->getRepr()->attribute("inkscape:stockid")) {
             mark_is_stock = true;
+        }
 
-        gchar *markname;
-        if (mark_is_stock)
-            markname = g_strdup(SP_OBJECT_REPR(marker)->attribute("inkscape:stockid"));
-        else
-            markname = g_strdup(SP_OBJECT_REPR(marker)->attribute("id"));
+        gchar *markname = 0;
+        if (mark_is_stock) {
+            markname = g_strdup(marker->getRepr()->attribute("inkscape:stockid"));
+        } else {
+            markname = g_strdup(marker->getRepr()->attribute("id"));
+        }
 
         int markpos = ink_marker_menu_get_pos(m, markname);
         mnu->set_history(markpos);
@@ -1417,7 +1431,7 @@ sp_stroke_style_update_marker_menus(Gtk::Container *spw, GSList const *objects)
             // If the object has this type of markers,
 
             // Extract the name of the marker that the object uses
-            SPObject *marker = ink_extract_marker_name(object->style->marker[keyloc[i].loc].value, SP_OBJECT_DOCUMENT(object));
+            SPObject *marker = ink_extract_marker_name(object->style->marker[keyloc[i].loc].value, object->document);
             // Scroll the menu to that marker
             ink_marker_menu_set_current(marker, mnu);
 

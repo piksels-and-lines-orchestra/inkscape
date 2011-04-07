@@ -80,6 +80,7 @@
 #include "display/sp-canvas-util.h"
 #include "display/canvas-temporary-item-list.h"
 #include "display/snap-indicator.h"
+#include "display/sp-canvas-group.h"
 #include "ui/dialog/dialog-manager.h"
 #include "xml/repr.h"
 #include "message-context.h"
@@ -153,6 +154,7 @@ SPDesktop::SPDesktop() :
     _layer_hierarchy( 0 ),
     _reconstruction_old_layer_id( 0 ),
     _display_mode(Inkscape::RENDERMODE_NORMAL),
+    _display_color_mode(Inkscape::COLORRENDERMODE_NORMAL),
     _widget( 0 ),
     _inkscape( 0 ),
     _guides_message_context( 0 ),
@@ -184,7 +186,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
     namedview = nv;
     canvas = aCanvas;
 
-    SPDocument *document = SP_OBJECT_DOCUMENT (namedview);
+    SPDocument *document = namedview->document;
     /* Kill flicker */
     document->ensureUpToDate();
 
@@ -453,6 +455,13 @@ void SPDesktop::_setDisplayMode(Inkscape::RenderMode mode) {
     sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (main), _d2w); // redraw
     _widget->setTitle( sp_desktop_document(this)->getName() );
 }
+void SPDesktop::_setDisplayColorMode(Inkscape::ColorRenderMode mode) {
+    SP_CANVAS_ARENA (drawing)->arena->colorrendermode = mode;
+    canvas->colorrendermode = mode;
+    _display_color_mode = mode;
+    sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (main), _d2w); // redraw
+    _widget->setTitle( sp_desktop_document(this)->getName() );
+}
 
 void SPDesktop::displayModeToggle() {
     switch (_display_mode) {
@@ -465,9 +474,21 @@ void SPDesktop::displayModeToggle() {
     case Inkscape::RENDERMODE_OUTLINE:
         _setDisplayMode(Inkscape::RENDERMODE_NORMAL);
         break;
-//    case Inkscape::RENDERMODE_PRINT_COLORS_PREVIEW:
     default:
         _setDisplayMode(Inkscape::RENDERMODE_NORMAL);
+    }
+}
+void SPDesktop::displayColorModeToggle() {
+    switch (_display_color_mode) {
+    case Inkscape::COLORRENDERMODE_NORMAL:
+        _setDisplayColorMode(Inkscape::COLORRENDERMODE_GRAYSCALE);
+        break;
+    case Inkscape::COLORRENDERMODE_GRAYSCALE:
+        _setDisplayColorMode(Inkscape::COLORRENDERMODE_NORMAL);
+        break;
+//    case Inkscape::COLORRENDERMODE_PRINT_COLORS_PREVIEW:
+    default:
+        _setDisplayColorMode(Inkscape::COLORRENDERMODE_NORMAL);
     }
 }
 
@@ -531,9 +552,9 @@ SPObject *SPDesktop::layerForObject(SPObject *object) {
     g_return_val_if_fail(object != NULL, NULL);
 
     SPObject *root=currentRoot();
-    object = SP_OBJECT_PARENT(object);
+    object = object->parent;
     while ( object && object != root && !isLayer(object) ) {
-        object = SP_OBJECT_PARENT(object);
+        object = object->parent;
     }
     return object;
 }
@@ -758,6 +779,9 @@ SPDesktop::push_current_zoom (GList **history)
                ( ((NRRect *) ((*history)->data))->y1 == old_zoom->y1 ) ) )
     {
         *history = g_list_prepend (*history, old_zoom);
+    } else {
+        g_free(old_zoom);
+        old_zoom = 0;
     }
 }
 
@@ -768,6 +792,7 @@ void
 SPDesktop::set_display_area (double x0, double y0, double x1, double y1, double border, bool log)
 {
     g_assert(_widget);
+    bool zoomChanged = false;
 
     // save the zoom
     if (log) {
@@ -801,7 +826,7 @@ SPDesktop::set_display_area (double x0, double y0, double x1, double y1, double 
         _w2d = Geom::Scale(1/newscale, 1/-newscale);
         sp_canvas_item_affine_absolute(SP_CANVAS_ITEM(main), _d2w);
         clear = TRUE;
-        signal_zoom_changed.emit(_d2w.descrim());
+        zoomChanged = true;
     }
 
     /* Calculate top left corner (in document pixels) */
@@ -817,6 +842,11 @@ SPDesktop::set_display_area (double x0, double y0, double x1, double y1, double 
     _widget->updateRulers();
     _widget->updateScrollbars(_d2w.descrim());
     _widget->updateZoom();
+
+
+    if ( zoomChanged ) {
+        signal_zoom_changed.emit(_d2w.descrim());
+    }
 }
 
 void SPDesktop::set_display_area(Geom::Rect const &a, Geom::Coord b, bool log)
@@ -1158,7 +1188,7 @@ SPDesktop::scroll_to_point (Geom::Point const &p, gdouble autoscrollspeed)
     if (!(p[X] > dbox.min()[X] && p[X] < dbox.max()[X]) ||
         !(p[Y] > dbox.min()[Y] && p[Y] < dbox.max()[Y])   ) {
 
-        Geom::Point const s_w( p * (Geom::Matrix)_d2w );
+        Geom::Point const s_w( p * (Geom::Affine)_d2w );
 
         gdouble x_to;
         if (p[X] < dbox.min()[X])
@@ -1679,7 +1709,7 @@ _reconstruction_finish (SPDesktop * desktop)
     if (desktop->_reconstruction_old_layer_id == NULL)
         return;
 
-    SPObject * newLayer = SP_OBJECT_DOCUMENT(desktop->namedview)->getObjectById(desktop->_reconstruction_old_layer_id);
+    SPObject * newLayer = desktop->namedview->document->getObjectById(desktop->_reconstruction_old_layer_id);
     if (newLayer != NULL)
         desktop->setCurrentLayer(newLayer);
 
@@ -1753,7 +1783,7 @@ _namedview_modified (SPObject *obj, guint flags, SPDesktop *desktop)
     }
 }
 
-Geom::Matrix SPDesktop::w2d() const
+Geom::Affine SPDesktop::w2d() const
 {
     return _w2d;
 }
@@ -1768,12 +1798,12 @@ Geom::Point SPDesktop::d2w(Geom::Point const &p) const
     return p * _d2w;
 }
 
-Geom::Matrix SPDesktop::doc2dt() const
+Geom::Affine SPDesktop::doc2dt() const
 {
     return _doc2dt;
 }
 
-Geom::Matrix SPDesktop::dt2doc() const
+Geom::Affine SPDesktop::dt2doc() const
 {
     // doc2dt is its own inverse
     return _doc2dt;

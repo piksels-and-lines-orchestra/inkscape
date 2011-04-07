@@ -121,7 +121,7 @@ void FilterMorphology::render_cairo(FilterSlot &slot)
         return;
     }
 
-    Geom::Matrix p2pb = slot.get_units().get_matrix_primitiveunits2pb();
+    Geom::Affine p2pb = slot.get_units().get_matrix_primitiveunits2pb();
     double xr = xradius * p2pb.expansionX();
     double yr = yradius * p2pb.expansionY();
 
@@ -147,7 +147,7 @@ void FilterMorphology::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-void FilterMorphology::area_enlarge(NRRectL &area, Geom::Matrix const &trans)
+void FilterMorphology::area_enlarge(NRRectL &area, Geom::Affine const &trans)
 {
     int enlarge_x = ceil(xradius * trans.expansionX());
     int enlarge_y = ceil(yradius * trans.expansionY());

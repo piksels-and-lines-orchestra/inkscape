@@ -16,7 +16,7 @@
 #endif
 #include <libnr/nr-rect.h>
 #include <2geom/d2.h>
-#include <2geom/matrix.h>
+#include <2geom/affine.h>
 #include <glibmm/ustring.h>
 #include <pango/pango-break.h>
 #include <algorithm>
@@ -335,7 +335,7 @@ public:
       \param transform     The transform to be applied to the entire object
                            prior to calculating its bounds.
     */
-    void getBoundingBox(NRRect *bounding_box, Geom::Matrix const &transform, int start = -1, int length = -1) const;
+    void getBoundingBox(NRRect *bounding_box, Geom::Affine const &transform, int start = -1, int length = -1) const;
 
     /** Sends all the glyphs to the given print context.
      \param ctx   I have
@@ -344,7 +344,7 @@ public:
      \param bbox  parameters
      \param ctm   do yet
     */
-    void print(SPPrintContext *ctx, NRRect const *pbox, NRRect const *dbox, NRRect const *bbox, Geom::Matrix const &ctm) const;
+    void print(SPPrintContext *ctx, NRRect const *pbox, NRRect const *dbox, NRRect const *bbox, Geom::Affine const &ctm) const;
 
 #ifdef HAVE_CAIRO_PDF    
     /** Renders all the glyphs to the given Cairo rendering context.
@@ -378,7 +378,7 @@ public:
     /** Apply the given transform to all the output presently stored in
     this object. This only transforms the glyph positions, The glyphs
     themselves will not be transformed. */
-    void transform(Geom::Matrix const &transform);
+    void transform(Geom::Affine const &transform);
 
     //@}
 
@@ -499,7 +499,7 @@ public:
     \a start to \a end and returns the union of these boxes. The return value
     is a list of zero or more quadrilaterals specified by a group of four
     points for each, thus size() is always a multiple of four. */
-    std::vector<Geom::Point> createSelectionShape(iterator const &it_start, iterator const &it_end, Geom::Matrix const &transform) const;
+    std::vector<Geom::Point> createSelectionShape(iterator const &it_start, iterator const &it_end, Geom::Affine const &transform) const;
 
     /** Returns true if \a it points to a character which is a valid cursor
     position, as defined by Pango. */
@@ -744,7 +744,7 @@ private:
 
     /** gets the overall matrix that transforms the given glyph from local
     space to world space. */
-    void _getGlyphTransformMatrix(int glyph_index, Geom::Matrix *matrix) const;
+    void _getGlyphTransformMatrix(int glyph_index, Geom::Affine *matrix) const;
 
     // loads of functions to drill down the object tree, all of them
     // annoyingly similar and all of them requiring predicate functors.
