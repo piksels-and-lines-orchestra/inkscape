@@ -15,7 +15,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include "config.h"
+# include <config.h>
 #endif
 
 #include <gtk/gtkmain.h>
@@ -1651,6 +1651,8 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
     //buf.ct = gdk_cairo_create(widget->window);
 
     // create temporary surface
+    int w = x1 - x0;
+    int h = y1 - y0;
     cairo_surface_t *imgs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, x1 - x0, y1 - y0);
     buf.ct = cairo_create(imgs);
     //cairo_translate(buf.ct, -x0, -y0);
@@ -1673,97 +1675,30 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
         SP_CANVAS_ITEM_GET_CLASS (canvas->root)->render (canvas->root, &buf);
     }
 
-#if 0
-#if ENABLE_LCMS
-    cmsHTRANSFORM transf = 0;
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    bool fromDisplay = prefs->getBool( "/options/displayprofile/from_display");
-    if ( fromDisplay ) {
-        transf = Inkscape::colorprofile_get_display_per( canvas->cms_key ? *(canvas->cms_key) : "" );
-    } else {
-        transf = Inkscape::colorprofile_get_display_transform();
-    }
-#endif // ENABLE_LCMS
-
-    if (buf.is_empty) {
-#if ENABLE_LCMS
-        if ( transf && canvas->enable_cms_display_adj ) {
-            cmsDoTransform( transf, &buf.bg_color, &buf.bg_color, 1 );
-        }
-#endif // ENABLE_LCMS
-        gdk_rgb_gc_set_foreground (canvas->pixmap_gc, buf.bg_color);
-        gdk_draw_rectangle (SP_CANVAS_WINDOW (canvas),
-                            canvas->pixmap_gc,
-                            TRUE,
-                            x0 - canvas->x0, y0 - canvas->y0,
-                            x1 - x0, y1 - y0);
-    } else {
-
-#if ENABLE_LCMS
-        if ( transf && canvas->enable_cms_display_adj ) {
-            for ( gint yy = 0; yy < (y1 - y0); yy++ ) {
-                guchar* p = buf.buf + (buf.buf_rowstride * yy);
-                cmsDoTransform( transf, p, p, (x1 - x0) );
-            }
-        }
-#endif // ENABLE_LCMS
-
-// Now we only need to output the prepared pixmap to the actual screen, and this define chooses one
-// of the two ways to do it. The cairo way is direct and straightforward, but unfortunately
-// noticeably slower. I asked Carl Worth but he was unable so far to suggest any specific reason
-// for this slowness. So, for now we use the oldish method: squeeze out 32bpp buffer to 24bpp and
-// use gdk_draw_rgb_image_dithalign, for unfortunately gdk can only handle 24 bpp, which cairo
-// cannot handle at all. Still, this way is currently faster even despite the blit with squeeze.
-
-//#define CANVAS_OUTPUT_VIA_CAIRO
-
-#ifdef CANVAS_OUTPUT_VIA_CAIRO
-
-        cairo_surface_t *cst = cairo_image_surface_create_for_data (
-            buf.buf,
-            CAIRO_FORMAT_ARGB32,  // unpacked, i.e. 32 bits! one byte is unused
-            x1 - x0, y1 - y0,
-            buf.buf_rowstride
-            );
-        cairo_t *window_ct = gdk_cairo_create(SP_CANVAS_WINDOW (canvas));
-        cairo_set_source_surface (window_ct, cst, x0 - canvas->x0, y0 - canvas->y0);
-        cairo_paint (window_ct);
-        cairo_destroy (window_ct);
-        cairo_surface_finish (cst);
-        cairo_surface_destroy (cst);
-
-#else
-
-        NRPixBlock b3;
-        nr_pixblock_setup_fast (&b3, NR_PIXBLOCK_MODE_R8G8B8, x0, y0, x1, y1, TRUE);
-
-        NRPixBlock b4;
-        nr_pixblock_setup_extern (&b4, NR_PIXBLOCK_MODE_R8G8B8A8P, x0, y0, x1, y1,
-                                  buf.buf,
-                                  buf.buf_rowstride,
-                                  FALSE, FALSE);
-
-        // this does the 32->24 squishing, using an assembler routine:
-        nr_blit_pixblock_pixblock (&b3, &b4);
-
-        gdk_draw_rgb_image_dithalign (SP_CANVAS_WINDOW (canvas),
-                                      canvas->pixmap_gc,
-                                      x0 - canvas->x0, y0 - canvas->y0,
-                                      x1 - x0, y1 - y0,
-                                      GDK_RGB_DITHER_MAX,
-                                      NR_PIXBLOCK_PX(&b3),
-                                      sw * 3,
-                                      x0 - canvas->x0, y0 - canvas->y0);
-
-        nr_pixblock_release (&b3);
-        nr_pixblock_release (&b4);
-#endif
-    }
-#endif
-
-
     // output to X
     cairo_destroy(buf.ct);
+
+#if ENABLE_LCMS
+    if (canvas->enable_cms_display_adj) {
+        cmsHTRANSFORM transf = 0;
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        bool fromDisplay = prefs->getBool( "/options/displayprofile/from_display");
+        if ( fromDisplay ) {
+            transf = Inkscape::colorprofile_get_display_per( canvas->cms_key ? *(canvas->cms_key) : "" );
+        } else {
+            transf = Inkscape::colorprofile_get_display_transform();
+        }
+        
+        if (transf) {
+            unsigned char *px = cairo_image_surface_get_data(imgs);
+            int stride = cairo_image_surface_get_stride(imgs);
+            for (int i=0; i<h; ++i) {
+                unsigned char *row = px + i*stride;
+                cmsDoTransform(transf, row, row, w);
+            }
+        }
+    }
+#endif // ENABLE_LCMS
 
     cairo_t *xct = gdk_cairo_create(widget->window);
     cairo_translate(xct, x0 - canvas->x0, y0 - canvas->y0);
