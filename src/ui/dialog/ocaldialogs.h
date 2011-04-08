@@ -289,7 +289,7 @@ public:
     void stop();
 
 private:
-    uint spinner_step;
+    unsigned int spinner_step;
     sigc::connection timeout;
     bool draw_spinner;
     bool _on_expose_event(GdkEventExpose* event);
