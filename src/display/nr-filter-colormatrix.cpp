@@ -16,6 +16,7 @@
 #include "display/cairo-utils.h"
 #include "display/nr-filter-colormatrix.h"
 #include "display/nr-filter-slot.h"
+#include <2geom/math-utils.h>
 
 namespace Inkscape {
 namespace Filters {
@@ -104,7 +105,7 @@ private:
 struct ColorMatrixHueRotate {
     ColorMatrixHueRotate(double v) {
         double sinhue, coshue;
-        sincos(v * M_PI/180.0, &sinhue, &coshue);
+        Geom::sincos(v * M_PI/180.0, sinhue, coshue);
 
         _v[0] = round((0.213 +0.787*coshue -0.213*sinhue)*255);
         _v[1] = round((0.715 -0.715*coshue -0.715*sinhue)*255);
