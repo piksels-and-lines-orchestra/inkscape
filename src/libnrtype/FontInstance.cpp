@@ -557,7 +557,9 @@ void font_instance::LoadGlyph(int glyph_id)
                                 break;
 
                             case TT_PRIM_QSPLINE:
-                                g_assert(polyCurve->cpfx % 2 == 0);
+                                //g_assert(polyCurve->cpfx % 2 == 0);
+                                if (polyCurve->cpfx % 2 != 0) return;
+
                                 while ( p != endp ) {
                                     path_builder.quadTo(pointfx_to_nrpoint(p[0], scale),
                                                         pointfx_to_nrpoint(p[1], scale));
