@@ -1690,12 +1690,14 @@ sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1,
         }
         
         if (transf) {
+            cairo_surface_flush(imgs);
             unsigned char *px = cairo_image_surface_get_data(imgs);
             int stride = cairo_image_surface_get_stride(imgs);
             for (int i=0; i<h; ++i) {
                 unsigned char *row = px + i*stride;
                 cmsDoTransform(transf, row, row, w);
             }
+            cairo_surface_mark_dirty(imgs);
         }
     }
 #endif // ENABLE_LCMS
