@@ -51,6 +51,8 @@ NRStyle::NRStyle()
     , fill_rule(CAIRO_FILL_RULE_EVEN_ODD)
     , line_cap(CAIRO_LINE_CAP_BUTT)
     , line_join(CAIRO_LINE_JOIN_MITER)
+    , fill_pattern(NULL)
+    , stroke_pattern(NULL)
 {}
 
 NRStyle::~NRStyle()
@@ -198,8 +200,8 @@ void NRStyle::applyStroke(cairo_t *ct)
 void NRStyle::update()
 {
     // force pattern update
-    cairo_pattern_destroy(fill_pattern);
-    cairo_pattern_destroy(stroke_pattern);
+    if (fill_pattern) cairo_pattern_destroy(fill_pattern);
+    if (stroke_pattern) cairo_pattern_destroy(stroke_pattern);
     fill_pattern = NULL;
     stroke_pattern = NULL;
 }

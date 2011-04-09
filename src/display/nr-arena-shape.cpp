@@ -535,8 +535,9 @@ nr_arena_shape_set_style(NRArenaShape *shape, SPStyle *style)
 {
     g_return_if_fail(shape != NULL);
     g_return_if_fail(NR_IS_ARENA_SHAPE(shape));
+    g_return_if_fail(style != NULL);
 
-    if (style) sp_style_ref(style);
+    sp_style_ref(style);
     if (shape->style) sp_style_unref(shape->style);
     shape->style = style;
 
