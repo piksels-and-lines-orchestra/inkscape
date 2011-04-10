@@ -18,7 +18,7 @@ msgstr ""
 "Project-Id-Version: inkscape\n"
 "Report-Msgid-Bugs-To: inkscape-devel@lists.sourceforge.net\n"
 "POT-Creation-Date: 2011-04-01 15:12+0200\n"
-"PO-Revision-Date: 2011-04-10 11:28+0100\n"
+"PO-Revision-Date: 2011-04-10 12:08+0100\n"
 "Last-Translator: Uwe Schoeler <uschoeler@yahoo.de>\n"
 "Language-Team:  <de@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -7000,9 +7000,8 @@ msgstr "Glattheit"
 #: ../src/extension/internal/filter/abc.h:238
 #: ../src/extension/internal/filter/abc.h:376
 #: ../src/extension/internal/filter/abc.h:816
-#, fuzzy
 msgid "Elevation (°):"
-msgstr "Anhebung"
+msgstr "Anhebung (°):"
 
 #: ../src/extension/internal/filter/abc.h:239
 #: ../src/extension/internal/filter/abc.h:377
@@ -7013,9 +7012,8 @@ msgstr "Azimut (°):"
 #: ../src/extension/internal/filter/abc.h:240
 #: ../src/extension/internal/filter/abc.h:378
 #: ../src/extension/internal/filter/abc.h:818
-#, fuzzy
 msgid "Lightning color"
-msgstr "_Hervorhebungsfarbe:"
+msgstr "Hervorhebungsfarbe:"
 
 #: ../src/extension/internal/filter/abc.h:311
 #, fuzzy
@@ -7511,9 +7509,8 @@ msgid "Grain mode"
 msgstr "Zeichenmodus"
 
 #: ../src/extension/internal/filter/experimental.h:95
-#, fuzzy
 msgid "Expansion:"
-msgstr "Erweiterung »"
+msgstr "Erweiterung:"
 
 #: ../src/extension/internal/filter/experimental.h:98
 #, fuzzy
@@ -7562,9 +7559,8 @@ msgid "Transluscent"
 msgstr "Transparent"
 
 #: ../src/extension/internal/filter/experimental.h:344
-#, fuzzy
 msgid "Level:"
-msgstr "Ebene"
+msgstr "Ebene:"
 
 #: ../src/extension/internal/filter/experimental.h:349
 msgid "Fill color"
@@ -10219,9 +10215,8 @@ msgid "Length of minor ruler marks"
 msgstr "Länge der kleinen Linealmarken"
 
 #: ../src/live_effects/lpe-ruler.cpp:47
-#, fuzzy
 msgid "Major steps_:"
-msgstr "Große Schritte"
+msgstr "Hauptschritte:"
 
 #: ../src/live_effects/lpe-ruler.cpp:47
 msgid "Draw a major mark every ... steps"
@@ -10245,7 +10240,6 @@ msgid "Direction of marks (when viewing along the path from start to end)"
 msgstr "Ausrichtung der Markierungen (relativ zur Pfadrichtung)"
 
 #: ../src/live_effects/lpe-ruler.cpp:50
-#, fuzzy
 msgid "_Offset:"
 msgstr "Versatz:"
 
@@ -10264,7 +10258,6 @@ msgstr "Wählt Markierungen an Anfang und Ende des Pfades"
 #. initialise your parameters here:
 #. testpointA(_("Test Point A"), _("Test A"), "ptA", &wr, this, Geom::Point(100,100)),
 #: ../src/live_effects/lpe-sketch.cpp:35
-#, fuzzy
 msgid "Strokes:"
 msgstr "Kontur:"
 
@@ -13109,7 +13102,6 @@ msgstr "Minimaler horizontaler Abstand (in px-Einheiten) zwischen Umrandungsboxe
 
 #. TRANSLATORS: "H:" stands for horizontal gap
 #: ../src/ui/dialog/align-and-distribute.cpp:470
-#, fuzzy
 msgctxt "Gap"
 msgid "_H:"
 msgstr "_H:"
@@ -13120,7 +13112,6 @@ msgstr "Minimaler vertikaler Abstand (in px-Einheiten) zwischen Umrandungsboxen"
 
 #. TRANSLATORS: Vertical gap
 #: ../src/ui/dialog/align-and-distribute.cpp:481
-#, fuzzy
 msgctxt "Gap"
 msgid "_V:"
 msgstr "V:"
@@ -16046,9 +16037,8 @@ msgid "After applying, remove the object used as the clipping path or mask from 
 msgstr "Entferne das Objekt von der Zeichnung, welches als Ausschneidepfad oder Maskierung verwendet wird, nach dem Anwenden"
 
 #: ../src/ui/dialog/inkscape-preferences.cpp:681
-#, fuzzy
 msgid "Before applying"
-msgstr "Vor dem Anwenden der Ausschneidung/Maske:"
+msgstr "Vor dem Anwenden:"
 
 #: ../src/ui/dialog/inkscape-preferences.cpp:683
 msgid "Do not group clipped/masked objects"
@@ -16075,9 +16065,8 @@ msgid "Apply clippath/mask to group containing all objects"
 msgstr "Ausschneidungspfad/Maske auf Gruppen anwenden, die alle Objekte beinhalten"
 
 #: ../src/ui/dialog/inkscape-preferences.cpp:696
-#, fuzzy
 msgid "After releasing"
-msgstr "Nach dem Lösen von Ausschneidungspfad/Maske:"
+msgstr "Nach dem Lösen:"
 
 #: ../src/ui/dialog/inkscape-preferences.cpp:698
 msgid "Ungroup automatically created groups"
@@ -17725,16 +17714,14 @@ msgid "Arrange in a grid"
 msgstr "In Raster anordnen:"
 
 #: ../src/ui/dialog/tile.cpp:659
-#, fuzzy
 msgid "_Rows:"
-msgstr "Reihen:"
+msgstr "_Reihen:"
 
 #: ../src/ui/dialog/tile.cpp:668
 msgid "Number of rows"
 msgstr "Anzahl der Zeilen"
 
 #: ../src/ui/dialog/tile.cpp:672
-#, fuzzy
 msgid "Equal _height"
 msgstr "Gleiche Höhe"
 
@@ -17751,7 +17738,6 @@ msgstr "Ausrichten:"
 
 #. #### Number of columns ####
 #: ../src/ui/dialog/tile.cpp:731
-#, fuzzy
 msgid "_Columns:"
 msgstr "Spalten:"
 
@@ -17760,7 +17746,6 @@ msgid "Number of columns"
 msgstr "Anzahl der Spalten"
 
 #: ../src/ui/dialog/tile.cpp:744
-#, fuzzy
 msgid "Equal _width"
 msgstr "Gleiche Breite"
 
@@ -17770,12 +17755,10 @@ msgstr "Wenn nicht gesetzt, dann hat jede Spalte die Breite seines breitesten Ob
 
 #. #### Radio buttons to control spacing manually or to fit selection bbox ####
 #: ../src/ui/dialog/tile.cpp:800
-#, fuzzy
 msgid "_Fit into selection box"
 msgstr "In den Auswahlrahmen einpassen"
 
 #: ../src/ui/dialog/tile.cpp:807
-#, fuzzy
 msgid "_Set spacing:"
 msgstr "Abstand setzen:"
 
@@ -17789,7 +17772,6 @@ msgstr "Horizontale Abstände zwischen Spalten (px-Einheiten)"
 
 #. ## The OK button
 #: ../src/ui/dialog/tile.cpp:876
-#, fuzzy
 msgctxt "Rows and columns dialog"
 msgid "_Arrange"
 msgstr "Anordnen"
@@ -18129,7 +18111,6 @@ msgid "Add the specified relative displacement to the current position; otherwis
 msgstr "Die angegebene relative Verschiebung zur aktuellen Position hinzuaddieren; anderenfalls die aktuelle absolute Position direkt ändern"
 
 #: ../src/ui/dialog/transformation.cpp:107
-#, fuzzy
 msgid "_Scale proportionally"
 msgstr "Proportional skalieren"
 
@@ -20729,9 +20710,8 @@ msgid "Switch to normal color display mode"
 msgstr "In den normalen Anzeigemodus wechseln"
 
 #: ../src/verbs.cpp:2618
-#, fuzzy
 msgid "_Grayscale"
-msgstr "Graustufen"
+msgstr "_Graustufen"
 
 #: ../src/verbs.cpp:2619
 #, fuzzy
@@ -21175,34 +21155,34 @@ msgid "<b>Welcome to Inkscape!</b> Use shape or freehand tools to create objects
 msgstr "<b>Willkommen zu Inkscape!</b> Formen- und Freihandwerkzeuge erstellen Objekte; das Auswahlwerkzeug (Pfeil) verschiebt und bearbeitet."
 
 #: ../src/widgets/desktop-widget.cpp:659
-#, fuzzy, c-format
+#, c-format
 msgid "%s: %d (outline%s) - Inkscape"
-msgstr "%s: %d (Umriss) - Inkscape"
+msgstr "%s: %d (Umriss%s) - Inkscape"
 
 #: ../src/widgets/desktop-widget.cpp:661
-#, fuzzy, c-format
+#, c-format
 msgid "%s: %d (no filters%s) - Inkscape"
-msgstr "%s: %d (keine Filter) - Inkscape"
+msgstr "%s: %d (keine Filter%s) - Inkscape"
 
 #: ../src/widgets/desktop-widget.cpp:663
-#, fuzzy, c-format
+#, c-format
 msgid "%s: %d %s- Inkscape"
-msgstr "%s: %d - Inkscape"
+msgstr "%s: %d %s - Inkscape"
 
 #: ../src/widgets/desktop-widget.cpp:667
-#, fuzzy, c-format
+#, c-format
 msgid "%s (outline%s) - Inkscape"
-msgstr "%s (Umriss) - Inkscape"
+msgstr "%s (Umriss%s) - Inkscape"
 
 #: ../src/widgets/desktop-widget.cpp:669
-#, fuzzy, c-format
+#, c-format
 msgid "%s (no filters%s) - Inkscape"
-msgstr "%s (keine Filter) - Inkscape"
+msgstr "%s (keine Filter%s) - Inkscape"
 
 #: ../src/widgets/desktop-widget.cpp:671
-#, fuzzy, c-format
+#, c-format
 msgid "%s %s- Inkscape"
-msgstr "%s - Inkscape"
+msgstr "%s %s- Inkscape"
 
 # ???
 #: ../src/widgets/desktop-widget.cpp:833
@@ -21816,7 +21796,6 @@ msgid "Stroke width"
 msgstr "Breite der Kontur"
 
 #: ../src/widgets/stroke-style.cpp:694
-#, fuzzy
 msgctxt "Stroke width"
 msgid "_Width:"
 msgstr "_Breite:"
@@ -21854,9 +21833,8 @@ msgid "Maximum length of the miter (in units of stroke width)"
 msgstr "Maximale Länge der Spitze (in Vielfachen der Konturlinienbreite)"
 
 #: ../src/widgets/stroke-style.cpp:771
-#, fuzzy
 msgid "Miter _limit:"
-msgstr "Maximale Länge der Spitze:"
+msgstr "Gehrungs_limit:"
 
 #. Cap type
 #. TRANSLATORS: cap type specifies the shape for the ends of lines
@@ -21889,27 +21867,24 @@ msgid "Dashes:"
 msgstr "Strichlinien:"
 
 #: ../src/widgets/stroke-style.cpp:840
-#, fuzzy
 msgid "_Start Markers:"
-msgstr "Anfangsmarkierung:"
+msgstr "_Startmarkierung:"
 
 #: ../src/widgets/stroke-style.cpp:841
 msgid "Start Markers are drawn on the first node of a path or shape"
 msgstr "Startmakierungen werden am ersten Knoten eines Pfades oder einer Form gezeichnet."
 
 #: ../src/widgets/stroke-style.cpp:852
-#, fuzzy
 msgid "_Mid Markers:"
-msgstr "Markierungen dazwischen:"
+msgstr "_Mittelmarkierungen:"
 
 #: ../src/widgets/stroke-style.cpp:853
 msgid "Mid Markers are drawn on every node of a path or shape except the first and last nodes"
 msgstr "Mittenmarkierungen werden auf jedem Knoten entlang eines Pfades - außer dem ersten und letzten - gezeichnet."
 
 #: ../src/widgets/stroke-style.cpp:864
-#, fuzzy
 msgid "_End Markers:"
-msgstr "Endmarkierungen:"
+msgstr "_Endmarkierungen:"
 
 #: ../src/widgets/stroke-style.cpp:865
 msgid "End Markers are drawn on the last node of a path or shape"
@@ -23629,7 +23604,6 @@ msgstr "Kleinerer Abstand"
 #: ../src/widgets/toolbox.cpp:7680
 #: ../src/widgets/toolbox.cpp:7711
 #: ../src/widgets/toolbox.cpp:7742
-#, fuzzy
 msgctxt "Text tool"
 msgid "Normal"
 msgstr "Normal"
@@ -24892,9 +24866,8 @@ msgstr ""
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:19
 #: ../share/extensions/gcodetools_engraving.inx.h:5
-#, fuzzy
 msgid "Engraving"
-msgstr "Alpha Gravur"
+msgstr "Gravur"
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:20
 #: ../share/extensions/gcodetools_area.inx.h:12
@@ -25091,9 +25064,8 @@ msgstr ""
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:49
 #: ../share/extensions/gcodetools_orientation_points.inx.h:11
-#, fuzzy
 msgid "Z depth:"
-msgstr "Tiefe"
+msgstr "Z Tiefe:"
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:50
 #: ../share/extensions/gcodetools_area.inx.h:30
@@ -25106,9 +25078,8 @@ msgstr ""
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:51
 #: ../share/extensions/gcodetools_orientation_points.inx.h:12
-#, fuzzy
 msgid "Z surface:"
-msgstr "Z-Sortierung der Flächen gemäß:"
+msgstr "Z Fläche:"
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:52
 #: ../share/extensions/gcodetools_dxf_points.inx.h:18
@@ -25143,7 +25114,7 @@ msgstr ""
 #: ../share/extensions/gcodetools_all_in_one.inx.h:58
 #: ../share/extensions/gcodetools_area.inx.h:32
 msgid "mark with an arrow"
-msgstr ""
+msgstr "mit Pfeil markieren"
 
 #: ../share/extensions/gcodetools_all_in_one.inx.h:59
 #: ../share/extensions/gcodetools_area.inx.h:33
@@ -26343,24 +26314,20 @@ msgid "Invert fill and stroke colors"
 msgstr "Farbe der Kontur setzen"
 
 #: ../share/extensions/markers_strokepaint.inx.h:9
-#, fuzzy
 msgid "Marker type:"
-msgstr "Filzstift"
+msgstr "Filzstift:"
 
 #: ../share/extensions/markers_strokepaint.inx.h:11
-#, fuzzy
 msgid "Stroke"
-msgstr "Kontur:"
+msgstr "Kontur"
 
 #: ../share/extensions/markers_strokepaint.inx.h:12
-#, fuzzy
 msgid "filled"
-msgstr "Filter"
+msgstr "gefüllt"
 
 #: ../share/extensions/markers_strokepaint.inx.h:13
-#, fuzzy
 msgid "solid"
-msgstr "Fett"
+msgstr "fest"
 
 #: ../share/extensions/measure.inx.h:1
 msgid "Font size (px):"
@@ -27045,14 +27012,12 @@ msgid "Square Size (px):"
 msgstr "Quadratische Größe / px"
 
 #: ../share/extensions/render_barcode_qrcode.inx.h:1
-#, fuzzy
 msgid "Auto"
-msgstr "Obenauf"
+msgstr "Auto"
 
 #: ../share/extensions/render_barcode_qrcode.inx.h:2
-#, fuzzy
 msgid "Barcode - QR Code"
-msgstr "Strichcode-Typ:"
+msgstr "Strichcode - QR Code"
 
 #: ../share/extensions/render_barcode_qrcode.inx.h:3
 #, fuzzy
