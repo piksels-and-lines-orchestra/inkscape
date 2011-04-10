@@ -46,14 +46,18 @@ FilterSlot::FilterSlot(NRArenaItem *item, cairo_t *bgct, NRRectL const *bgarea,
         Geom::Point(_source_graphic_area->x1, _source_graphic_area->y1));
 
     Geom::Affine trans = _units.get_matrix_display2pb();
-
     Geom::Rect bbox_trans = bbox * trans;
     Geom::Point min = bbox_trans.min();
-    Geom::Point max = bbox_trans.max();
-    _slot_area.x0 = floor(min[X]);
-    _slot_area.y0 = floor(min[Y]);
-    _slot_area.x1 = ceil(max[X]);
-    _slot_area.y1 = ceil(max[Y]);
+    _slot_x = min[X];
+    _slot_y = min[Y];
+
+    if (trans.isTranslation()) {
+        _slot_w = _source_graphic_area->x1 - _source_graphic_area->x0;
+        _slot_h = _source_graphic_area->y1 - _source_graphic_area->y0;
+    } else {
+        _slot_w = ceil(bbox_trans.width());
+        _slot_h = ceil(bbox_trans.height());
+    }
 }
 
 FilterSlot::~FilterSlot()
@@ -115,7 +119,7 @@ cairo_surface_t *FilterSlot::getcairo(int slot_nr)
         // create empty surface
         cairo_surface_t *empty = cairo_surface_create_similar(
             _source_graphic, cairo_surface_get_content(_source_graphic),
-            _slot_area.x1 - _slot_area.x0, _slot_area.y1 - _slot_area.y0);
+            _slot_w, _slot_h);
         _set_internal(slot_nr, empty);
         cairo_surface_destroy(empty);
         s = _slots.find(slot_nr);
@@ -127,17 +131,17 @@ cairo_surface_t *FilterSlot::_get_transformed_source_graphic()
 {
     Geom::Affine trans = _units.get_matrix_display2pb();
 
-    if (trans.isIdentity()) {
+    if (trans.isTranslation()) {
         cairo_surface_reference(_source_graphic);
         return _source_graphic;
     }
 
     cairo_surface_t *tsg = cairo_surface_create_similar(
         _source_graphic, cairo_surface_get_content(_source_graphic),
-        _slot_area.x1 - _slot_area.x0, _slot_area.y1 - _slot_area.y0);
+        _slot_w, _slot_h);
     cairo_t *tsg_ct = cairo_create(tsg);
 
-    cairo_translate(tsg_ct, -_slot_area.x0, -_slot_area.y0);
+    cairo_translate(tsg_ct, -_slot_x, -_slot_y);
     ink_cairo_transform(tsg_ct, trans);
     cairo_translate(tsg_ct, _source_graphic_area->x0, _source_graphic_area->y0);
     cairo_set_source_surface(tsg_ct, _source_graphic, 0, 0);
@@ -155,10 +159,10 @@ cairo_surface_t *FilterSlot::_get_transformed_background()
     cairo_surface_t *bg = cairo_get_target(_background_ct);
     cairo_surface_t *tbg = cairo_surface_create_similar(
         bg, cairo_surface_get_content(bg),
-        _slot_area.x1 - _slot_area.x0, _slot_area.y1 - _slot_area.y0);
+        _slot_w, _slot_h);
     cairo_t *tbg_ct = cairo_create(tbg);
 
-    cairo_translate(tbg_ct, -_slot_area.x0, -_slot_area.y0);
+    cairo_translate(tbg_ct, -_slot_x, -_slot_y);
     ink_cairo_transform(tbg_ct, trans);
     cairo_translate(tbg_ct, _background_area->x0, _background_area->y0);
     cairo_set_source_surface(tbg_ct, bg, 0, 0);
@@ -186,7 +190,7 @@ cairo_surface_t *FilterSlot::get_result(int res)
 
     cairo_translate(r_ct, -_source_graphic_area->x0, -_source_graphic_area->y0);
     ink_cairo_transform(r_ct, trans);
-    cairo_translate(r_ct, _slot_area.x0, _slot_area.y0);
+    cairo_translate(r_ct, _slot_x, _slot_y);
     cairo_set_source_surface(r_ct, getcairo(res), 0, 0);
     cairo_set_operator(r_ct, CAIRO_OPERATOR_SOURCE);
     cairo_paint(r_ct);
@@ -235,6 +239,13 @@ void FilterSlot::set_blurquality(int const q) {
 
 int FilterSlot::get_blurquality(void) {
     return blurquality;
+}
+
+Geom::Rect FilterSlot::get_slot_area() const {
+    Geom::Point p(_slot_x, _slot_y);
+    Geom::Point dim(_slot_w, _slot_h);
+    Geom::Rect r(p, p+dim);
+    return r;
 }
 
 } /* namespace Filters */

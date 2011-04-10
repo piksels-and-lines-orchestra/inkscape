@@ -65,7 +65,7 @@ public:
     int get_blurquality(void);
 
     FilterUnits const &get_units() const { return _units; }
-    NRRectL const &get_slot_area() const { return _slot_area; }
+    Geom::Rect get_slot_area() const;
     NRRectL const &get_sg_area() const { return *_source_graphic_area; }
 
 private:
@@ -76,7 +76,9 @@ private:
     //Geom::Rect _source_bbox; ///< bounding box of source graphic surface
     //Geom::Rect _intermediate_bbox; ///< bounding box of intermediate surfaces
 
-    NRRectL _slot_area;
+//    NRRectL _slot_area;
+    int _slot_w, _slot_h;
+    double _slot_x, _slot_y;
     cairo_surface_t *_source_graphic;
     cairo_t *_background_ct;
     NRRectL const *_source_graphic_area;

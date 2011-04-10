@@ -376,9 +376,11 @@ void FilterTurbulence::render_cairo(FilterSlot &slot)
     }
 
     Geom::Affine unit_trans = slot.get_units().get_matrix_primitiveunits2pb().inverse();
-    NRRectL const &slot_area = slot.get_slot_area();
+    Geom::Rect slot_area = slot.get_slot_area();
+    double x0 = slot_area.min()[Geom::X];
+    double y0 = slot_area.min()[Geom::Y];
 
-    ink_cairo_surface_synthesize(out, Turbulence(*gen, unit_trans, slot_area.x0, slot_area.y0));
+    ink_cairo_surface_synthesize(out, Turbulence(*gen, unit_trans, x0, y0));
 
     cairo_surface_mark_dirty(out);
 

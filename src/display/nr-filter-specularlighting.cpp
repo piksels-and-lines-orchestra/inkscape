@@ -140,9 +140,10 @@ void FilterSpecularLighting::render_cairo(FilterSlot &slot)
     cairo_surface_t *input = slot.getcairo(_input);
     cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
 
-    NRRectL const &slot_area = slot.get_slot_area();
     Geom::Affine trans = slot.get_units().get_matrix_primitiveunits2pb();
-    double x0 = slot_area.x0, y0 = slot_area.y0;
+    Geom::Point p = slot.get_slot_area().min();
+    double x0 = p[Geom::X];
+    double y0 = p[Geom::Y];
     double scale = surfaceScale * trans.descrim();
     double ks = specularConstant;
     double se = specularExponent;

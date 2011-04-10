@@ -91,11 +91,11 @@ void FilterImage::render_cairo(FilterSlot &slot)
         double scaleX = feImageWidth / area.width();
         double scaleY = feImageHeight / area.height();
 
-        NRRectL const &sa = slot.get_slot_area();
+        Geom::Rect sa = slot.get_slot_area();
         cairo_surface_t *out = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-            sa.x1 - sa.x0, sa.y1 - sa.y0);
+            sa.width(), sa.height());
         cairo_t *ct = cairo_create(out);
-        cairo_translate(ct, -sa.x0, -sa.y0);
+        cairo_translate(ct, -sa.min()[Geom::X], -sa.min()[Geom::Y]);
         ink_cairo_transform(ct, pu2pb); // we are now in primitive units
         cairo_translate(ct, feImageX, feImageY);
         cairo_scale(ct, scaleX, scaleY);
@@ -179,12 +179,12 @@ void FilterImage::render_cairo(FilterSlot &slot)
             CAIRO_FORMAT_ARGB32, image->get_width(), image->get_height(), image->get_rowstride());
     }
 
-    NRRectL const &sa = slot.get_slot_area();
+    Geom::Rect sa = slot.get_slot_area();
     cairo_surface_t *out = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-        sa.x1 - sa.x0, sa.y1 - sa.y0);
+        sa.width(), sa.height());
 
     cairo_t *ct = cairo_create(out);
-    cairo_translate(ct, -sa.x0, -sa.y0);
+    cairo_translate(ct, -sa.min()[Geom::X], -sa.min()[Geom::Y]);
     // now ct is in pb coordinates
     ink_cairo_transform(ct, slot.get_units().get_matrix_primitiveunits2pb());
     // now ct is in the coordinates of feImageX etc.

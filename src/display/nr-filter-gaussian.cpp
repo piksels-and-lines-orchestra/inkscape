@@ -82,7 +82,7 @@ static inline Tt round_cast(Ts v) {
     static Ts const rndoffset(.5);
     return static_cast<Tt>(v+rndoffset);
 }
-
+/*
 template<>
 inline unsigned char round_cast(double v) {
     // This (fast) rounding method is based on:
@@ -99,7 +99,7 @@ inline unsigned char round_cast(double v) {
     static double const rndoffset(.5);
     return static_cast<unsigned char>(v+rndoffset);
 #endif
-}
+}*/
 
 template<typename Tt, typename Ts>
 static inline Tt clip_round_cast(Ts const v) {
@@ -142,7 +142,7 @@ FilterGaussian::~FilterGaussian()
 static int
 _effect_area_scr(double const deviation)
 {
-    return (int)std::ceil(deviation * 3.0);
+    return (int)std::ceil(std::fabs(deviation) * 3.0);
 }
 
 static void
