@@ -968,7 +968,7 @@ void ImportDialog::on_entry_search_activated()
     // Open the RSS feed
     Glib::RefPtr<Gio::File> xml_file = Gio::File::create_for_uri(xml_uri);
     
-    xml_file->load_contents_async(
+    xml_file->read_async(
         sigc::bind<Glib::RefPtr<Gio::File> , Glib::ustring>(
             sigc::mem_fun(*this, &ImportDialog::on_xml_file_read),
             xml_file, xml_uri)
@@ -978,14 +978,45 @@ void ImportDialog::on_entry_search_activated()
 void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result,
     Glib::RefPtr<Gio::File> xml_file, Glib::ustring xml_uri)
 {
-    widget_status->end_process();
+    Glib::RefPtr<Gio::FileInputStream> stream;
+    char* buffer[8192];
     
-    char* data;
-    gsize length;
-    
-    bool sucess = xml_file->load_contents_finish(result, data, length);
-    if (!sucess) {
+    try {
+        stream = xml_file->read_finish(result);
+    } catch(Glib::Error) {
         widget_status->set_error(_("Could not connect to the Open Clip Art Library"));
+        widget_status->end_process();
+
+        stream->close_async( 
+            sigc::bind< Glib::RefPtr<Gio::FileInputStream> >(
+                sigc::mem_fun(*this, &ImportDialog::on_xml_file_stream_closed),
+                stream)
+        );
+        
+        return;
+    }
+
+    stream->read_async(buffer, 8192, 
+        sigc::bind<Glib::RefPtr<Gio::FileInputStream>, char*, Glib::ustring>(
+            sigc::mem_fun(*this, &ImportDialog::on_xml_file_stream_read),
+            stream, *buffer, xml_uri)
+    );
+}
+
+void ImportDialog::on_xml_file_stream_read(const Glib::RefPtr<Gio::AsyncResult>& result,
+    Glib::RefPtr<Gio::FileInputStream> stream, char* buffer, Glib::ustring xml_uri)
+{
+    gssize success = stream->read_finish(result);
+
+    if (success == -1) {
+        widget_status->set_error(_("Could not connect to the Open Clip Art Library"));
+
+        stream->close_async( 
+            sigc::bind< Glib::RefPtr<Gio::FileInputStream> >(
+                sigc::mem_fun(*this, &ImportDialog::on_xml_file_stream_closed),
+                stream)
+        );
+        
         return;
     }
 
@@ -995,17 +1026,26 @@ void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result
     xmlDoc *doc = NULL;
     xmlNode *root_element = NULL;
 
-    doc = xmlReadMemory(data, (int) length, xml_uri.c_str(), NULL,
+    printf("%f\n", (double) success);
+
+    doc = xmlReadMemory(buffer, 8192, xml_uri.c_str(), NULL,
             XML_PARSE_RECOVER + XML_PARSE_NOWARNING + XML_PARSE_NOERROR);
         
     if (doc == NULL) {
         // If nothing is returned, no results could be found
-        if (length == 0) {
+        if (success == 0) {
             notebook_content->set_current_page(NOTEBOOK_PAGE_NOT_FOUND);
             update_label_no_search_results();
         } else {
             widget_status->set_error(_("Could not parse search results"));
         }
+
+        stream->close_async( 
+            sigc::bind< Glib::RefPtr<Gio::FileInputStream> >(
+                sigc::mem_fun(*this, &ImportDialog::on_xml_file_stream_closed),
+                stream)
+        );
+        
         return;
     }
 
@@ -1030,8 +1070,19 @@ void ImportDialog::on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result
     xmlFreeDoc(doc);
     // free the global variables that may have been allocated by the parser
     xmlCleanupParser();
+
+    stream->close_async( 
+        sigc::bind< Glib::RefPtr<Gio::FileInputStream> >(
+            sigc::mem_fun(*this, &ImportDialog::on_xml_file_stream_closed),
+            stream)
+    );
 }
 
+void ImportDialog::on_xml_file_stream_closed(const Glib::RefPtr<Gio::AsyncResult>& result,
+    Glib::RefPtr<Gio::FileInputStream> stream)
+{
+    stream->close_finish(result);
+}
 
 void ImportDialog::update_label_no_search_results()
 {
