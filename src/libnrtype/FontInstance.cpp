@@ -557,13 +557,19 @@ void font_instance::LoadGlyph(int glyph_id)
                                 break;
 
                             case TT_PRIM_QSPLINE:
-                                //g_assert(polyCurve->cpfx % 2 == 0);
-                                if (polyCurve->cpfx % 2 != 0) return;
+                                {
+                                    g_assert(polyCurve->cpfx >= 2);
 
-                                while ( p != endp ) {
-                                    path_builder.quadTo(pointfx_to_nrpoint(p[0], scale),
-                                                        pointfx_to_nrpoint(p[1], scale));
-                                    p += 2;
+                                    // The list of points specifies one or more control points and ends with the end point.
+                                    // The intermediate points (on the curve) are the points between the control points.
+                                    Geom::Point this_control = pointfx_to_nrpoint(*p++, scale);
+                                    while ( p+1 != endp ) { // Process all "midpoints" (all points except the last)
+                                        Geom::Point new_control = pointfx_to_nrpoint(*p++, scale);
+                                        path_builder.quadTo(this_control, (new_control+this_control)/2);
+                                        this_control = new_control;
+                                    }
+                                    Geom::Point end = pointfx_to_nrpoint(*p++, scale);
+                                    path_builder.quadTo(this_control, end);
                                 }
                                 break;
 
