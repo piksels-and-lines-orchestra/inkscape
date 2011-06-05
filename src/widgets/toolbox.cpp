@@ -548,11 +548,11 @@ static void update_commands_toolbox(SPDesktop *desktop, SPEventContext *eventcon
 
 static GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick( GtkWidget *t, Inkscape::IconSize size, SPButtonType type,
                                                                      Inkscape::Verb *verb, Inkscape::Verb *doubleclick_verb,
-                                                                     Inkscape::UI::View::View *view, GtkTooltips *tt);
+                                                                     Inkscape::UI::View::View *view);
 
 class VerbAction : public Gtk::Action {
 public:
-    static Glib::RefPtr<VerbAction> create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips);
+    static Glib::RefPtr<VerbAction> create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view);
 
     virtual ~VerbAction();
     virtual void set_active(bool active = true);
@@ -570,31 +570,29 @@ private:
     Inkscape::Verb* verb;
     Inkscape::Verb* verb2;
     Inkscape::UI::View::View *view;
-    GtkTooltips *tooltips;
     bool active;
 
-    VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips);
+    VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view);
 };
 
 
-Glib::RefPtr<VerbAction> VerbAction::create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips)
+Glib::RefPtr<VerbAction> VerbAction::create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view)
 {
     Glib::RefPtr<VerbAction> result;
     SPAction *action = verb->get_action(view);
     if ( action ) {
         //SPAction* action2 = verb2 ? verb2->get_action(view) : 0;
-        result = Glib::RefPtr<VerbAction>(new VerbAction(verb, verb2, view, tooltips));
+        result = Glib::RefPtr<VerbAction>(new VerbAction(verb, verb2, view));
     }
 
     return result;
 }
 
-VerbAction::VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips) :
+VerbAction::VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view) :
     Gtk::Action(Glib::ustring(verb->get_id()), Gtk::StockID(verb->get_image()), Glib::ustring(_(verb->get_name())), Glib::ustring(_(verb->get_tip()))),
     verb(verb),
     verb2(verb2),
     view(view),
-    tooltips(tooltips),
     active(false)
 {
 }
@@ -624,8 +622,7 @@ Gtk::Widget* VerbAction::create_tool_item_vfunc()
                                                                           SP_BUTTON_TYPE_TOGGLE,
                                                                           verb,
                                                                           verb2,
-                                                                          view,
-                                                                          tooltips );
+                                                                          view );
     if ( active ) {
         sp_button_toggle_set_down( SP_BUTTON(button), active);
     }
@@ -808,7 +805,7 @@ static void delete_prefspusher(GtkObject * /*obj*/, PrefPusher *watcher )
 
 GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick(GtkWidget *t, Inkscape::IconSize size, SPButtonType type,
                                                              Inkscape::Verb *verb, Inkscape::Verb *doubleclick_verb,
-                                                             Inkscape::UI::View::View *view, GtkTooltips *tt)
+                                                             Inkscape::UI::View::View *view)
 {
     SPAction *action = verb->get_action(view);
     if (!action) {
@@ -824,7 +821,7 @@ GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick(GtkWidget *t, Inksc
 
     /* fixme: Handle sensitive/unsensitive */
     /* fixme: Implement sp_button_new_from_action */
-    GtkWidget *b = sp_button_new(size, type, action, doubleclick_action, tt);
+    GtkWidget *b = sp_button_new(size, type, action, doubleclick_action);
     gtk_widget_show(b);
 
 
@@ -959,9 +956,8 @@ static Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* deskto
     }
 
     if ( !mainActions->get_action("ToolZoom") ) {
-        GtkTooltips *tt = gtk_tooltips_new();
         for ( guint i = 0; i < G_N_ELEMENTS(tools) && tools[i].type_name; i++ ) {
-            Glib::RefPtr<VerbAction> va = VerbAction::create(Inkscape::Verb::get(tools[i].verb), Inkscape::Verb::get(tools[i].doubleclick_verb), view, tt);
+            Glib::RefPtr<VerbAction> va = VerbAction::create(Inkscape::Verb::get(tools[i].verb), Inkscape::Verb::get(tools[i].doubleclick_verb), view);
             if ( va ) {
                 mainActions->add(va);
                 if ( i == 0 ) {
