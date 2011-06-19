@@ -107,6 +107,12 @@ void convert_pixbuf_normal_to_argb32(GdkPixbuf *);
 void convert_pixbuf_argb32_to_normal(GdkPixbuf *);
 cairo_surface_t *ink_cairo_surface_create_for_argb32_pixbuf(GdkPixbuf *pb);
 
+G_GNUC_CONST guint32 argb32_from_pixbuf(guint32 in);
+G_GNUC_CONST guint32 pixbuf_from_argb32(guint32 in);
+/** Convert a pixel in 0xRRGGBBAA format to Cairo ARGB32 format. */
+G_GNUC_CONST guint32 argb32_from_rgba(guint32 in);
+
+
 G_GNUC_CONST inline guint32
 premul_alpha(guint32 color, guint32 alpha)
 {

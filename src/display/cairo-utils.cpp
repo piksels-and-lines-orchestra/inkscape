@@ -555,6 +555,62 @@ ink_cairo_pattern_create_checkerboard()
     return p;
 }
 
+/* The following two functions use "from" instead of "to", because when you write:
+   val1 = argb32_from_pixbuf(val1);
+   the name of the format is closer to the value in that format. */
+
+guint32 argb32_from_pixbuf(guint32 c)
+{
+    guint32 o = 0;
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+    guint32 a = (c & 0xff000000) >> 24;
+#else
+    guint32 a = (c & 0x000000ff);
+#endif
+    if (a != 0) {
+        // extract color components
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+        guint32 r = (c & 0x000000ff);
+        guint32 g = (c & 0x0000ff00) >> 8;
+        guint32 b = (c & 0x00ff0000) >> 16;
+#else
+        guint32 r = (c & 0xff000000) >> 24;
+        guint32 g = (c & 0x00ff0000) >> 16;
+        guint32 b = (c & 0x0000ff00) >> 8;
+#endif
+        // premultiply
+        r = premul_alpha(r, a);
+        b = premul_alpha(b, a);
+        g = premul_alpha(g, a);
+        // combine into output
+        o = (a << 24) | (r << 16) | (g << 8) | (b);
+    }
+    return o;
+}
+
+guint32 pixbuf_from_argb32(guint32 c)
+{
+    guint32 a = (c & 0xff000000) >> 24;
+    if (a == 0) return 0;
+
+    // extract color components
+    guint32 r = (c & 0x00ff0000) >> 16;
+    guint32 g = (c & 0x0000ff00) >> 8;
+    guint32 b = (c & 0x000000ff);
+    // unpremultiply; adding a/2 gives correct rounding
+    // (taken from Cairo sources)
+    r = (r * 255 + a/2) / a;
+    b = (b * 255 + a/2) / a;
+    g = (g * 255 + a/2) / a;
+    // combine into output
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+    guint32 o = (r) | (g << 8) | (b << 16) | (a << 24);
+#else
+    guint32 o = (r << 24) | (g << 16) | (b << 8) | (a);
+#endif
+    return o;
+}
+
 /**
  * @brief Convert pixel data from GdkPixbuf format to ARGB.
  * This will convert pixel data from GdkPixbuf format to Cairo's native pixel format.
@@ -565,38 +621,11 @@ ink_cairo_pattern_create_checkerboard()
 void
 convert_pixels_pixbuf_to_argb32(guchar *data, int w, int h, int stride)
 {
-    // TODO: optimize until it squeaks.
-    guint32 *ipx = reinterpret_cast<guint32*>(data);
-
     for (int i = 0; i < h; ++i) {
+        guint32 *px = reinterpret_cast<guint32*>(data + i*stride);
         for (int j = 0; j < w; ++j) {
-            int index = i * stride / 4  + j;
-            guint32 c = ipx[index];
-            guint32 o = 0;
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-            guint32 a = (c & 0xff000000) >> 24;
-#else
-            guint32 a = (c & 0x000000ff);
-#endif
-            if (a != 0) {
-                // extract color components
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-                guint32 r = (c & 0x000000ff);
-                guint32 g = (c & 0x0000ff00) >> 8;
-                guint32 b = (c & 0x00ff0000) >> 16;
-#else
-                guint32 r = (c & 0xff000000) >> 24;
-                guint32 g = (c & 0x00ff0000) >> 16;
-                guint32 b = (c & 0x0000ff00) >> 8;
-#endif
-                // premultiply
-                r = premul_alpha(r, a);
-                b = premul_alpha(b, a);
-                g = premul_alpha(g, a);
-                // combine into output
-                o = (a << 24) | (r << 16) | (g << 8) | (b);
-            }
-            ipx[index] = o;
+            *px = argb32_from_pixbuf(*px);
+            ++px;
         }
     }
 }
@@ -609,32 +638,11 @@ convert_pixels_pixbuf_to_argb32(guchar *data, int w, int h, int stride)
 void
 convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int stride)
 {
-    // TODO: optimize until it squeaks.
-    guint32 *ipx = reinterpret_cast<guint32*>(data);
     for (int i = 0; i < h; ++i) {
+        guint32 *px = reinterpret_cast<guint32*>(data + i*stride);
         for (int j = 0; j < w; ++j) {
-            int index = i * stride / 4  + j;
-            guint32 c = ipx[index];
-            guint32 o = 0;
-            guint32 a = (c & 0xff000000) >> 24;
-            if (a != 0) {
-                // extract color components
-                guint32 r = (c & 0x00ff0000) >> 16;
-                guint32 g = (c & 0x0000ff00) >> 8;
-                guint32 b = (c & 0x000000ff);
-                // unpremultiply; adding a/2 gives correct rounding
-                // (taken from Cairo sources)
-                r = (r * 255 + a/2) / a;
-                b = (b * 255 + a/2) / a;
-                g = (g * 255 + a/2) / a;
-                // combine into output
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-                o = (r) | (g << 8) | (b << 16) | (a << 24);
-#else
-                o = (r << 24) | (g << 16) | (b << 8) | (a);
-#endif
-            }
-            ipx[index] = o;
+            *px = pixbuf_from_argb32(*px);
+            ++px;
         }
     }
 }
@@ -642,7 +650,7 @@ convert_pixels_argb32_to_pixbuf(guchar *data, int w, int h, int stride)
 /**
  * @brief Converts GdkPixbuf's data to premultiplied ARGB.
  * This function will convert a GdkPixbuf in place into Cairo's native pixel format.
- * Note that this is a hack intended to save memory. When the pixbuf is Cairo's format,
+ * Note that this is a hack intended to save memory. When the pixbuf is in Cairo's format,
  * using it with GTK will result in corrupted drawings.
  */
 void
@@ -667,6 +675,17 @@ convert_pixbuf_argb32_to_normal(GdkPixbuf *pb)
         gdk_pixbuf_get_width(pb),
         gdk_pixbuf_get_height(pb),
         gdk_pixbuf_get_rowstride(pb));
+}
+
+guint32 argb32_from_rgba(guint32 in)
+{
+    guint32 r, g, b, a;
+    a = (in & 0x000000ff);
+    r = premul_alpha((in & 0xff000000) >> 24, a);
+    g = premul_alpha((in & 0x00ff0000) >> 16, a);
+    b = premul_alpha((in & 0x0000ff00) >> 8,  a);
+    ASSEMBLE_ARGB32(px, a, r, g, b)
+    return px;
 }
 
 /*
