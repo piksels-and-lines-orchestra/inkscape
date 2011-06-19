@@ -66,7 +66,6 @@ static Inkscape::MessageStack *_message_stack = NULL;
 static Inkscape::MessageContext *_message_context = NULL;
 static sigc::connection _message_changed_connection;
 
-static GtkTooltips *tooltips = NULL;
 static GtkEditable *attr_name = NULL;
 static GtkTextView *attr_value = NULL;
 static SPXMLViewTree *tree = NULL;
@@ -194,9 +193,6 @@ void sp_xml_tree_dialog()
         GtkWidget *text_container, *attr_container, *attr_subpaned_container, *box2;
         GtkWidget *set_attr;
 
-        tooltips = gtk_tooltips_new();
-        gtk_tooltips_enable(tooltips);
-
         dlg = sp_window_new("", TRUE);
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         if (x == -1000 || y == -1000) {
@@ -225,10 +221,10 @@ void sp_xml_tree_dialog()
         wd.stop = 0;
         g_signal_connect  ( G_OBJECT(INKSCAPE), "activate_desktop", G_CALLBACK(sp_transientize_callback), &wd );
 
-        gtk_signal_connect( GTK_OBJECT(dlg), "event", GTK_SIGNAL_FUNC(sp_dialog_event_handler), dlg );
+        g_signal_connect( G_OBJECT(dlg), "event", G_CALLBACK(sp_dialog_event_handler), dlg );
 
-        gtk_signal_connect( GTK_OBJECT(dlg), "destroy", G_CALLBACK(on_destroy), dlg);
-        gtk_signal_connect( GTK_OBJECT(dlg), "delete_event", G_CALLBACK(on_delete), dlg);
+        g_signal_connect( G_OBJECT(dlg), "destroy", G_CALLBACK(on_destroy), dlg);
+        g_signal_connect( G_OBJECT(dlg), "delete_event", G_CALLBACK(on_delete), dlg);
         g_signal_connect  ( G_OBJECT(INKSCAPE), "shut_down", G_CALLBACK(on_delete), dlg);
 
         g_signal_connect  ( G_OBJECT(INKSCAPE), "dialogs_hide", G_CALLBACK(sp_dialog_hide), dlg);
@@ -267,8 +263,8 @@ void sp_xml_tree_dialog()
         gtk_paned_pack1(GTK_PANED(paned), box, FALSE, FALSE);
 
         tree = SP_XMLVIEW_TREE(sp_xmlview_tree_new(NULL, NULL, NULL));
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(tree),
-                               _("Drag to reorder nodes"), NULL );
+        gtk_widget_set_tooltip_text( GTK_WIDGET(tree),
+                               _("Drag to reorder nodes") );
 
         g_signal_connect( G_OBJECT(tree), "tree_select_row",
                            G_CALLBACK(on_tree_select_row), NULL );
@@ -495,19 +491,19 @@ void sp_xml_tree_dialog()
                              FALSE, TRUE, 0);
 
         attr_name = GTK_EDITABLE(gtk_entry_new());
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(attr_name),
+        gtk_widget_set_tooltip_text( GTK_WIDGET(attr_name),
                                // TRANSLATORS: "Attribute" is a noun here
-                               _("Attribute name"), NULL );
+                               _("Attribute name") );
 
-        gtk_signal_connect( GTK_OBJECT(attributes), "select_row",
+        g_signal_connect( G_OBJECT(attributes), "select_row",
                             (GCallback) on_attr_select_row_set_name_content,
                              attr_name);
 
-        gtk_signal_connect( GTK_OBJECT(attributes), "unselect_row",
+        g_signal_connect( G_OBJECT(attributes), "unselect_row",
                             (GCallback) on_attr_unselect_row_clear_text,
                              attr_name);
 
-        gtk_signal_connect( GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect( G_OBJECT(tree), "tree_unselect_row",
                             (GCallback) on_tree_unselect_row_clear_text,
                              attr_name);
 
@@ -515,16 +511,16 @@ void sp_xml_tree_dialog()
                              TRUE, TRUE, 0);
 
         set_attr = gtk_button_new();
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(set_attr),
+        gtk_widget_set_tooltip_text( GTK_WIDGET(set_attr),
                                // TRANSLATORS: "Set" is a verb here
-                               _("Set attribute"), NULL );
+                               _("Set attribute") );
         // TRANSLATORS: "Set" is a verb here
         GtkWidget *set_label = gtk_label_new(_("Set"));
         gtk_container_add(GTK_CONTAINER(set_attr), set_label);
 
-        gtk_signal_connect( GTK_OBJECT(set_attr), "clicked",
+        g_signal_connect( G_OBJECT(set_attr), "clicked",
                             (GCallback) cmd_set_attr, NULL);
-        gtk_signal_connect( GTK_OBJECT(attr_name), "changed",
+        g_signal_connect( G_OBJECT(attr_name), "changed",
                    (GCallback) on_editable_changed_enable_if_valid_xml_name,
                     set_attr );
         gtk_widget_set_sensitive(GTK_WIDGET(set_attr), FALSE);
@@ -540,16 +536,16 @@ void sp_xml_tree_dialog()
 
         attr_value =(GtkTextView *) gtk_text_view_new();
         gtk_text_view_set_wrap_mode((GtkTextView *) attr_value, GTK_WRAP_CHAR);
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(attr_value),
+        gtk_widget_set_tooltip_text( GTK_WIDGET(attr_value),
                                // TRANSLATORS: "Attribute" is a noun here
-                               _("Attribute value"), NULL );
-        gtk_signal_connect( GTK_OBJECT(attributes), "select_row",
+                               _("Attribute value") );
+        g_signal_connect( G_OBJECT(attributes), "select_row",
                             (GCallback) on_attr_select_row_set_value_content,
                              attr_value );
-        gtk_signal_connect( GTK_OBJECT(attributes), "unselect_row",
+        g_signal_connect( G_OBJECT(attributes), "unselect_row",
                             (GCallback) on_attr_unselect_row_clear_text,
                              attr_value );
-        gtk_signal_connect( GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect( G_OBJECT(tree), "tree_unselect_row",
                             (GCallback) on_tree_unselect_row_clear_text,
                              attr_value );
         gtk_text_view_set_editable(attr_value, TRUE);
@@ -895,8 +891,6 @@ void after_tree_move(GtkCTree */*tree*/,
 static void on_destroy(GtkObject */*object*/, gpointer /*data*/)
 {
     set_tree_desktop(NULL);
-    gtk_object_destroy(GTK_OBJECT(tooltips));
-    tooltips = NULL;
     sp_signal_disconnect_by_data(INKSCAPE, dlg);
     wd.win = dlg = NULL;
     wd.stop = 0;
@@ -1327,8 +1321,8 @@ void cmd_new_element_node(GtkObject */*object*/, gpointer /*data*/)
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(dlg));
     gtk_window_set_modal(GTK_WINDOW(window), TRUE);
-    gtk_signal_connect(GTK_OBJECT(window), "destroy", gtk_main_quit, NULL);
-    gtk_signal_connect(GTK_OBJECT(window), "key-press-event", G_CALLBACK(quit_on_esc), window);
+    g_signal_connect(G_OBJECT(window), "destroy", gtk_main_quit, NULL);
+    g_signal_connect(G_OBJECT(window), "key-press-event", G_CALLBACK(quit_on_esc), window);
 
     vbox = gtk_vbox_new(FALSE, 4);
     gtk_container_add(GTK_CONTAINER(window), vbox);
@@ -1345,25 +1339,24 @@ void cmd_new_element_node(GtkObject */*object*/, gpointer /*data*/)
     gtk_box_pack_start(GTK_BOX(vbox), bbox, FALSE, TRUE, 0);
 
     cancel = gtk_button_new_with_label(_("Cancel"));
-    GTK_WIDGET_SET_FLAGS( GTK_WIDGET(cancel),
-                           GTK_CAN_DEFAULT );
-    gtk_signal_connect_object( GTK_OBJECT(cancel), "clicked",
+    gtk_widget_set_can_default( GTK_WIDGET(cancel), TRUE );
+    g_signal_connect_swapped( G_OBJECT(cancel), "clicked",
                                 G_CALLBACK(gtk_widget_destroy),
-                                GTK_OBJECT(window) );
+                                G_OBJECT(window) );
     gtk_container_add(GTK_CONTAINER(bbox), cancel);
 
     create = gtk_button_new_with_label(_("Create"));
     gtk_widget_set_sensitive(GTK_WIDGET(create), FALSE);
-    gtk_signal_connect( GTK_OBJECT(entry), "changed",
+    g_signal_connect( G_OBJECT(entry), "changed",
                     G_CALLBACK(on_editable_changed_enable_if_valid_xml_name),
                     create );
-    gtk_signal_connect( GTK_OBJECT(create), "clicked",
+    g_signal_connect( G_OBJECT(create), "clicked",
                          G_CALLBACK(on_clicked_get_editable_text), &name );
-    gtk_signal_connect_object( GTK_OBJECT(create), "clicked",
+    g_signal_connect_swapped( G_OBJECT(create), "clicked",
                                 G_CALLBACK(gtk_widget_destroy),
-                                GTK_OBJECT(window) );
-    GTK_WIDGET_SET_FLAGS( GTK_WIDGET(create),
-                           GTK_CAN_DEFAULT | GTK_RECEIVES_DEFAULT );
+                                G_OBJECT(window) );
+    gtk_widget_set_can_default( GTK_WIDGET(create), TRUE );
+    gtk_widget_set_receives_default( GTK_WIDGET(create), TRUE );
     gtk_container_add(GTK_CONTAINER(bbox), create);
 
     gtk_widget_show_all(GTK_WIDGET(window));

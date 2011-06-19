@@ -29,7 +29,7 @@
 #endif
 
 #include <cstring>
-#include <gtk/gtkstock.h>
+#include <gtk/gtk.h>
 #include <gtkmm/filechooserdialog.h>
 #include <gtkmm/messagedialog.h>
 #include <gtkmm/stock.h>
@@ -1463,6 +1463,9 @@ ContextVerb::perform(SPAction *action, void *data, void */*pdata*/)
         case SP_VERB_CONTEXT_ZOOM:
             tools_switch(dt, TOOLS_ZOOM);
             break;
+        case SP_VERB_CONTEXT_MEASURE:
+            tools_switch(dt, TOOLS_MEASURE);
+            break;
         case SP_VERB_CONTEXT_DROPPER:
             tools_switch(dt, TOOLS_DROPPER);
             break;
@@ -1537,6 +1540,10 @@ ContextVerb::perform(SPAction *action, void *data, void */*pdata*/)
             break;
         case SP_VERB_CONTEXT_ZOOM_PREFS:
             prefs->setInt("/dialogs/preferences/page", PREFS_PAGE_TOOLS_ZOOM);
+            dt->_dlg_mgr->showDialog("InkscapePreferences");
+            break;
+        case SP_VERB_CONTEXT_MEASURE_PREFS:
+            prefs->setInt("/dialogs/preferences/page", PREFS_PAGE_TOOLS_MEASURE);
             dt->_dlg_mgr->showDialog("InkscapePreferences");
             break;
         case SP_VERB_CONTEXT_DROPPER_PREFS:
@@ -2293,7 +2300,7 @@ Verb *Verb::_base_verbs[] = {
                  N_("Apply the path effect of the copied object to selection"), NULL),
     new EditVerb(SP_VERB_EDIT_REMOVE_LIVEPATHEFFECT, "RemoveLivePathEffect", N_("Remove Path _Effect"),
                  N_("Remove any path effects from selected objects"), NULL),
-    new EditVerb(SP_VERB_EDIT_REMOVE_FILTER, "RemoveFilter", N_("Remove Filters"),
+    new EditVerb(SP_VERB_EDIT_REMOVE_FILTER, "RemoveFilter", N_("_Remove Filters"),
                  N_("Remove any filters from selected objects"), NULL),
     new EditVerb(SP_VERB_EDIT_DELETE, "EditDelete", N_("_Delete"),
                  N_("Delete selection"), GTK_STOCK_DELETE),
@@ -2517,6 +2524,8 @@ Verb *Verb::_base_verbs[] = {
                     N_("Create and edit gradients"), INKSCAPE_ICON_COLOR_GRADIENT),
     new ContextVerb(SP_VERB_CONTEXT_ZOOM, "ToolZoom", N_("Zoom"),
                     N_("Zoom in or out"), INKSCAPE_ICON_ZOOM),
+    new ContextVerb(SP_VERB_CONTEXT_MEASURE, "ToolMeasure", N_("Measure"),
+                    N_("Measurement tool"), INKSCAPE_ICON_MEASURE),
     new ContextVerb(SP_VERB_CONTEXT_DROPPER, "ToolDropper", N_("Dropper"),
                     N_("Pick colors from image"), INKSCAPE_ICON_COLOR_PICKER),
     new ContextVerb(SP_VERB_CONTEXT_CONNECTOR, "ToolConnector", N_("Connector"),
@@ -2560,6 +2569,8 @@ Verb *Verb::_base_verbs[] = {
                     N_("Open Preferences for the Gradient tool"), NULL),
     new ContextVerb(SP_VERB_CONTEXT_ZOOM_PREFS, "ZoomPrefs", N_("Zoom Preferences"),
                     N_("Open Preferences for the Zoom tool"), NULL),
+    new ContextVerb(SP_VERB_CONTEXT_MEASURE_PREFS, "MeasurePrefs", N_("Measure Preferences"),
+                    N_("Open Preferences for the Measure tool"), NULL),
     new ContextVerb(SP_VERB_CONTEXT_DROPPER_PREFS, "DropperPrefs", N_("Dropper Preferences"),
                     N_("Open Preferences for the Dropper tool"), NULL),
     new ContextVerb(SP_VERB_CONTEXT_CONNECTOR_PREFS, "ConnectorPrefs", N_("Connector Preferences"),
@@ -2640,7 +2651,7 @@ Verb *Verb::_base_verbs[] = {
                    N_("Edit document metadata (to be saved with the document)"), INKSCAPE_ICON_DOCUMENT_METADATA ),
     new DialogVerb(SP_VERB_DIALOG_FILL_STROKE, "DialogFillStroke", N_("_Fill and Stroke..."),
                    N_("Edit objects' colors, gradients, arrowheads, and other fill and stroke properties..."), INKSCAPE_ICON_DIALOG_FILL_AND_STROKE),
-    new DialogVerb(SP_VERB_DIALOG_GLYPHS, "DialogGlyphs", N_("Glyphs..."),
+    new DialogVerb(SP_VERB_DIALOG_GLYPHS, "DialogGlyphs", N_("Gl_yphs..."),
                    N_("Select characters from a glyphs palette"), GTK_STOCK_SELECT_FONT),
     // TRANSLATORS: "Swatches" means: color samples
     new DialogVerb(SP_VERB_DIALOG_SWATCHES, "DialogSwatches", N_("S_watches..."),
@@ -2685,7 +2696,7 @@ Verb *Verb::_base_verbs[] = {
                    N_("View Layers"), INKSCAPE_ICON_DIALOG_LAYERS),
     new DialogVerb(SP_VERB_DIALOG_LIVE_PATH_EFFECT, "DialogLivePathEffect", N_("Path E_ffect Editor..."),
                    N_("Manage, edit, and apply path effects"), NULL),
-    new DialogVerb(SP_VERB_DIALOG_FILTER_EFFECTS, "DialogFilterEffects", N_("Filter Editor..."),
+    new DialogVerb(SP_VERB_DIALOG_FILTER_EFFECTS, "DialogFilterEffects", N_("Filter _Editor..."),
                    N_("Manage, edit, and apply SVG filters"), NULL),
     new DialogVerb(SP_VERB_DIALOG_SVG_FONTS, "DialogSVGFonts", N_("SVG Font Editor..."),
                    N_("Edit SVG fonts"), NULL),
@@ -2722,9 +2733,9 @@ Verb *Verb::_base_verbs[] = {
                      N_("Miscellaneous tips and tricks"), NULL/*"tutorial_tips"*/),
 
     /* Effect -- renamed Extension */
-    new EffectLastVerb(SP_VERB_EFFECT_LAST, "EffectLast", N_("Previous Extension"),
+    new EffectLastVerb(SP_VERB_EFFECT_LAST, "EffectLast", N_("Previous Exte_nsion"),
                        N_("Repeat the last extension with the same settings"), NULL),
-    new EffectLastVerb(SP_VERB_EFFECT_LAST_PREF, "EffectLastPref", N_("Previous Extension Settings..."),
+    new EffectLastVerb(SP_VERB_EFFECT_LAST_PREF, "EffectLastPref", N_("_Previous Extension Settings..."),
                        N_("Repeat the last extension with new settings"), NULL),
 
     /* Fit Page */

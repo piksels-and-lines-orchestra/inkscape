@@ -13,8 +13,7 @@
 # include <config.h>
 #endif
 
-#include <gtk/gtkstock.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include <gtkmm/widget.h>
 #include <gtkmm/icontheme.h>
 #include <glibmm/i18n.h>
@@ -35,6 +34,7 @@
 #include "verbs.h"
 #include "widgets/icon.h"
 #include "xml/repr.h"
+#include "sp-root.h"
 
 #include "layers.h"
 
@@ -293,7 +293,7 @@ bool LayersPanel::_checkForUpdated(const Gtk::TreePath &/*path*/, const Gtk::Tre
 }
 
 void LayersPanel::_selectLayer( SPObject *layer ) {
-    if ( !layer || (_desktop && _desktop->doc() && (layer == _desktop->doc()->root)) ) {
+    if ( !layer || (_desktop && _desktop->doc() && (layer == _desktop->doc()->getRoot())) ) {
         if ( _tree.get_selection()->count_selected_rows() != 0 ) {
             _tree.get_selection()->unselect_all();
         }
@@ -328,7 +328,7 @@ void LayersPanel::_layersChanged()
 //    g_message("_layersChanged()");
     if (_desktop) {
         SPDocument* document = _desktop->doc();
-        SPObject* root = document->root;
+        SPRoot* root = document->getRoot();
         if ( root ) {
             _selectedConnection.block();
             if ( _desktop->layer_manager && _desktop->layer_manager->includes( root ) ) {
@@ -402,7 +402,7 @@ void LayersPanel::_pushTreeSelectionToCurrent()
                 _desktop->layer_manager->setCurrentLayer( inTree );
             }
         } else {
-            _desktop->layer_manager->setCurrentLayer( _desktop->doc()->root );
+            _desktop->layer_manager->setCurrentLayer( _desktop->doc()->getRoot() );
         }
     }
 }

@@ -17,7 +17,7 @@
 #include <vector>
 #include <gtkmm/table.h>
 #include <gtkmm/comboboxtext.h>
-#include <gtkmm/spinbutton.h>
+#include "ui/widget/spinbutton.h"
 #include <gtkmm/tooltips.h>
 #include <gtkmm/treeview.h>
 #include <gtkmm/radiobutton.h>
@@ -32,6 +32,8 @@
 
 #include "ui/widget/color-picker.h"
 #include "ui/widget/unit-menu.h"
+#include "ui/widget/spinbutton.h"
+#include "ui/widget/scalar-unit.h"
 
 namespace Inkscape {
 namespace UI {
@@ -68,7 +70,7 @@ protected:
     void on_toggled();
 };
 
-class PrefSpinButton : public Gtk::SpinButton
+class PrefSpinButton : public SpinButton
 {
 public:
     void init(Glib::ustring const &prefs_path,
@@ -79,6 +81,21 @@ protected:
     bool _is_int;
     bool _is_percent;
     void on_value_changed();
+};
+
+class PrefSpinUnit : public ScalarUnit
+{
+public:
+    PrefSpinUnit() : ScalarUnit("", "") {};
+
+    void init(Glib::ustring const &prefs_path,
+              double lower, double upper, double step_increment,
+              double default_value,
+              UnitType unit_type, Glib::ustring const &default_unit);
+protected:
+    Glib::ustring _prefs_path;
+    bool _is_percent;
+    void on_my_value_changed();
 };
 
 class ZoomCorrRuler : public Gtk::DrawingArea {
@@ -116,7 +133,7 @@ private:
     void on_spinbutton_value_changed();
     void on_unit_changed();
 
-    Gtk::SpinButton _sb;
+    Inkscape::UI::Widget::SpinButton _sb;
     UnitMenu        _unit;
     Gtk::HScale     _slider;
     ZoomCorrRuler   _ruler;
@@ -134,7 +151,7 @@ private:
     void on_spinbutton_value_changed();
     
     Glib::ustring _prefs_path;
-    Gtk::SpinButton _sb;
+    Inkscape::UI::Widget::SpinButton _sb;
     Gtk::HScale     _slider;
     bool freeze; // used to block recursive updates of slider and spinbutton
 };

@@ -5,6 +5,7 @@
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Edward Flick (EAF)
  *   Abhishek Sharma
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 1999-2005 Authors
  * Copyright (C) 2000-2001 Ximian, Inc.
@@ -55,7 +56,7 @@
 }
 
 #include "preferences.h"
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #endif // DEBUG_LCMS
 #endif // ENABLE_LCMS
 /*
@@ -101,7 +102,6 @@ extern "C"
     void user_read_data( png_structp png_ptr, png_bytep data, png_size_t length );
     void user_write_data( png_structp png_ptr, png_bytep data, png_size_t length );
     void user_flush_data( png_structp png_ptr );
-
 }
 
 
@@ -551,8 +551,7 @@ GdkPixbuf* pixbuf_new_from_file( const char *filename, GError **error )
 }
 }
 
-GType
-sp_image_get_type (void)
+GType sp_image_get_type(void)
 {
     static GType image_type = 0;
     if (!image_type) {
@@ -573,8 +572,7 @@ sp_image_get_type (void)
     return image_type;
 }
 
-static void
-sp_image_class_init (SPImageClass * klass)
+static void sp_image_class_init( SPImageClass * klass )
 {
     GObjectClass * gobject_class;
     SPObjectClass * sp_object_class;
@@ -623,8 +621,7 @@ static void sp_image_init( SPImage *image )
     image->lastMod = 0;
 }
 
-static void
-sp_image_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
+static void sp_image_build( SPObject *object, SPDocument *document, Inkscape::XML::Node *repr )
 {
     if (((SPObjectClass *) parent_class)->build) {
         ((SPObjectClass *) parent_class)->build (object, document, repr);
@@ -642,8 +639,7 @@ sp_image_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     document->addResource("image", object);
 }
 
-static void
-sp_image_release (SPObject *object)
+static void sp_image_release( SPObject *object )
 {
     SPImage *image = SP_IMAGE(object);
 
@@ -683,8 +679,7 @@ sp_image_release (SPObject *object)
     }
 }
 
-static void
-sp_image_set (SPObject *object, unsigned int key, const gchar *value)
+static void sp_image_set( SPObject *object, unsigned int key, const gchar *value )
 {
     SPImage *image = SP_IMAGE (object);
 
@@ -806,8 +801,7 @@ sp_image_set (SPObject *object, unsigned int key, const gchar *value)
     sp_image_set_curve(image); //creates a curve at the image's boundary for snapping
 }
 
-static void
-sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
+static void sp_image_update( SPObject *object, SPCtx *ctx, unsigned int flags )
 {
     SPImage *image = SP_IMAGE(object);
     SPDocument *doc = object->document;
@@ -1012,8 +1006,7 @@ sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
     sp_image_update_canvas_image ((SPImage *) object);
 }
 
-static void
-sp_image_modified (SPObject *object, unsigned int flags)
+static void sp_image_modified( SPObject *object, unsigned int flags )
 {
     SPImage *image = SP_IMAGE (object);
 
@@ -1028,8 +1021,7 @@ sp_image_modified (SPObject *object, unsigned int flags)
     }
 }
 
-static Inkscape::XML::Node *
-sp_image_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags)
+static Inkscape::XML::Node *sp_image_write( SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags )
 {
     SPImage *image = SP_IMAGE (object);
 
@@ -1067,8 +1059,7 @@ sp_image_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XM
     return repr;
 }
 
-static void
-sp_image_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const /*flags*/)
+static void sp_image_bbox( SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const /*flags*/ )
 {
     SPImage const &image = *SP_IMAGE(item);
 
@@ -1085,8 +1076,7 @@ sp_image_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, u
     }
 }
 
-static void
-sp_image_print (SPItem *item, SPPrintContext *ctx)
+static void sp_image_print( SPItem *item, SPPrintContext *ctx )
 {
     SPImage *image = SP_IMAGE(item);
 
@@ -1133,8 +1123,7 @@ sp_image_print (SPItem *item, SPPrintContext *ctx)
     }
 }
 
-static gchar *
-sp_image_description(SPItem *item)
+static gchar *sp_image_description( SPItem *item )
 {
     SPImage *image = SP_IMAGE(item);
     char *href_desc;
@@ -1157,8 +1146,7 @@ sp_image_description(SPItem *item)
     return ret;
 }
 
-static NRArenaItem *
-sp_image_show (SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/)
+static NRArenaItem *sp_image_show( SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/ )
 {
     SPImage * image = SP_IMAGE(item);
     NRArenaItem *ai = NRArenaImage::create(arena);
@@ -1260,8 +1248,7 @@ GdkPixbuf *sp_image_repr_read_image( time_t& modTime, char*& pixPath, const gcha
     return pixbuf;
 }
 
-static GdkPixbuf *
-sp_image_pixbuf_force_rgba (GdkPixbuf * pixbuf)
+static GdkPixbuf *sp_image_pixbuf_force_rgba( GdkPixbuf * pixbuf )
 {
     GdkPixbuf* result;
     if (gdk_pixbuf_get_has_alpha(pixbuf)) {
@@ -1274,7 +1261,6 @@ sp_image_pixbuf_force_rgba (GdkPixbuf * pixbuf)
 }
 
 /* We assert that realpixbuf is either NULL or identical size to pixbuf */
-
 static void
 sp_image_update_arenaitem (SPImage *image, NRArenaImage *ai)
 {
@@ -1295,7 +1281,7 @@ sp_image_update_canvas_image (SPImage *image)
     }
 }
 
-static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const */*snapprefs*/)
+static void sp_image_snappoints( SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const */*snapprefs*/ )
 {
     /* An image doesn't have any nodes to snap, but still we want to be able snap one image
     to another. Therefore we will create some snappoints at the corner, similar to a rect. If
@@ -1329,8 +1315,7 @@ static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
  * Transform x, y, set x, y, clear translation
  */
 
-static Geom::Affine
-sp_image_set_transform(SPItem *item, Geom::Affine const &xform)
+static Geom::Affine sp_image_set_transform( SPItem *item, Geom::Affine const &xform )
 {
     SPImage *image = SP_IMAGE(item);
 
@@ -1370,8 +1355,7 @@ sp_image_set_transform(SPItem *item, Geom::Affine const &xform)
     return ret;
 }
 
-static GdkPixbuf *
-sp_image_repr_read_dataURI (const gchar * uri_data)
+static GdkPixbuf *sp_image_repr_read_dataURI( const gchar * uri_data )
 {
     GdkPixbuf * pixbuf = NULL;
 
@@ -1427,8 +1411,7 @@ sp_image_repr_read_dataURI (const gchar * uri_data)
     return pixbuf;
 }
 
-static GdkPixbuf *
-sp_image_repr_read_b64 (const gchar * uri_data)
+static GdkPixbuf *sp_image_repr_read_b64( const gchar * uri_data )
 {
     GdkPixbuf * pixbuf = NULL;
 
@@ -1504,8 +1487,7 @@ sp_image_repr_read_b64 (const gchar * uri_data)
     return pixbuf;
 }
 
-static void
-sp_image_set_curve(SPImage *image)
+static void sp_image_set_curve( SPImage *image )
 {
     //create a curve at the image's boundary for snapping
     if ((image->height.computed < MAGIC_EPSILON_TOO) || (image->width.computed < MAGIC_EPSILON_TOO) || (image->clip_ref->getObject())) {
@@ -1533,8 +1515,7 @@ sp_image_set_curve(SPImage *image)
 /**
  * Return duplicate of curve (if any exists) or NULL if there is no curve
  */
-SPCurve *
-sp_image_get_curve (SPImage *image)
+SPCurve *sp_image_get_curve( SPImage *image )
 {
     SPCurve *result = 0;
     if (image->curve) {
@@ -1543,8 +1524,7 @@ sp_image_get_curve (SPImage *image)
     return result;
 }
 
-void
-sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring const &mime_in)
+void sp_embed_image( Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring const &mime_in )
 {
     Glib::ustring format, mime;
     if (mime_in == "image/jpeg") {
@@ -1555,8 +1535,8 @@ sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring con
         format = "png";
     }
 
-    gchar *data;
-    gsize length;
+    gchar *data = 0;
+    gsize length = 0;
     gdk_pixbuf_save_to_buffer(pb, &data, &length, format.data(), NULL, NULL);
 
     // Save base64 encoded data in image node
@@ -1567,7 +1547,8 @@ sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring con
     gchar *buffer = (gchar *) g_malloc(needed_size), *buf_work = buffer;
     buf_work += g_sprintf(buffer, "data:%s;base64,", mime.data());
 
-    gint state = 0, save = 0;
+    gint state = 0;
+    gint save = 0;
     gsize written = 0;
     written += g_base64_encode_step((guchar*) data, length, TRUE, buf_work, &state, &save);
     written += g_base64_encode_close(TRUE, buf_work + written, &state, &save);

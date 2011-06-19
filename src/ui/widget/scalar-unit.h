@@ -32,6 +32,11 @@ public:
                Glib::ustring const &icon = "",
                UnitMenu *unit_menu = NULL,
                bool mnemonic = true);
+    ScalarUnit(Glib::ustring const &label, Glib::ustring const &tooltip,
+               ScalarUnit &take_unitmenu,
+               Glib::ustring const &suffix = "",
+               Glib::ustring const &icon = "",
+               bool mnemonic = true);
 
     void      initScalar(double min_value, double max_value);
 
@@ -40,8 +45,13 @@ public:
     double    getValue(Glib::ustring const &units) const;
 
     bool      setUnit(Glib::ustring const &units);
+    void      setUnitType(UnitType unit_type);
+    void      resetUnitType(UnitType unit_type);
     void      setValue(double number, Glib::ustring const &units);
+    void      setValueKeepUnit(double number, Glib::ustring const &units);
     void      setValue(double number);
+
+    void      grabFocusAndSelectEntry();
 
     void      setHundredPercent(double number);
     void      setAbsoluteIsIncrement(bool value);

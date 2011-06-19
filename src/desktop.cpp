@@ -87,11 +87,14 @@
 #include "device-manager.h"
 #include "layer-fns.h"
 #include "layer-manager.h"
+#include "resource-manager.h"
 #include "event-log.h"
 #include "display/canvas-grid.h"
 #include "widgets/desktop-widget.h"
 #include "box3d-context.h"
 #include "desktop-style.h"
+#include "sp-item-group.h"
+#include "sp-root.h"
 
 // TODO those includes are only for node tool quick zoom. Remove them after fixing it.
 #include "ui/tool/node-tool.h"
@@ -177,6 +180,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
 
     // Temporary workaround for link order issues:
     Inkscape::DeviceManager::getManager().getDevices();
+    Inkscape::ResourceManager::getManager();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     _guides_message_context = new Inkscape::MessageContext(const_cast<Inkscape::MessageStack*>(messageStack()));
@@ -711,7 +715,7 @@ SPDesktop::set_coordinate_status (Geom::Point p) {
 SPItem *SPDesktop::getItemFromListAtPointBottom(const GSList *list, Geom::Point const p) const
 {
     g_return_val_if_fail (doc() != NULL, NULL);
-    return SPDocument::getItemFromListAtPointBottom(dkey, SP_GROUP (doc()->root), list, p);
+    return SPDocument::getItemFromListAtPointBottom(dkey, doc()->getRoot(), list, p);
 }
 
 /**
@@ -1318,6 +1322,11 @@ void
 SPDesktop::presentWindow()
 {
     _widget->present();
+}
+
+bool SPDesktop::showInfoDialog( Glib::ustring const & message )
+{
+    return _widget->showInfoDialog( message );
 }
 
 bool

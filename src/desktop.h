@@ -27,8 +27,8 @@
 #include "config.h"
 #endif
 
-#include <gdk/gdkevents.h>
-#include <gtk/gtktypeutils.h>
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
 #include <stddef.h>
 #include <sigc++/sigc++.h>
 
@@ -288,6 +288,7 @@ public:
     void setWindowTransient (void* p, int transient_policy=1);
     Gtk::Window* getToplevel();
     void presentWindow();
+    bool showInfoDialog( Glib::ustring const &message );
     bool warnDialog (gchar *text);
     void toggleRulers();
     void toggleScrollbars();

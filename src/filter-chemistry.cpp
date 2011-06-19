@@ -89,7 +89,7 @@ SPFilter *new_filter(SPDocument *document)
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
@@ -186,7 +186,7 @@ new_filter_gaussian_blur (SPDocument *document, gdouble radius, double expansion
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
@@ -241,7 +241,7 @@ new_filter_blend_gaussian_blur (SPDocument *document, const char *blendmode, gdo
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
@@ -355,7 +355,7 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
     // If there are more users for this filter, duplicate it
     if (filter->hrefcount > count_filter_hrefs(item, filter)) {
         Inkscape::XML::Node *repr = item->style->getFilter()->getRepr()->duplicate(xml_doc);
-        SPDefs *defs = reinterpret_cast<SPDefs *>(SP_DOCUMENT_DEFS(document));
+        SPDefs *defs = document->getDefs();
         defs->appendChild(repr);
 
         filter = SP_FILTER( document->getObjectByRepr(repr) );

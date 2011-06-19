@@ -20,7 +20,6 @@
 #include "libnrtype/nrtype-forward.h"
 #include "display/display-forward.h"
 #include "forward.h"
-#include "sp-paint-server.h"
 #include "display/nr-arena-item.h"
 #include "display/nr-style.h"
 
@@ -28,6 +27,7 @@
 
 struct SPCurve;
 class Shape;
+class SPPainter;
 
 NRType nr_arena_glyphs_get_type (void);
 

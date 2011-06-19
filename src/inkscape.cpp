@@ -36,8 +36,7 @@
 #include <glib/gstdio.h>
 #include <glib.h>
 #include <glibmm/i18n.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #include <gtkmm/messagedialog.h>
 #include <signal.h>
 #include <string>
@@ -55,6 +54,7 @@
 #include "io/sys.h"
 #include "message-stack.h"
 #include "preferences.h"
+#include "resource-manager.h"
 #include "selection.h"
 #include "ui/dialog/debug.h"
 #include "xml/repr.h"
@@ -185,7 +185,7 @@ inkscape_class_init (Inkscape::ApplicationClass * klass)
                                G_SIGNAL_RUN_FIRST,
                                G_STRUCT_OFFSET (Inkscape::ApplicationClass, modify_selection),
                                NULL, NULL,
-                               g_cclosure_marshal_VOID__UINT_POINTER,
+                               gtk_marshal_VOID__POINTER_UINT,
                                G_TYPE_NONE, 2,
                                G_TYPE_POINTER, G_TYPE_UINT);
     inkscape_signals[CHANGE_SELECTION] = g_signal_new ("change_selection",
@@ -437,11 +437,7 @@ void inkscape_autosave_init()
         // Turn on autosave
         guint32 timeout = prefs->getInt("/options/autosave/interval", 10) * 60;
         // g_debug("options.autosave.interval = %d", prefs->getInt("/options/autosave/interval", 10));
-#if GLIB_CHECK_VERSION(2,14,0)
         autosave_timeout_id = g_timeout_add_seconds(timeout, inkscape_autosave, NULL);
-#else
-        autosave_timeout_id = g_timeout_add(timeout * 1000, inkscape_autosave, NULL);
-#endif
     }
 }
 
@@ -816,6 +812,7 @@ inkscape_application_init (const gchar *argv0, gboolean use_gui)
         inkscape_load_menus(inkscape);
         Inkscape::DeviceManager::getManager().loadConfig();
     }
+    Inkscape::ResourceManager::getManager();
 
     /* set language for user interface according setting in preferences */
     Glib::ustring ui_language = prefs->getString("/ui/language");

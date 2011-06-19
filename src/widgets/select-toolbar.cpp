@@ -17,12 +17,12 @@
 #endif
 
 #include <gtk/gtk.h>
-#include <gtk/gtkaction.h>
 
 #include "widgets/button.h"
 #include "widgets/spw-utilities.h"
 #include "widgets/widget-sizes.h"
 #include "widgets/spinbutton-events.h"
+#include "ui/widget/spinbutton.h"
 #include "widgets/icon.h"
 #include "widgets/sp-widget.h"
 
@@ -255,6 +255,16 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
     g_object_set_data(G_OBJECT(spw), "update", GINT_TO_POINTER(FALSE));
 }
 
+static GtkWidget* createCustomSlider( GtkAdjustment *adjustment, gdouble climbRate, guint digits )
+{
+    Inkscape::UI::Widget::SpinButton *inkSpinner = new Inkscape::UI::Widget::SpinButton(*Glib::wrap(adjustment, true), climbRate, digits);
+    inkSpinner = Gtk::manage( inkSpinner );
+    GtkWidget *widget = GTK_WIDGET( inkSpinner->gobj() );
+    return widget;
+}
+
+// TODO create_adjustment_action appears to be a rogue tile copy from toolbox.cpp. Resolve it to be unified:
+
 static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        gchar const *label,
                                                        gchar const *shortLabel,
@@ -266,6 +276,12 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        gchar const *tooltip,
                                                        gboolean altx )
 {
+    static bool init = false;
+    if ( !init ) {
+        init = true;
+        ege_adjustment_action_set_compact_tool_factory( createCustomSlider );
+    }
+
     GtkAdjustment* adj = GTK_ADJUSTMENT( gtk_adjustment_new( 0.0, lower, 1e6, SPIN_STEP, SPIN_PAGE_STEP, 0 ) );
     if (tracker) {
         tracker->addAdjustment(adj);
@@ -279,7 +295,7 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
         g_object_set( act, "short_label", Q_(shortLabel), NULL );
     }
 
-    gtk_signal_connect( GTK_OBJECT(adj), "value_changed", GTK_SIGNAL_FUNC(sp_object_layout_any_value_changed), spw );
+    g_signal_connect( G_OBJECT(adj), "value_changed", G_CALLBACK(sp_object_layout_any_value_changed), spw );
     if ( focusTarget ) {
         ege_adjustment_action_set_focuswidget( act, focusTarget );
     }
@@ -382,7 +398,7 @@ static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::Vi
     InkAction* inky = ink_action_new( verb->get_id(), verb->get_name(), verb->get_tip(), verb->get_image(), size  );
     act = GTK_ACTION(inky);
 
-    g_signal_connect( G_OBJECT(inky), "activate", GTK_SIGNAL_FUNC(trigger_sp_action), targetAction );
+    g_signal_connect( G_OBJECT(inky), "activate", G_CALLBACK(trigger_sp_action), targetAction );
 
     Inkscape::queueIconPrerender( verb->get_image(), size );
 
@@ -502,8 +518,8 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     g_object_set_data( G_OBJECT(spw), "contextActions", contextActions );
 
     // Force update when selection changes.
-    gtk_signal_connect(GTK_OBJECT(spw), "modify_selection", GTK_SIGNAL_FUNC(sp_selection_layout_widget_modify_selection), desktop);
-    gtk_signal_connect(GTK_OBJECT(spw), "change_selection", GTK_SIGNAL_FUNC(sp_selection_layout_widget_change_selection), desktop);
+    g_signal_connect(G_OBJECT(spw), "modify_selection", G_CALLBACK(sp_selection_layout_widget_modify_selection), desktop);
+    g_signal_connect(G_OBJECT(spw), "change_selection", G_CALLBACK(sp_selection_layout_widget_change_selection), desktop);
 
     // Update now.
     sp_selection_layout_widget_update(SP_WIDGET(spw), SP_ACTIVE_DESKTOP ? sp_desktop_selection(SP_ACTIVE_DESKTOP) : NULL);

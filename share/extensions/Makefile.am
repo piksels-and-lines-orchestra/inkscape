@@ -76,13 +76,9 @@ extensions = \
 	inkex.py \
 	Inkscape.pm \
 	inkwebeffect.py \
-	inkweb.js \
 	interp.py \
 	interp_att_g.py \
-	jessyInk.js \
 	jessyInk_autoTexts.py \
-	jessyInk_core_mouseHandler_noclick.js \
-	jessyInk_core_mouseHandler_zoomControl.js \
 	jessyInk_effects.py \
 	jessyInk_export.py \
 	jessyInk_install.py \
@@ -95,12 +91,18 @@ extensions = \
 	jessyInk_video.py \
 	jessyInk_view.py \
 	launch_webbrowser.py \
+	layers2svgfont.py \
+	svgfont2layers.py \
 	lindenmayer.py \
 	lorem_ipsum.py \
 	markers_strokepaint.py \
 	measure.py \
 	motion.py \
+	new_glyph_layer.py \
+	next_glyph_layer.py \
+	previous_glyph_layer.py \
 	outline2svg.pl	\
+	PathData.py \
 	param_curves.py \
 	pathalongpath.py\
 	pathscatter.py\
@@ -127,6 +129,7 @@ extensions = \
 	run_command.py \
 	scour.py \
 	scour.inkscape.py \
+	setup_typography_canvas.py \
 	simplepath.py \
 	simplepath.rb \
 	simplestyle.py \
@@ -141,6 +144,7 @@ extensions = \
 	svgcalendar.py \
 	svg_regex.py \
 	svg_and_media_zip_output.py \
+    svg_transform.py \
 	text_uppercase.py \
 	text_lowercase.py \
 	text_sentencecase.py \
@@ -154,6 +158,7 @@ extensions = \
 	uniconv-ext.py \
 	uniconv_output.py \
 	voronoi.py \
+	voronoi2svg.py \
 	webslicer_create_group.py \
 	webslicer_create_rect.py \
 	webslicer_effect.py \
@@ -166,6 +171,10 @@ extensions = \
 	yocto_css.py
 
 otherstuff = \
+	inkweb.js \
+	jessyInk.js \
+	jessyInk_core_mouseHandler_noclick.js \
+	jessyInk_core_mouseHandler_zoomControl.js \
 	aisvg.xslt \
 	colors.xml \
 	jessyInk_video.svg \
@@ -262,11 +271,16 @@ modules = \
 	jessyInk_uninstall.inx \
 	jessyInk_video.inx \
 	jessyInk_view.inx \
+	layers2svgfont.inx \
+	svgfont2layers.inx \
 	lindenmayer.inx \
 	lorem_ipsum.inx \
 	markers_strokepaint.inx \
 	measure.inx \
 	motion.inx \
+	new_glyph_layer.inx \
+	next_glyph_layer.inx \
+	previous_glyph_layer.inx \
 	outline2svg.inx \
 	param_curves.inx \
 	pathalongpath.inx\
@@ -289,6 +303,7 @@ modules = \
 	rubberstretch.inx \
 	rtree.inx \
 	scour.inx \
+	setup_typography_canvas.inx \
 	sk_input.inx \
 	sk1_input.inx \
 	sk1_output.inx \
@@ -310,6 +325,7 @@ modules = \
 	text_braille.inx \
 	triangle.inx \
 	txt2svg.inx \
+	voronoi2svg.inx \
 	webslicer_create_group.inx \
 	webslicer_create_rect.inx \
 	webslicer_export.inx \

@@ -12,8 +12,7 @@
  *      ? -2004
  */
 
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 
 #include "libnr/nr-point.h"
 #include "forward.h"
@@ -31,10 +30,10 @@ struct SPCanvas;
 
 
 #define SP_TYPE_DESKTOP_WIDGET SPDesktopWidget::getType()
-#define SP_DESKTOP_WIDGET(o) (GTK_CHECK_CAST ((o), SP_TYPE_DESKTOP_WIDGET, SPDesktopWidget))
-#define SP_DESKTOP_WIDGET_CLASS(k) (GTK_CHECK_CLASS_CAST ((k), SP_TYPE_DESKTOP_WIDGET, SPDesktopWidgetClass))
-#define SP_IS_DESKTOP_WIDGET(o) (GTK_CHECK_TYPE ((o), SP_TYPE_DESKTOP_WIDGET))
-#define SP_IS_DESKTOP_WIDGET_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), SP_TYPE_DESKTOP_WIDGET))
+#define SP_DESKTOP_WIDGET(o) (G_TYPE_CHECK_INSTANCE_CAST ((o), SP_TYPE_DESKTOP_WIDGET, SPDesktopWidget))
+#define SP_DESKTOP_WIDGET_CLASS(k) (G_TYPE_CHECK_CLASS_CAST ((k), SP_TYPE_DESKTOP_WIDGET, SPDesktopWidgetClass))
+#define SP_IS_DESKTOP_WIDGET(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), SP_TYPE_DESKTOP_WIDGET))
+#define SP_IS_DESKTOP_WIDGET_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), SP_TYPE_DESKTOP_WIDGET))
 
 void sp_desktop_widget_destroy (SPDesktopWidget* dtw);
 
@@ -69,8 +68,6 @@ struct SPDesktopWidget {
     unsigned int update : 1;
 
     sigc::connection modified_connection;
-
-    GtkTooltips *tt;
 
     SPDesktop *desktop;
 
@@ -200,8 +197,14 @@ struct SPDesktopWidget {
             { _dtw->setCoordinateStatus (p); }
         virtual void setMessage (Inkscape::MessageType type, gchar const* msg)
             { _dtw->setMessage (type, msg); }
+
+        virtual bool showInfoDialog( Glib::ustring const &message ) {
+            return _dtw->showInfoDialog( message );
+        }
+
         virtual bool warnDialog (gchar* text)
             { return _dtw->warnDialog (text); }
+
         virtual Inkscape::UI::Widget::Dock* getDock ()
             { return _dtw->getDock(); }
     };
@@ -218,6 +221,7 @@ struct SPDesktopWidget {
     void setWindowSize (gint w, gint h);
     void setWindowTransient (void *p, int transient_policy);
     void presentWindow();
+    bool showInfoDialog( Glib::ustring const &message );
     bool warnDialog (gchar *text);
     void setToolboxFocusTo (gchar const *);
     void setToolboxAdjustmentValue (gchar const * id, double value);

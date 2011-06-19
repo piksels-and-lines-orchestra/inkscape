@@ -713,14 +713,30 @@ dnl ******************************
 dnl Check for libwpg for extension
 dnl ******************************
 
-PKG_CHECK_MODULES(LIBWPG, libwpg-0.1 libwpg-stream-0.1, with_libwpg=yes, with_libwpg=no)
+with_libwpg=no
+
+PKG_CHECK_MODULES(LIBWPG01, libwpg-0.1 libwpg-stream-0.1, with_libwpg01=yes, with_libwpg01=no)
+if test "x$with_libwpg01" = "xyes"; then
+	AC_DEFINE(WITH_LIBWPG01,1,[Build in libwpg 0.1.x])
+	with_libwpg=yes
+	AC_SUBST(LIBWPG_LIBS, $LIBWPG01_LIBS)
+	AC_SUBST(LIBWPG_CFLAGS, $LIBWPG01_CFLAGS)
+fi
+AM_CONDITIONAL(WITH_LIBWPG01, test "x$with_libwpg01" = "xyes")
+
+PKG_CHECK_MODULES(LIBWPG02, libwpg-0.2 libwpd-0.9 libwpd-stream-0.9, with_libwpg02=yes, with_libwpg02=no)
+if test "x$with_libwpg02" = "xyes"; then
+	AC_DEFINE(WITH_LIBWPG02,1,[Build in libwpg 0.2.x])
+	with_libwpg=yes
+	AC_SUBST(LIBWPG_LIBS, $LIBWPG02_LIBS)
+	AC_SUBST(LIBWPG_CFLAGS, $LIBWPG02_CFLAGS)
+fi
+AM_CONDITIONAL(WITH_LIBWPG02, test "x$with_libwpg02" = "xyes")
+
 if test "x$with_libwpg" = "xyes"; then
 	AC_DEFINE(WITH_LIBWPG,1,[Build in libwpg])
 fi
 AM_CONDITIONAL(WITH_LIBWPG, test "x$with_libwpg" = "xyes")
-
-AC_SUBST(LIBWPG_LIBS)
-AC_SUBST(LIBWPG_CFLAGS)
 
 dnl ******************************
 dnl Support doing a local install
@@ -788,7 +804,7 @@ if test $cc_vers_major -gt 3; then
 else
   min_sigc_version=2.0.11
 fi
-PKG_CHECK_MODULES(INKSCAPE, gdkmm-2.4  glibmm-2.4 giomm-2.4 gtkmm-2.4 >= 2.10.0  gtk+-2.0  libxml-2.0 >= 2.6.11  libxslt >= 1.0.15  cairo  sigc++-2.0 >= $min_sigc_version  $ink_spell_pkg  gthread-2.0 >= 2.0 libpng >= 1.2 gsl)
+PKG_CHECK_MODULES(INKSCAPE, glib-2.0 >= 2.24  gtk+-2.0 >= 2.20  libxml-2.0 >= 2.6.11  libxslt >= 1.0.15  cairo  sigc++-2.0 >= $min_sigc_version  $ink_spell_pkg  gthread-2.0 >= 2.0 libpng >= 1.2 gsl  glibmm-2.4 giomm-2.4  gdkmm-2.4  gtkmm-2.4 >= 2.10.0)
 
 # Check for Apple Mac OS X Carbon framework
 carbon_ok=no

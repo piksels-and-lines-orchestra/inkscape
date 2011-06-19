@@ -27,6 +27,7 @@
 #endif
 
 #include "scalar-unit.h"
+#include "spinbutton.h"
 
 namespace Inkscape {
 namespace UI {
@@ -65,7 +66,43 @@ ScalarUnit::ScalarUnit(Glib::ustring const &label, Glib::ustring const &tooltip,
     }
     _unit_menu->signal_changed()
             .connect_notify(sigc::mem_fun(*this, &ScalarUnit::on_unit_changed));
+
+    static_cast<SpinButton*>(_widget)->setUnitMenu(_unit_menu);
+
+    lastUnits = _unit_menu->getUnitAbbr();
 }
+
+/**
+ * Construct a ScalarUnit
+ *
+ * \param label      Label.
+ * \param tooltip    Tooltip text.
+ * \param take_unitmenu  Use the unitmenu from this parameter.
+ * \param suffix     Suffix, placed after the widget (defaults to "").
+ * \param icon       Icon filename, placed before the label (defaults to "").
+ * \param mnemonic   Mnemonic toggle; if true, an underscore (_) in the label
+ *                   indicates the next character should be used for the
+ *                   mnemonic accelerator key (defaults to true).
+ */
+ScalarUnit::ScalarUnit(Glib::ustring const &label, Glib::ustring const &tooltip,
+                       ScalarUnit &take_unitmenu,
+                       Glib::ustring const &suffix,
+                       Glib::ustring const &icon,
+                       bool mnemonic)
+    : Scalar(label, tooltip, suffix, icon, mnemonic),
+      _unit_menu(take_unitmenu._unit_menu),
+      _hundred_percent(0),
+      _absolute_is_increment(false),
+      _percentage_is_increment(false)
+{
+    _unit_menu->signal_changed()
+            .connect_notify(sigc::mem_fun(*this, &ScalarUnit::on_unit_changed));
+
+    static_cast<SpinButton*>(_widget)->setUnitMenu(_unit_menu);
+
+    lastUnits = _unit_menu->getUnitAbbr();
+}
+
 
 /**
  * Initializes the scalar based on the settings in _unit_menu.
@@ -93,6 +130,22 @@ ScalarUnit::setUnit(Glib::ustring const &unit) {
     return true;
 }
 
+/** Adds the unit type to the ScalarUnit widget */
+void
+ScalarUnit::setUnitType(UnitType unit_type) {
+    g_assert(_unit_menu != NULL);
+    _unit_menu->setUnitType(unit_type);
+    lastUnits = _unit_menu->getUnitAbbr();
+}
+
+/** Resets the unit type for the ScalarUnit widget */
+void
+ScalarUnit::resetUnitType(UnitType unit_type) {
+    g_assert(_unit_menu != NULL);
+    _unit_menu->resetUnitType(unit_type);
+    lastUnits = _unit_menu->getUnitAbbr();
+}
+
 /** Gets the object for the currently selected unit */
 Unit
 ScalarUnit::getUnit() const {
@@ -115,6 +168,19 @@ ScalarUnit::setValue(double number, Glib::ustring const &units) {
     Scalar::setValue(number);
 }
 
+/** Convert and sets the number only and keeps the current unit.  */
+void
+ScalarUnit::setValueKeepUnit(double number, Glib::ustring const &units) {
+    g_assert(_unit_menu != NULL);
+    if (units == "") {
+        // set the value in the default units
+        Scalar::setValue(number);
+    } else {
+        double conversion = _unit_menu->getConversion(units);
+        Scalar::setValue(number / conversion);
+    }
+}
+
 /** Sets the number only */
 void
 ScalarUnit::setValue(double number) {
@@ -133,6 +199,15 @@ ScalarUnit::getValue(Glib::ustring const &unit_name) const {
         return conversion * Scalar::getValue();
     }
 }
+
+/** Grab focus, and select the text that is in the entry field.
+ */
+void
+ScalarUnit::grabFocusAndSelectEntry() {
+    _widget->grab_focus();
+    static_cast<SpinButton*>(_widget)->select_region(0, 20);
+}
+
 
 void
 ScalarUnit::setHundredPercent(double number)

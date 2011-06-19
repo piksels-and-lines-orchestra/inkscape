@@ -77,6 +77,7 @@ static void sp_guideline_init(SPGuideLine *gl)
     gl->sensitive = 0;
 
     gl->origin = NULL;
+    gl->label = NULL;
 }
 
 static void sp_guideline_destroy(GtkObject *object)
@@ -98,6 +99,10 @@ static void sp_guideline_destroy(GtkObject *object)
 
 static void sp_guideline_render(SPCanvasItem *item, SPCanvasBuf *buf)
 {
+    //TODO: the routine that renders the label of a specific guideline sometimes
+    // ends up erasing the labels of the other guidelines.
+    // Maybe we should render all labels everytime.
+
     SPGuideLine const *gl = SP_GUIDELINE (item);
 
     cairo_save(buf->ct);
@@ -105,6 +110,20 @@ static void sp_guideline_render(SPCanvasItem *item, SPCanvasBuf *buf)
     ink_cairo_set_source_rgba32(buf->ct, gl->rgba);
     cairo_set_line_width(buf->ct, 1);
     cairo_set_line_cap(buf->ct, CAIRO_LINE_CAP_SQUARE);
+    cairo_set_font_size(buf->ct, 10);
+
+    int px = (int) Inkscape::round(gl->point_on_line[Geom::X]);
+    int py = (int) Inkscape::round(gl->point_on_line[Geom::Y]);
+
+    if (gl->label) {
+        cairo_save(buf->ct);
+        cairo_translate(buf->ct, px, py);
+        cairo_rotate(buf->ct, atan2(gl->normal_to_line[Geom::X], gl->normal_to_line[Geom::Y]));
+        cairo_translate(buf->ct, 0, -5);
+        cairo_move_to(buf->ct, 0, 0);
+        cairo_show_text(buf->ct, gl->label);
+        cairo_restore(buf->ct);
+    }
 
     if (gl->is_vertical()) {
         int position = (int) Inkscape::round(gl->point_on_line[Geom::X]);
@@ -174,10 +193,11 @@ static void sp_guideline_update(SPCanvasItem *item, Geom::Affine const &affine, 
     sp_canvas_item_request_update(SP_CANVAS_ITEM (gl->origin));
 
     if (gl->is_horizontal()) {
-        sp_canvas_update_bbox (item, -1000000, (int) Inkscape::round(gl->point_on_line[Geom::Y]), 1000000, (int) Inkscape::round(gl->point_on_line[Geom::Y] + 1));
+        sp_canvas_update_bbox (item, -1000000, (int) Inkscape::round(gl->point_on_line[Geom::Y] - 16), 1000000, (int) Inkscape::round(gl->point_on_line[Geom::Y] + 1));
     } else if (gl->is_vertical()) {
-        sp_canvas_update_bbox (item, (int) Inkscape::round(gl->point_on_line[Geom::X]), -1000000, (int) Inkscape::round(gl->point_on_line[Geom::X] + 1), 1000000);
+        sp_canvas_update_bbox (item, (int) Inkscape::round(gl->point_on_line[Geom::X]), -1000000, (int) Inkscape::round(gl->point_on_line[Geom::X] + 16), 1000000);
     } else {
+        //TODO: labels in angled guidelines are not showing up for some reason.
         sp_canvas_update_bbox (item, -1000000, -1000000, 1000000, 1000000);
     }
 }
@@ -198,7 +218,7 @@ static double sp_guideline_point(SPCanvasItem *item, Geom::Point p, SPCanvasItem
     return MAX(fabs(distance)-1, 0);
 }
 
-SPCanvasItem *sp_guideline_new(SPCanvasGroup *parent, Geom::Point point_on_line, Geom::Point normal)
+SPCanvasItem *sp_guideline_new(SPCanvasGroup *parent, char* label, Geom::Point point_on_line, Geom::Point normal)
 {
     SPCanvasItem *item = sp_canvas_item_new(parent, SP_TYPE_GUIDELINE, NULL);
     SPCanvasItem *origin = sp_canvas_item_new(parent, SP_TYPE_CTRLPOINT, NULL);
@@ -208,6 +228,7 @@ SPCanvasItem *sp_guideline_new(SPCanvasGroup *parent, Geom::Point point_on_line,
     gl->origin = cp;
 
     normal.normalize();
+    gl->label = label;
     gl->normal_to_line = normal;
     gl->angle = tan( -gl->normal_to_line[Geom::X] / gl->normal_to_line[Geom::Y]);
     sp_guideline_set_position(gl, point_on_line);
@@ -215,6 +236,16 @@ SPCanvasItem *sp_guideline_new(SPCanvasGroup *parent, Geom::Point point_on_line,
     sp_ctrlpoint_set_coords(cp, point_on_line);
 
     return item;
+}
+
+void sp_guideline_set_label(SPGuideLine *gl, const char* label)
+{
+    if (gl->label) {
+        g_free(gl->label);
+    }
+    gl->label = g_strdup(label);
+
+    sp_canvas_item_request_update(SP_CANVAS_ITEM (gl));
 }
 
 void sp_guideline_set_position(SPGuideLine *gl, Geom::Point point_on_line)

@@ -1,25 +1,28 @@
-SET(dialogs_SRC
-clonetiler.cpp
-dialog-events.cpp
-export.cpp
-extensions.cpp
-fill-style.cpp
-find.cpp
-guidelinedialog.cpp
-iconpreview.cpp
-in-dt-coordsys.cpp
-item-properties.cpp
-layer-properties.cpp
-layers-panel.cpp
-object-attributes.cpp
-rdf.cpp
-sp-attribute-widget.cpp
-stroke-style.cpp
-swatches.cpp
-text-edit.cpp
-unclump.cpp
-xml-tree.cpp
+
+set(dialogs_SRC
+	clonetiler.cpp
+	dialog-events.cpp
+	export.cpp
+	find.cpp
+	item-properties.cpp
+	object-attributes.cpp
+	spellcheck.cpp
+	text-edit.cpp
+	xml-tree.cpp
+
+
+	# -------
+	# Headers
+	clonetiler.h
+	dialog-events.h
+	export.h
+	find.h
+	item-properties.h
+	object-attributes.h
+	spellcheck.h
+	text-edit.h
+	xml-tree.h
 )
-ADD_LIBRARY(dialogs STATIC ${dialogs_SRC})
-TARGET_LINK_LIBRARIES(dialogs
-2geom ${INKSCAPE_LIBS})
+
+# add_inkscape_lib(dialogs_LIB "${dialogs_SRC}")
+add_inkscape_source("${dialogs_SRC}")

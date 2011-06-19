@@ -28,10 +28,8 @@
 #endif
 
 #include <glib/gtypes.h>
-#include <gdk/gdkevents.h>
-#include <gdk/gdkgc.h>
-#include <gtk/gtkobject.h>
-#include <gtk/gtkwidget.h>
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
 
 #include <glibmm/ustring.h>
 
@@ -43,8 +41,8 @@
 G_BEGIN_DECLS
 
 #define SP_TYPE_CANVAS sp_canvas_get_type()
-#define SP_CANVAS(obj) (GTK_CHECK_CAST((obj), SP_TYPE_CANVAS, SPCanvas))
-#define SP_IS_CANVAS(obj) (GTK_CHECK_TYPE((obj), SP_TYPE_CANVAS))
+#define SP_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), SP_TYPE_CANVAS, SPCanvas))
+#define SP_IS_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), SP_TYPE_CANVAS))
 
 GType sp_canvas_get_type();
 

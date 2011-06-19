@@ -19,7 +19,6 @@
 #include "sp-object.h"
 #include "uri-references.h"
 
-struct NRPixBlock;
 struct NRRect;
 
 #define SP_TYPE_PAINT_SERVER (SPPaintServer::get_type())
@@ -50,18 +49,6 @@ struct SPPaintServerClass {
 
 cairo_pattern_t *sp_paint_server_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
-class SPPaintServerReference : public Inkscape::URIReference {
-public:
-    SPPaintServerReference (SPObject *obj) : URIReference(obj) {}
-    SPPaintServerReference (SPDocument *doc) : URIReference(doc) {}
-    SPPaintServer *getObject() const {
-        return static_cast<SPPaintServer *>(URIReference::getObject());
-    }
-protected:
-    virtual bool _acceptObject(SPObject *obj) const {
-        return SP_IS_PAINT_SERVER (obj);
-    }
-};
 
 #endif // SEEN_SP_PAINT_SERVER_H
 /*

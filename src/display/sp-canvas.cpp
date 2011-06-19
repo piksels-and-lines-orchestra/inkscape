@@ -18,10 +18,7 @@
 # include <config.h>
 #endif
 
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkversion.h>
-
+#include <gtk/gtk.h>
 #include <gtkmm.h>
 
 #include "helper/sp-marshal.h"
@@ -44,12 +41,9 @@
 
 using Inkscape::Debug::GdkEventLatencyTracker;
 
-// GTK_CHECK_VERSION returns false on failure
-#define HAS_GDK_EVENT_REQUEST_MOTIONS GTK_CHECK_VERSION(2, 12, 0)
-
 // gtk_check_version returns non-NULL on failure
 static bool const HAS_BROKEN_MOTION_HINTS =
-  true || gtk_check_version(2, 12, 0) != NULL || !HAS_GDK_EVENT_REQUEST_MOTIONS;
+  true || gtk_check_version(2, 12, 0) != NULL;
 
 // Define this to visualize the regions to be redrawn
 //#define DEBUG_REDRAW 1;
@@ -539,7 +533,7 @@ sp_canvas_item_grab (SPCanvasItem *item, guint event_mask, GdkCursor *cursor, gu
 {
     g_return_val_if_fail (item != NULL, -1);
     g_return_val_if_fail (SP_IS_CANVAS_ITEM (item), -1);
-    g_return_val_if_fail (GTK_WIDGET_MAPPED (item->canvas), -1);
+    g_return_val_if_fail (gtk_widget_get_mapped (GTK_WIDGET (item->canvas)), -1);
 
     if (item->canvas->grabbed_item)
         return -1;
@@ -630,7 +624,7 @@ sp_canvas_item_grab_focus (SPCanvasItem *item)
 {
     g_return_if_fail (item != NULL);
     g_return_if_fail (SP_IS_CANVAS_ITEM (item));
-    g_return_if_fail (GTK_WIDGET_CAN_FOCUS (GTK_WIDGET (item->canvas)));
+    g_return_if_fail (gtk_widget_get_can_focus (GTK_WIDGET (item->canvas)));
 
     SPCanvasItem *focused_item = item->canvas->focused_item;
 
@@ -1022,9 +1016,9 @@ sp_canvas_class_init (SPCanvasClass *klass)
 static void
 sp_canvas_init (SPCanvas *canvas)
 {
-    GTK_WIDGET_UNSET_FLAGS (canvas, GTK_NO_WINDOW);
-    GTK_WIDGET_UNSET_FLAGS (canvas, GTK_DOUBLE_BUFFERED);
-    GTK_WIDGET_SET_FLAGS (canvas, GTK_CAN_FOCUS);
+    gtk_widget_set_has_window (GTK_WIDGET (canvas), TRUE);
+    gtk_widget_set_double_buffered (GTK_WIDGET (canvas), FALSE);
+    gtk_widget_set_can_focus (GTK_WIDGET (canvas), TRUE);
 
     canvas->pick_event.type = GDK_LEAVE_NOTIFY;
     canvas->pick_event.crossing.x = 0;
@@ -1178,7 +1172,7 @@ sp_canvas_realize (GtkWidget *widget)
 
     widget->style = gtk_style_attach (widget->style, widget->window);
 
-    GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
+    gtk_widget_set_realized (widget, TRUE);
 
     canvas->pixmap_gc = gdk_gc_new (SP_CANVAS_WINDOW (canvas));
 }
@@ -1243,7 +1237,7 @@ sp_canvas_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 
     widget->allocation = *allocation;
 
-    if (GTK_WIDGET_REALIZED (widget)) {
+    if (gtk_widget_get_realized (widget)) {
         gdk_window_move_resize (widget->window,
                                 widget->allocation.x, widget->allocation.y,
                                 widget->allocation.width, widget->allocation.height);
@@ -1362,7 +1356,7 @@ emit_event (SPCanvas *canvas, GdkEvent *event)
 
     while (item && !finished) {
         gtk_object_ref (GTK_OBJECT (item));
-        gtk_signal_emit (GTK_OBJECT (item), item_signals[ITEM_EVENT], &ev, &finished);
+        g_signal_emit (G_OBJECT (item), item_signals[ITEM_EVENT], 0, &ev, &finished);
         SPCanvasItem *parent = item->parent;
         gtk_object_unref (GTK_OBJECT (item));
         item = parent;
@@ -1596,9 +1590,7 @@ sp_canvas_scroll (GtkWidget *widget, GdkEventScroll *event)
 
 static inline void request_motions(GdkWindow *w, GdkEventMotion *event) {
     gdk_window_get_pointer(w, NULL, NULL, NULL);
-#if HAS_GDK_EVENT_REQUEST_MOTIONS
     gdk_event_request_motions(event);
-#endif
 }
 
 /**
@@ -1937,7 +1929,7 @@ sp_canvas_expose (GtkWidget *widget, GdkEventExpose *event)
 {
     SPCanvas *canvas = SP_CANVAS (widget);
 
-    if (!GTK_WIDGET_DRAWABLE (widget) ||
+    if (!gtk_widget_is_drawable (widget) ||
         (event->window != SP_CANVAS_WINDOW (canvas)))
         return FALSE;
 
@@ -1992,7 +1984,7 @@ sp_canvas_crossing (GtkWidget *widget, GdkEventCrossing *event)
 static gint
 sp_canvas_focus_in (GtkWidget *widget, GdkEventFocus *event)
 {
-    GTK_WIDGET_SET_FLAGS (widget, GTK_HAS_FOCUS);
+    gtk_widget_grab_focus (widget);
 
     SPCanvas *canvas = SP_CANVAS (widget);
 
@@ -2009,8 +2001,6 @@ sp_canvas_focus_in (GtkWidget *widget, GdkEventFocus *event)
 static gint
 sp_canvas_focus_out (GtkWidget *widget, GdkEventFocus *event)
 {
-    GTK_WIDGET_UNSET_FLAGS (widget, GTK_HAS_FOCUS);
-
     SPCanvas *canvas = SP_CANVAS (widget);
 
     if (canvas->focused_item)
@@ -2093,7 +2083,7 @@ do_update (SPCanvas *canvas)
     }
 
     /* Paint if able to */
-    if (GTK_WIDGET_DRAWABLE (canvas)) {
+    if (gtk_widget_is_drawable ( GTK_WIDGET (canvas))) {
             return paint (canvas);
     }
 
@@ -2177,7 +2167,7 @@ sp_canvas_scroll_to (SPCanvas *canvas, double cx, double cy, unsigned int clear,
         // scrolling without zoom; redraw only the newly exposed areas
         if ((dx != 0) || (dy != 0)) {
             canvas->is_scrolling = is_scrolling;
-            if (GTK_WIDGET_REALIZED (canvas)) {
+            if (gtk_widget_get_realized (GTK_WIDGET (canvas))) {
                 gdk_window_scroll (SP_CANVAS_WINDOW (canvas), -dx, -dy);
             }
         }
@@ -2226,7 +2216,7 @@ sp_canvas_request_redraw (SPCanvas *canvas, int x0, int y0, int x1, int y1)
     g_return_if_fail (canvas != NULL);
     g_return_if_fail (SP_IS_CANVAS (canvas));
 
-    if (!GTK_WIDGET_DRAWABLE (canvas)) return;
+    if (!gtk_widget_is_drawable ( GTK_WIDGET (canvas))) return;
     if ((x0 >= x1) || (y0 >= y1)) return;
 
     bbox.x0 = x0;

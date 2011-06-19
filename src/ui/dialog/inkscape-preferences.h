@@ -46,6 +46,7 @@ enum {
     PREFS_PAGE_TOOLS_TWEAK,
   PREFS_PAGE_TOOLS_SPRAY,
     PREFS_PAGE_TOOLS_ZOOM,
+    PREFS_PAGE_TOOLS_MEASURE,
     PREFS_PAGE_TOOLS_SHAPES,
     PREFS_PAGE_TOOLS_SHAPES_RECT,
     PREFS_PAGE_TOOLS_SHAPES_3DBOX,
@@ -140,6 +141,7 @@ protected:
     UI::Widget::DialogPage _page_tweak;
     UI::Widget::DialogPage _page_spray;
     UI::Widget::DialogPage _page_zoom;
+    UI::Widget::DialogPage _page_measure;
     UI::Widget::DialogPage _page_shapes;
     UI::Widget::DialogPage _page_pencil;
     UI::Widget::DialogPage _page_pen;
@@ -177,11 +179,12 @@ protected:
     UI::Widget::PrefCheckButton _snap_mouse_pointer;
 
     UI::Widget::PrefCombo       _steps_rot_snap;
+    UI::Widget::PrefCheckButton _steps_rot_relative;
     UI::Widget::PrefCheckButton _steps_compass;
-    UI::Widget::PrefSpinButton _steps_arrow;
-    UI::Widget::PrefSpinButton _steps_scale;
-    UI::Widget::PrefSpinButton _steps_inset;
-    UI::Widget::PrefSpinButton _steps_zoom;
+    UI::Widget::PrefSpinUnit    _steps_arrow;
+    UI::Widget::PrefSpinUnit    _steps_scale;
+    UI::Widget::PrefSpinUnit    _steps_inset;
+    UI::Widget::PrefSpinButton  _steps_zoom;
 
     UI::Widget::PrefRadioButton _t_sel_trans_obj;
     UI::Widget::PrefRadioButton _t_sel_trans_outl;
@@ -371,6 +374,7 @@ protected:
     static void AddSelcueCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
     static void AddGradientCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
     static void AddConvertGuidesCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
+    static void AddFirstAndLastCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
     static void AddDotSizeSpinbutton(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, double def_value);
     static void AddNewObjectsStyle(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, const gchar* banner = NULL);
 

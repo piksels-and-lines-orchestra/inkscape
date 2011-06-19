@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #############################################################################
 #
 # Voronoi diagram calculator/ Delaunay triangulator
@@ -747,7 +748,7 @@ def computeDelaunayTriangulation(points):
     """
     siteList = SiteList(points)
     context  = Context()
-    context.triangulate = true
+    context.triangulate = True
     voronoi(siteList,context)
     return context.triangles
 

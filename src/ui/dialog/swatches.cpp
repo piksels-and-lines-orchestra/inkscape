@@ -17,12 +17,9 @@
 #include <map>
 #include <algorithm>
 
-#include <gtk/gtkdialog.h> //for GTK_RESPONSE* types
-#include <gtk/gtkdnd.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtkseparatormenuitem.h>
+#include <gtk/gtk.h> //for GTK_RESPONSE* types
 #include <glibmm/i18n.h>
+#include <glibmm/main.h>
 #include <gdkmm/pixbuf.h>
 
 #include "color-item.h"
@@ -62,8 +59,6 @@ namespace Dialogs {
 
 void _loadPaletteFile( gchar const *filename );
 
-
-class DocTrack;
 
 std::vector<SwatchPage*> possible;
 static std::map<SPDocument*, SwatchPage*> docPalettes;
@@ -715,14 +710,31 @@ class DocTrack
 public:
     DocTrack(SPDocument *doc, sigc::connection &gradientRsrcChanged, sigc::connection &defsChanged, sigc::connection &defsModified) :
         doc(doc),
+        updatePending(false),
+        lastGradientUpdate(0.0),
         gradientRsrcChanged(gradientRsrcChanged),
         defsChanged(defsChanged),
         defsModified(defsModified)
     {
+        if ( !timer ) {
+            timer = new Glib::Timer();
+            refreshTimer = Glib::signal_timeout().connect( sigc::ptr_fun(handleTimerCB), 33 );
+        }
+        timerRefCount++;
     }
 
     ~DocTrack()
     {
+        timerRefCount--;
+        if ( timerRefCount <= 0 ) {
+            refreshTimer.disconnect();
+            timerRefCount = 0;
+            if ( timer ) {
+                timer->stop();
+                delete timer;
+                timer = 0;
+            }
+        }
         if (doc) {
             gradientRsrcChanged.disconnect();
             defsChanged.disconnect();
@@ -730,7 +742,22 @@ public:
         }
     }
 
+    static bool handleTimerCB();
+
+    /**
+     * Checks if update should be queued or executed immediately.
+     *
+     * @return true if the update was queued and should not be immediately executed.
+     */
+    static bool queueUpdateIfNeeded(SPDocument *doc);
+
+    static Glib::Timer *timer;
+    static int timerRefCount;
+    static sigc::connection refreshTimer;
+
     SPDocument *doc;
+    bool updatePending;
+    double lastGradientUpdate;
     sigc::connection gradientRsrcChanged;
     sigc::connection defsChanged;
     sigc::connection defsModified;
@@ -739,6 +766,58 @@ private:
     DocTrack(DocTrack const &); // no copy
     DocTrack &operator=(DocTrack const &); // no assign
 };
+
+Glib::Timer *DocTrack::timer = 0;
+int DocTrack::timerRefCount = 0;
+sigc::connection DocTrack::refreshTimer;
+
+static const double DOC_UPDATE_THREASHOLD  = 0.090;
+
+bool DocTrack::handleTimerCB()
+{
+    double now = timer->elapsed();
+
+    std::vector<DocTrack *> needCallback;
+    for (std::vector<DocTrack *>::iterator it = docTrackings.begin(); it != docTrackings.end(); ++it) {
+        DocTrack *track = *it;
+        if ( track->updatePending && ( (now - track->lastGradientUpdate) >= DOC_UPDATE_THREASHOLD) ) {
+            needCallback.push_back(track);
+        }
+    }
+
+    for (std::vector<DocTrack *>::iterator it = needCallback.begin(); it != needCallback.end(); ++it) {
+        DocTrack *track = *it;
+        if ( std::find(docTrackings.begin(), docTrackings.end(), track) != docTrackings.end() ) { // Just in case one gets deleted while we are looping
+            // Note: calling handleDefsModified will call queueUpdateIfNeeded and thus update the time and flag.
+            SwatchesPanel::handleDefsModified(track->doc);
+        }
+    }
+
+    return true;
+}
+
+bool DocTrack::queueUpdateIfNeeded( SPDocument *doc )
+{
+    bool deferProcessing = false;
+    for (std::vector<DocTrack*>::iterator it = docTrackings.begin(); it != docTrackings.end(); ++it) {
+        DocTrack *track = *it;
+        if ( track->doc == doc ) {
+            double now = timer->elapsed();
+            double elapsed = now - track->lastGradientUpdate;
+
+            if ( elapsed < DOC_UPDATE_THREASHOLD ) {
+                deferProcessing = true;
+                track->updatePending = true;
+            } else {
+                track->lastGradientUpdate = now;
+                track->updatePending = false;
+            }
+
+            break;
+        }
+    }
+    return deferProcessing;
+}
 
 void SwatchesPanel::_trackDocument( SwatchesPanel *panel, SPDocument *document )
 {
@@ -775,8 +854,8 @@ void SwatchesPanel::_trackDocument( SwatchesPanel *panel, SPDocument *document )
             docPerPanel[panel] = document;
             if (!found) {
                 sigc::connection conn1 = document->connectResourcesChanged( "gradient", sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleGradientsChange), document) );
-                sigc::connection conn2 = SP_DOCUMENT_DEFS(document)->connectRelease( sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document)) );
-                sigc::connection conn3 = SP_DOCUMENT_DEFS(document)->connectModified( sigc::hide(sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document))) );
+                sigc::connection conn2 = document->getDefs()->connectRelease( sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document)) );
+                sigc::connection conn3 = document->getDefs()->connectModified( sigc::hide(sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document))) );
 
                 DocTrack *dt = new DocTrack(document, conn1, conn2, conn3);
                 docTrackings.push_back(dt);
@@ -896,7 +975,7 @@ void SwatchesPanel::handleGradientsChange(SPDocument *document)
 void SwatchesPanel::handleDefsModified(SPDocument *document)
 {
     SwatchPage *docPalette = (docPalettes.find(document) != docPalettes.end()) ? docPalettes[document] : 0;
-    if (docPalette) {
+    if (docPalette && !DocTrack::queueUpdateIfNeeded(document) ) {
         std::vector<ColorItem*> tmpColors;
         std::map<ColorItem*, cairo_pattern_t*> tmpPrevs;
         std::map<ColorItem*, SPGradient*> tmpGrads;

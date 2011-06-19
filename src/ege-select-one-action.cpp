@@ -41,16 +41,7 @@
 
 #include <string.h>
 
-#include <gtk/gtkhbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtktoolitem.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkcellrendererpixbuf.h>
-#include <gtk/gtkcelllayout.h>
-#include <gtk/gtkradioaction.h>
-#include <gtk/gtkradiomenuitem.h>
-#include <gtk/gtktable.h>
 
 #include "ege-select-one-action.h"
 
@@ -661,7 +652,6 @@ GtkWidget* create_tool_item( GtkAction* action )
             GtkTreeIter iter;
             gboolean valid = FALSE;
             gint index = 0;
-            GtkTooltips* tooltips = gtk_tooltips_new();
 
             {
                 gchar*  sss = 0;
@@ -746,7 +736,7 @@ GtkWidget* create_tool_item( GtkAction* action )
 
                 sub = gtk_action_create_tool_item( GTK_ACTION(ract) );
                 gtk_action_connect_proxy( GTK_ACTION(ract), sub );
-                gtk_tool_item_set_tooltip( GTK_TOOL_ITEM(sub), tooltips, tip, NULL );
+                gtk_tool_item_set_tooltip_text( GTK_TOOL_ITEM(sub), tip );
 
                 gtk_box_pack_start( GTK_BOX(holder), sub, FALSE, FALSE, 0 );
 
@@ -759,7 +749,6 @@ GtkWidget* create_tool_item( GtkAction* action )
             }
 
             g_object_set_data( G_OBJECT(holder), "ege-proxy_action-group", group );
-            g_object_set_data( G_OBJECT(holder), "ege-tooltips", tooltips );
 
             gtk_container_add( GTK_CONTAINER(item), holder );
         } else {
@@ -935,7 +924,6 @@ void resync_sensitive( EgeSelectOneAction* act )
                         GSList* group = (GSList*)data;
                         // List is backwards in group as compared to GtkTreeModel, we better do matching.
                         while ( group ) {
-#if GTK_CHECK_VERSION(2,16,0)
                             GtkRadioAction* ract = GTK_RADIO_ACTION(group->data);
                             const gchar* label = gtk_action_get_label( GTK_ACTION( ract ) );
 
@@ -964,8 +952,6 @@ void resync_sensitive( EgeSelectOneAction* act )
                             }
 
                             gtk_action_set_sensitive( GTK_ACTION(ract), sens );
-#endif
-
                             group = g_slist_next(group);
                         }
                     }

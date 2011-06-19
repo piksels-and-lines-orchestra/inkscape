@@ -31,7 +31,7 @@
 // This has to be included prior to anything that includes setjmp.h, it croaks otherwise
 #include <png.h>
 
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
@@ -51,10 +51,6 @@
 #include <glib/gprintf.h>
 #include <glib-object.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkbox.h>
 
 #include "gc-core.h"
 
@@ -1349,7 +1345,7 @@ sp_do_export_png(SPDocument *doc)
     } else if (sp_export_area_page || !(sp_export_id || sp_export_area_drawing)) {
         /* Export the whole page: note: Inkscape uses 'page' in all menus and dialogs, not 'canvas' */
         doc->ensureUpToDate();
-        Geom::Point origin (SP_ROOT(doc->root)->x.computed, SP_ROOT(doc->root)->y.computed);
+        Geom::Point origin(doc->getRoot()->x.computed, doc->getRoot()->y.computed);
         area = Geom::Rect(origin, origin + doc->getDimensions());
     }
 

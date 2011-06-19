@@ -1,5 +1,3 @@
-#define __NR_ARENA_GLYPHS_C__
-
 /*
  * RGBA display list system for inkscape
  *

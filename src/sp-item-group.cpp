@@ -47,6 +47,7 @@
 #include "sp-title.h"
 #include "sp-desc.h"
 #include "sp-switch.h"
+#include "sp-defs.h"
 
 using Inkscape::DocumentUndo;
 
@@ -343,8 +344,8 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     g_return_if_fail (SP_IS_GROUP (group));
 
     SPDocument *doc = group->document;
-    SPObject *root = doc->getRoot();
-    SPObject *defs = SP_OBJECT(SP_ROOT(root)->defs);
+    SPRoot *root = doc->getRoot();
+    SPObject *defs = root->defs;
 
     SPItem *gitem = SP_ITEM (group);
     Inkscape::XML::Node *grepr = gitem->getRepr();

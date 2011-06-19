@@ -35,6 +35,8 @@
 #include "implementation/xslt.h"
 #include "xml/rebase-hrefs.h"
 #include "io/sys.h"
+#include "inkscape.h"
+
 /* #include "implementation/plugin.h" */
 
 namespace Inkscape {
@@ -64,8 +66,7 @@ static Extension *build_from_reprdoc(Inkscape::XML::Document *doc, Implementatio
  *
  * Lastly, the open function is called in the module itself.
  */
-SPDocument *
-open(Extension *key, gchar const *filename)
+SPDocument *open(Extension *key, gchar const *filename)
 {
     Input *imod = NULL;
     if (key == NULL) {
@@ -93,8 +94,9 @@ open(Extension *key, gchar const *filename)
         throw Input::open_failed();
     }
 
-    if (!imod->prefs(filename))
+    if (!imod->prefs(filename)) {
         return NULL;
+    }
 
     SPDocument *doc = imod->open(filename);
     if (!doc) {
@@ -102,11 +104,11 @@ open(Extension *key, gchar const *filename)
     }
 
     if (last_chance_svg) {
-        /* We can't call sp_ui_error_dialog because we may be
-           running from the console, in which case calling sp_ui
-           routines will cause a segfault.  See bug 1000350 - bryce */
-        // sp_ui_error_dialog(_("Format autodetect failed. The file is being opened as SVG."));
-        g_warning(_("Format autodetect failed. The file is being opened as SVG."));
+        if ( inkscape_use_gui() ) {
+            sp_ui_error_dialog(_("Format autodetect failed. The file is being opened as SVG."));
+        } else {
+            g_warning(_("Format autodetect failed. The file is being opened as SVG."));
+        }
     }
 
     /* This kinda overkill as most of these are already set, but I want
@@ -588,10 +590,11 @@ Glib::ustring
 get_file_save_path (SPDocument *doc, FileSaveMethod method) {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     Glib::ustring path;
+    bool use_current_dir = true;
     switch (method) {
         case FILE_SAVE_METHOD_SAVE_AS:
         {
-            bool use_current_dir = prefs->getBool("/dialogs/save_as/use_current_dir", true);
+            use_current_dir = prefs->getBool("/dialogs/save_as/use_current_dir", true);
             if (doc->getURI() && use_current_dir) {
                 path = Glib::path_get_dirname(doc->getURI());
             } else {
@@ -603,7 +606,12 @@ get_file_save_path (SPDocument *doc, FileSaveMethod method) {
             path = prefs->getString("/dialogs/save_as/path");
             break;
         case FILE_SAVE_METHOD_SAVE_COPY:
-            path = prefs->getString("/dialogs/save_copy/path");
+            use_current_dir = prefs->getBool("/dialogs/save_copy/use_current_dir", prefs->getBool("/dialogs/save_as/use_current_dir", true));
+            if (doc->getURI() && use_current_dir) {
+                path = Glib::path_get_dirname(doc->getURI());
+            } else {
+                path = prefs->getString("/dialogs/save_copy/path");
+            }
             break;
         case FILE_SAVE_METHOD_INKSCAPE_SVG:
             if (doc->getURI()) {

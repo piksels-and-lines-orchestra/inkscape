@@ -78,32 +78,36 @@ sp_widget_class_init (SPWidgetClass *klass)
 
 	object_class->destroy = sp_widget_destroy;
 
-	signals[CONSTRUCT] =        gtk_signal_new ("construct",
-						    GTK_RUN_FIRST,
-						    GTK_CLASS_TYPE(object_class),
-						    GTK_SIGNAL_OFFSET (SPWidgetClass, construct),
+	signals[CONSTRUCT] =        g_signal_new ("construct",
+						    G_TYPE_FROM_CLASS(object_class),
+						    G_SIGNAL_RUN_FIRST,
+						    G_STRUCT_OFFSET (SPWidgetClass, construct),
+						    NULL, NULL,
 						    gtk_marshal_NONE__NONE,
-						    GTK_TYPE_NONE, 0);
-	signals[CHANGE_SELECTION] = gtk_signal_new ("change_selection",
-						    GTK_RUN_FIRST,
-						    GTK_CLASS_TYPE(object_class),
-						    GTK_SIGNAL_OFFSET (SPWidgetClass, change_selection),
+						    G_TYPE_NONE, 0);
+	signals[CHANGE_SELECTION] = g_signal_new ("change_selection",
+						    G_TYPE_FROM_CLASS(object_class),
+						    G_SIGNAL_RUN_FIRST,
+						    G_STRUCT_OFFSET (SPWidgetClass, change_selection),
+						    NULL, NULL,
 						    gtk_marshal_NONE__POINTER,
-						    GTK_TYPE_NONE, 1,
+						    G_TYPE_NONE, 1,
 						    GTK_TYPE_POINTER);
-	signals[MODIFY_SELECTION] = gtk_signal_new ("modify_selection",
-						    GTK_RUN_FIRST,
-						    GTK_CLASS_TYPE(object_class),
-						    GTK_SIGNAL_OFFSET (SPWidgetClass, modify_selection),
+	signals[MODIFY_SELECTION] = g_signal_new ("modify_selection",
+						    G_TYPE_FROM_CLASS(object_class),
+						    G_SIGNAL_RUN_FIRST,
+						    G_STRUCT_OFFSET (SPWidgetClass, modify_selection),
+						    NULL, NULL,
 						    gtk_marshal_NONE__POINTER_UINT,
-						    GTK_TYPE_NONE, 2,
+						    G_TYPE_NONE, 2,
 						    GTK_TYPE_POINTER, GTK_TYPE_UINT);
-	signals[SET_SELECTION] =    gtk_signal_new ("set_selection",
-						    GTK_RUN_FIRST,
-						    GTK_CLASS_TYPE(object_class),
-						    GTK_SIGNAL_OFFSET (SPWidgetClass, set_selection),
+	signals[SET_SELECTION] =    g_signal_new ("set_selection",
+						    G_TYPE_FROM_CLASS(object_class),
+						    G_SIGNAL_RUN_FIRST,
+						    G_STRUCT_OFFSET (SPWidgetClass, set_selection),
+						    NULL, NULL,
 						    gtk_marshal_NONE__POINTER,
-						    GTK_TYPE_NONE, 1,
+						    G_TYPE_NONE, 1,
 						    GTK_TYPE_POINTER);
 
 	widget_class->show = sp_widget_show;
@@ -184,7 +188,7 @@ sp_widget_expose (GtkWidget *widget, GdkEventExpose *event)
             gtk_container_propagate_expose (GTK_CONTAINER(widget), bin->child, event);
         }
 	/*
-	if ((bin->child) && (GTK_WIDGET_NO_WINDOW (bin->child))) {
+	if ((bin->child) && (!gtk_widget_get_has_window (bin->child))) {
 		GdkEventExpose ce;
 		ce = *event;
 		gtk_widget_event (bin->child, (GdkEvent *) &ce);
@@ -233,7 +237,7 @@ sp_widget_construct_global (SPWidget *spw, Inkscape::Application *inkscape)
 	g_return_val_if_fail (!spw->inkscape, NULL);
 
 	spw->inkscape = inkscape;
-	if (GTK_WIDGET_VISIBLE (spw)) {
+	if (gtk_widget_get_visible (GTK_WIDGET(spw))) {
 		g_signal_connect (G_OBJECT (inkscape), "modify_selection", G_CALLBACK (sp_widget_modify_selection), spw);
 		g_signal_connect (G_OBJECT (inkscape), "change_selection", G_CALLBACK (sp_widget_change_selection), spw);
 		g_signal_connect (G_OBJECT (inkscape), "set_selection", G_CALLBACK (sp_widget_set_selection), spw);

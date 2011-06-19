@@ -16,16 +16,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtkcheckbutton.h>
 #include <gtk/gtk.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtkexpander.h>
-#include <gtk/gtktextview.h>
-#include <gtk/gtktooltips.h>
 
 #include "../desktop-handles.h"
 #include "dialog-events.h"
@@ -98,15 +89,13 @@ sp_item_widget_new (void)
     GtkWidget *spw, *vb, *t, *cb, *l, *f, *tf, *pb, *int_expander, *int_label;
     GtkTextBuffer *desc_buffer;
 
-    GtkTooltips *tt = gtk_tooltips_new();
-
     /* Create container widget */
     spw = sp_widget_new_global (INKSCAPE);
-    gtk_signal_connect ( GTK_OBJECT (spw), "modify_selection",
-                         GTK_SIGNAL_FUNC (sp_item_widget_modify_selection),
+    g_signal_connect ( G_OBJECT (spw), "modify_selection",
+                         G_CALLBACK (sp_item_widget_modify_selection),
                          spw );
-    gtk_signal_connect ( GTK_OBJECT (spw), "change_selection",
-                         GTK_SIGNAL_FUNC (sp_item_widget_change_selection),
+    g_signal_connect ( G_OBJECT (spw), "change_selection",
+                         G_CALLBACK (sp_item_widget_change_selection),
                          spw );
 
     vb = gtk_vbox_new (FALSE, 0);
@@ -129,7 +118,7 @@ sp_item_widget_new (void)
 
     /* Create the entry box for the object id */
     tf = gtk_entry_new ();
-    gtk_tooltips_set_tip (tt, tf, _("The id= attribute (only letters, digits, and the characters .-_: allowed)"), NULL);
+    gtk_widget_set_tooltip_text (tf, _("The id= attribute (only letters, digits, and the characters .-_: allowed)"));
     gtk_entry_set_max_length (GTK_ENTRY (tf), 64);
     gtk_table_attach ( GTK_TABLE (t), tf, 1, 2, 0, 1,
                        (GtkAttachOptions)( GTK_EXPAND | GTK_FILL ),
@@ -147,8 +136,8 @@ sp_item_widget_new (void)
     gtk_table_attach ( GTK_TABLE (t), pb, 2, 3, 0, 1,
                        (GtkAttachOptions)( GTK_SHRINK | GTK_FILL ),
                        (GtkAttachOptions)0, 0, 0 );
-    gtk_signal_connect ( GTK_OBJECT (pb), "clicked",
-                         GTK_SIGNAL_FUNC (sp_item_widget_label_changed),
+    g_signal_connect ( G_OBJECT (pb), "clicked",
+                         G_CALLBACK (sp_item_widget_label_changed),
                          spw );
 
     /* Create the label for the object label */
@@ -161,7 +150,7 @@ sp_item_widget_new (void)
 
     /* Create the entry box for the object label */
     tf = gtk_entry_new ();
-    gtk_tooltips_set_tip (tt, tf, _("A freeform label for the object"), NULL);
+    gtk_widget_set_tooltip_text (tf, _("A freeform label for the object"));
     gtk_entry_set_max_length (GTK_ENTRY (tf), 256);
     gtk_table_attach ( GTK_TABLE (t), tf, 1, 2, 1, 2,
                        (GtkAttachOptions)( GTK_EXPAND | GTK_FILL ),
@@ -223,7 +212,7 @@ sp_item_widget_new (void)
 
     /* Hide */
     cb = gtk_check_button_new_with_mnemonic (_("_Hide"));
-    gtk_tooltips_set_tip (tt, cb, _("Check to make the object invisible"), NULL);
+    gtk_widget_set_tooltip_text (cb, _("Check to make the object invisible"));
     gtk_table_attach ( GTK_TABLE (t), cb, 0, 1, 0, 1,
                        (GtkAttachOptions)( GTK_EXPAND | GTK_FILL ),
                        (GtkAttachOptions)0, 0, 0 );
@@ -233,12 +222,12 @@ sp_item_widget_new (void)
     /* Lock */
     // TRANSLATORS: "Lock" is a verb here
     cb = gtk_check_button_new_with_mnemonic (_("L_ock"));
-    gtk_tooltips_set_tip (tt, cb, _("Check to make the object insensitive (not selectable by mouse)"), NULL);
+    gtk_widget_set_tooltip_text (cb, _("Check to make the object insensitive (not selectable by mouse)"));
     gtk_table_attach ( GTK_TABLE (t), cb, 1, 2, 0, 1,
                        (GtkAttachOptions)( GTK_EXPAND | GTK_FILL ),
                        (GtkAttachOptions)0, 0, 0 );
-    gtk_signal_connect ( GTK_OBJECT (cb), "toggled",
-                         GTK_SIGNAL_FUNC (sp_item_widget_sensitivity_toggled),
+    g_signal_connect ( G_OBJECT (cb), "toggled",
+                         G_CALLBACK (sp_item_widget_sensitivity_toggled),
                          spw );
     gtk_object_set_data (GTK_OBJECT (spw), "sensitive", cb);
 
@@ -536,9 +525,9 @@ sp_item_dialog (void)
         wd.stop = 0;
 
         g_signal_connect   ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd);
-        gtk_signal_connect ( GTK_OBJECT (dlg), "event", GTK_SIGNAL_FUNC (sp_dialog_event_handler), dlg);
-        gtk_signal_connect ( GTK_OBJECT (dlg), "destroy", G_CALLBACK (sp_item_dialog_destroy), dlg);
-        gtk_signal_connect ( GTK_OBJECT (dlg), "delete_event", G_CALLBACK (sp_item_dialog_delete), dlg);
+        g_signal_connect ( G_OBJECT (dlg), "event", G_CALLBACK (sp_dialog_event_handler), dlg);
+        g_signal_connect ( G_OBJECT (dlg), "destroy", G_CALLBACK (sp_item_dialog_destroy), dlg);
+        g_signal_connect ( G_OBJECT (dlg), "delete_event", G_CALLBACK (sp_item_dialog_delete), dlg);
         g_signal_connect   ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (sp_item_dialog_delete), dlg);
         g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg);
         g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg);

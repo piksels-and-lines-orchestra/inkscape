@@ -606,6 +606,9 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Affine 
 {
     SPMarker* marker = SP_MARKER (marker_object);
     SPItem* marker_item = sp_item_first_item_child(marker_object);
+    if (!marker_item) {
+        return;
+    }
 
     Geom::Affine tr(marker_transform);
 
@@ -664,7 +667,9 @@ void item_outline_add_marker( SPObject const *marker_object, Geom::Affine marker
     tr = marker->c2p * tr;
 
     SPItem const * marker_item = sp_item_first_item_child(marker_object); // why only consider the first item? can a marker only consist of a single item (that may be a group)?
-    item_outline_add_marker_child(marker_item, tr, pathv_in);
+    if (marker_item) {
+        item_outline_add_marker_child(marker_item, tr, pathv_in);
+    }
 }
 
 /**
@@ -1263,7 +1268,7 @@ void
 sp_selected_path_offset(SPDesktop *desktop)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0);
+    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0, "px");
 
     sp_selected_path_do_offset(desktop, true, prefOffset);
 }
@@ -1271,7 +1276,7 @@ void
 sp_selected_path_inset(SPDesktop *desktop)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0);
+    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0, "px");
 
     sp_selected_path_do_offset(desktop, false, prefOffset);
 }
@@ -1397,7 +1402,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
 
         {
             Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-            o_width = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0);
+            o_width = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0, "px");
         }
 
         if (o_width < 0.01)

@@ -18,11 +18,10 @@
 #endif
 
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include <display/sp-ctrlline.h>
 #include <display/sodipodi-ctrlrect.h>
 #include <display/sp-ctrlquadr.h>
-#include <gtk/gtkimmulticontext.h>
 #include <gtkmm/clipboard.h>
 
 #include "macros.h"
@@ -235,7 +234,7 @@ sp_text_context_setup(SPEventContext *ec)
         g_signal_connect(G_OBJECT(canvas), "focus_out_event", G_CALLBACK(sptc_focus_out), tc);
         g_signal_connect(G_OBJECT(tc->imc), "commit", G_CALLBACK(sptc_commit), tc);
 
-        if (GTK_WIDGET_HAS_FOCUS(canvas)) {
+        if (gtk_widget_has_focus(canvas)) {
             sptc_focus_in(canvas, NULL, tc);
         }
     }

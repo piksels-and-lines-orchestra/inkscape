@@ -17,6 +17,7 @@
 #include <map>
 #include <string>
 #include <2geom/line.h>
+#include <2geom/angle.h>
 #include <glibmm/i18n.h>
 
 #include "desktop.h"
@@ -131,7 +132,7 @@ static gint sp_dt_ruler_event(GtkWidget *widget, GdkEvent *event, SPDesktopWidge
                     }
                 }
 
-                guide = sp_guideline_new(desktop->guides, event_dt, normal);
+                guide = sp_guideline_new(desktop->guides, NULL, event_dt, normal);
                 sp_guideline_set_color(SP_GUIDELINE(guide), desktop->namedview->guidehicolor);
                 gdk_pointer_grab(widget->window, FALSE,
                                  (GdkEventMask)(GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK ),
@@ -314,16 +315,24 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                     case SP_DRAG_ROTATE:
                     {
                         Geom::Point pt = motion_dt - guide->point_on_line;
-                        double angle = std::atan2(pt[Geom::Y], pt[Geom::X]);
+                        Geom::Angle angle(pt);
                         if (event->motion.state & GDK_CONTROL_MASK) {
                             Inkscape::Preferences *prefs = Inkscape::Preferences::get();
                             unsigned const snaps = abs(prefs->getInt("/options/rotationsnapsperpi/value", 12));
+                            bool const relative_snaps = abs(prefs->getBool("/options/relativeguiderotationsnap/value", false));
                             if (snaps) {
-                                double sections = floor(angle * snaps / M_PI + .5);
-                                angle = (M_PI / snaps) * sections;
+                                if (relative_snaps) {
+                                    Geom::Angle orig_angle(guide->normal_to_line);
+                                    Geom::Angle snap_angle = angle - orig_angle;
+                                    double sections = floor(snap_angle.radians0() * snaps / M_PI + .5);
+                                    angle = (M_PI / snaps) * sections + orig_angle.radians0();
+                                } else {
+                                    double sections = floor(angle.radians0() * snaps / M_PI + .5);
+                                    angle = (M_PI / snaps) * sections;
+                                }
                             }
                         }
-                        sp_guide_set_normal(*guide, Geom::Point(1,0) * Geom::Rotate(angle + M_PI_2), false);
+                        sp_guide_set_normal(*guide, Geom::Point::polar(angle).cw(), false);
                         break;
                     }
                     case SP_DRAG_MOVE_ORIGIN:
@@ -380,16 +389,24 @@ gint sp_dt_guide_event(SPCanvasItem *item, GdkEvent *event, gpointer data)
                             case SP_DRAG_ROTATE:
                             {
                                 Geom::Point pt = event_dt - guide->point_on_line;
-                                double angle = std::atan2(pt[Geom::Y], pt[Geom::X]);
-                                if  (event->motion.state & GDK_CONTROL_MASK) {
+                                Geom::Angle angle(pt);
+                                if (event->motion.state & GDK_CONTROL_MASK) {
                                     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
                                     unsigned const snaps = abs(prefs->getInt("/options/rotationsnapsperpi/value", 12));
+                                    bool const relative_snaps = abs(prefs->getBool("/options/relativeguiderotationsnap/value", false));
                                     if (snaps) {
-                                        double sections = floor(angle * snaps / M_PI + .5);
-                                        angle = (M_PI / snaps) * sections;
+                                        if (relative_snaps) {
+                                            Geom::Angle orig_angle(guide->normal_to_line);
+                                            Geom::Angle snap_angle = angle - orig_angle;
+                                            double sections = floor(snap_angle.radians0() * snaps / M_PI + .5);
+                                            angle = (M_PI / snaps) * sections + orig_angle.radians0();
+                                        } else {
+                                            double sections = floor(angle.radians0() * snaps / M_PI + .5);
+                                            angle = (M_PI / snaps) * sections;
+                                        }
                                     }
                                 }
-                                sp_guide_set_normal(*guide, Geom::Point(1,0) * Geom::Rotate(angle + M_PI_2), true);
+                                sp_guide_set_normal(*guide, Geom::Point::polar(angle).cw(), true);
                                 break;
                             }
                             case SP_DRAG_MOVE_ORIGIN:

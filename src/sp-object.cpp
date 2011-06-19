@@ -43,6 +43,7 @@
 #include "document.h"
 #include "style.h"
 #include "sp-object-repr.h"
+#include "sp-paint-server.h"
 #include "sp-root.h"
 #include "sp-style-elem.h"
 #include "sp-script.h"
@@ -1603,9 +1604,9 @@ gchar const * SPObject::getStyleProperty(gchar const *key, gchar const *def) con
  */
 void SPObject::_requireSVGVersion(Inkscape::Version version) {
     for ( SPObject::ParentIterator iter=this ; iter ; ++iter ) {
-        SPObject *object=iter;
+        SPObject *object = iter;
         if (SP_IS_ROOT(object)) {
-            SPRoot *root=SP_ROOT(object);
+            SPRoot *root = SP_ROOT(object);
             if ( root->version.svg < version ) {
                 root->version.svg = version;
             }

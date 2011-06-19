@@ -2,10 +2,7 @@
 # include "config.h"
 #endif
 #include <math.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtkspinbutton.h>
+#include <gtk/gtk.h>
 #include <glibmm/i18n.h>
 #include "../dialogs/dialog-events.h"
 #include "sp-color-wheel-selector.h"
@@ -135,14 +132,12 @@ static void resizeHSVWheel( GtkHSV *hsv, GtkAllocation *allocation )
     gtk_hsv_set_metrics( hsv, diam, ring );
 }
 
-#if GTK_CHECK_VERSION(2,18,0)
 static void handleWheelStyleSet(GtkHSV *hsv, GtkStyle* /*previous*/, gpointer /*userData*/)
 {
     GtkAllocation allocation = {0, 0, 0, 0};
     gtk_widget_get_allocation( GTK_WIDGET(hsv), &allocation );
     resizeHSVWheel( hsv, &allocation );
 }
-#endif // GTK_CHECK_VERSION(2,18,0)
 
 static void handleWheelAllocation(GtkHSV *hsv, GtkAllocation *allocation, gpointer /*userData*/)
 {
@@ -156,8 +151,6 @@ void ColorWheelSelector::init()
 
     _updating = FALSE;
     _dragging = FALSE;
-
-    _tt = gtk_tooltips_new();
 
     t = gtk_table_new (5, 3, FALSE);
     gtk_widget_show (t);
@@ -184,7 +177,7 @@ void ColorWheelSelector::init()
 
     /* Slider */
     _slider = sp_color_slider_new (_adj);
-    gtk_tooltips_set_tip (_tt, _slider, _("Alpha (opacity)"), NULL);
+    gtk_widget_set_tooltip_text (_slider, _("Alpha (opacity)"));
     gtk_widget_show (_slider);
     gtk_table_attach (GTK_TABLE (t), _slider, 1, 2, row, row + 1, (GtkAttachOptions)(GTK_EXPAND | GTK_FILL), (GtkAttachOptions)GTK_FILL, XPAD, YPAD);
 
@@ -196,34 +189,32 @@ void ColorWheelSelector::init()
 
     /* Spinbutton */
     _sbtn = gtk_spin_button_new (GTK_ADJUSTMENT (_adj), 1.0, 0);
-    gtk_tooltips_set_tip (_tt, _sbtn, _("Alpha (opacity)"), NULL);
+    gtk_widget_set_tooltip_text (_sbtn, _("Alpha (opacity)"));
     sp_dialog_defocus_on_enter (_sbtn);
     gtk_label_set_mnemonic_widget (GTK_LABEL(_label), _sbtn);
     gtk_widget_show (_sbtn);
     gtk_table_attach (GTK_TABLE (t), _sbtn, 2, 3, row, row + 1, (GtkAttachOptions)0, (GtkAttachOptions)0, XPAD, YPAD);
 
     /* Signals */
-    gtk_signal_connect (GTK_OBJECT (_adj), "value_changed",
-                        GTK_SIGNAL_FUNC (_adjustmentChanged), _csel);
+    g_signal_connect (G_OBJECT (_adj), "value_changed",
+                        G_CALLBACK (_adjustmentChanged), _csel);
 
-    gtk_signal_connect (GTK_OBJECT (_slider), "grabbed",
-                        GTK_SIGNAL_FUNC (_sliderGrabbed), _csel);
-    gtk_signal_connect (GTK_OBJECT (_slider), "released",
-                        GTK_SIGNAL_FUNC (_sliderReleased), _csel);
-    gtk_signal_connect (GTK_OBJECT (_slider), "changed",
-                        GTK_SIGNAL_FUNC (_sliderChanged), _csel);
+    g_signal_connect (G_OBJECT (_slider), "grabbed",
+                        G_CALLBACK (_sliderGrabbed), _csel);
+    g_signal_connect (G_OBJECT (_slider), "released",
+                        G_CALLBACK (_sliderReleased), _csel);
+    g_signal_connect (G_OBJECT (_slider), "changed",
+                        G_CALLBACK (_sliderChanged), _csel);
 
-    gtk_signal_connect( GTK_OBJECT(_wheel), "changed",
-                        GTK_SIGNAL_FUNC(_wheelChanged), _csel );
+    g_signal_connect( G_OBJECT(_wheel), "changed",
+                        G_CALLBACK (_wheelChanged), _csel );
 
 
     // GTK does not automatically scale the color wheel, so we have to add that in:
-    gtk_signal_connect( GTK_OBJECT(_wheel), "size-allocate",
-                        GTK_SIGNAL_FUNC(handleWheelAllocation), _csel );
-#if GTK_CHECK_VERSION(2,18,0)
-    gtk_signal_connect( GTK_OBJECT(_wheel), "style-set",
-                        GTK_SIGNAL_FUNC(handleWheelStyleSet), _csel );
-#endif // GTK_CHECK_VERSION(2,18,0)
+    g_signal_connect( G_OBJECT (_wheel), "size-allocate",
+                        G_CALLBACK (handleWheelAllocation), _csel );
+    g_signal_connect( G_OBJECT (_wheel), "style-set",
+                        G_CALLBACK (handleWheelStyleSet), _csel );
 }
 
 static void

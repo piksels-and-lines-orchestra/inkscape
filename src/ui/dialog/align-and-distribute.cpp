@@ -20,7 +20,7 @@
 # include <config.h>
 #endif
 
-#include <gtkmm/spinbutton.h>
+#include "ui/widget/spinbutton.h"
 
 #include "desktop-handles.h"
 #include "unclump.h"
@@ -43,6 +43,7 @@
 #include "util/glib-list-iterators.h"
 #include "verbs.h"
 #include "widgets/icon.h"
+#include "sp-root.h"
 
 #include "align-and-distribute.h"
 
@@ -171,7 +172,7 @@ private :
 
         case AlignAndDistribute::DRAWING:
         {
-            Geom::OptRect b = static_cast<SPItem *>( sp_desktop_document(desktop)->getRoot() )->getBboxDesktop();
+            Geom::OptRect b = sp_desktop_document(desktop)->getRoot()->getBboxDesktop();
             if (b) {
                 mp = Geom::Point(a.mx0 * b->min()[Geom::X] + a.mx1 * b->max()[Geom::X],
                                a.my0 * b->min()[Geom::Y] + a.my1 * b->max()[Geom::Y]);
@@ -445,8 +446,8 @@ class ActionRemoveOverlaps : public Action {
 private:
     Gtk::Label removeOverlapXGapLabel;
     Gtk::Label removeOverlapYGapLabel;
-    Gtk::SpinButton removeOverlapXGap;
-    Gtk::SpinButton removeOverlapYGap;
+    Inkscape::UI::Widget::SpinButton removeOverlapXGap;
+    Inkscape::UI::Widget::SpinButton removeOverlapYGap;
 
 public:
     ActionRemoveOverlaps(Glib::ustring const &id,

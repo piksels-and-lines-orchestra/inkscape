@@ -17,9 +17,9 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gdk/gdktypes.h>
-#include <2geom/affine.h>
+#include <gdk/gdk.h>
 #include <glibmm/ustring.h>
+#include <2geom/affine.h>
 #include "sp-paint-server.h"
 #include "sp-gradient-spread.h"
 #include "sp-gradient-units.h"

@@ -17,9 +17,7 @@
 #include "gdl-i18n.h"
 #include <string.h>
 #include <glib-object.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkimage.h>
+#include <gtk/gtk.h>
 #include "gdl-dock-item.h"
 #include "gdl-dock-item-grip.h"
 #include "gdl-stock.h"
@@ -35,7 +33,6 @@ enum {
 struct _GdlDockItemGripPrivate {
     GtkWidget   *close_button;
     GtkWidget   *iconify_button;
-    GtkTooltips *tooltips;
 
     gboolean     icon_pixbuf_valid;
     GdkPixbuf   *icon_pixbuf;
@@ -62,10 +59,10 @@ gdl_dock_item_grip_get_title_area (GdlDockItemGrip *grip,
     
     alloc_height = MAX (grip->_priv->close_button->allocation.height, alloc_height);
     alloc_height = MAX (grip->_priv->iconify_button->allocation.height, alloc_height);
-    if (GTK_WIDGET_VISIBLE (grip->_priv->close_button)) {
+    if (gtk_widget_get_visible (grip->_priv->close_button)) {
         area->width -= grip->_priv->close_button->allocation.width;
     }
-    if (GTK_WIDGET_VISIBLE (grip->_priv->iconify_button)) {
+    if (gtk_widget_get_visible (grip->_priv->iconify_button)) {
         area->width -= grip->_priv->iconify_button->allocation.width;
     }
 
@@ -266,11 +263,6 @@ gdl_dock_item_grip_destroy (GtkObject *object)
             priv->icon_pixbuf = NULL;
         }
 
-        if (priv->tooltips) {
-            g_object_unref (priv->tooltips);
-            priv->tooltips = NULL;
-        }
-
         if (grip->item)
             g_signal_handlers_disconnect_by_func (grip->item,
                                                   gdl_dock_item_grip_item_notify,
@@ -349,7 +341,7 @@ gdl_dock_item_grip_instance_init (GdlDockItemGrip *grip)
 {
     GtkWidget *image;
 
-    GTK_WIDGET_SET_FLAGS (grip, GTK_NO_WINDOW);
+    gtk_widget_set_has_window (GTK_WIDGET (grip), FALSE);
     
     grip->_priv = g_new0 (GdlDockItemGripPrivate, 1);
     grip->_priv->icon_pixbuf_valid = FALSE;
@@ -360,7 +352,7 @@ gdl_dock_item_grip_instance_init (GdlDockItemGrip *grip)
     grip->_priv->close_button = gtk_button_new ();
     gtk_widget_pop_composite_child ();
     
-    GTK_WIDGET_UNSET_FLAGS (grip->_priv->close_button, GTK_CAN_FOCUS);
+    gtk_widget_set_can_focus (grip->_priv->close_button, FALSE);
     gtk_widget_set_parent (grip->_priv->close_button, GTK_WIDGET (grip));
     gtk_button_set_relief (GTK_BUTTON (grip->_priv->close_button), GTK_RELIEF_NONE);
     gtk_widget_show (grip->_priv->close_button);
@@ -376,7 +368,7 @@ gdl_dock_item_grip_instance_init (GdlDockItemGrip *grip)
     grip->_priv->iconify_button = gtk_button_new ();
     gtk_widget_pop_composite_child ();
     
-    GTK_WIDGET_UNSET_FLAGS (grip->_priv->iconify_button, GTK_CAN_FOCUS);
+    gtk_widget_set_can_focus (grip->_priv->iconify_button, FALSE);
     gtk_widget_set_parent (grip->_priv->iconify_button, GTK_WIDGET (grip));
     gtk_button_set_relief (GTK_BUTTON (grip->_priv->iconify_button), GTK_RELIEF_NONE);
     gtk_widget_show (grip->_priv->iconify_button);
@@ -388,13 +380,10 @@ gdl_dock_item_grip_instance_init (GdlDockItemGrip *grip)
     g_signal_connect (G_OBJECT (grip->_priv->iconify_button), "clicked",
                       G_CALLBACK (gdl_dock_item_grip_iconify_clicked), grip);
 
-    grip->_priv->tooltips = gtk_tooltips_new ();
-    g_object_ref (grip->_priv->tooltips);
-    gtk_object_sink (GTK_OBJECT (grip->_priv->tooltips));
-    gtk_tooltips_set_tip (grip->_priv->tooltips, grip->_priv->iconify_button,
-                          _("Iconify"), _("Iconify this dock"));
-    gtk_tooltips_set_tip (grip->_priv->tooltips, grip->_priv->close_button,
-                          _("Close"), _("Close this dock"));
+    gtk_widget_set_tooltip_text (grip->_priv->iconify_button,
+                          _("Iconify"));
+    gtk_widget_set_tooltip_text (grip->_priv->close_button,
+                          _("Close"));
 }
 
 static void

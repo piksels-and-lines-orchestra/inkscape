@@ -170,11 +170,13 @@ static void sp_shape_render_invoke_marker_rendering(SPMarker* marker, Geom::Affi
 
     if (render) {
         SPItem* marker_item = sp_item_first_item_child(marker);
-        tr = (Geom::Affine)marker_item->transform * (Geom::Affine)marker->c2p * tr;
-        Geom::Affine old_tr = marker_item->transform;
-        marker_item->transform = tr;
-        ctx->getRenderer()->renderItem (ctx, marker_item);
-        marker_item->transform = old_tr;
+        if (marker_item) {
+            tr = (Geom::Affine)marker_item->transform * (Geom::Affine)marker->c2p * tr;
+            Geom::Affine old_tr = marker_item->transform;
+            marker_item->transform = tr;
+            ctx->getRenderer()->renderItem (ctx, marker_item);
+            marker_item->transform = old_tr;
+        }
     }
 }
 
@@ -418,19 +420,18 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
     ctx->popState();
 }
 
-static void sp_root_render(SPItem *item, CairoRenderContext *ctx)
+static void sp_root_render(SPRoot *root, CairoRenderContext *ctx)
 {
-    SPRoot *root = SP_ROOT(item);
     CairoRenderer *renderer = ctx->getRenderer();
 
-    if (!ctx->getCurrentState()->has_overflow && item->parent)
+    if (!ctx->getCurrentState()->has_overflow && root->parent)
         ctx->addClippingRect(root->x.computed, root->y.computed, root->width.computed, root->height.computed);
 
     ctx->pushState();
-    renderer->setStateForItem(ctx, item);
+    renderer->setStateForItem(ctx, root);
     Geom::Affine tempmat (root->c2p);
     ctx->transform(&tempmat);
-    sp_group_render(item, ctx);
+    sp_group_render(root, ctx);
     ctx->popState();
 }
 
@@ -541,7 +542,10 @@ static void sp_item_invoke_render(SPItem *item, CairoRenderContext *ctx)
 
     if (SP_IS_ROOT(item)) {
         TRACE(("root\n"));
-        return sp_root_render(item, ctx);
+        return sp_root_render(SP_ROOT(item), ctx);
+    } else if (SP_IS_SYMBOL(item)) {
+        TRACE(("symbol\n"));
+        return sp_symbol_render(item, ctx);
     } else if (SP_IS_GROUP(item)) {
         TRACE(("group\n"));
         return sp_group_render(item, ctx);
@@ -552,9 +556,6 @@ static void sp_item_invoke_render(SPItem *item, CairoRenderContext *ctx)
         TRACE(("use begin---\n"));
         sp_use_render(item, ctx);
         TRACE(("---use end\n"));
-    } else if (SP_IS_SYMBOL(item)) {
-        TRACE(("symbol\n"));
-        return sp_symbol_render(item, ctx);
     } else if (SP_IS_TEXT(item)) {
         TRACE(("text\n"));
         return sp_text_render(item, ctx);

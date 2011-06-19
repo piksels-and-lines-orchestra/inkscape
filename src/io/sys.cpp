@@ -19,11 +19,9 @@
 #include <glib/gstdio.h>
 #include <glib/gutils.h>
 #include <glibmm/fileutils.h>
-#if GLIB_CHECK_VERSION(2,6,0)
-    #include <glib/gstdio.h>
-#endif
+#include <glib/gstdio.h>
 #include <glibmm/ustring.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 
 #include "preferences.h"
 #include "sys.h"

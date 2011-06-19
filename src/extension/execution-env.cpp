@@ -128,7 +128,7 @@ ExecutionEnv::createWorkingDialog (void) {
 
     SPDesktop *desktop = (SPDesktop *)_doc;
     GtkWidget *toplevel = gtk_widget_get_toplevel(&(desktop->canvas->widget));
-    if (!toplevel || !GTK_WIDGET_TOPLEVEL (toplevel))
+    if (!toplevel || !gtk_widget_is_toplevel (toplevel))
         return;
     Gtk::Window *window = Glib::wrap(GTK_WINDOW(toplevel), false);
 
@@ -141,7 +141,10 @@ ExecutionEnv::createWorkingDialog (void) {
                                true); // modal
     _visibleDialog->signal_response().connect(sigc::mem_fun(this, &ExecutionEnv::workingCanceled));
     g_free(dlgmessage);
-    _visibleDialog->show();
+
+    if (!_effect->is_silent()){
+        _visibleDialog->show();
+    }
 
     return;
 }

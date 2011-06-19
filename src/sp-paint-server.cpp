@@ -14,6 +14,7 @@
  */
 
 #include <string.h>
+#include "sp-paint-server-reference.h"
 #include "sp-paint-server.h"
 
 #include "sp-gradient.h"
@@ -24,6 +25,16 @@ static void sp_paint_server_class_init(SPPaintServerClass *psc);
 static cairo_pattern_t *sp_paint_server_create_dummy_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
 
 static SPObjectClass *parent_class;
+
+SPPaintServer *SPPaintServerReference::getObject() const
+{
+    return static_cast<SPPaintServer *>(URIReference::getObject());
+}
+
+bool SPPaintServerReference::_acceptObject(SPObject *obj) const
+{
+    return SP_IS_PAINT_SERVER(obj);
+}
 
 GType SPPaintServer::get_type(void)
 {

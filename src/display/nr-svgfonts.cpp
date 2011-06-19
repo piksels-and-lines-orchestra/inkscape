@@ -14,12 +14,20 @@
 
 #include <2geom/pathvector.h>
 #include <2geom/transforms.h>
-#include "../style.h"
 #include <cairo.h>
 #include <vector>
+#include "style.h"
 #include "svg/svg.h"
 #include "display/cairo-utils.h"
 #include "display/nr-svgfonts.h"
+#include "display/nr-svgfonts.h"
+#include "sp-path.h"
+#include "sp-object-group.h"
+#include "sp-use.h"
+#include "sp-use-reference.h"
+#include "display/curve.h"
+#include "xml/repr.h"
+#include "sp-font-face.h"
 
 //*************************//
 // UserFont Implementation //
@@ -212,6 +220,47 @@ SvgFont::scaled_font_text_to_glyphs (cairo_scaled_font_t  */*scaled_font*/,
     return CAIRO_STATUS_SUCCESS;
 }
 
+void
+SvgFont::render_glyph_path(cairo_t* cr, Geom::PathVector* pathv){
+    if (!pathv->empty()){
+        //This glyph has a path description on its d attribute, so we render it:
+        cairo_new_path(cr);
+
+        //adjust scale of the glyph
+//        Geom::Scale s(1.0/((SPFont*) node->parent)->horiz_adv_x);
+        Geom::Scale s(1.0/1000);//TODO: use here the units-per-em attribute?
+
+        Geom::Rect area( Geom::Point(0,0), Geom::Point(1,1) ); //I need help here!    (reaction: note that the 'area' parameter is an *optional* rect, so you can pass an empty Geom::OptRect() )
+
+        feed_pathvector_to_cairo (cr, *pathv, s, area, false, 0);
+        cairo_fill(cr);
+    }
+}
+
+void
+SvgFont::glyph_modified(SPObject* /* blah */, unsigned int /* bleh */){
+    this->refresh();
+    //TODO: update rendering on svgfonts preview widget (in the svg fonts dialog)
+}
+
+Geom::PathVector
+SvgFont::flip_coordinate_system(SPFont* spfont, Geom::PathVector pathv){
+    double units_per_em = 1000;
+    SPObject* obj;
+    for (obj = ((SPObject*) spfont)->children; obj; obj=obj->next){
+        if (SP_IS_FONTFACE(obj)){
+            //XML Tree being directly used here while it shouldn't be.
+            sp_repr_get_double(obj->getRepr(), "units_per_em", &units_per_em);
+        }
+    }
+
+    double baseline_offset = units_per_em - spfont->horiz_origin_y;
+
+    //This matrix flips y-axis and places the origin at baseline
+    Geom::Affine m(Geom::Coord(1),Geom::Coord(0),Geom::Coord(0),Geom::Coord(-1),Geom::Coord(0),Geom::Coord(baseline_offset));
+    return pathv*m;
+}
+
 cairo_status_t
 SvgFont::scaled_font_render_glyph (cairo_scaled_font_t  */*scaled_font*/,
                                    unsigned long         glyph,
@@ -234,37 +283,53 @@ SvgFont::scaled_font_render_glyph (cairo_scaled_font_t  */*scaled_font*/,
         node = (SPObject*) this->glyphs[glyph];
     }
 
+    if (!SP_IS_GLYPH(node) && !SP_IS_MISSING_GLYPH(node)) {
+        return CAIRO_STATUS_SUCCESS;  // FIXME: is this the right code to return?
+    }
+
+    SPFont* spfont = (SPFont*) node->parent;
+    if (!spfont) {
+        return CAIRO_STATUS_SUCCESS;  // FIXME: is this the right code to return?
+    }
+
     //glyphs can be described by arbitrary SVG declared in the childnodes of a glyph node
     // or using the d attribute of a glyph node.
     // pathv stores the path description from the d attribute:
     Geom::PathVector pathv;
     if (SP_IS_GLYPH(node) && ((SPGlyph*)node)->d) {
         pathv = sp_svg_read_pathv(((SPGlyph*)node)->d);
+        pathv = flip_coordinate_system(spfont, pathv);
+        this->render_glyph_path(cr, &pathv);
     } else if (SP_IS_MISSING_GLYPH(node) && ((SPMissingGlyph*)node)->d) {
         pathv = sp_svg_read_pathv(((SPMissingGlyph*)node)->d);
-    } else {
-        return CAIRO_STATUS_SUCCESS;  // FIXME: is this the right code to return?
+        pathv = flip_coordinate_system(spfont, pathv);
+        this->render_glyph_path(cr, &pathv);
     }
 
-    if (!pathv.empty()){
-        //This glyph has a path description on its d attribute, so we render it:
-        cairo_new_path(cr);
-        //adjust scale of the glyph
-//        Geom::Scale s(1.0/((SPFont*) node->parent)->horiz_adv_x);
-        Geom::Scale s(1.0/1000);//TODO: use here the units-per-em attribute?
-        //This matrix flips the glyph vertically
-        Geom::Affine m(Geom::Coord(1),Geom::Coord(0),Geom::Coord(0),Geom::Coord(-1),Geom::Coord(0),Geom::Coord(0));
-        //then we offset it
-//      pathv += Geom::Point(Geom::Coord(0),Geom::Coord(-((SPFont*) node->parent)->horiz_adv_x));
-        pathv += Geom::Point(Geom::Coord(0),Geom::Coord(-1000));//TODO: use here the units-per-em attribute?
+    if (node->hasChildren()){
+        //render the SVG described on this glyph's child nodes.
+        for(node = node->children; node; node=node->next){
+            if (SP_IS_PATH(node)){
+                pathv = ((SPShape*)node)->curve->get_pathvector();
+                pathv = flip_coordinate_system(spfont, pathv);
+                this->render_glyph_path(cr, &pathv);
+            }
+            if (SP_IS_OBJECTGROUP(node)){
+                g_warning("TODO: svgfonts: render OBJECTGROUP");
+            }
+            if (SP_IS_USE(node)){
+                SPItem* item = SP_USE(node)->ref->getObject();
+                if (SP_IS_PATH(item)){
+                    pathv = ((SPShape*)item)->curve->get_pathvector();
+                    pathv = flip_coordinate_system(spfont, pathv);
+                    this->render_glyph_path(cr, &pathv);
+                }
 
-        Geom::Rect area( Geom::Point(0,0), Geom::Point(1,1) ); //I need help here!    (reaction: note that the 'area' parameter is an *optional* rect, so you can pass an empty Geom::OptRect() )
-
-        feed_pathvector_to_cairo (cr, pathv, s*m, area, false, 0);
-        cairo_fill(cr);
+                glyph_modified_connection = ((SPObject*) item)->connectModified(sigc::mem_fun(*this, &SvgFont::glyph_modified));
+            }
+        }
     }
 
-    //TODO: render the SVG described on this glyph's child nodes.
     return CAIRO_STATUS_SUCCESS;
 }
 

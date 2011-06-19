@@ -1,12 +1,28 @@
-SET(debug_SRC
-demangle.cpp
-heap.cpp
-log-display-config.cpp
-logger.cpp
-sysv-heap.cpp
-timestamp.cpp
-gdk-event-latency-tracker.cpp
+
+set(debug_SRC
+	demangle.cpp
+	heap.cpp
+	log-display-config.cpp
+	logger.cpp
+	sysv-heap.cpp
+	timestamp.cpp
+	gdk-event-latency-tracker.cpp
+
+
+	# ------
+	# Header
+	demangle.h
+	event-tracker.h
+	event.h
+	gc-heap.h
+	gdk-event-latency-tracker.h
+	heap.h
+	log-display-config.h
+	logger.h
+	simple-event.h
+	sysv-heap.h
+	timestamp.h
 )
-ADD_LIBRARY(debug STATIC ${debug_SRC})
-TARGET_LINK_LIBRARIES(debug
-2geom ${INKSCAPE_LIBS})
+
+# add_inkscape_lib(debug_LIB "${debug_SRC}")
+add_inkscape_source("${debug_SRC}")

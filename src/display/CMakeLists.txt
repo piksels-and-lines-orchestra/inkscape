@@ -1,59 +1,130 @@
-SET(display_SRC
-canvas-arena.cpp
-canvas-axonomgrid.cpp
-canvas-bpath.cpp
-canvas-grid.cpp
-canvas-temporary-item.cpp
-canvas-temporary-item-list.cpp
-curve.cpp
-gnome-canvas-acetate.cpp
-guideline.cpp
-inkscape-cairo.cpp
-nr-3dutils.cpp
-nr-arena.cpp
-nr-arena-glyphs.cpp
-nr-arena-group.cpp
-nr-arena-image.cpp
-nr-arena-item.cpp
-nr-arena-shape.cpp
-nr-filter-blend.cpp
-nr-filter-colormatrix.cpp
-nr-filter-component-transfer.cpp
-nr-filter-composite.cpp
-nr-filter-convolve-matrix.cpp
-nr-filter.cpp
-nr-filter-diffuselighting.cpp
-nr-filter-displacement-map.cpp
-nr-filter-flood.cpp
-nr-filter-gaussian.cpp
-nr-filter-getalpha.cpp
-nr-filter-image.cpp
-nr-filter-merge.cpp
-nr-filter-morphology.cpp
-nr-filter-offset.cpp
-nr-filter-primitive.cpp
-nr-filter-skeleton.cpp
-nr-filter-slot.cpp
-nr-filter-specularlighting.cpp
-nr-filter-tile.cpp
-nr-filter-turbulence.cpp
-nr-filter-units.cpp
-nr-filter-utils.cpp
-nr-light.cpp
-nr-plain-stuff.cpp
-nr-plain-stuff-gdk.cpp
-nr-svgfonts.h
-pixblock-scaler.cpp
-pixblock-transform.cpp
-snap-indicator.cpp
-sodipodi-ctrl.cpp
-sodipodi-ctrlrect.cpp
-sp-canvas.cpp
-sp-canvas-util.cpp
-sp-ctrlline.cpp
-sp-ctrlquadr.cpp
-#testnr.cpp
+
+set(display_SRC
+	canvas-arena.cpp
+	canvas-axonomgrid.cpp
+	canvas-bpath.cpp
+	canvas-grid.cpp
+	canvas-temporary-item-list.cpp
+	canvas-temporary-item.cpp
+	canvas-text.cpp
+	curve.cpp
+	gnome-canvas-acetate.cpp
+	grayscale.cpp
+	guideline.cpp
+	inkscape-cairo.cpp
+	nr-3dutils.cpp
+	nr-arena-glyphs.cpp
+	nr-arena-group.cpp
+	nr-arena-image.cpp
+	nr-arena-item.cpp
+	nr-arena-shape.cpp
+	nr-arena.cpp
+	nr-filter-blend.cpp
+	nr-filter-colormatrix.cpp
+	nr-filter-component-transfer.cpp
+	nr-filter-composite.cpp
+	nr-filter-convolve-matrix.cpp
+	nr-filter-diffuselighting.cpp
+	nr-filter-displacement-map.cpp
+	nr-filter-flood.cpp
+	nr-filter-gaussian.cpp
+	nr-filter-getalpha.cpp
+	nr-filter-image.cpp
+	nr-filter-merge.cpp
+	nr-filter-morphology.cpp
+	nr-filter-offset.cpp
+	nr-filter-primitive.cpp
+	# nr-filter-skeleton.cpp
+	nr-filter-slot.cpp
+	nr-filter-specularlighting.cpp
+	nr-filter-tile.cpp
+	nr-filter-turbulence.cpp
+	nr-filter-units.cpp
+	nr-filter-utils.cpp
+	nr-filter.cpp
+	nr-light.cpp
+	nr-plain-stuff-gdk.cpp
+	nr-plain-stuff.cpp
+	nr-svgfonts.cpp
+	nr-svgfonts.h
+	pixblock-scaler.cpp
+	pixblock-transform.cpp
+	snap-indicator.cpp
+	sodipodi-ctrl.cpp
+	sodipodi-ctrlrect.cpp
+	sp-canvas-util.cpp
+	sp-canvas.cpp
+	sp-ctrlline.cpp
+	sp-ctrlpoint.cpp
+	sp-ctrlquadr.cpp
+
+
+	# -------
+	# Headers
+	canvas-arena.h
+	canvas-axonomgrid.h
+	canvas-bpath.h
+	canvas-grid.h
+	canvas-temporary-item-list.h
+	canvas-temporary-item.h
+	canvas-text.h
+	curve-test.h
+	curve.h
+	gnome-canvas-acetate.h
+	grayscale.h
+	guideline.h
+	inkscape-cairo.h
+	nr-3dutils.h
+	nr-arena-forward.h
+	nr-arena-glyphs.h
+	nr-arena-group.h
+	nr-arena-image.h
+	nr-arena-item.h
+	nr-arena-shape.h
+	nr-arena.h
+	nr-filter-blend.h
+	nr-filter-colormatrix.h
+	nr-filter-component-transfer.h
+	nr-filter-composite.h
+	nr-filter-convolve-matrix.h
+	nr-filter-diffuselighting.h
+	nr-filter-displacement-map.h
+	nr-filter-flood.h
+	nr-filter-gaussian.h
+	nr-filter-getalpha.h
+	nr-filter-image.h
+	nr-filter-merge.h
+	nr-filter-morphology.h
+	nr-filter-offset.h
+	nr-filter-pixops.h
+	nr-filter-primitive.h
+	nr-filter-skeleton.h
+	nr-filter-slot.h
+	nr-filter-specularlighting.h
+	nr-filter-tile.h
+	nr-filter-turbulence.h
+	nr-filter-types.h
+	nr-filter-units.h
+	nr-filter-utils.h
+	nr-filter.h
+	nr-light-types.h
+	nr-light.h
+	nr-plain-stuff-gdk.h
+	nr-plain-stuff.h
+	pixblock-scaler.h
+	pixblock-transform.h
+	rendermode.h
+	snap-indicator.h
+	sodipodi-ctrl.h
+	sodipodi-ctrlrect.h
+	sp-canvas-group.h
+	sp-canvas-item.h
+	sp-canvas-util.h
+	sp-canvas.h
+	sp-ctrlline.h
+	sp-ctrlpoint.h
+	sp-ctrlquadr.h
 )
-ADD_LIBRARY(display STATIC ${display_SRC})
-TARGET_LINK_LIBRARIES(display
-2geom ${INKSCAPE_LIBS})
+
+# add_inkscape_lib(display_LIB "${display_SRC}")
+add_inkscape_source("${display_SRC}")

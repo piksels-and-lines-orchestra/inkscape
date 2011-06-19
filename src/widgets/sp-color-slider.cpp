@@ -1,5 +1,3 @@
-#define __SP_COLOR_SLIDER_C__
-
 /*
  * A slider with colored background
  *
@@ -12,8 +10,7 @@
  * This code is in public domain
  */
 
-#include <gtk/gtkversion.h>
-#include <gtk/gtksignal.h>
+#include <gtk/gtk.h>
 #include "sp-color-scales.h"
 #include "preferences.h"
 
@@ -90,30 +87,34 @@ sp_color_slider_class_init (SPColorSliderClass *klass)
 
 	parent_class = (GtkWidgetClass*)gtk_type_class (GTK_TYPE_WIDGET);
 
-	slider_signals[GRABBED] = gtk_signal_new ("grabbed",
-						  (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-						  GTK_CLASS_TYPE(object_class),
-						  GTK_SIGNAL_OFFSET (SPColorSliderClass, grabbed),
+	slider_signals[GRABBED] = g_signal_new ("grabbed",
+						  G_TYPE_FROM_CLASS(object_class),
+						  (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+						  G_STRUCT_OFFSET (SPColorSliderClass, grabbed),
+						  NULL, NULL,
 						  gtk_marshal_NONE__NONE,
-						  GTK_TYPE_NONE, 0);
-	slider_signals[DRAGGED] = gtk_signal_new ("dragged",
-						  (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-						  GTK_CLASS_TYPE(object_class),
-						  GTK_SIGNAL_OFFSET (SPColorSliderClass, dragged),
+						  G_TYPE_NONE, 0);
+	slider_signals[DRAGGED] = g_signal_new ("dragged",
+						  G_TYPE_FROM_CLASS(object_class),
+						  (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+						  G_STRUCT_OFFSET (SPColorSliderClass, dragged),
+						  NULL, NULL,
 						  gtk_marshal_NONE__NONE,
-						  GTK_TYPE_NONE, 0);
-	slider_signals[RELEASED] = gtk_signal_new ("released",
-						  (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-						  GTK_CLASS_TYPE(object_class),
-						  GTK_SIGNAL_OFFSET (SPColorSliderClass, released),
+						  G_TYPE_NONE, 0);
+	slider_signals[RELEASED] = g_signal_new ("released",
+						  G_TYPE_FROM_CLASS(object_class),
+						  (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+						  G_STRUCT_OFFSET (SPColorSliderClass, released),
+						  NULL, NULL,
 						  gtk_marshal_NONE__NONE,
-						  GTK_TYPE_NONE, 0);
-	slider_signals[CHANGED] = gtk_signal_new ("changed",
-						  (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-						  GTK_CLASS_TYPE(object_class),
-						  GTK_SIGNAL_OFFSET (SPColorSliderClass, changed),
+						  G_TYPE_NONE, 0);
+	slider_signals[CHANGED] = g_signal_new ("changed",
+						  G_TYPE_FROM_CLASS(object_class),
+						  (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+						  G_STRUCT_OFFSET (SPColorSliderClass, changed),
+						  NULL, NULL,
 						  gtk_marshal_NONE__NONE,
-						  GTK_TYPE_NONE, 0);
+						  G_TYPE_NONE, 0);
 
 	object_class->destroy = sp_color_slider_destroy;
 
@@ -134,7 +135,7 @@ static void
 sp_color_slider_init (SPColorSlider *slider)
 {
 	/* We are widget with window */
-	GTK_WIDGET_UNSET_FLAGS (slider, GTK_NO_WINDOW);
+	gtk_widget_set_has_window (GTK_WIDGET(slider), TRUE);
 
 	slider->dragging = FALSE;
 
@@ -171,7 +172,7 @@ sp_color_slider_destroy (GtkObject *object)
 	slider = SP_COLOR_SLIDER (object);
 
 	if (slider->adjustment) {
-		gtk_signal_disconnect_by_data (GTK_OBJECT (slider->adjustment), slider);
+		g_signal_handlers_disconnect_matched (G_OBJECT (slider->adjustment), G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, slider);
 		gtk_object_unref (GTK_OBJECT (slider->adjustment));
 		slider->adjustment = NULL;
 	}
@@ -189,7 +190,7 @@ sp_color_slider_realize (GtkWidget *widget)
 
 	slider = SP_COLOR_SLIDER (widget);
 
-	GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
+	gtk_widget_set_realized (widget, TRUE);
 
 	attributes.window_type = GDK_WINDOW_CHILD;
 	attributes.x = widget->allocation.x;
@@ -234,7 +235,7 @@ sp_color_slider_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 
 	widget->allocation = *allocation;
 
-	if (GTK_WIDGET_REALIZED (widget)) {
+	if (gtk_widget_get_realized (widget)) {
 		/* Resize GdkWindow */
 		gdk_window_move_resize (widget->window, allocation->x, allocation->y, allocation->width, allocation->height);
 	}
@@ -247,7 +248,7 @@ sp_color_slider_expose (GtkWidget *widget, GdkEventExpose *event)
 
 	slider = SP_COLOR_SLIDER (widget);
 
-	if (GTK_WIDGET_DRAWABLE (widget)) {
+	if (gtk_widget_is_drawable (widget)) {
 		gint width, height;
 		width = widget->allocation.width;
 		height = widget->allocation.height;
@@ -268,11 +269,11 @@ sp_color_slider_button_press (GtkWidget *widget, GdkEventButton *event)
 		gint cx, cw;
 		cx = widget->style->xthickness;
 		cw = widget->allocation.width - 2 * cx;
-		gtk_signal_emit (GTK_OBJECT (slider), slider_signals[GRABBED]);
+		g_signal_emit (G_OBJECT (slider), slider_signals[GRABBED], 0);
 		slider->dragging = TRUE;
 		slider->oldvalue = slider->value;
 		ColorScales::setScaled( slider->adjustment, CLAMP ((gfloat) (event->x - cx) / cw, 0.0, 1.0) );
-		gtk_signal_emit (GTK_OBJECT (slider), slider_signals[DRAGGED]);
+		g_signal_emit (G_OBJECT (slider), slider_signals[DRAGGED], 0);
 		gdk_pointer_grab (widget->window, FALSE,
 				  (GdkEventMask)(GDK_POINTER_MOTION_MASK |
 				  GDK_BUTTON_RELEASE_MASK),
@@ -292,8 +293,8 @@ sp_color_slider_button_release (GtkWidget *widget, GdkEventButton *event)
 	if (event->button == 1) {
 		gdk_pointer_ungrab (event->time);
 		slider->dragging = FALSE;
-		gtk_signal_emit (GTK_OBJECT (slider), slider_signals[RELEASED]);
-		if (slider->value != slider->oldvalue) gtk_signal_emit (GTK_OBJECT (slider), slider_signals[CHANGED]);
+		g_signal_emit (G_OBJECT (slider), slider_signals[RELEASED], 0);
+		if (slider->value != slider->oldvalue) g_signal_emit (G_OBJECT (slider), slider_signals[CHANGED], 0);
 	}
 
 	return FALSE;
@@ -311,7 +312,7 @@ sp_color_slider_motion_notify (GtkWidget *widget, GdkEventMotion *event)
 		cx = widget->style->xthickness;
 		cw = widget->allocation.width - 2 * cx;
 		ColorScales::setScaled( slider->adjustment, CLAMP ((gfloat) (event->x - cx) / cw, 0.0, 1.0) );
-		gtk_signal_emit (GTK_OBJECT (slider), slider_signals[DRAGGED]);
+		g_signal_emit (G_OBJECT (slider), slider_signals[DRAGGED], 0);
 	}
 
 	return FALSE;
@@ -329,25 +330,21 @@ sp_color_slider_new (GtkAdjustment *adjustment)
 	return GTK_WIDGET (slider);
 }
 
-void
-sp_color_slider_set_adjustment (SPColorSlider *slider, GtkAdjustment *adjustment)
+void sp_color_slider_set_adjustment(SPColorSlider *slider, GtkAdjustment *adjustment)
 {
-	g_return_if_fail (slider != NULL);
-	g_return_if_fail (SP_IS_COLOR_SLIDER (slider));
+    g_return_if_fail (slider != NULL);
+    g_return_if_fail (SP_IS_COLOR_SLIDER (slider));
 
-	if (!adjustment) {
-		adjustment = (GtkAdjustment *) gtk_adjustment_new (0.0, 0.0, 1.0, 0.01, 0.0, 0.0);
-	}
-#if GTK_CHECK_VERSION (2,14,0)
-    else {
+    if (!adjustment) {
+        adjustment = (GtkAdjustment *) gtk_adjustment_new (0.0, 0.0, 1.0, 0.01, 0.0, 0.0);
+    } else {
         gtk_adjustment_set_page_increment(adjustment, 0.0);
         gtk_adjustment_set_page_size(adjustment, 0.0);
     }
-#endif
 
 	if (slider->adjustment != adjustment) {
 		if (slider->adjustment) {
-			gtk_signal_disconnect_by_data (GTK_OBJECT (slider->adjustment), slider);
+			g_signal_handlers_disconnect_matched (G_OBJECT (slider->adjustment), G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, slider);
 			gtk_object_unref (GTK_OBJECT (slider->adjustment));
 		}
 
@@ -355,10 +352,10 @@ sp_color_slider_set_adjustment (SPColorSlider *slider, GtkAdjustment *adjustment
 		gtk_object_ref (GTK_OBJECT (adjustment));
 		gtk_object_sink (GTK_OBJECT (adjustment));
 
-		gtk_signal_connect (GTK_OBJECT (adjustment), "changed",
-				    GTK_SIGNAL_FUNC (sp_color_slider_adjustment_changed), slider);
-		gtk_signal_connect (GTK_OBJECT (adjustment), "value_changed",
-				    GTK_SIGNAL_FUNC (sp_color_slider_adjustment_value_changed), slider);
+		g_signal_connect (G_OBJECT (adjustment), "changed",
+				    G_CALLBACK (sp_color_slider_adjustment_changed), slider);
+		g_signal_connect (G_OBJECT (adjustment), "value_changed",
+				    G_CALLBACK (sp_color_slider_adjustment_value_changed), slider);
 
 		slider->value = ColorScales::getScaled( adjustment );
 

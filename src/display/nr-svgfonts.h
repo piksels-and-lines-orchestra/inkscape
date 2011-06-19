@@ -19,6 +19,7 @@
 #include "../sp-missing-glyph.h"
 #include "../sp-font.h"
 #include "../sp-glyph-kerning.h"
+#include <sigc++/sigc++.h>
 
 class SvgFont;
 struct SPFont;
@@ -38,11 +39,16 @@ cairo_status_t scaled_font_init (cairo_scaled_font_t *scaled_font, cairo_font_ex
 cairo_status_t scaled_font_text_to_glyphs (cairo_scaled_font_t *scaled_font, const char	*utf8, int utf8_len, cairo_glyph_t **glyphs, int *num_glyphs, cairo_text_cluster_t **clusters, int *num_clusters, cairo_text_cluster_flags_t *flags);
 cairo_status_t scaled_font_render_glyph (cairo_scaled_font_t *scaled_font, unsigned long glyph, cairo_t *cr, cairo_text_extents_t *metrics);
 
+Geom::PathVector flip_coordinate_system(SPFont* spfont, Geom::PathVector pathv);
+void render_glyph_path(cairo_t* cr, Geom::PathVector* pathv);
+void glyph_modified(SPObject *, unsigned int);
+
 private:
 SPFont* font;
 UserFont* userfont;
 std::vector<SPGlyph*> glyphs;
 SPMissingGlyph* missingglyph;
+sigc::connection glyph_modified_connection;
 
 bool drawing_expose_cb (Gtk::Widget *widget, GdkEventExpose *event, gpointer data);
 };

@@ -54,6 +54,7 @@
 #include "preferences.h"
 #include "verbs.h"
 #include "interface.h"
+#include "sp-root.h"
 
 #include "extension/output.h"
 #include "extension/db.h"
@@ -261,7 +262,7 @@ sp_export_spinbutton_new ( gchar const *key, float val, float min, float max,
     }
 
     if (cb)
-        gtk_signal_connect (adj, "value_changed", cb, dlg);
+        g_signal_connect (adj, "value_changed", cb, dlg);
 
     return;
 } // end of sp_export_spinbutton_new()
@@ -298,8 +299,8 @@ sp_export_dialog_area_box (GtkWidget * dlg)
         b->set_data("key", GINT_TO_POINTER(i));
         gtk_object_set_data (GTK_OBJECT (dlg), selection_names[i], b->gobj());
         togglebox->pack_start(*b, false, true, 0);
-        gtk_signal_connect ( GTK_OBJECT (b->gobj()), "clicked",
-                             GTK_SIGNAL_FUNC (sp_export_area_toggled), dlg );
+        g_signal_connect ( G_OBJECT (b->gobj()), "clicked",
+                             G_CALLBACK (sp_export_area_toggled), dlg );
     }
 
     g_signal_connect ( G_OBJECT (INKSCAPE), "change_selection",
@@ -431,13 +432,13 @@ sp_export_dialog (void)
         g_signal_connect   ( G_OBJECT (INKSCAPE), "activate_desktop",
                              G_CALLBACK (sp_transientize_callback), &wd);
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "event",
-                             GTK_SIGNAL_FUNC (sp_dialog_event_handler), dlg);
+        g_signal_connect ( G_OBJECT (dlg), "event",
+                             G_CALLBACK (sp_dialog_event_handler), dlg);
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "destroy",
+        g_signal_connect ( G_OBJECT (dlg), "destroy",
                              G_CALLBACK (sp_export_dialog_destroy), dlg);
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "delete_event",
+        g_signal_connect ( G_OBJECT (dlg), "delete_event",
                              G_CALLBACK (sp_export_dialog_delete), dlg);
 
         g_signal_connect   ( G_OBJECT (INKSCAPE), "shut_down",
@@ -448,8 +449,6 @@ sp_export_dialog (void)
 
         g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_unhide",
                              G_CALLBACK (sp_dialog_unhide), dlg);
-
-        GtkTooltips *tt = gtk_tooltips_new();
 
         Gtk::VBox *vb = new Gtk::VBox(false, 3);
         vb->set_border_width(3);
@@ -624,7 +623,7 @@ sp_export_dialog (void)
             gtk_widget_set_sensitive(GTK_WIDGET(be), TRUE);
             gtk_object_set_data(GTK_OBJECT(dlg), "batch_checkbox", be);
             batch_box->pack_start(*Glib::wrap(be), false, false);
-            gtk_tooltips_set_tip(tt, be, _("Export each selected object into its own PNG file, using export hints if any (caution, overwrites without asking!)"), NULL);
+            gtk_widget_set_tooltip_text(be, _("Export each selected object into its own PNG file, using export hints if any (caution, overwrites without asking!)"));
             batch_box->show_all();
             g_signal_connect(G_OBJECT(be), "toggled", GTK_SIGNAL_FUNC(batch_export_clicked), dlg);
             vb->pack_start(*batch_box);
@@ -636,7 +635,7 @@ sp_export_dialog (void)
             gtk_widget_set_sensitive(GTK_WIDGET(he), TRUE);
             gtk_object_set_data(GTK_OBJECT(dlg), "hide_checkbox", he);
             hide_box->pack_start(*Glib::wrap(he), false, false);
-            gtk_tooltips_set_tip(tt, he, _("In the exported image, hide all objects except those that are selected"), NULL);
+            gtk_widget_set_tooltip_text(he, _("In the exported image, hide all objects except those that are selected"));
             hide_box->show_all();
             vb->pack_start(*hide_box);
         }
@@ -657,9 +656,9 @@ sp_export_dialog (void)
             image_label->pack_start(*l);
 
             b->add(*image_label);
-            gtk_tooltips_set_tip (tt, GTK_WIDGET(b->gobj()), _("Export the bitmap file with these settings"), NULL);
-            gtk_signal_connect ( GTK_OBJECT (b->gobj()), "clicked",
-                                 GTK_SIGNAL_FUNC (sp_export_export_clicked), dlg );
+            gtk_widget_set_tooltip_text (GTK_WIDGET(b->gobj()), _("Export the bitmap file with these settings"));
+            g_signal_connect ( G_OBJECT (b->gobj()), "clicked",
+                                 G_CALLBACK (sp_export_export_clicked), dlg );
             bb->pack_end(*b, false, false, 0);
         }
 
@@ -784,7 +783,7 @@ sp_export_selection_modified ( Inkscape::Application */*inkscape*/,
             if ( SP_ACTIVE_DESKTOP ) {
                 SPDocument *doc;
                 doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
-                Geom::OptRect bbox = SP_ITEM(doc->root)->getBboxDesktop(SPItem::RENDERING_BBOX);
+                Geom::OptRect bbox = doc->getRoot()->getBboxDesktop(SPItem::RENDERING_BBOX);
                 if (bbox) {
                     sp_export_set_area (base, bbox->min()[Geom::X],
                                               bbox->min()[Geom::Y],
@@ -865,7 +864,7 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
                 /** \todo
                  * This returns wrong values if the document has a viewBox.
                  */
-                bbox = SP_ITEM(doc->root)->getBboxDesktop(SPItem::RENDERING_BBOX);
+                bbox = doc->getRoot()->getBboxDesktop(SPItem::RENDERING_BBOX);
                 /* If the drawing is valid, then we'll use it and break
                    otherwise we drop through to the page settings */
                 if (bbox) {
@@ -1501,7 +1500,7 @@ sp_export_detect_size(GtkObject * base) {
             case SELECTION_DRAWING: {
                 SPDocument *doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
 
-                Geom::OptRect bbox = SP_ITEM(doc->root)->getBboxDesktop(SPItem::RENDERING_BBOX);
+                Geom::OptRect bbox = doc->getRoot()->getBboxDesktop(SPItem::RENDERING_BBOX);
 
                 // std::cout << "Drawing " << bbox2;
                 if ( bbox && sp_export_bbox_equal(*bbox,current_bbox) ) {

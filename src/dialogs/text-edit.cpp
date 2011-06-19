@@ -177,18 +177,16 @@ sp_text_edit_dialog (void)
         wd.stop = 0;
         g_signal_connect ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd );
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "event", GTK_SIGNAL_FUNC (sp_dialog_event_handler), dlg );
+        g_signal_connect ( G_OBJECT (dlg), "event", G_CALLBACK (sp_dialog_event_handler), dlg );
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "destroy", G_CALLBACK (sp_text_edit_dialog_destroy), dlg );
-        gtk_signal_connect ( GTK_OBJECT (dlg), "delete_event", G_CALLBACK (sp_text_edit_dialog_delete), dlg );
+        g_signal_connect ( G_OBJECT (dlg), "destroy", G_CALLBACK (sp_text_edit_dialog_destroy), dlg );
+        g_signal_connect ( G_OBJECT (dlg), "delete_event", G_CALLBACK (sp_text_edit_dialog_delete), dlg );
         g_signal_connect ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (sp_text_edit_dialog_delete), dlg );
 
         g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg );
         g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg );
 
         gtk_window_set_policy (GTK_WINDOW (dlg), TRUE, TRUE, FALSE);
-
-        GtkTooltips *tt = gtk_tooltips_new();
 
         // box containing the notebook and the bottom buttons
         GtkWidget *mainvb = gtk_vbox_new (FALSE, 0);
@@ -203,7 +201,7 @@ sp_text_edit_dialog (void)
 
         // Font tab
         {
-            GtkWidget *l = gtk_label_new (_("Font"));
+            GtkWidget *l = gtk_label_new_with_mnemonic (_("_Font"));
             GtkWidget *vb = gtk_vbox_new (FALSE, VB_MARGIN);
             gtk_container_set_border_width (GTK_CONTAINER (vb), VB_MARGIN);
             gtk_notebook_append_page (GTK_NOTEBOOK (nb), vb, l);
@@ -240,7 +238,7 @@ sp_text_edit_dialog (void)
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_LEFT, GTK_ICON_SIZE_LARGE_TOOLBAR );
                         GtkWidget *b = group = gtk_radio_button_new (NULL);
-                        gtk_tooltips_set_tip (tt, b, _("Align lines left"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Align lines left"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg);
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE );
@@ -255,7 +253,7 @@ sp_text_edit_dialog (void)
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_CENTER, GTK_ICON_SIZE_LARGE_TOOLBAR );
                         GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
                         /* TRANSLATORS: `Center' here is a verb. */
-                        gtk_tooltips_set_tip (tt, b, _("Center lines"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Center lines"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -269,7 +267,7 @@ sp_text_edit_dialog (void)
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_RIGHT, GTK_ICON_SIZE_LARGE_TOOLBAR );
                         GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
-                        gtk_tooltips_set_tip (tt, b, _("Align lines right"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Align lines right"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -283,7 +281,7 @@ sp_text_edit_dialog (void)
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_FILL, GTK_ICON_SIZE_LARGE_TOOLBAR );
                         GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
-                        gtk_tooltips_set_tip (tt, b, _("Justify lines"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Justify lines"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -305,7 +303,7 @@ sp_text_edit_dialog (void)
                         GtkWidget *px = sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
                                                       INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL );
                         GtkWidget *b = group = gtk_radio_button_new (NULL);
-                        gtk_tooltips_set_tip (tt, b, _("Horizontal text"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Horizontal text"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -319,7 +317,7 @@ sp_text_edit_dialog (void)
                         GtkWidget *px = sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
                                                       INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL );
                         GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
-                        gtk_tooltips_set_tip (tt, b, _("Vertical text"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Vertical text"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -330,7 +328,7 @@ sp_text_edit_dialog (void)
 
                     gtk_box_pack_start (GTK_BOX (l_vb), row, FALSE, FALSE, 0);
                 }
-
+				
                 {
                     GtkWidget *row = gtk_hbox_new (FALSE, VB_MARGIN);
 
@@ -343,7 +341,6 @@ sp_text_edit_dialog (void)
 
                 {
                     GtkWidget *row = gtk_hbox_new (FALSE, VB_MARGIN);
-
                     GtkWidget *c = gtk_combo_new ();
                     gtk_combo_set_value_in_list ((GtkCombo *) c, FALSE, FALSE);
                     gtk_combo_set_use_arrows ((GtkCombo *) c, TRUE);
@@ -359,7 +356,7 @@ sp_text_edit_dialog (void)
                         gtk_combo_set_popdown_strings ((GtkCombo *) c, sl);
                         g_list_free (sl);
                     }
-
+                    
                     g_signal_connect ( (GObject *) ((GtkCombo *) c)->entry,
                                        "changed",
                                        (GCallback) sp_text_edit_dialog_line_spacing_changed,
@@ -383,7 +380,7 @@ sp_text_edit_dialog (void)
 
         // Text tab
         {
-            GtkWidget *l = gtk_label_new (_("Text"));
+            GtkWidget *l = gtk_label_new_with_mnemonic (_("_Text"));
             GtkWidget *vb = gtk_vbox_new (FALSE, VB_MARGIN);
             gtk_container_set_border_width (GTK_CONTAINER (vb), VB_MARGIN);
             gtk_notebook_append_page (GTK_NOTEBOOK (nb), vb, l);
@@ -430,7 +427,7 @@ sp_text_edit_dialog (void)
         gtk_box_pack_start (GTK_BOX (mainvb), hb, FALSE, FALSE, 0);
 
         {
-            GtkWidget *b = gtk_button_new_with_label (_("Set as default"));
+            GtkWidget *b = gtk_button_new_with_mnemonic (_("Set as _default"));
             g_signal_connect ( G_OBJECT (b), "clicked",
                                G_CALLBACK (sp_text_edit_dialog_set_default),
                                dlg );
@@ -447,7 +444,8 @@ sp_text_edit_dialog (void)
 
         {
             GtkWidget *b = gtk_button_new_from_stock (GTK_STOCK_APPLY);
-            GTK_WIDGET_SET_FLAGS (b, GTK_CAN_DEFAULT | GTK_HAS_DEFAULT);
+            gtk_widget_set_can_default (b, TRUE);
+            gtk_widget_grab_default (b);
             g_signal_connect ( G_OBJECT (b), "clicked",
                                G_CALLBACK (sp_text_edit_dialog_apply), dlg );
             gtk_box_pack_end ( GTK_BOX (hb), b, FALSE, FALSE, 0 );

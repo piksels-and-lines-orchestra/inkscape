@@ -1,12 +1,23 @@
-SET(libcola_SRC
-cola.cpp
-conjugate_gradient.cpp
-connected_components.cpp
-cycle_detector.cpp
-gradient_projection.cpp
-shortest_paths.cpp
-straightener.cpp
+
+set(libcola_SRC
+	cola.cpp
+	conjugate_gradient.cpp
+	connected_components.cpp
+	# cycle_detector.cpp
+	gradient_projection.cpp
+	shortest_paths.cpp
+	straightener.cpp
+
+
+	# -------
+	# Headers
+	cola.h
+	conjugate_gradient.h
+	# cycle_detector.h
+	defs.h
+	gradient_projection.h
+	shortest_paths.h
+	straightener.h
 )
-ADD_LIBRARY(cola STATIC ${libcola_SRC})
-TARGET_LINK_LIBRARIES(cola
-${INKSCAPE_LIBS})
+
+add_inkscape_lib(cola_LIB "${libcola_SRC}")

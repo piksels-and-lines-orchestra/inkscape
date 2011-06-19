@@ -7,7 +7,7 @@
  *   Johan Engelen <j.b.c.engelen@ewi.utwente.nl>
  *   Bruno Dilly <bruno.dilly@gmail.com>
  *
- * Copyright (C) 2004-2007 Authors
+ * Copyright (C) 2004-2011 Authors
  *
  * Released under GNU GPL.  Read the file 'COPYING' for more information.
  */
@@ -21,7 +21,7 @@
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/alignment.h>
 
-#include <gtk/gtkicontheme.h>
+#include <gtk/gtk.h>
 
 #include "preferences.h"
 #include "inkscape-preferences.h"
@@ -38,6 +38,7 @@
 #include "selection-chemistry.h"
 #include "xml/repr.h"
 #include "ui/widget/style-swatch.h"
+#include "ui/widget/spinbutton.h"
 #include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-types.h"
 #include "color-profile-fns.h"
@@ -70,7 +71,7 @@ InkscapePreferences::InkscapePreferences()
       _current_page(0)
 {
     //get the width of a spinbutton
-    Gtk::SpinButton* sb = new Gtk::SpinButton;
+    Inkscape::UI::Widget::SpinButton* sb = new Inkscape::UI::Widget::SpinButton;
     sb->set_width_chars(6);
     _getContents()->add(*sb);
     show_all_children();
@@ -248,17 +249,17 @@ void InkscapePreferences::initPageSteps()
 {
     this->AddPage(_page_steps, _("Steps"), PREFS_PAGE_STEPS);
 
-    _steps_arrow.init ( "/options/nudgedistance/value", 0.0, 1000.0, 0.01, 1.0, 2.0, false, false);
+    _steps_arrow.init ( "/options/nudgedistance/value", 0.0, 1000.0, 0.01, 2.0, UNIT_TYPE_LINEAR, "px");
     //nudgedistance is limited to 1000 in select-context.cpp: use the same limit here
-    _page_steps.add_line( false, _("Arrow keys move by:"), _steps_arrow, _("px"),
-                          _("Pressing an arrow key moves selected object(s) or node(s) by this distance (in px units)"), false);
-    _steps_scale.init ( "/options/defaultscale/value", 0.0, 1000.0, 0.01, 1.0, 2.0, false, false);
+    _page_steps.add_line( false, _("Arrow keys move by:"), _steps_arrow, "",
+                          _("Pressing an arrow key moves selected object(s) or node(s) by this distance"), false);
+    _steps_scale.init ( "/options/defaultscale/value", 0.0, 1000.0, 0.01, 2.0, UNIT_TYPE_LINEAR, "px");
     //defaultscale is limited to 1000 in select-context.cpp: use the same limit here
-    _page_steps.add_line( false, _("> and < scale by:"), _steps_scale, _("px"),
-                          _("Pressing > or < scales selection up or down by this increment (in px units)"), false);
-    _steps_inset.init ( "/options/defaultoffsetwidth/value", 0.0, 3000.0, 0.01, 1.0, 2.0, false, false);
-    _page_steps.add_line( false, _("Inset/Outset by:"), _steps_inset, _("px"),
-                          _("Inset and Outset commands displace the path by this distance (in px units)"), false);
+    _page_steps.add_line( false, _("> and < scale by:"), _steps_scale, "",
+                          _("Pressing > or < scales selection up or down by this increment"), false);
+    _steps_inset.init ( "/options/defaultoffsetwidth/value", 0.0, 3000.0, 0.01, 2.0, UNIT_TYPE_LINEAR, "px");
+    _page_steps.add_line( false, _("Inset/Outset by:"), _steps_inset, "",
+                          _("Inset and Outset commands displace the path by this distance"), false);
     _steps_compass.init ( _("Compass-like display of angles"), "/options/compassangledisplay/value", true);
     _page_steps.add_line( false, "", _steps_compass, "",
                             _("When on, angles are displayed with 0 at north, 0 to 360 range, positive clockwise; otherwise with 0 at east, -180 to 180 range, positive counterclockwise"));
@@ -269,6 +270,9 @@ void InkscapePreferences::initPageSteps()
     _steps_rot_snap.init("/options/rotationsnapsperpi/value", labels, values, num_items, 12);
     _page_steps.add_line( false, _("Rotation snaps every:"), _steps_rot_snap, _("degrees"),
                            _("Rotating with Ctrl pressed snaps every that much degrees; also, pressing [ or ] rotates by this amount"), false);
+    _steps_rot_relative.init ( _("Relative snapping of guideline angles"), "/options/relativeguiderotationsnap/value", false);
+    _page_steps.add_line( false, "", _steps_rot_relative, "",
+                            _("When on, the snap angles when rotating a guideline will be relative to the original angle"));
     _steps_zoom.init ( "/options/zoomincrement/value", 101.0, 500.0, 1.0, 1.0, 1.414213562, true, true);
     _page_steps.add_line( false, _("Zoom in/out by:"), _steps_zoom, _("%"),
                           _("Zoom tool click, +/- keys, and middle click zoom in and out by this multiplier"), false);
@@ -478,6 +482,12 @@ void InkscapePreferences::initPageTools()
     this->AddPage(_page_zoom, _("Zoom"), iter_tools, PREFS_PAGE_TOOLS_ZOOM);
     AddSelcueCheckbox(_page_zoom, "/tools/zoom", true);
     AddGradientCheckbox(_page_zoom, "/tools/zoom", false);
+
+    //Measure
+    this->AddPage(_page_measure, _("Measure"), iter_tools, PREFS_PAGE_TOOLS_MEASURE);
+    PrefCheckButton* cb = Gtk::manage( new PrefCheckButton);
+    cb->init ( _("Ignore first and last points"), "/tools/measure/ignore_1st_and_last", true);
+    _page_measure.add_line( false, "", *cb, "", _("The start and end of the measurement tool's control line will not be considered for calculating lengths. Only lengths between actual curve intersections will be displayed."));
 
     //Shapes
     Gtk::TreeModel::iterator iter_shapes = this->AddPage(_page_shapes, _("Shapes"), iter_tools, PREFS_PAGE_TOOLS_SHAPES);
@@ -1123,6 +1133,31 @@ void InkscapePreferences::initPageUI()
         "gl", "he", "hu", "id", "it", "ja", "km", "rw", "ko", "lt", "mk", "mn", "ne", "nb", "nn", "pa",
         "pl", "pt", "pt_BR", "ro", "ru", "sr", "sr@latin", "sk", "sl", "es", "es_MX", "sv", "te_IN", "th", "tr", "uk", "vi" };
 
+    {
+        // sorting languages according to translated name
+        int i = 0;
+        int j = 0;
+        int n = sizeof( languages ) / sizeof( Glib::ustring );
+        Glib::ustring key_language;
+        Glib::ustring key_langValue;
+        for ( j = 1 ; j < n ; j++ ) {
+            key_language = languages[j];
+            key_langValue = langValues[j];
+            i = j-1;
+            while ( i >= 0
+                    && ( ( languages[i] > key_language
+                         && langValues[i] != "" )
+                       || key_langValue == "" ) )
+            {
+                languages[i+1] = languages[i];
+                langValues[i+1] = langValues[i];
+                i--;
+            }
+            languages[i+1] = key_language;
+            langValues[i+1] = key_langValue;
+        }
+    }
+
     _ui_languages.init( "/ui/language", languages, langValues, G_N_ELEMENTS(languages), languages[0]);
     _page_ui.add_line( false, _("Language (requires restart):"), _ui_languages, "",
                               _("Set the language for menus and number formats"), false);
@@ -1177,7 +1212,7 @@ void InkscapePreferences::initPageSave()
 {
     _save_use_current_dir.init( _("Use current directory for \"Save As ...\""), "/dialogs/save_as/use_current_dir", true);
     _page_save.add_line( false, "", _save_use_current_dir, "",
-                         _("When this option is on, the \"Save as...\" dialog will always open in the directory where the currently open document is; when it's off, it will open in the directory where you last saved a file using that dialog"), true);
+                         _("When this option is on, the \"Save as...\" and \"Save a Copy\" dialogs will always open in the directory where the currently open document is; when it's off, each will open in the directory where you last saved a file using it"), true);
 
 
     // Autosave options

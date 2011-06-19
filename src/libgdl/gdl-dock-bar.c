@@ -65,7 +65,6 @@ static void gdl_dock_bar_remove_item      (GdlDockBar      *dockbar,
 struct _GdlDockBarPrivate {
     GdlDockMaster   *master;
     GSList          *items;
-    GtkTooltips     *tooltips;
     GtkOrientation   orientation;
     GdlDockBarStyle  dockbar_style;
 };
@@ -130,11 +129,8 @@ gdl_dock_bar_instance_init (GdlDockBar *dockbar)
     dockbar->_priv = g_new0 (GdlDockBarPrivate, 1);
     dockbar->_priv->master = NULL;
     dockbar->_priv->items = NULL;
-    dockbar->_priv->tooltips = gtk_tooltips_new ();
     dockbar->_priv->orientation = GTK_ORIENTATION_VERTICAL;
     dockbar->_priv->dockbar_style = GDL_DOCK_BAR_BOTH;
-    g_object_ref (dockbar->_priv->tooltips);
-    gtk_object_sink (GTK_OBJECT (dockbar->_priv->tooltips));
 }
 
 static void
@@ -208,11 +204,6 @@ gdl_dock_bar_destroy (GtkObject *object)
             priv->master = NULL;
         }
 
-        if (priv->tooltips) {
-            g_object_unref (priv->tooltips);
-            priv->tooltips = NULL;
-        }
-        
         dockbar->_priv = NULL;
 
         g_free (priv);
@@ -334,7 +325,7 @@ gdl_dock_bar_add_item (GdlDockBar  *dockbar,
     gtk_container_add (GTK_CONTAINER (button), box);
     gtk_box_pack_start (GTK_BOX (dockbar), button, FALSE, FALSE, 0);
 
-    gtk_tooltips_set_tip (priv->tooltips, button, name, name);
+    gtk_widget_set_tooltip_text (button, name);
     g_free (name);
 
     g_object_set_data (G_OBJECT (item), "GdlDockBar", dockbar);
@@ -490,7 +481,7 @@ static void gdl_dock_bar_size_vrequest (GtkWidget *widget,
       child = children->data;
       children = children->next;
 
-      if (GTK_WIDGET_VISIBLE (child->widget))
+      if (gtk_widget_get_visible (child->widget))
 	{
 	  gtk_widget_size_request (child->widget, &child_requisition);
 
@@ -548,7 +539,7 @@ static void gdl_dock_bar_size_vallocate (GtkWidget     *widget,
       child = children->data;
       children = children->next;
 
-      if (GTK_WIDGET_VISIBLE (child->widget))
+      if (gtk_widget_get_visible (child->widget))
 	{
 	  nvis_children += 1;
 	  if (child->expand)
@@ -586,7 +577,7 @@ static void gdl_dock_bar_size_vallocate (GtkWidget     *widget,
 	  child = children->data;
 	  children = children->next;
 
-	  if ((child->pack == GTK_PACK_START) && GTK_WIDGET_VISIBLE (child->widget))
+	  if ((child->pack == GTK_PACK_START) && gtk_widget_get_visible (child->widget))
 	    {
 	      if (box->homogeneous)
 		{
@@ -645,7 +636,7 @@ static void gdl_dock_bar_size_vallocate (GtkWidget     *widget,
 	  child = children->data;
 	  children = children->next;
 
-	  if ((child->pack == GTK_PACK_END) && GTK_WIDGET_VISIBLE (child->widget))
+	  if ((child->pack == GTK_PACK_END) && gtk_widget_get_visible (child->widget))
 	    {
 	      GtkRequisition child_requisition;
 	      gtk_widget_get_child_requisition (child->widget, &child_requisition);
@@ -715,7 +706,7 @@ static void gdl_dock_bar_size_hrequest (GtkWidget *widget,
       child = children->data;
       children = children->next;
 
-      if (GTK_WIDGET_VISIBLE (child->widget))
+      if (gtk_widget_get_visible (child->widget))
 	{
 	  GtkRequisition child_requisition;
 
@@ -777,7 +768,7 @@ static void gdl_dock_bar_size_hallocate (GtkWidget     *widget,
       child = children->data;
       children = children->next;
 
-      if (GTK_WIDGET_VISIBLE (child->widget))
+      if (gtk_widget_get_visible (child->widget))
 	{
 	  nvis_children += 1;
 	  if (child->expand)
@@ -815,7 +806,7 @@ static void gdl_dock_bar_size_hallocate (GtkWidget     *widget,
 	  child = children->data;
 	  children = children->next;
 
-	  if ((child->pack == GTK_PACK_START) && GTK_WIDGET_VISIBLE (child->widget))
+	  if ((child->pack == GTK_PACK_START) && gtk_widget_get_visible (child->widget))
 	    {
 	      if (box->homogeneous)
 		{
@@ -878,7 +869,7 @@ static void gdl_dock_bar_size_hallocate (GtkWidget     *widget,
 	  child = children->data;
 	  children = children->next;
 
-	  if ((child->pack == GTK_PACK_END) && GTK_WIDGET_VISIBLE (child->widget))
+	  if ((child->pack == GTK_PACK_END) && gtk_widget_get_visible (child->widget))
 	    {
 	      GtkRequisition child_requisition;
 	      gtk_widget_get_child_requisition (child->widget, &child_requisition);

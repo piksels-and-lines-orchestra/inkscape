@@ -13,8 +13,8 @@
 #include <errno.h>
 #include <glibmm/i18n.h>
 #include <gtkmm/label.h>
-#include <gtk/gtkdnd.h>
 #include <cairo.h>
+#include <gtk/gtk.h>
 
 #include "color-item.h"
 

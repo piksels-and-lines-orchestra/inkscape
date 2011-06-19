@@ -187,6 +187,9 @@
         /* Allow reading WordPerfect? */
         #define WITH_LIBWPG                   1
 
+        /* Default  to libwpg 0.1.x */
+        #define WITH_LIBWPG01                 1
+
         /* Do we support SVG Fonts? */
         #define ENABLE_SVG_FONTS              1
 
@@ -661,6 +664,7 @@
     <copy todir="${dist}" file="${devlibs}/bin/libsigc-2.0-0.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/freetype6.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libatk-1.0-0.dll"/>
+    <copy todir="${dist}" file="${devlibs}/bin/libgcc_s_sjlj-1.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libgdk-win32-2.0-0.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libgdk_pixbuf-2.0-0.dll"/>
     <copy todir="${dist}" file="${devlibs}/bin/libglib-2.0-0.dll"/>

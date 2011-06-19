@@ -100,6 +100,7 @@
 #include "../verbs.h"
 #include "../widgets/button.h"
 #include "../widgets/spinbutton-events.h"
+#include "ui/widget/spinbutton.h"
 #include "../widgets/spw-utilities.h"
 #include "../widgets/widget-sizes.h"
 #include "../xml/attribute-record.h"
@@ -132,6 +133,7 @@ static void       sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainA
 static void       sp_tweak_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_zoom_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
+static void       sp_measure_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_star_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_arc_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_rect_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
@@ -173,6 +175,7 @@ static struct {
     { "SPTweakContext",    "tweak_tool",     SP_VERB_CONTEXT_TWEAK, SP_VERB_CONTEXT_TWEAK_PREFS },
     { "SPSprayContext",    "spray_tool",     SP_VERB_CONTEXT_SPRAY, SP_VERB_CONTEXT_SPRAY_PREFS },
     { "SPZoomContext",     "zoom_tool",      SP_VERB_CONTEXT_ZOOM, SP_VERB_CONTEXT_ZOOM_PREFS },
+    { "SPMeasureContext",  "measure_tool",   SP_VERB_CONTEXT_MEASURE, SP_VERB_CONTEXT_MEASURE_PREFS },
     { "SPRectContext",     "rect_tool",      SP_VERB_CONTEXT_RECT, SP_VERB_CONTEXT_RECT_PREFS },
     { "Box3DContext",      "3dbox_tool",     SP_VERB_CONTEXT_3DBOX, SP_VERB_CONTEXT_3DBOX_PREFS },
     { "SPArcContext",      "arc_tool",       SP_VERB_CONTEXT_ARC, SP_VERB_CONTEXT_ARC_PREFS },
@@ -210,6 +213,8 @@ static struct {
     { "SPSprayContext",   "spray_toolbox",   0, sp_spray_toolbox_prep,              "SprayToolbar",
       SP_VERB_INVALID, 0, 0},
     { "SPZoomContext",   "zoom_toolbox",   0, sp_zoom_toolbox_prep,              "ZoomToolbar",
+      SP_VERB_INVALID, 0, 0},
+    { "SPMeasureContext",   "measure_toolbox",   0, sp_measure_toolbox_prep,              "MeasureToolbar",
       SP_VERB_INVALID, 0, 0},
     { "SPStarContext",   "star_toolbox",   0, sp_star_toolbox_prep,              "StarToolbar",
       SP_VERB_CONTEXT_STAR_PREFS,   "/tools/shapes/star",     N_("Style of new stars")},
@@ -358,6 +363,11 @@ static gchar const * ui_descr =
         "    <separator />"
         "    <toolitem action='ZoomPrev' />"
         "    <toolitem action='ZoomNext' />"
+        "  </toolbar>"
+
+        "  <toolbar name='MeasureToolbar'>"
+        "    <toolitem action='MeasureFontSizeAction' />"
+        "    <toolitem action='MeasureUnitsAction' />"
         "  </toolbar>"
 
         "  <toolbar name='StarToolbar'>"
@@ -547,11 +557,11 @@ static void update_commands_toolbox(SPDesktop *desktop, SPEventContext *eventcon
 
 static GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick( GtkWidget *t, Inkscape::IconSize size, SPButtonType type,
                                                                      Inkscape::Verb *verb, Inkscape::Verb *doubleclick_verb,
-                                                                     Inkscape::UI::View::View *view, GtkTooltips *tt);
+                                                                     Inkscape::UI::View::View *view);
 
 class VerbAction : public Gtk::Action {
 public:
-    static Glib::RefPtr<VerbAction> create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips);
+    static Glib::RefPtr<VerbAction> create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view);
 
     virtual ~VerbAction();
     virtual void set_active(bool active = true);
@@ -569,31 +579,29 @@ private:
     Inkscape::Verb* verb;
     Inkscape::Verb* verb2;
     Inkscape::UI::View::View *view;
-    GtkTooltips *tooltips;
     bool active;
 
-    VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips);
+    VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view);
 };
 
 
-Glib::RefPtr<VerbAction> VerbAction::create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips)
+Glib::RefPtr<VerbAction> VerbAction::create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view)
 {
     Glib::RefPtr<VerbAction> result;
     SPAction *action = verb->get_action(view);
     if ( action ) {
         //SPAction* action2 = verb2 ? verb2->get_action(view) : 0;
-        result = Glib::RefPtr<VerbAction>(new VerbAction(verb, verb2, view, tooltips));
+        result = Glib::RefPtr<VerbAction>(new VerbAction(verb, verb2, view));
     }
 
     return result;
 }
 
-VerbAction::VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips) :
+VerbAction::VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view) :
     Gtk::Action(Glib::ustring(verb->get_id()), Gtk::StockID(verb->get_image()), Glib::ustring(_(verb->get_name())), Glib::ustring(_(verb->get_tip()))),
     verb(verb),
     verb2(verb2),
     view(view),
-    tooltips(tooltips),
     active(false)
 {
 }
@@ -623,8 +631,7 @@ Gtk::Widget* VerbAction::create_tool_item_vfunc()
                                                                           SP_BUTTON_TYPE_TOGGLE,
                                                                           verb,
                                                                           verb2,
-                                                                          view,
-                                                                          tooltips );
+                                                                          view );
     if ( active ) {
         sp_button_toggle_set_down( SP_BUTTON(button), active);
     }
@@ -807,7 +814,7 @@ static void delete_prefspusher(GtkObject * /*obj*/, PrefPusher *watcher )
 
 GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick(GtkWidget *t, Inkscape::IconSize size, SPButtonType type,
                                                              Inkscape::Verb *verb, Inkscape::Verb *doubleclick_verb,
-                                                             Inkscape::UI::View::View *view, GtkTooltips *tt)
+                                                             Inkscape::UI::View::View *view)
 {
     SPAction *action = verb->get_action(view);
     if (!action) {
@@ -823,7 +830,7 @@ GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick(GtkWidget *t, Inksc
 
     /* fixme: Handle sensitive/unsensitive */
     /* fixme: Implement sp_button_new_from_action */
-    GtkWidget *b = sp_button_new(size, type, action, doubleclick_action, tt);
+    GtkWidget *b = sp_button_new(size, type, action, doubleclick_action);
     gtk_widget_show(b);
 
 
@@ -880,7 +887,7 @@ static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::Vi
     act = GTK_ACTION(inky);
     gtk_action_set_sensitive( act, targetAction->sensitive );
 
-    g_signal_connect( G_OBJECT(inky), "activate", GTK_SIGNAL_FUNC(trigger_sp_action), targetAction );
+    g_signal_connect( G_OBJECT(inky), "activate", G_CALLBACK(trigger_sp_action), targetAction );
 
     SPAction*rebound = dynamic_cast<SPAction *>( nr_object_ref( dynamic_cast<NRObject *>(targetAction) ) );
     nr_active_object_add_listener( (NRActiveObject *)rebound, (NRObjectEventVector *)&action_event_vector, sizeof(SPActionEventVector), inky );
@@ -931,7 +938,7 @@ static Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* deskto
         SP_VERB_ZOOM_PAGE,
         SP_VERB_ZOOM_PAGE_WIDTH,
         SP_VERB_ZOOM_PREV,
-        SP_VERB_ZOOM_SELECTION,
+        SP_VERB_ZOOM_SELECTION
     };
 
     Inkscape::IconSize toolboxSize = ToolboxFactory::prefToSize("/toolbox/small");
@@ -958,9 +965,8 @@ static Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* deskto
     }
 
     if ( !mainActions->get_action("ToolZoom") ) {
-        GtkTooltips *tt = gtk_tooltips_new();
         for ( guint i = 0; i < G_N_ELEMENTS(tools) && tools[i].type_name; i++ ) {
-            Glib::RefPtr<VerbAction> va = VerbAction::create(Inkscape::Verb::get(tools[i].verb), Inkscape::Verb::get(tools[i].doubleclick_verb), view, tt);
+            Glib::RefPtr<VerbAction> va = VerbAction::create(Inkscape::Verb::get(tools[i].verb), Inkscape::Verb::get(tools[i].doubleclick_verb), view);
             if ( va ) {
                 mainActions->add(va);
                 if ( i == 0 ) {
@@ -1052,6 +1058,14 @@ GtkWidget *ToolboxFactory::createSnapToolbox()
     return toolboxNewCommon( tb, BAR_SNAP, GTK_POS_LEFT );
 }
 
+static GtkWidget* createCustomSlider( GtkAdjustment *adjustment, gdouble climbRate, guint digits )
+{
+    Inkscape::UI::Widget::SpinButton *inkSpinner = new Inkscape::UI::Widget::SpinButton(*Glib::wrap(adjustment, true), climbRate, digits);
+    inkSpinner = Gtk::manage( inkSpinner );
+    GtkWidget *widget = GTK_WIDGET( inkSpinner->gobj() );
+    return widget;
+}
+
 static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        gchar const *label, gchar const *shortLabel, gchar const *tooltip,
                                                        Glib::ustring const &path, gdouble def,
@@ -1064,6 +1078,12 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        void (*callback)(GtkAdjustment *, GObject *),
                                                        gdouble climb = 0.1, guint digits = 3, double factor = 1.0 )
 {
+    static bool init = false;
+    if ( !init ) {
+        init = true;
+        ege_adjustment_action_set_compact_tool_factory( createCustomSlider );
+    }
+
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     GtkAdjustment* adj = GTK_ADJUSTMENT( gtk_adjustment_new( prefs->getDouble(path, def) * factor,
                                                              lower, upper, step, page, 0 ) );
@@ -1071,7 +1091,7 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
         sp_unit_selector_add_adjustment( SP_UNIT_SELECTOR(us), adj );
     }
 
-    gtk_signal_connect( GTK_OBJECT(adj), "value-changed", GTK_SIGNAL_FUNC(callback), dataKludge );
+    g_signal_connect( G_OBJECT(adj), "value-changed", G_CALLBACK(callback), dataKludge );
 
     EgeAdjustmentAction* act = ege_adjustment_action_new( adj, name, label, tooltip, 0, climb, digits );
     if ( shortLabel ) {
@@ -1612,6 +1632,54 @@ static void sp_zoom_toolbox_prep(SPDesktop * /*desktop*/, GtkActionGroup* /*main
     // no custom GtkAction setup needed
 } // end of sp_zoom_toolbox_prep()
 
+static void
+sp_measure_fontsize_value_changed(GtkAdjustment *adj, GObject *tbl)
+{
+    SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
+
+    if (DocumentUndo::getUndoSensitive(sp_desktop_document(desktop))) {
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        prefs->setInt(Glib::ustring("/tools/measure/fontsize"), adj->value);
+    }
+}
+
+static void measure_unit_changed(GtkAction* /*act*/, GObject* tbl)
+{
+    UnitTracker* tracker = reinterpret_cast<UnitTracker*>(g_object_get_data(tbl, "tracker"));
+    SPUnit const *unit = tracker->getActiveUnit();
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setInt("/tools/measure/unitid", unit->unit_id);
+}
+
+static void sp_measure_toolbox_prep(SPDesktop * desktop, GtkActionGroup* mainActions, GObject* holder)
+{
+    UnitTracker* tracker = new UnitTracker( SP_UNIT_ABSOLUTE | SP_UNIT_DEVICE );
+    tracker->setActiveUnit( sp_desktop_namedview(desktop)->doc_units );
+    g_object_set_data( holder, "tracker", tracker );
+
+    EgeAdjustmentAction *eact = 0;
+
+    /* Font Size */
+    {
+        eact = create_adjustment_action( "MeasureFontSizeAction",
+                                         _("Font Size"), _("Font Size:"),
+                                         _("The font size to be used in the measurement labels"),
+                                         "/tools/measure/fontsize", 0.0,
+                                         GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
+                                         10, 36, 1.0, 4.0,
+                                         0, 0, 0,
+                                         sp_measure_fontsize_value_changed);
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+    }
+
+    // add the units menu
+    {
+        GtkAction* act = tracker->createAction( "MeasureUnitsAction", _("Units"), _("Units:") );
+        g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(measure_unit_changed), (GObject*)holder );
+        gtk_action_group_add_action( mainActions, act );
+    }
+} // end of sp_measure_toolbox_prep()
+
 void ToolboxFactory::setToolboxDesktop(GtkWidget *toolbox, SPDesktop *desktop)
 {
     sigc::connection *conn = static_cast<sigc::connection*>(g_object_get_data(G_OBJECT(toolbox),
@@ -1726,7 +1794,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
 {
 #if DUMP_DETAILS
     g_message("Set orientation for %p to be %d", toolbox, orientation);
-    GType type = GTK_WIDGET_TYPE(toolbox);
+    GType type = G_OBJECT_TYPE(toolbox);
     g_message("        [%s]", g_type_name(type));
     g_message("             %p", g_object_get_data(G_OBJECT(toolbox), BAR_ID_KEY));
 #endif
@@ -1741,7 +1809,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
         GtkWidget* child = gtk_bin_get_child(GTK_BIN(toolbox));
         if (child) {
 #if DUMP_DETAILS
-            GType type2 = GTK_WIDGET_TYPE(child);
+            GType type2 = G_OBJECT_TYPE(child);
             g_message("            child    [%s]", g_type_name(type2));
 #endif // DUMP_DETAILS
 
@@ -1755,7 +1823,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
                     for (GList* curr = children; curr; curr = g_list_next(curr)) {
                         GtkWidget* child2 = GTK_WIDGET(curr->data);
 #if DUMP_DETAILS
-                        GType type3 = GTK_WIDGET_TYPE(child2);
+                        GType type3 = G_OBJECT_TYPE(child2);
                         g_message("                child2   [%s]", g_type_name(type3));
 #endif // DUMP_DETAILS
 
@@ -1765,7 +1833,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
                                 for (GList* curr2 = children2; curr2; curr2 = g_list_next(curr2)) {
                                     GtkWidget* child3 = GTK_WIDGET(curr2->data);
 #if DUMP_DETAILS
-                                    GType type4 = GTK_WIDGET_TYPE(child3);
+                                    GType type4 = G_OBJECT_TYPE(child3);
                                     g_message("                    child3   [%s]", g_type_name(type4));
 #endif // DUMP_DETAILS
                                     if (GTK_IS_TOOLBAR(child3)) {
@@ -1823,6 +1891,7 @@ void setup_tool_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
         "    <toolitem action='ToolNode' />"
         "    <toolitem action='ToolTweak' />"
         "    <toolitem action='ToolZoom' />"
+        "    <toolitem action='ToolMeasure' />"
 
         "   <!-- Shapes -->"
         "    <toolitem action='ToolRect' />"
@@ -8362,7 +8431,9 @@ static void paintbucket_offset_changed(GtkAdjustment *adj, GObject *tbl)
     SPUnit const *unit = tracker->getActiveUnit();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
-    prefs->setDouble("/tools/paintbucket/offset", (gdouble)sp_units_get_pixels(adj->value, *unit));
+    // Don't adjust the offset value because we're saving the
+    // unit and it'll be correctly handled on load.
+    prefs->setDouble("/tools/paintbucket/offset", (gdouble)adj->value);
     prefs->setString("/tools/paintbucket/offsetunits", sp_unit_get_abbreviation(unit));
 }
 
