@@ -176,27 +176,21 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_restore(ct);
 
     } else { // outline; draw a rect instead
-
-        cairo_save(ct);
-        cairo_translate(ct, -area->x0, -area->y0);
-        ink_cairo_transform(ct, image->ctm);
-
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         guint32 rgba = prefs->getInt("/options/wireframecolors/images", 0xff0000ff);
-        ink_cairo_set_source_rgba32(ct, rgba);
 
-        cairo_set_line_width(ct, 0.5);
+        cairo_save(ct);
+        ink_cairo_transform(ct, image->ctm);
+
         cairo_new_path(ct);
 
         Geom::Rect r = nr_arena_image_rect (image);
-
         Geom::Point c00 = r.corner(0);
         Geom::Point c01 = r.corner(3);
         Geom::Point c11 = r.corner(2);
         Geom::Point c10 = r.corner(1);
 
         cairo_move_to (ct, c00[Geom::X], c00[Geom::Y]);
-
         // the box
         cairo_line_to (ct, c10[Geom::X], c10[Geom::Y]);
         cairo_line_to (ct, c11[Geom::X], c11[Geom::Y]);
@@ -206,7 +200,10 @@ nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
         cairo_line_to (ct, c11[Geom::X], c11[Geom::Y]);
         cairo_move_to (ct, c10[Geom::X], c10[Geom::Y]);
         cairo_line_to (ct, c01[Geom::X], c01[Geom::Y]);
+        cairo_restore(ct);
 
+        cairo_set_line_width(ct, 0.5);
+        ink_cairo_set_source_rgba32(ct, rgba);
         cairo_stroke(ct);
     }
     return item->state;

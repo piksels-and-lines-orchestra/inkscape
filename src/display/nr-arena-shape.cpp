@@ -317,13 +317,15 @@ cairo_arena_shape_render_outline(cairo_t *ct, NRArenaItem *item, Geom::OptRect /
     guint32 rgba = NR_ARENA_ITEM(shape)->arena->outlinecolor;
 
     cairo_save(ct);
-    ink_cairo_set_source_rgba32(ct, rgba);
     ink_cairo_transform(ct, shape->ctm);
     feed_pathvector_to_cairo (ct, shape->curve->get_pathvector());
     cairo_restore(ct);
+    cairo_save(ct);
+    ink_cairo_set_source_rgba32(ct, rgba);
     cairo_set_line_width(ct, 0.5);
     cairo_set_tolerance(ct, 1.25); // low quality, but good enough for outline mode
     cairo_stroke(ct);
+    cairo_restore(ct);
 
     return item->state;
 }
