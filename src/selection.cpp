@@ -375,7 +375,7 @@ Geom::OptRect Selection::bounds(SPItem::BBoxType type) const
 
     Geom::OptRect bbox;
     for ( GSList const *i = items ; i != NULL ; i = i->next ) {
-        bbox = unify(bbox, SP_ITEM(i->data)->getBboxDesktop(type));
+        bbox.unionWith(SP_ITEM(i->data)->getBboxDesktop(type));
     }
     return bbox;
 }

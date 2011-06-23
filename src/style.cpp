@@ -42,7 +42,6 @@
 #include "xml/repr.h"
 #include "xml/simple-document.h"
 #include "unit-constants.h"
-#include "2geom/isnan.h"
 #include "macros.h"
 #include "preferences.h"
 

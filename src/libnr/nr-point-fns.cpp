@@ -1,5 +1,5 @@
 #include <libnr/nr-point-fns.h>
-#include <2geom/isnan.h>
+#include <2geom/math-utils.h>
 
 using NR::Point;
 

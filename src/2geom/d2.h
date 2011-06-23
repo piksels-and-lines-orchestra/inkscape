@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief   Lifts one dimensional objects into 2d 
- *
+ *//*
  * Copyright 2007 Michael Sloan <mgsloan@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -426,7 +426,6 @@ inline std::ostream &operator<< (std::ostream &out_file, const Geom::D2<T> &in_d
 
 } //end namespace Geom
 
-#include <2geom/rect.h>
 #include <2geom/d2-sbasis.h>
 
 namespace Geom{

@@ -1161,7 +1161,7 @@ bool SPDesktopWidget::showInfoDialog( Glib::ustring const &message )
                 GTK_BUTTONS_OK,
                 "%s", message.c_str());
         gtk_window_set_title( GTK_WINDOW(dialog), _("Note:")); // probably want to take this as a parameter.
-        gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
     }
     return result;
@@ -1887,7 +1887,7 @@ sp_desktop_widget_update_scrollbars (SPDesktopWidget *dtw, double scale)
     Geom::Rect darea ( Geom::Point(-doc->getWidth(), -doc->getHeight()),
                      Geom::Point(2 * doc->getWidth(), 2 * doc->getHeight())  );
 
-    Geom::OptRect deskarea = Geom::unify(darea, doc->getRoot()->getBboxDesktop());
+    Geom::OptRect deskarea = darea | doc->getRoot()->getBboxDesktop();
 
     /* Canvas region we always show unconditionally */
     Geom::Rect carea( Geom::Point(deskarea->min()[Geom::X] * scale - 64, deskarea->max()[Geom::Y] * -scale - 64),

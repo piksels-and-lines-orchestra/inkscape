@@ -3,8 +3,7 @@
  */
 
 #include <libnr/nr-types.h>
-
-#include "2geom/isnan.h"
+#include <2geom/math-utils.h>
 
 /** Scales this vector to make it a unit vector (within rounding error).
  *

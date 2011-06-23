@@ -1,12 +1,8 @@
 /**
- * \file
- * \brief Include all curve types
+ *  \file
+ *  \brief Closed interval of integer values
  *//*
- * Authors:
- * 		MenTaLguY <mental@rydia.net>
- * 		Marco Cecchetti <mrcekets at gmail.com>
- *
- * Copyright 2007-2008  authors
+ * Copyright 2011 Krzysztof Kosiński <tweenk.pl@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it either under the terms of the GNU Lesser General Public
@@ -32,17 +28,28 @@
  * the specific language governing rights and limitations.
  */
 
-#ifndef LIB2GEOM_SEEN_CURVES_H
-#define LIB2GEOM_SEEN_CURVES_H
+#ifndef LIB2GEOM_SEEN_INT_INTERVAL_H
+#define LIB2GEOM_SEEN_INT_INTERVAL_H
 
-#include <2geom/curve.h>
-#include <2geom/sbasis-curve.h>
-#include <2geom/bezier-curve.h>
-#include <2geom/hvlinesegment.h>
-#include <2geom/elliptical-arc.h>
-#include <2geom/svg-elliptical-arc.h>
+#include <2geom/coord.h>
+#include <2geom/generic-interval.h>
 
-#endif // LIB2GEOM_SEEN_CURVES_H
+namespace Geom {
+
+/**
+ * @brief Range of integers that is never empty.
+ * @ingroup Primitives
+ */
+typedef GenericInterval<IntCoord> IntInterval;
+
+/**
+ * @brief Range of integers that can be empty.
+ * @ingroup Primitives
+ */
+typedef GenericOptInterval<IntCoord> OptIntInterval;
+
+} // namespace Geom
+#endif // !LIB2GEOM_SEEN_INT_INTERVAL_H
 
 /*
   Local Variables:
@@ -54,4 +61,3 @@
   End:
 */
 // vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :
-
