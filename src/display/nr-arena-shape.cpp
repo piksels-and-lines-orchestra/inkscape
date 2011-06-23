@@ -223,10 +223,10 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
             if (shape->curve) {
                 boundingbox = bounds_exact_transformed(shape->curve->get_pathvector(), gc->transform);
                 if (boundingbox) {
-                    item->bbox.x0 = static_cast<NR::ICoord>(floor((*boundingbox)[0][0])); // Floor gives the coordinate in which the point resides
-                    item->bbox.y0 = static_cast<NR::ICoord>(floor((*boundingbox)[1][0]));
-                    item->bbox.x1 = static_cast<NR::ICoord>(ceil ((*boundingbox)[0][1])); // Ceil gives the first coordinate beyond the point
-                    item->bbox.y1 = static_cast<NR::ICoord>(ceil ((*boundingbox)[1][1]));
+                    item->bbox.x0 = floor((*boundingbox)[0][0]); // Floor gives the coordinate in which the point resides
+                    item->bbox.y0 = floor((*boundingbox)[1][0]);
+                    item->bbox.x1 = ceil ((*boundingbox)[0][1]); // Ceil gives the first coordinate beyond the point
+                    item->bbox.y1 = ceil ((*boundingbox)[1][1]);
                 } else {
                     item->bbox = NR_RECT_L_EMPTY;
                 }
@@ -274,10 +274,10 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
 
     /// \todo  just write item->bbox = boundingbox
     if (boundingbox) {
-        shape->approx_bbox.x0 = static_cast<NR::ICoord>(floor((*boundingbox)[0][0]));
-        shape->approx_bbox.y0 = static_cast<NR::ICoord>(floor((*boundingbox)[1][0]));
-        shape->approx_bbox.x1 = static_cast<NR::ICoord>(ceil ((*boundingbox)[0][1]));
-        shape->approx_bbox.y1 = static_cast<NR::ICoord>(ceil ((*boundingbox)[1][1]));
+        shape->approx_bbox.x0 = floor(boundingbox->left());
+        shape->approx_bbox.y0 = floor(boundingbox->top());
+        shape->approx_bbox.x1 = ceil (boundingbox->right());
+        shape->approx_bbox.y1 = ceil (boundingbox->bottom());
     } else {
         shape->approx_bbox = NR_RECT_L_EMPTY;
     }

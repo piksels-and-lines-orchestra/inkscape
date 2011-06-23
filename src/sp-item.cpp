@@ -299,7 +299,7 @@ Geom::Point SPItem::getCenter() const {
 
     Geom::OptRect bbox = getBounds(i2d_affine());
     if (bbox) {
-        return to_2geom(bbox->midpoint()) + Geom::Point (transform_center_x, transform_center_y);
+        return bbox->midpoint() + Geom::Point (transform_center_x, transform_center_y);
     } else {
         return Geom::Point(0, 0); // something's wrong!
     }

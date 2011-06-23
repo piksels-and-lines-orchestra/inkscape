@@ -176,7 +176,7 @@ nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int 
     }
 
     if (beststate & NR_ARENA_ITEM_STATE_BBOX) {
-        nr_rect_l_set_empty (&item->bbox);
+        item->bbox = NR_RECT_L_EMPTY;
         for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
             if (child->visible)
                 nr_rect_l_union (&item->bbox, &item->bbox, &child->drawbox);

@@ -149,7 +149,7 @@ struct SPCanvas {
     bool is_scrolling;
 
     Geom::Rect getViewbox() const;
-    NR::IRect getViewboxIntegers() const;
+    Geom::IntRect getViewboxIntegers() const;
 };
 
 GtkWidget *sp_canvas_new_aa();

@@ -403,7 +403,7 @@ NRRect *Selection::boundsInDocument(NRRect *bbox, SPItem::BBoxType type) const {
 
 Geom::OptRect Selection::boundsInDocument(SPItem::BBoxType type) const {
     NRRect r;
-    return to_2geom(boundsInDocument(&r, type)->upgrade());
+    return to_2geom(boundsInDocument(&r, type));
 }
 
 /** Extract the position of the center from the first selected object */

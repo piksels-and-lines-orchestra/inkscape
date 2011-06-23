@@ -2306,13 +2306,15 @@ Geom::Rect SPCanvas::getViewbox() const
 }
 
 /**
- * Return canvas window coordinates as IRect (a rectangle defined by integers).
+ * Return canvas window coordinates as integer rectangle.
  */
-NR::IRect SPCanvas::getViewboxIntegers() const
+Geom::IntRect SPCanvas::getViewboxIntegers() const
 {
     GtkWidget const *w = GTK_WIDGET(this);
-    return NR::IRect(NR::IPoint(x0, y0),
-                    NR::IPoint(x0 + w->allocation.width, y0 + w->allocation.height));
+    Geom::IntRect ret;
+    ret.setMin(Geom::IntPoint(x0, y0));
+    ret.setMax(Geom::IntPoint(x0 + w->allocation.width, y0 + w->allocation.height));
+    return ret;
 }
 
 inline int sp_canvas_tile_floor(int x)

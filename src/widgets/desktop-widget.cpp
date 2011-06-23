@@ -24,8 +24,9 @@
 # include "config.h"
 #endif
 
-#include <gtkmm/paned.h>
 #include <gtk/gtk.h>
+#include <gtkmm.h>
+#include <2geom/rect.h>
 
 #include "box3d-context.h"
 #include "color-profile-fns.h"
@@ -1522,7 +1523,7 @@ sp_desktop_widget_update_hruler (SPDesktopWidget *dtw)
      * the latter is used for drawing e.g. the grids and guides. Only when the viewbox
      * coincides with the pixel buffer, everything will line up nicely.
      */
-    NR::IRect viewbox = dtw->canvas->getViewboxIntegers();
+    Geom::IntRect viewbox = dtw->canvas->getViewboxIntegers();
 
     double const scale = dtw->desktop->current_zoom();
     double s = viewbox.min()[Geom::X] / scale - dtw->ruler_origin[Geom::X];
@@ -1538,7 +1539,7 @@ sp_desktop_widget_update_vruler (SPDesktopWidget *dtw)
      * the latter is used for drawing e.g. the grids and guides. Only when the viewbox
      * coincides with the pixel buffer, everything will line up nicely.
      */
-    NR::IRect viewbox = dtw->canvas->getViewboxIntegers();
+    Geom::IntRect viewbox = dtw->canvas->getViewboxIntegers();
 
     double const scale = dtw->desktop->current_zoom();
     double s = viewbox.min()[Geom::Y] / -scale - dtw->ruler_origin[Geom::Y];

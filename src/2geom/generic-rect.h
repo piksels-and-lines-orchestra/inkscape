@@ -69,7 +69,7 @@ public:
     /// @name Create rectangles.
     /// @{
     /** @brief Create a rectangle that contains only the point at (0,0). */
-    GenericRect() { f[X] = f[Y] = Interval(); }
+    GenericRect() { f[X] = f[Y] = CInterval(); }
     /** @brief Create a rectangle from X and Y intervals. */
     GenericRect(CInterval const &a, CInterval const &b) {
         f[X] = a;
@@ -100,6 +100,25 @@ public:
     /** @brief Create a rectangle from a C-style array of points it should contain. */
     static GenericRect<C> from_array(CPoint const *c, unsigned n) {
         GenericRect<C> result = GenericRect<C>::from_range(c, c+n);
+        return result;
+    }
+    /** @brief Create rectangle from origin and dimensions. */
+    static GenericRect<C> from_xywh(C x, C y, C w, C h) {
+        CPoint xy(x, y);
+        CPoint wh(w, h);
+        GenericRect<C> result(xy, xy + wh);
+        return result;
+    }
+    /** @brief Create rectangle from origin and dimensions. */
+    static GenericRect<C> from_xywh(CPoint const &xy, CPoint const &wh) {
+        GenericRect<C> result(xy, xy + wh);
+        return result;
+    }
+    /** @brief Create rectangle from two points. */
+    static GenericRect<C> from_xyxy(C x0, C x1, C y0, C y1) {
+        CPoint p0(x0, y0);
+        CPoint p1(x1, y1);
+        GenericRect<C> result(p0, p1);
         return result;
     }
     /// @}
@@ -183,6 +202,16 @@ public:
 
     /// @name Modify the rectangle.
     /// @{
+    /** @brief Set the upper left point of the rectangle. */
+    void setMin(CPoint const &p) {
+        f[X].setMin(p[X]);
+        f[Y].setMin(p[Y]);
+    }
+    /** @brief Set the lower right point of the rectangle. */
+    void setMax(CPoint const &p) {
+        f[X].setMax(p[X]);
+        f[Y].setMax(p[Y]);
+    }
     /** @brief Enlarge the rectangle to contain the given point. */
     void expandTo(CPoint const &p)        { 
         f[X].expandTo(p[X]);  f[Y].expandTo(p[Y]);

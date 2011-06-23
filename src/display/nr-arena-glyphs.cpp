@@ -135,10 +135,10 @@ nr_arena_glyphs_update(NRArenaItem *item, NRRectL */*area*/, NRGC *gc, guint /*s
     }
 
     if (b) {
-        item->bbox.x0 = static_cast<NR::ICoord>(floor(b->left()));
-        item->bbox.y0 = static_cast<NR::ICoord>(floor(b->top()));
-        item->bbox.x1 = static_cast<NR::ICoord>(ceil (b->right()));
-        item->bbox.y1 = static_cast<NR::ICoord>(ceil (b->bottom()));
+        item->bbox.x0 = floor(b->left());
+        item->bbox.y0 = floor(b->top());
+        item->bbox.x1 = ceil (b->right());
+        item->bbox.y1 = ceil (b->bottom());
     } else {
         item->bbox.x0 = 0;
         item->bbox.y0 = 0;
