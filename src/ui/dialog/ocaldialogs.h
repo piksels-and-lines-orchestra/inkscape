@@ -492,10 +492,6 @@ private:
     void on_list_results_selection_changed();
     void on_xml_file_read(const Glib::RefPtr<Gio::AsyncResult>& result,
         Glib::RefPtr<Gio::File> xml_file, Glib::ustring xml_uri);
-    void on_xml_file_stream_read(const Glib::RefPtr<Gio::AsyncResult>& result,
-        Glib::RefPtr<Gio::FileInputStream> stream, char* buffer, Glib::ustring xml_uri);
-    void on_xml_file_stream_closed(const Glib::RefPtr<Gio::AsyncResult>& result,
-        Glib::RefPtr<Gio::FileInputStream> stream);
     void create_temporary_dirs();
     std::string get_temporary_dir(ResourceType type);
 
