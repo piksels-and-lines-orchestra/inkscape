@@ -314,7 +314,7 @@ bool LoadingBox::_on_expose_event(GdkEventExpose* event)
 
     get_style()->paint_shadow(get_window(), get_state(), Gtk::SHADOW_IN,
         Gdk::Rectangle(x, y, width, height),
-        *this, Glib::ustring::ustring("viewport"), x, y, width, height);
+        *this, Glib::ustring("viewport"), x, y, width, height);
 
     if (draw_spinner) {
         int spinner_size = 16;
@@ -567,7 +567,7 @@ bool BaseBox::_on_expose_event(GdkEventExpose* event)
 
     get_style()->paint_shadow(get_window(), get_state(), Gtk::SHADOW_IN,
         Gdk::Rectangle(x, y, width, height),
-        *this, Glib::ustring::ustring("viewport"), x, y, width, height);
+        *this, Glib::ustring("viewport"), x, y, width, height);
 
     return false;
 }
