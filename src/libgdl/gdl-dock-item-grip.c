@@ -127,12 +127,11 @@ gdl_dock_item_grip_expose (GtkWidget      *widget,
     GdlDockItemGrip *grip;
     GdkRectangle     title_area;
     GdkRectangle     expose_area;
-    GtkStyle        *bg_style;
+    GdkGC           *bg_style;
     gint             layout_width;
     gint             layout_height;
     gint             text_x;
     gint             text_y;
-    gboolean         item_or_child_has_focus;
 
     grip = GDL_DOCK_ITEM_GRIP (widget);
     gdl_dock_item_grip_get_title_area (grip, &title_area);
@@ -142,6 +141,7 @@ gdl_dock_item_grip_expose (GtkWidget      *widget,
     bg_style = (gdl_dock_item_or_child_has_focus (grip->item) ?
                 gtk_widget_get_style (widget)->dark_gc[widget->state] :
                 gtk_widget_get_style (widget)->mid_gc[widget->state]);
+
 
     gdk_draw_rectangle (GDK_DRAWABLE (widget->window), bg_style, TRUE,
                         1, 0, widget->allocation.width - 1, widget->allocation.height);
