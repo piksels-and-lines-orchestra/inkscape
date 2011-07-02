@@ -671,6 +671,7 @@ void ImportDialog::on_list_results_cursor_changed()
 
     if (downloading_thumbnail) {
         cancellable_thumbnail->cancel();
+        cancelled_thumbnail = true;
     }
 
     update_preview(row);
@@ -791,6 +792,19 @@ void ImportDialog::on_resource_downloaded(const Glib::RefPtr<Gio::AsyncResult>& 
 
 void ImportDialog::on_image_downloaded(Glib::ustring path, bool success)
 {
+    button_import->set_sensitive(true);
+    button_close->show();
+    button_cancel->hide();
+    
+    // If anything went wrong, show an error message if the user didn't do it
+    if (!success && !cancelled_image) {
+        widget_status->set_error(_("Could not download image"));
+    }
+    if (!success) {
+        widget_status->clear();
+        return;
+    }
+    
     try {
         widget_status->clear();
         m_signal_response.emit(path);
@@ -798,32 +812,32 @@ void ImportDialog::on_image_downloaded(Glib::ustring path, bool success)
     } catch(Glib::Error) {
         success = false;
     }
-
-    // If anything went wrong, show an error message if the user didn't do it
-    if (!success && !cancellable_image->is_cancelled()) {
-        widget_status->set_error(_("Could not download image"));
-    }
-
-    button_import->set_sensitive(true);
-    button_close->show();
-    button_cancel->hide();
+    
+    cancelled_image = false;
 }
 
 void ImportDialog::on_thumbnail_downloaded(Glib::ustring path, bool success)
 {
+    downloading_thumbnail = false;
+    
+    // If anything went wrong, show an error message if the user didn't do it
+    if (!success && !cancelled_thumbnail) {
+        widget_status->set_error(_("Could not download thumbnail file"));
+        return;
+    }
+    if (!success) {
+        widget_status->clear();
+        return;
+    }
+
     try {
         widget_status->clear();
         preview_files->set_image(path);
     } catch(Glib::Error) {
         success = false;
     }
-
-    // If anything went wrong, show an error message if the user didn't do it
-    if (!success && !cancellable_image->is_cancelled()) {
-        widget_status->set_error(_("Could not download thumbnail file"));
-    }
-
-    downloading_thumbnail = false;
+    
+    cancelled_thumbnail = false;
 }
 
 /*
@@ -941,6 +955,7 @@ void ImportDialog::on_button_close_clicked()
 void ImportDialog::on_button_cancel_clicked()
 {
     cancellable_image->cancel();
+    cancelled_image = true;
 }
 
 /**
@@ -1083,6 +1098,8 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
     widget_status = new StatusWidget();
 
     downloading_thumbnail = false;
+    cancelled_thumbnail = false;
+    cancelled_image = false;
     
     // Packing
     add(*vbox);
