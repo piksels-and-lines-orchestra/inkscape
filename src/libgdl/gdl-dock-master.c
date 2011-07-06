@@ -262,6 +262,7 @@ ht_foreach_build_slist (gpointer  key,
                         gpointer  value,
                         GSList  **slist)
 {
+    (void)key;
     *slist = g_slist_prepend (*slist, value);
 }
 
@@ -718,7 +719,11 @@ item_dock_cb (GdlDockObject    *object,
               gpointer          user_data)
 {
     GdlDockMaster *master = user_data;
-    
+
+    (void)object;
+    (void)position;
+    (void)other_data;
+
     g_return_if_fail (requestor && GDL_IS_DOCK_OBJECT (requestor));
     g_return_if_fail (master && GDL_IS_DOCK_MASTER (master));
 
@@ -740,6 +745,8 @@ item_detach_cb (GdlDockObject *object,
 {
     GdlDockMaster *master = user_data;
     
+    (void)recursive;
+
     g_return_if_fail (object && GDL_IS_DOCK_OBJECT (object));
     g_return_if_fail (master && GDL_IS_DOCK_MASTER (master));
 
@@ -760,6 +767,8 @@ item_notify_cb (GdlDockObject *object,
     gint locked = COMPUTE_LOCKED (master);
     gboolean item_locked;
     
+    (void)pspec;
+
     g_object_get (object, "locked", &item_locked, NULL);
 
     if (item_locked) {
@@ -798,8 +807,7 @@ gdl_dock_master_add (GdlDockMaster *master,
                        master, object, object->name, found_object);
         }
         else {
-            g_object_ref (object);
-            gtk_object_sink (GTK_OBJECT (object));
+            g_object_ref_sink (object);
             g_hash_table_insert (master->dock_objects, g_strdup (object->name), object);
         }
     }

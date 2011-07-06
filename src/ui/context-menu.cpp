@@ -110,34 +110,34 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 
     /* Item dialog */
     w = gtk_menu_item_new_with_mnemonic(_("_Object Properties..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_item_properties), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Separator */
     w = gtk_menu_item_new();
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Select item */
     w = gtk_menu_item_new_with_mnemonic(_("_Select This"));
     if (sp_desktop_selection(desktop)->includes(item)) {
         gtk_widget_set_sensitive(w, FALSE);
     } else {
-        gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+        g_object_set_data(G_OBJECT(w), "desktop", desktop);
         g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_item_select_this), item);
     }
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Create link */
     w = gtk_menu_item_new_with_mnemonic(_("_Create Link"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_item_create_link), item);
     gtk_widget_set_sensitive(w, !SP_IS_ANCHOR(item));
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Set mask */
     w = gtk_menu_item_new_with_mnemonic(_("Set Mask"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_set_mask), item);
     if ((item && item->mask_ref && item->mask_ref->getObject()) || (item->clip_ref && item->clip_ref->getObject())) {
         gtk_widget_set_sensitive(w, FALSE);
@@ -145,10 +145,10 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
         gtk_widget_set_sensitive(w, TRUE);
     }
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Release mask */
     w = gtk_menu_item_new_with_mnemonic(_("Release Mask"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_release_mask), item);
     if (item && item->mask_ref && item->mask_ref->getObject()) {
         gtk_widget_set_sensitive(w, TRUE);
@@ -156,10 +156,10 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
         gtk_widget_set_sensitive(w, FALSE);
     }
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Set Clip */
     w = gtk_menu_item_new_with_mnemonic(_("Set _Clip"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_set_clip), item);
     if ((item && item->mask_ref && item->mask_ref->getObject()) || (item->clip_ref && item->clip_ref->getObject())) {
         gtk_widget_set_sensitive(w, FALSE);
@@ -167,10 +167,10 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
         gtk_widget_set_sensitive(w, TRUE);
     }
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Release Clip */
     w = gtk_menu_item_new_with_mnemonic(_("Release C_lip"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_release_clip), item);
     if (item && item->clip_ref && item->clip_ref->getObject()) {
         gtk_widget_set_sensitive(w, TRUE);
@@ -178,7 +178,7 @@ sp_item_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
         gtk_widget_set_sensitive(w, FALSE);
     }
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
 
 }
 
@@ -189,7 +189,7 @@ sp_item_properties(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     sp_desktop_selection(desktop)->set(item);
@@ -205,7 +205,7 @@ sp_set_mask(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
 	sp_selection_set_mask(desktop, false, false);
@@ -219,7 +219,7 @@ sp_release_mask(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     sp_selection_unset_mask(desktop, false);
@@ -233,7 +233,7 @@ sp_set_clip(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
 	sp_selection_set_mask(desktop, true, false);
@@ -247,7 +247,7 @@ sp_release_clip(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     sp_selection_unset_mask(desktop, true);
@@ -261,7 +261,7 @@ sp_item_select_this(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     sp_desktop_selection(desktop)->set(item);
@@ -273,7 +273,7 @@ sp_item_create_link(GtkMenuItem *menuitem, SPItem *item)
     g_assert(SP_IS_ITEM(item));
     g_assert(!SP_IS_ANCHOR(item));
 
-    SPDesktop *desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    SPDesktop *desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     Inkscape::XML::Document *xml_doc = desktop->doc()->getReprDoc();
@@ -311,10 +311,10 @@ sp_group_menu(SPObject *object, SPDesktop *desktop, GtkMenu *menu)
 
     /* "Ungroup" */
     w = gtk_menu_item_new_with_mnemonic(_("_Ungroup"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_item_group_ungroup_activate), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(menu), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), w);
 }
 
 static void
@@ -325,7 +325,7 @@ sp_item_group_ungroup_activate(GtkMenuItem *menuitem, SPGroup *group)
 
     g_assert(SP_IS_GROUP(group));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     children = NULL;
@@ -351,21 +351,21 @@ sp_anchor_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 
     /* Link dialog */
     w = gtk_menu_item_new_with_mnemonic(_("Link _Properties..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_anchor_link_properties), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Select item */
     w = gtk_menu_item_new_with_mnemonic(_("_Follow Link"));
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_anchor_link_follow), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     /* Reset transformations */
     w = gtk_menu_item_new_with_mnemonic(_("_Remove Link"));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_anchor_link_remove), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
 }
 
 static void
@@ -410,16 +410,16 @@ sp_image_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 
     /* Link dialog */
     w = gtk_menu_item_new_with_mnemonic(_("Image _Properties..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_image_image_properties), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
 
     w = gtk_menu_item_new_with_mnemonic(_("Edit Externally..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_image_image_edit), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     Inkscape::XML::Node *ir = object->getRepr();
     const gchar *href = ir->attribute("xlink:href");
     if ( (!href) || ((strncmp(href, "data:", 5) == 0)) ) {
@@ -495,7 +495,7 @@ static void sp_image_image_edit(GtkMenuItem *menuitem, SPAnchor *anchor)
  
     if ( errThing ) {
         g_warning("Problem launching editor (%d). %s", errThing->code, errThing->message);
-        SPDesktop *desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+        SPDesktop *desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
         desktop->messageStack()->flash(Inkscape::ERROR_MESSAGE, errThing->message);
         g_error_free(errThing);
         errThing = 0;
@@ -511,7 +511,7 @@ sp_fill_settings(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     if (sp_desktop_selection(desktop)->isEmpty()) {
@@ -533,10 +533,10 @@ sp_shape_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 
     /* Item dialog */
     w = gtk_menu_item_new_with_mnemonic(_("_Fill and Stroke..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_fill_settings), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
 }
 
 /* Edit Text entry */
@@ -548,7 +548,7 @@ sp_text_settings(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     if (sp_desktop_selection(desktop)->isEmpty()) {
@@ -567,7 +567,7 @@ sp_spellcheck_settings(GtkMenuItem *menuitem, SPItem *item)
 
     g_assert(SP_IS_ITEM(item));
 
-    desktop = (SPDesktop*)gtk_object_get_data(GTK_OBJECT(menuitem), "desktop");
+    desktop = (SPDesktop*)g_object_get_data(G_OBJECT(menuitem), "desktop");
     g_return_if_fail(desktop != NULL);
 
     if (sp_desktop_selection(desktop)->isEmpty()) {
@@ -589,24 +589,24 @@ sp_text_menu(SPObject *object, SPDesktop *desktop, GtkMenu *m)
 
     /* Fill and Stroke dialog */
     w = gtk_menu_item_new_with_mnemonic(_("_Fill and Stroke..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_fill_settings), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
     
     /* Edit Text dialog */
     w = gtk_menu_item_new_with_mnemonic(_("_Text and Font..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_text_settings), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
 
     /* Spellcheck dialog */
     w = gtk_menu_item_new_with_mnemonic(_("Check Spellin_g..."));
-    gtk_object_set_data(GTK_OBJECT(w), "desktop", desktop);
+    g_object_set_data(G_OBJECT(w), "desktop", desktop);
     g_signal_connect(G_OBJECT(w), "activate", G_CALLBACK(sp_spellcheck_settings), item);
     gtk_widget_show(w);
-    gtk_menu_append(GTK_MENU(m), w);
+    gtk_menu_shell_append(GTK_MENU_SHELL(m), w);
 }
 /*
   Local Variables:

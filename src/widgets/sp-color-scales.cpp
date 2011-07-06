@@ -166,7 +166,7 @@ void ColorScales::init()
 		gtk_table_attach (GTK_TABLE (t), _b[i], 2, 3, i, i + 1, (GtkAttachOptions)0, (GtkAttachOptions)0, XPAD, YPAD);
 
 		/* Attach channel value to adjustment */
-		gtk_object_set_data (GTK_OBJECT (_a[i]), "channel", GINT_TO_POINTER (i));
+		g_object_set_data (G_OBJECT (_a[i]), "channel", GINT_TO_POINTER (i));
 		/* Signals */
 		g_signal_connect (G_OBJECT (_a[i]), "value_changed",
 					G_CALLBACK (_adjustmentAnyChanged), _csel);
@@ -206,7 +206,7 @@ sp_color_scales_new (void)
 {
 	SPColorScales *csel;
 
-	csel = (SPColorScales*)gtk_type_new (SP_TYPE_COLOR_SCALES);
+	csel = (SPColorScales*)g_object_new (SP_TYPE_COLOR_SCALES, NULL);
 
 	return GTK_WIDGET (csel);
 }
@@ -538,7 +538,7 @@ guint ColorScales::getSubmode() const
 
 void ColorScales::_adjustmentAnyChanged( GtkAdjustment *adjustment, SPColorScales *cs )
 {
-	gint channel = GPOINTER_TO_INT (gtk_object_get_data (GTK_OBJECT (adjustment), "channel"));
+	gint channel = GPOINTER_TO_INT (g_object_get_data(G_OBJECT (adjustment), "channel"));
 
 	_adjustmentChanged(cs, channel);
 }

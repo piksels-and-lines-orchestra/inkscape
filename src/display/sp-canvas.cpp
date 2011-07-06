@@ -169,7 +169,7 @@ sp_canvas_item_init (SPCanvasItem *item)
  * Constructs new SPCanvasItem on SPCanvasGroup.
  */
 SPCanvasItem *
-sp_canvas_item_new (SPCanvasGroup *parent, GtkType type, gchar const *first_arg_name, ...)
+sp_canvas_item_new (SPCanvasGroup *parent, GType type, gchar const *first_arg_name, ...)
 {
     va_list args;
 
@@ -177,7 +177,7 @@ sp_canvas_item_new (SPCanvasGroup *parent, GtkType type, gchar const *first_arg_
     g_return_val_if_fail (SP_IS_CANVAS_GROUP (parent), NULL);
     g_return_val_if_fail (gtk_type_is_a (type, sp_canvas_item_get_type ()), NULL);
 
-    SPCanvasItem *item = SP_CANVAS_ITEM (gtk_type_new (type));
+    SPCanvasItem *item = SP_CANVAS_ITEM (g_object_new (type, NULL));
 
     va_start (args, first_arg_name);
     sp_canvas_item_construct (item, parent, first_arg_name, args);
@@ -727,7 +727,7 @@ sp_canvas_group_class_init (SPCanvasGroupClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     SPCanvasItemClass *item_class = (SPCanvasItemClass *) klass;
 
-    group_parent_class = (SPCanvasItemClass*)gtk_type_class (sp_canvas_item_get_type ());
+    group_parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_canvas_group_destroy;
 
@@ -884,7 +884,7 @@ static void
 group_add (SPCanvasGroup *group, SPCanvasItem *item)
 {
     gtk_object_ref (GTK_OBJECT (item));
-    gtk_object_sink (GTK_OBJECT (item));
+    g_object_ref_sink (item);
 
     if (!group->items) {
         group->items = g_list_append (group->items, item);
@@ -989,7 +989,7 @@ sp_canvas_class_init (SPCanvasClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     GtkWidgetClass *widget_class = (GtkWidgetClass *) klass;
 
-    canvas_parent_class = (GtkWidgetClass *)gtk_type_class (GTK_TYPE_WIDGET);
+    canvas_parent_class = (GtkWidgetClass *)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_canvas_destroy;
 
@@ -1025,11 +1025,11 @@ sp_canvas_init (SPCanvas *canvas)
     canvas->pick_event.crossing.y = 0;
 
     /* Create the root item as a special case */
-    canvas->root = SP_CANVAS_ITEM (gtk_type_new (sp_canvas_group_get_type ()));
+    canvas->root = SP_CANVAS_ITEM (g_object_new (sp_canvas_group_get_type (), NULL));
     canvas->root->canvas = canvas;
 
     gtk_object_ref (GTK_OBJECT (canvas->root));
-    gtk_object_sink (GTK_OBJECT (canvas->root));
+    g_object_ref_sink (canvas->root);
 
     canvas->need_repick = TRUE;
 
@@ -1125,7 +1125,7 @@ static void track_latency(GdkEvent const *event) {
 GtkWidget *
 sp_canvas_new_aa (void)
 {
-    SPCanvas *canvas = (SPCanvas *)gtk_type_new (sp_canvas_get_type ());
+    SPCanvas *canvas = (SPCanvas *)g_object_new (sp_canvas_get_type (), NULL);
 
     return (GtkWidget *) canvas;
 }
@@ -1464,9 +1464,6 @@ pick_current_item (SPCanvas *canvas, GdkEvent *event)
         && (canvas->current_item != NULL)
         && !canvas->left_grabbed_item) {
         GdkEvent new_event;
-        SPCanvasItem *item;
-
-        item = canvas->current_item;
 
         new_event = canvas->pick_event;
         new_event.type = GDK_LEAVE_NOTIFY;

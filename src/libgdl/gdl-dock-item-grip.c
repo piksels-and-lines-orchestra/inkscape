@@ -127,12 +127,11 @@ gdl_dock_item_grip_expose (GtkWidget      *widget,
     GdlDockItemGrip *grip;
     GdkRectangle     title_area;
     GdkRectangle     expose_area;
-    GtkStyle        *bg_style;
+    GdkGC           *bg_style;
     gint             layout_width;
     gint             layout_height;
     gint             text_x;
     gint             text_y;
-    gboolean         item_or_child_has_focus;
 
     grip = GDL_DOCK_ITEM_GRIP (widget);
     gdl_dock_item_grip_get_title_area (grip, &title_area);
@@ -142,6 +141,7 @@ gdl_dock_item_grip_expose (GtkWidget      *widget,
     bg_style = (gdl_dock_item_or_child_has_focus (grip->item) ?
                 gtk_widget_get_style (widget)->dark_gc[widget->state] :
                 gtk_widget_get_style (widget)->mid_gc[widget->state]);
+
 
     gdk_draw_rectangle (GDK_DRAWABLE (widget->window), bg_style, TRUE,
                         1, 0, widget->allocation.width - 1, widget->allocation.height);
@@ -201,6 +201,7 @@ gdl_dock_item_grip_item_notify (GObject    *master,
 {
     GdlDockItemGrip *grip;
     gboolean cursor;
+    (void)master;
     
     grip = GDL_DOCK_ITEM_GRIP (data);
 
@@ -318,6 +319,7 @@ static void
 gdl_dock_item_grip_close_clicked (GtkWidget       *widget,
                                   GdlDockItemGrip *grip)
 {
+    (void)widget;
     g_return_if_fail (grip->item != NULL);
 
     gdl_dock_item_hide_item (grip->item);
@@ -327,6 +329,7 @@ static void
 gdl_dock_item_grip_iconify_clicked (GtkWidget       *widget,
                                     GdlDockItemGrip *grip)
 {
+    (void)widget;
     g_return_if_fail (grip->item != NULL);
 
     gdl_dock_item_iconify_item (grip->item);
@@ -556,8 +559,9 @@ gdl_dock_item_grip_size_allocate (GtkWidget     *widget,
 {
     GdlDockItemGrip *grip;
     GtkContainer    *container;
-    GtkRequisition   button_requisition = { 0, };
+    GtkRequisition   button_requisition;
     GtkAllocation    child_allocation;
+    memset(&button_requisition, 0, sizeof(button_requisition));
 
     g_return_if_fail (GDL_IS_DOCK_ITEM_GRIP (widget));
     g_return_if_fail (allocation != NULL);
@@ -625,6 +629,8 @@ static void
 gdl_dock_item_grip_add (GtkContainer *container,
                         GtkWidget    *widget)
 {
+    (void)container;
+    (void)widget;
     g_warning ("gtk_container_add not implemented for GdlDockItemGrip");
 }
 
@@ -632,6 +638,8 @@ static void
 gdl_dock_item_grip_remove (GtkContainer *container,
                            GtkWidget    *widget)
 {
+    (void)container;
+    (void)widget;
     g_warning ("gtk_container_remove not implemented for GdlDockItemGrip");
 }
 
@@ -653,9 +661,10 @@ gdl_dock_item_grip_forall (GtkContainer *container,
     }
 }
 
-static GtkType
+static GType
 gdl_dock_item_grip_child_type (GtkContainer *container)
 {
+    (void)container;
     return G_TYPE_NONE;
 }
 

@@ -79,11 +79,10 @@ static void  gdl_dock_item_forall        (GtkContainer *container,
                                           gboolean      include_internals,
                                           GtkCallback   callback,
                                           gpointer      callback_data);
-static GtkType gdl_dock_item_child_type  (GtkContainer *container);
+static GType gdl_dock_item_child_type  (GtkContainer *container);
 
 static void  gdl_dock_item_set_focus_child (GtkContainer *container,
-                                            GtkWidget    *widget,
-                                            gpointer      callback_data);
+                                            GtkWidget    *widget);
 
 static void  gdl_dock_item_size_request  (GtkWidget *widget,
                                           GtkRequisition *requisition);
@@ -684,7 +683,7 @@ gdl_dock_item_forall (GtkContainer *container,
         (* callback) (item->child, callback_data);
 }
 
-static GtkType
+static GType
 gdl_dock_item_child_type (GtkContainer *container)
 {
     g_return_val_if_fail (GDL_IS_DOCK_ITEM (container), G_TYPE_NONE);
@@ -697,13 +696,13 @@ gdl_dock_item_child_type (GtkContainer *container)
 
 static void
 gdl_dock_item_set_focus_child (GtkContainer *container,
-                               GtkWidget    *child,
-                               gpointer      callback_data)
+                               GtkWidget    *child)
 {
     g_return_if_fail (GDL_IS_DOCK_ITEM (container));
     
-    if (GTK_CONTAINER_CLASS (parent_class)->set_focus_child)
+    if (GTK_CONTAINER_CLASS (parent_class)->set_focus_child) {
         (* GTK_CONTAINER_CLASS (parent_class)->set_focus_child) (container, child);
+    }
 
     gdl_dock_item_showhide_grip (GDL_DOCK_ITEM (container));
 }
@@ -920,6 +919,8 @@ static void
 gdl_dock_item_style_set (GtkWidget *widget,
                          GtkStyle  *previous_style)
 {
+    (void)previous_style;
+
     g_return_if_fail (widget != NULL);
     g_return_if_fail (GDL_IS_DOCK_ITEM (widget));
 
@@ -935,10 +936,6 @@ static void
 gdl_dock_item_paint (GtkWidget      *widget,
                      GdkEventExpose *event)
 {
-    GdlDockItem  *item;
-
-    item = GDL_DOCK_ITEM (widget);
-
     gtk_paint_box (widget->style,
                    widget->window,
                    gtk_widget_get_state (widget),
@@ -1454,9 +1451,10 @@ static void
 gdl_dock_item_detach_menu (GtkWidget *widget,
                            GtkMenu   *menu)
 {
-    GdlDockItem *item;
-   
-    item = GDL_DOCK_ITEM (widget);
+    GdlDockItem *item = GDL_DOCK_ITEM(widget);
+
+    (void)menu;
+
     item->_priv->menu = NULL;
 }
 
@@ -1539,12 +1537,13 @@ gdl_dock_item_tab_button (GtkWidget      *widget,
                           GdkEventButton *event,
                           gpointer        data)
 {
-    GdlDockItem *item;
+    GdlDockItem *item = GDL_DOCK_ITEM(data);
 
-    item = GDL_DOCK_ITEM (data);
+    (void)widget;
 
-    if (!GDL_DOCK_ITEM_NOT_LOCKED (item))
+    if (!GDL_DOCK_ITEM_NOT_LOCKED (item)) {
         return;
+    }
 
     switch (event->button) {
     case 1:
@@ -1576,11 +1575,10 @@ static void
 gdl_dock_item_hide_cb (GtkWidget   *widget, 
                        GdlDockItem *item)
 {
-    GdlDockMaster *master;
-    
+    (void)widget;
+
     g_return_if_fail (item != NULL);
 
-    master = GDL_DOCK_OBJECT_GET_MASTER (item);
     gdl_dock_item_hide_item (item);
 }
 
@@ -1590,6 +1588,8 @@ gdl_dock_item_lock_cb (GtkWidget   *widget,
 {
     g_return_if_fail (item != NULL);
 
+    (void)widget;
+
     gdl_dock_item_lock (item);
 }
 
@@ -1598,6 +1598,8 @@ gdl_dock_item_unlock_cb (GtkWidget   *widget,
                        GdlDockItem *item)
 {
     g_return_if_fail (item != NULL);
+
+    (void)widget;
 
     gdl_dock_item_unlock (item);
 }
@@ -1705,6 +1707,8 @@ gdl_dock_item_dock_to (GdlDockItem      *item,
                        GdlDockPlacement  position,
                        gint              docking_param)
 {
+    (void)docking_param;
+
     g_return_if_fail (item != NULL);
     g_return_if_fail (item != target);
     g_return_if_fail (target != NULL || position == GDL_DOCK_FLOATING);
@@ -1782,13 +1786,12 @@ gdl_dock_item_set_tablabel (GdlDockItem *item,
                                                   NULL, item);
             g_object_set (item->_priv->tab_label, "item", NULL, NULL);
         }
-        gtk_widget_unref (item->_priv->tab_label);
+        g_object_unref (item->_priv->tab_label);
         item->_priv->tab_label = NULL;
     }
     
     if (tablabel) {
-        gtk_widget_ref (tablabel);
-        gtk_object_sink (GTK_OBJECT (tablabel));
+        g_object_ref_sink (G_OBJECT (tablabel));
         item->_priv->tab_label = tablabel;
         if (GDL_IS_DOCK_TABLABEL (tablabel)) {
             g_object_set (tablabel, "item", item, NULL);
@@ -1883,8 +1886,7 @@ gdl_dock_item_hide_item (GdlDockItem *item)
                           "floatx", x,
                           "floaty", y,
                           NULL));
-        g_object_ref (item->_priv->ph);
-        gtk_object_sink (GTK_OBJECT (item->_priv->ph));
+        g_object_ref_sink (item->_priv->ph);
     }
     
     gdl_dock_object_freeze (GDL_DOCK_OBJECT (item));
@@ -1988,8 +1990,7 @@ gdl_dock_item_set_default_position (GdlDockItem   *item,
 
     if (reference && GDL_DOCK_OBJECT_ATTACHED (reference)) {
         if (GDL_IS_DOCK_PLACEHOLDER (reference)) {
-            g_object_ref (reference);
-            gtk_object_sink (GTK_OBJECT (reference));
+            g_object_ref_sink (reference);
             item->_priv->ph = GDL_DOCK_PLACEHOLDER (reference);
         } else {
             item->_priv->ph = GDL_DOCK_PLACEHOLDER (
@@ -1997,8 +1998,7 @@ gdl_dock_item_set_default_position (GdlDockItem   *item,
                               "sticky", TRUE,
                               "host", reference,
                               NULL));
-            g_object_ref (item->_priv->ph);
-            gtk_object_sink (GTK_OBJECT (item->_priv->ph));
+            g_object_ref_sink (item->_priv->ph);
         }
     }
 }

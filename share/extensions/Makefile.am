@@ -4,6 +4,7 @@ SUBDIRS = \
 	Barcode \
 	Poly3DObjects \
 	test \
+  ink2canvas \
 	xaml2svg
 
 extensiondir = $(datadir)/inkscape/extensions
@@ -73,6 +74,7 @@ extensions = \
 	handles.py \
 	hpgl_output.py \
 	ill2svg.pl \
+  ink2canvas.py \
 	inkex.py \
 	Inkscape.pm \
 	inkwebeffect.py \
@@ -231,14 +233,16 @@ modules = \
 	fractalize.inx \
 	funcplot.inx \
 	gears.inx\
-    gcodetools_all_in_one.inx\
+    gcodetools_about.inx\
     gcodetools_area.inx\
     gcodetools_check_for_updates.inx\
     gcodetools_dxf_points.inx\
     gcodetools_engraving.inx\
+    gcodetools_graffiti.inx\
     gcodetools_lathe.inx\
     gcodetools_orientation_points.inx\
     gcodetools_path_to_gcode.inx\
+    gcodetools_prepare_path_for_plasma.inx\
     gcodetools_tools_library.inx\
 	generate_voronoi.inx \
 	gimp_xcf.inx \
@@ -249,6 +253,7 @@ modules = \
 	guillotine.inx \
 	handles.inx \
 	hpgl_output.inx \
+  ink2canvas.inx \
 	inkscape_help_askaquestion.inx \
 	inkscape_help_commandline.inx \
 	inkscape_help_faq.inx\

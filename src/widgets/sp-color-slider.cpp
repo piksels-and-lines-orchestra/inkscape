@@ -54,24 +54,22 @@ static const guchar *sp_color_slider_render_map (gint x0, gint y0, gint width, g
 static GtkWidgetClass *parent_class;
 static guint slider_signals[LAST_SIGNAL] = {0};
 
-GtkType
+GType
 sp_color_slider_get_type (void)
 {
-    //TODO: switch to GObject
-    // GtkType and such calls were deprecated a while back with the
-    // introduction of GObject as a separate layer, with GType instead. --JonCruz
-
-	static GtkType type = 0;
+	static GType type = 0;
 	if (!type) {
-		GtkTypeInfo info = {
-			(gchar*) "SPColorSlider",
-			sizeof (SPColorSlider),
+		GTypeInfo info = {
 			sizeof (SPColorSliderClass),
-			(GtkClassInitFunc) sp_color_slider_class_init,
-			(GtkObjectInitFunc) sp_color_slider_init,
-			NULL, NULL, NULL
+			NULL, NULL,
+			(GClassInitFunc) sp_color_slider_class_init,
+			NULL, NULL,
+			sizeof (SPColorSlider),
+			0,
+			(GInstanceInitFunc) sp_color_slider_init,
+			NULL
 		};
-		type = gtk_type_unique (GTK_TYPE_WIDGET, &info);
+		type = g_type_register_static (GTK_TYPE_WIDGET, "SPColorSlider", &info, (GTypeFlags)0);
 	}
 	return type;
 }
@@ -85,7 +83,7 @@ sp_color_slider_class_init (SPColorSliderClass *klass)
 	object_class = (GtkObjectClass *) klass;
 	widget_class = (GtkWidgetClass *) klass;
 
-	parent_class = (GtkWidgetClass*)gtk_type_class (GTK_TYPE_WIDGET);
+	parent_class = (GtkWidgetClass*)g_type_class_peek_parent (klass);
 
 	slider_signals[GRABBED] = g_signal_new ("grabbed",
 						  G_TYPE_FROM_CLASS(object_class),
@@ -184,11 +182,8 @@ sp_color_slider_destroy (GtkObject *object)
 static void
 sp_color_slider_realize (GtkWidget *widget)
 {
-	SPColorSlider *slider;
 	GdkWindowAttr attributes;
 	gint attributes_mask;
-
-	slider = SP_COLOR_SLIDER (widget);
 
 	gtk_widget_set_realized (widget, TRUE);
 
@@ -218,10 +213,6 @@ sp_color_slider_realize (GtkWidget *widget)
 static void
 sp_color_slider_size_request (GtkWidget *widget, GtkRequisition *requisition)
 {
-	SPColorSlider *slider;
-
-	slider = SP_COLOR_SLIDER (widget);
-
 	requisition->width = SLIDER_WIDTH + widget->style->xthickness * 2;
 	requisition->height = SLIDER_HEIGHT + widget->style->ythickness * 2;
 }
@@ -229,10 +220,6 @@ sp_color_slider_size_request (GtkWidget *widget, GtkRequisition *requisition)
 static void
 sp_color_slider_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 {
-	SPColorSlider *slider;
-
-	slider = SP_COLOR_SLIDER (widget);
-
 	widget->allocation = *allocation;
 
 	if (gtk_widget_get_realized (widget)) {
@@ -249,9 +236,6 @@ sp_color_slider_expose (GtkWidget *widget, GdkEventExpose *event)
 	slider = SP_COLOR_SLIDER (widget);
 
 	if (gtk_widget_is_drawable (widget)) {
-		gint width, height;
-		width = widget->allocation.width;
-		height = widget->allocation.height;
 		sp_color_slider_paint (slider, &event->area);
 	}
 
@@ -323,7 +307,7 @@ sp_color_slider_new (GtkAdjustment *adjustment)
 {
 	SPColorSlider *slider;
 
-	slider = (SPColorSlider*)gtk_type_new (SP_TYPE_COLOR_SLIDER);
+	slider = (SPColorSlider*)g_object_new (SP_TYPE_COLOR_SLIDER, NULL);
 
 	sp_color_slider_set_adjustment (slider, adjustment);
 
@@ -350,7 +334,7 @@ void sp_color_slider_set_adjustment(SPColorSlider *slider, GtkAdjustment *adjust
 
 		slider->adjustment = adjustment;
 		gtk_object_ref (GTK_OBJECT (adjustment));
-		gtk_object_sink (GTK_OBJECT (adjustment));
+		g_object_ref_sink (adjustment);
 
 		g_signal_connect (G_OBJECT (adjustment), "changed",
 				    G_CALLBACK (sp_color_slider_adjustment_changed), slider);

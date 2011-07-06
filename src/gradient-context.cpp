@@ -63,7 +63,7 @@ static void sp_gradient_drag(SPGradientContext &rc, Geom::Point const pt, guint 
 static SPEventContextClass *parent_class;
 
 
-GtkType sp_gradient_context_get_type()
+GType sp_gradient_context_get_type()
 {
     static GType type = 0;
     if (!type) {
@@ -557,10 +557,12 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                 if (!(event->button.state & GDK_CONTROL_MASK))
                     event_context->item_to_select = sp_event_context_find_item (desktop, button_w, event->button.state & GDK_MOD1_MASK, TRUE);
 
-                SnapManager &m = desktop->namedview->snap_manager;
-                m.setup(desktop);
-                m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
-                m.unSetup();
+                if (!selection->isEmpty()) {
+                    SnapManager &m = desktop->namedview->snap_manager;
+                    m.setup(desktop);
+                    m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
+                    m.unSetup();
+                }
                 rc->origin = button_dt;
             }
 
@@ -595,14 +597,14 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 
             ret = TRUE;
         } else {
-            if (!drag->mouseOver()) {
+            if (!drag->mouseOver() && !selection->isEmpty()) {
                 SnapManager &m = desktop->namedview->snap_manager;
                 m.setup(desktop);
 
                 Geom::Point const motion_w(event->motion.x, event->motion.y);
                 Geom::Point const motion_dt = event_context->desktop->w2d(motion_w);
 
-                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_OTHER_HANDLE));
                 m.unSetup();
             }
 

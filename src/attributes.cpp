@@ -94,6 +94,7 @@ static SPStyleProp const props[] = {
     {SP_ATTR_INKSCAPE_SNAP_GLOBAL, "inkscape:snap-global"},
     {SP_ATTR_INKSCAPE_SNAP_BBOX, "inkscape:snap-bbox"},
     {SP_ATTR_INKSCAPE_SNAP_NODES, "inkscape:snap-nodes"},
+    {SP_ATTR_INKSCAPE_SNAP_OTHERS, "inkscape:snap-others"},
     {SP_ATTR_INKSCAPE_SNAP_FROM_GUIDE, "inkscape:snap-from-guide"},
     {SP_ATTR_INKSCAPE_SNAP_CENTER, "inkscape:snap-center"},
     {SP_ATTR_INKSCAPE_SNAP_GRIDS, "inkscape:snap-grids"},
@@ -101,6 +102,7 @@ static SPStyleProp const props[] = {
     {SP_ATTR_INKSCAPE_SNAP_SMOOTH_NODES, "inkscape:snap-smooth-nodes"},
     {SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINTS, "inkscape:snap-midpoints"},
     {SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINTS, "inkscape:snap-object-midpoints"},
+    {SP_ATTR_INKSCAPE_SNAP_TEXT_BASELINE, "inkscape:snap-text-baseline"},
     {SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINTS, "inkscape:snap-bbox-edge-midpoints"},
     {SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINTS, "inkscape:snap-bbox-midpoints"},
     {SP_ATTR_INKSCAPE_SNAP_INTERS_PATHS, "inkscape:snap-intersection-paths"},
@@ -495,6 +497,7 @@ sp_attribute_lookup(gchar const *key)
         propdict = g_hash_table_new(g_str_hash, g_str_equal);
         for (i = 1; i < n_attrs; i++) {
             g_assert(props[i].code == static_cast< gint >(i) );
+            // If this g_assert fails, then the sort order of SPAttributeEnum does not match the order in props[]!
             g_hash_table_insert(propdict,
                                 const_cast<void *>(static_cast<void const *>(props[i].name)),
                                 GINT_TO_POINTER(props[i].code));

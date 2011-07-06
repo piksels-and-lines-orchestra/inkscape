@@ -63,15 +63,11 @@ GType sp_svg_view_widget_get_type(void)
 static void
 sp_svg_view_widget_class_init (SPSVGSPViewWidgetClass *klass)
 {
-	GtkObjectClass *object_class;
-	GtkWidgetClass *widget_class;
-	SPViewWidgetClass *vw_class;
+	GtkObjectClass *object_class = GTK_OBJECT_CLASS (klass);
+	GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+	SPViewWidgetClass *vw_class = SP_VIEW_WIDGET_CLASS (klass);
 
-	object_class = GTK_OBJECT_CLASS (klass);
-	widget_class = GTK_WIDGET_CLASS (klass);
-	vw_class = SP_VIEW_WIDGET_CLASS (klass);
-
-	widget_parent_class = (SPViewWidgetClass*)gtk_type_class (SP_TYPE_VIEW_WIDGET);
+	widget_parent_class = (SPViewWidgetClass *)g_type_class_peek_parent (klass);
 
 	object_class->destroy = sp_svg_view_widget_destroy;
 
@@ -212,7 +208,7 @@ sp_svg_view_widget_new (SPDocument *doc)
 
 	g_return_val_if_fail (doc != NULL, NULL);
 
-	widget = (GtkWidget*)gtk_type_new (SP_TYPE_SVG_VIEW_WIDGET);
+	widget = (GtkWidget*)g_object_new (SP_TYPE_SVG_VIEW_WIDGET, NULL);
 
 	reinterpret_cast<SPSVGView*>(SP_VIEW_WIDGET_VIEW (widget))->setDocument (doc);
 

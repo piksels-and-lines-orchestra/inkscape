@@ -32,6 +32,7 @@ set(dom_SRC
 	util/thread.cpp
 	util/ziptool.cpp
 
+
 	# -------
 	# Headers
 	css.h
@@ -69,8 +70,6 @@ set(dom_SRC
 	io/bufferstream.h
 	io/domstream.h
 	io/gzipstream.h
-	io/httpclient.h
-	io/socket.h
 	io/stringstream.h
 	io/uristream.h
 

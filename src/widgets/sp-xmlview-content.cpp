@@ -46,7 +46,7 @@ sp_xmlview_content_new (Inkscape::XML::Node * repr)
     SPXMLViewContent *text;
 
     tb = gtk_text_buffer_new (NULL);
-    text = (SPXMLViewContent*)gtk_type_new (SP_TYPE_XMLVIEW_CONTENT);
+    text = (SPXMLViewContent*)g_object_new (SP_TYPE_XMLVIEW_CONTENT, NULL);
     gtk_text_view_set_buffer (GTK_TEXT_VIEW (text), tb);
     gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (text), GTK_WRAP_CHAR);
 
@@ -80,7 +80,7 @@ sp_xmlview_content_set_repr (SPXMLViewContent * text, Inkscape::XML::Node * repr
 
 GType sp_xmlview_content_get_type(void)
 {
-    static GtkType type = 0;
+    static GType type = 0;
 
     if (!type) {
         GTypeInfo info = {
@@ -108,7 +108,7 @@ sp_xmlview_content_class_init (SPXMLViewContentClass * klass)
 
     object_class = (GtkObjectClass *) klass;
 
-    parent_class = (GtkTextViewClass*)gtk_type_class (GTK_TYPE_TEXT_VIEW);
+    parent_class = (GtkTextViewClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_xmlview_content_destroy;
 }

@@ -458,6 +458,8 @@
     "snap-nodes"
 #define INKSCAPE_ICON_SNAP_NODES_CENTER \
     "snap-nodes-center"
+#define INKSCAPE_ICON_SNAP_OTHERS \
+    "snap-nodes-others"
 #define INKSCAPE_ICON_SNAP_NODES_CUSP \
     "snap-nodes-cusp"
 #define INKSCAPE_ICON_SNAP_NODES_INTERSECTION \
@@ -468,6 +470,8 @@
     "snap-nodes-path"
 #define INKSCAPE_ICON_SNAP_NODES_ROTATION_CENTER \
     "snap-nodes-rotation-center"
+#define INKSCAPE_ICON_SNAP_TEXT_BASELINE \
+    "snap-text-baseline"
 #define INKSCAPE_ICON_SNAP_NODES_SMOOTH \
     "snap-nodes-smooth"
 #define INKSCAPE_ICON_SNAP_PAGE \

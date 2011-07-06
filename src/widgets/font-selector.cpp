@@ -26,13 +26,6 @@
 #include <2geom/transforms.h>
 
 #include <gtk/gtk.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkclist.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkcombo.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtkdrawingarea.h>
 
 #include <glibmm/i18n.h>
 
@@ -128,7 +121,7 @@ static void sp_font_selector_class_init(SPFontSelectorClass *c)
 {
     GtkObjectClass *object_class = (GtkObjectClass *) c;
 
-    fs_parent_class = (GtkHBoxClass* )gtk_type_class(GTK_TYPE_HBOX);
+    fs_parent_class = (GtkHBoxClass* )g_type_class_peek_parent (c);
 
     fs_signals[FONT_SET] = gtk_signal_new ("font_set",
                                            GTK_RUN_FIRST,
@@ -391,7 +384,7 @@ static void sp_font_selector_emit_set (SPFontSelector *fsel)
 
 GtkWidget *sp_font_selector_new()
 {
-    SPFontSelector *fsel = (SPFontSelector*) gtk_type_new(SP_TYPE_FONT_SELECTOR);
+    SPFontSelector *fsel = (SPFontSelector*) g_object_new(SP_TYPE_FONT_SELECTOR, NULL);
 
     return (GtkWidget *) fsel;
 }

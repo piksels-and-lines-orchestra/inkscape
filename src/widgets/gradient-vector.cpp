@@ -102,7 +102,7 @@ static void sp_gradient_vector_selector_class_init(SPGradientVectorSelectorClass
 
     object_class = GTK_OBJECT_CLASS(klass);
 
-    parent_class = static_cast<GtkVBoxClass*>(gtk_type_class(GTK_TYPE_VBOX));
+    parent_class = static_cast<GtkVBoxClass*>(g_type_class_peek_parent(klass));
 
     signals[VECTOR_SET] = g_signal_new( "vector_set",
 		                        G_TYPE_FROM_CLASS(object_class),
@@ -165,7 +165,7 @@ GtkWidget *sp_gradient_vector_selector_new(SPDocument *doc, SPGradient *gr)
     g_return_val_if_fail(!gr || SP_IS_GRADIENT(gr), NULL);
     g_return_val_if_fail(!gr || (gr->document == doc), NULL);
 
-    gvs = static_cast<GtkWidget*>(gtk_type_new(SP_TYPE_GRADIENT_VECTOR_SELECTOR));
+    gvs = static_cast<GtkWidget*>(g_object_new(SP_TYPE_GRADIENT_VECTOR_SELECTOR, NULL));
 
     if (doc) {
         sp_gradient_vector_selector_set_gradient(SP_GRADIENT_VECTOR_SELECTOR(gvs), doc, gr);
@@ -274,19 +274,19 @@ static void sp_gvs_rebuild_gui_full(SPGradientVectorSelector *gvs)
         GtkWidget *i;
         i = gtk_menu_item_new_with_label(_("No document selected"));
         gtk_widget_show(i);
-        gtk_menu_append(GTK_MENU(m), i);
+        gtk_menu_shell_append(GTK_MENU_SHELL(m), i);
         gtk_widget_set_sensitive(gvs->menu, FALSE);
     } else if (!gl) {
         GtkWidget *i;
         i = gtk_menu_item_new_with_label(_("No gradients in document"));
         gtk_widget_show(i);
-        gtk_menu_append(GTK_MENU(m), i);
+        gtk_menu_shell_append(GTK_MENU_SHELL(m), i);
         gtk_widget_set_sensitive(gvs->menu, FALSE);
     } else if (!gvs->gr) {
         GtkWidget *i;
         i = gtk_menu_item_new_with_label(_("No gradient selected"));
         gtk_widget_show(i);
-        gtk_menu_append(GTK_MENU(m), i);
+        gtk_menu_shell_append(GTK_MENU_SHELL(m), i);
         gtk_widget_set_sensitive(gvs->menu, FALSE);
     } else {
         while (gl) {
@@ -320,7 +320,7 @@ static void sp_gvs_rebuild_gui_full(SPGradientVectorSelector *gvs)
 
             gtk_container_add(GTK_CONTAINER(i), w);
 
-            gtk_menu_append(GTK_MENU(m), i);
+            gtk_menu_shell_append(GTK_MENU_SHELL(m), i);
 
             if (gr == gvs->gr) {
                 pos = idx;
@@ -551,7 +551,7 @@ static void update_stop_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_
     if (!sl) {
         GtkWidget *i = gtk_menu_item_new_with_label(_("No stops in gradient"));
         gtk_widget_show(i);
-        gtk_menu_append(GTK_MENU(m), i);
+        gtk_menu_shell_append(GTK_MENU_SHELL(m), i);
         gtk_widget_set_sensitive(mnu, FALSE);
     } else {
 
@@ -562,10 +562,9 @@ static void update_stop_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_
                 gtk_widget_show(i);
                 g_object_set_data(G_OBJECT(i), "stop", stop);
                 GtkWidget *hb = gtk_hbox_new(FALSE, 4);
-                GtkWidget *cpv = GTK_WIDGET(Gtk::manage(
-                    new Inkscape::UI::Widget::ColorPreview(sp_stop_get_rgba32(stop)))->gobj());
-                gtk_widget_show(cpv);
-                gtk_container_add( GTK_CONTAINER(hb), cpv );
+                Gtk::Widget *cpv = Gtk::manage(new Inkscape::UI::Widget::ColorPreview(sp_stop_get_rgba32(stop)));
+                cpv->show();
+                gtk_container_add( GTK_CONTAINER(hb), cpv->gobj() );
                 g_object_set_data( G_OBJECT(i), "preview", cpv );
                 Inkscape::XML::Node *repr = reinterpret_cast<SPItem *>(sl->data)->getRepr();
                 GtkWidget *l = gtk_label_new(repr->attribute("id"));
@@ -574,7 +573,7 @@ static void update_stop_list( GtkWidget *mnu, SPGradient *gradient, SPStop *new_
                 gtk_box_pack_start(GTK_BOX(hb), l, TRUE, TRUE, 0);
                 gtk_widget_show(hb);
                 gtk_container_add(GTK_CONTAINER(i), hb);
-                gtk_menu_append(GTK_MENU(m), i);
+                gtk_menu_shell_append(GTK_MENU_SHELL(m), i);
             }
         }
 
@@ -610,7 +609,7 @@ static void sp_grad_edit_select(GtkOptionMenu *mnu, GtkWidget *tbl)
     GtkWidget *offspin = GTK_WIDGET(g_object_get_data(G_OBJECT(tbl), "offspn"));
     GtkWidget *offslide =GTK_WIDGET(g_object_get_data(G_OBJECT(tbl), "offslide"));
 
-    GtkAdjustment *adj = static_cast<GtkAdjustment*>(gtk_object_get_data(GTK_OBJECT(tbl), "offset"));
+    GtkAdjustment *adj = static_cast<GtkAdjustment*>(g_object_get_data(G_OBJECT(tbl), "offset"));
 
     bool isEndStop = false;
 
@@ -797,7 +796,7 @@ static GtkWidget * sp_gradient_vector_widget_new(SPGradient *gradient, SPStop *s
     update_stop_list(GTK_WIDGET(mnu), gradient, NULL);
     g_signal_connect(G_OBJECT(mnu), "changed", G_CALLBACK(sp_grad_edit_select), vb);
     gtk_widget_show(mnu);
-    gtk_object_set_data(GTK_OBJECT(vb), "stopmenu", mnu);
+    g_object_set_data(G_OBJECT(vb), "stopmenu", mnu);
     gtk_box_pack_start(GTK_BOX(vb), mnu, FALSE, FALSE, 0);
 
     /* Add and Remove buttons */
@@ -830,7 +829,7 @@ static GtkWidget * sp_gradient_vector_widget_new(SPGradient *gradient, SPStop *s
     /* Adjustment */
     GtkAdjustment *Offset_adj = NULL;
     Offset_adj= (GtkAdjustment *) gtk_adjustment_new(0.0, 0.0, 1.0, 0.01, 0.01, 0.0);
-    gtk_object_set_data(GTK_OBJECT(vb), "offset", Offset_adj);
+    g_object_set_data(G_OBJECT(vb), "offset", Offset_adj);
     GtkMenu *m = GTK_MENU(gtk_option_menu_get_menu(GTK_OPTION_MENU(mnu)));
     SPStop *stop = SP_STOP(g_object_get_data(G_OBJECT(gtk_menu_get_active(m)), "stop"));
     gtk_adjustment_set_value(Offset_adj, stop->offset);
@@ -840,14 +839,14 @@ static GtkWidget * sp_gradient_vector_widget_new(SPGradient *gradient, SPStop *s
     gtk_scale_set_draw_value( GTK_SCALE(slider), FALSE );
     gtk_widget_show(slider);
     gtk_box_pack_start(GTK_BOX(hb),slider, TRUE, TRUE, AUX_BETWEEN_BUTTON_GROUPS);
-    gtk_object_set_data(GTK_OBJECT(vb), "offslide", slider);
+    g_object_set_data(G_OBJECT(vb), "offslide", slider);
 
     /* Spinbutton */
     GtkWidget *sbtn = gtk_spin_button_new(GTK_ADJUSTMENT(Offset_adj), 0.01, 2);
     sp_dialog_defocus_on_enter(sbtn);
     gtk_widget_show(sbtn);
     gtk_box_pack_start(GTK_BOX(hb),sbtn, FALSE, TRUE, AUX_BETWEEN_BUTTON_GROUPS);
-    gtk_object_set_data(GTK_OBJECT(vb), "offspn", sbtn);
+    g_object_set_data(G_OBJECT(vb), "offspn", sbtn);
 
     if (stop->offset>0 && stop->offset<1) {
         gtk_widget_set_sensitive(slider, TRUE);

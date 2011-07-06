@@ -216,9 +216,7 @@ sp_create_window(SPViewWidget *vw, gboolean editable)
             }
         }
 
-    } else {
-        gtk_window_set_policy(GTK_WINDOW(win->gobj()), TRUE, TRUE, TRUE);
-    }
+    } 
 
     if ( completeDropTargets == 0 || completeDropTargetsCount == 0 )
     {
@@ -458,7 +456,7 @@ sp_ui_menu_append_item( GtkMenu *menu, gchar const *stock,
         g_signal_connect( G_OBJECT(item), "deselect", G_CALLBACK(sp_ui_menu_deselect), NULL);
     }
 
-    gtk_menu_append(GTK_MENU(menu), item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     return item;
 
@@ -564,7 +562,7 @@ sp_ui_menu_append_item_from_verb(GtkMenu *menu, Inkscape::Verb *verb, Inkscape::
     }
 
     gtk_widget_show(item);
-    gtk_menu_append(GTK_MENU(menu), item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     return item;
 
@@ -955,7 +953,7 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
                 GtkWidget *item = gtk_menu_item_new_with_label(string);
                 gtk_widget_set_sensitive(item, false);
                 gtk_widget_show(item);
-                gtk_menu_append(GTK_MENU(menu), item);
+                gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
             }
             continue;
         }
@@ -966,7 +964,7 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
              || !strcmp(menu_pntr->name(), "seperator")) {
             GtkWidget *item = gtk_separator_menu_item_new();
             gtk_widget_show(item);
-            gtk_menu_append(GTK_MENU(menu), item);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
             continue;
         }
         if (!strcmp(menu_pntr->name(), "template-list")) {
@@ -995,7 +993,7 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
             GtkWidget *recent_item = gtk_menu_item_new_with_mnemonic(_("Open _Recent"));
             gtk_menu_item_set_submenu(GTK_MENU_ITEM(recent_item), recent_menu);
 
-            gtk_menu_append(GTK_MENU(menu), GTK_WIDGET(recent_item));
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), GTK_WIDGET(recent_item));
             // this will just sit and update the list's item count
             static MaxRecentObserver *mro = new MaxRecentObserver(recent_menu);
             prefs->addObserver(*mro);

@@ -40,10 +40,10 @@ static double sp_ctrl_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **a
 
 static SPCanvasItemClass *parent_class;
 
-GtkType
+GType
 sp_ctrl_get_type (void)
 {
-    static GtkType ctrl_type = 0;
+    static GType ctrl_type = 0;
     if (!ctrl_type) {
         static GTypeInfo const ctrl_info = {
             sizeof (SPCtrlClass),
@@ -71,7 +71,7 @@ sp_ctrl_class_init (SPCtrlClass *klass)
     object_class = (GtkObjectClass *) klass;
     item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass *)gtk_type_class (sp_canvas_item_get_type ());
+    parent_class = (SPCanvasItemClass *)g_type_class_peek_parent (klass);
 
     gtk_object_add_arg_type ("SPCtrl::shape", GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_SHAPE);
     gtk_object_add_arg_type ("SPCtrl::mode", GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_MODE);

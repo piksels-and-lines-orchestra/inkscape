@@ -60,7 +60,7 @@ static void  gdl_dock_notebook_dock          (GdlDockObject    *object,
                                               GValue           *other_data);
 
 static void  gdl_dock_notebook_switch_page_cb  (GtkNotebook     *nb,
-                                                GtkNotebookPage *page,
+                                                GtkWidget       *page,
                                                 gint             page_num,
                                                 gpointer         data);
 
@@ -157,6 +157,7 @@ gdl_dock_notebook_notify_cb (GObject    *g_object,
                              gpointer    user_data) 
 {
     g_return_if_fail (user_data != NULL && GDL_IS_DOCK_NOTEBOOK (user_data));
+    (void)g_object;
 
     /* chain the notify signal */
     g_object_notify (G_OBJECT (user_data), pspec->name);
@@ -167,10 +168,12 @@ gdl_dock_notebook_button_cb (GtkWidget      *widget,
                              GdkEventButton *event,
                              gpointer        user_data)
 {
-    if (event->type == GDK_BUTTON_PRESS)
+    (void)widget;
+    if (event->type == GDK_BUTTON_PRESS) {
         GDL_DOCK_ITEM_SET_FLAGS (user_data, GDL_DOCK_USER_ACTION);
-    else
+    } else {
         GDL_DOCK_ITEM_UNSET_FLAGS (user_data, GDL_DOCK_USER_ACTION);
+    }
 
     return FALSE;
 }
@@ -261,12 +264,13 @@ gdl_dock_notebook_destroy (GtkObject *object)
 
 static void
 gdl_dock_notebook_switch_page_cb (GtkNotebook     *nb,
-                                  GtkNotebookPage *page,
+                                  GtkWidget       *page,
                                   gint             page_num,
                                   gpointer         data)
 {
     GdlDockNotebook *notebook;
     GtkWidget       *tablabel;
+    (void)page_num;
     
     notebook = GDL_DOCK_NOTEBOOK (data);
 
@@ -281,7 +285,7 @@ gdl_dock_notebook_switch_page_cb (GtkNotebook     *nb,
 
     /* activate new label */
     tablabel = gtk_notebook_get_tab_label (
-        nb, gtk_notebook_get_nth_page (nb, page_num));
+        nb, page);
     if (tablabel && GDL_IS_DOCK_TABLABEL (tablabel))
         gdl_dock_tablabel_activate (GDL_DOCK_TABLABEL (tablabel));
 
@@ -332,6 +336,7 @@ gdl_dock_notebook_forall (GtkContainer *container,
 static GType
 gdl_dock_notebook_child_type (GtkContainer *container)
 {
+    (void)container;
     return GDL_TYPE_DOCK_ITEM;
 }
     

@@ -58,22 +58,24 @@ static void grid_canvasitem_render (SPCanvasItem *item, SPCanvasBuf *buf);
 
 static SPCanvasItemClass * parent_class;
 
-GtkType
+GType
 grid_canvasitem_get_type (void)
 {
-    static GtkType grid_canvasitem_type = 0;
+    static GType grid_canvasitem_type = 0;
 
     if (!grid_canvasitem_type) {
-        GtkTypeInfo grid_canvasitem_info = {
-            (gchar *)"GridCanvasItem",
-            sizeof (GridCanvasItem),
+	GTypeInfo grid_canvasitem_info = {
             sizeof (GridCanvasItemClass),
-            (GtkClassInitFunc) grid_canvasitem_class_init,
-            (GtkObjectInitFunc) grid_canvasitem_init,
-            NULL, NULL,
-            (GtkClassInitFunc) NULL
-        };
-        grid_canvasitem_type = gtk_type_unique (sp_canvas_item_get_type (), &grid_canvasitem_info);
+	    NULL, NULL,
+            (GClassInitFunc) grid_canvasitem_class_init,
+	    NULL, NULL,
+            sizeof (GridCanvasItem),
+	    0,
+            (GInstanceInitFunc) grid_canvasitem_init,
+	    NULL
+	};
+        
+	grid_canvasitem_type = g_type_register_static (sp_canvas_item_get_type (), "GridCanvasItem", &grid_canvasitem_info, (GTypeFlags)0);
     }
     return grid_canvasitem_type;
 }
@@ -87,7 +89,7 @@ grid_canvasitem_class_init (GridCanvasItemClass *klass)
     object_class = (GtkObjectClass *) klass;
     item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass*)gtk_type_class (sp_canvas_item_get_type ());
+    parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = grid_canvasitem_destroy;
 
@@ -1070,7 +1072,7 @@ void CanvasXYGridSnapper::_addSnappedPoint(SnappedConstraints &sc, Geom::Point c
  */
 bool CanvasXYGridSnapper::ThisSnapperMightSnap() const
 {
-    return _snap_enabled && _snapmanager->snapprefs.getSnapToGrids() && _snapmanager->snapprefs.getSnapModeBBoxOrNodes();
+    return _snap_enabled && _snapmanager->snapprefs.getSnapToGrids() && _snapmanager->snapprefs.getSnapModeAny();
 }
 
 } // namespace Inkscape

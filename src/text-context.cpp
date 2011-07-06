@@ -215,7 +215,7 @@ sp_text_context_setup(SPEventContext *ec)
     SP_CTRLRECT(tc->frame)->setColor(0x0000ff7f, false, 0);
     sp_canvas_item_hide(tc->frame);
 
-    tc->timeout = gtk_timeout_add(timeout, (GtkFunction) sp_text_context_timeout, ec);
+    tc->timeout = g_timeout_add(timeout, (GSourceFunc) sp_text_context_timeout, ec);
 
     tc->imc = gtk_im_multicontext_new();
     if (tc->imc) {
@@ -297,7 +297,7 @@ sp_text_context_finish(SPEventContext *ec)
     }
 
     if (tc->timeout) {
-        gtk_timeout_remove(tc->timeout);
+        g_source_remove(tc->timeout);
         tc->timeout = 0;
     }
 
@@ -675,7 +675,7 @@ sp_text_context_root_handler(SPEventContext *const event_context, GdkEvent *cons
 
                 Geom::Point const motion_w(event->motion.x, event->motion.y);
                 Geom::Point motion_dt(desktop->w2d(motion_w));
-                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_OTHER_HANDLE));
                 m.unSetup();
             }
             break;

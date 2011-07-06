@@ -36,24 +36,22 @@ static void sp_gradient_image_update (SPGradientImage *img);
 
 static GtkWidgetClass *parent_class;
 
-GtkType
+GType
 sp_gradient_image_get_type (void)
 {
-    //TODO: switch to GObject
-    // GtkType and such calls were deprecated a while back with the
-    // introduction of GObject as a separate layer, with GType instead. --JonCruz
-
-	static GtkType type = 0;
+	static GType type = 0;
 	if (!type) {
-		GtkTypeInfo info = {
-			(gchar*) "SPGradientImage",
-			sizeof (SPGradientImage),
+		GTypeInfo info = {
 			sizeof (SPGradientImageClass),
-			(GtkClassInitFunc) sp_gradient_image_class_init,
-			(GtkObjectInitFunc) sp_gradient_image_init,
-			NULL, NULL, NULL
+			NULL, NULL,
+			(GClassInitFunc) sp_gradient_image_class_init,
+			NULL, NULL,
+			sizeof (SPGradientImage),
+			0,
+			(GInstanceInitFunc) sp_gradient_image_init,
+			NULL
 		};
-		type = gtk_type_unique (GTK_TYPE_WIDGET, &info);
+		type = g_type_register_static (GTK_TYPE_WIDGET, "SPGradientImage", &info, (GTypeFlags)0);
 	}
 	return type;
 }
@@ -67,7 +65,7 @@ sp_gradient_image_class_init (SPGradientImageClass *klass)
 	object_class = (GtkObjectClass *) klass;
 	widget_class = (GtkWidgetClass *) klass;
 
-	parent_class = (GtkWidgetClass*)gtk_type_class (GTK_TYPE_WIDGET);
+	parent_class = (GtkWidgetClass*)g_type_class_peek_parent (klass);
 
 	object_class->destroy = sp_gradient_image_destroy;
 
@@ -146,7 +144,7 @@ sp_gradient_image_new (SPGradient *gradient)
 {
 	SPGradientImage *image;
 
-	image = (SPGradientImage*)gtk_type_new (SP_TYPE_GRADIENT_IMAGE);
+	image = (SPGradientImage*)g_object_new (SP_TYPE_GRADIENT_IMAGE, NULL);
 
 	sp_gradient_image_set_gradient (image, gradient);
 

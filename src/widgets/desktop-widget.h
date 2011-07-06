@@ -238,7 +238,7 @@ struct SPDesktopWidget {
 
     Inkscape::UI::Widget::Dock* getDock();
 
-    static GtkType getType();
+    static GType getType();
     static SPDesktopWidget* createInstance(SPNamedView *namedview);
 
     void updateNamedview();
@@ -246,7 +246,7 @@ struct SPDesktopWidget {
 private:
     GtkWidget *tool_toolbox;
     GtkWidget *aux_toolbox;
-    GtkWidget *commands_toolbox,;
+    GtkWidget *commands_toolbox;
     GtkWidget *snap_toolbox;
 
     static void init(SPDesktopWidget *widget);

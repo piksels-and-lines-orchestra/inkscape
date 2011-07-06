@@ -255,7 +255,7 @@ static GTimer *overallTimer = 0;
  */
 GType SPDesktopWidget::getType(void)
 {
-    static GtkType type = 0;
+    static GType type = 0;
     if (!type) {
         GTypeInfo info = {
             sizeof(SPDesktopWidgetClass),
@@ -282,7 +282,7 @@ GType SPDesktopWidget::getType(void)
 static void
 sp_desktop_widget_class_init (SPDesktopWidgetClass *klass)
 {
-    dtw_parent_class = (SPViewWidgetClass*)gtk_type_class (SP_TYPE_VIEW_WIDGET);
+    dtw_parent_class = (SPViewWidgetClass*)g_type_class_peek_parent (klass);
 
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     GtkWidgetClass *widget_class = (GtkWidgetClass *) klass;
@@ -498,7 +498,7 @@ void SPDesktopWidget::init( SPDesktopWidget *dtw )
     gtk_spin_button_set_update_policy (GTK_SPIN_BUTTON (dtw->zoom_status), GTK_UPDATE_ALWAYS);
     g_signal_connect (G_OBJECT (dtw->zoom_status), "input", G_CALLBACK (sp_dtw_zoom_input), dtw);
     g_signal_connect (G_OBJECT (dtw->zoom_status), "output", G_CALLBACK (sp_dtw_zoom_output), dtw);
-    gtk_object_set_data (GTK_OBJECT (dtw->zoom_status), "dtw", dtw->canvas);
+    g_object_set_data (G_OBJECT (dtw->zoom_status), "dtw", dtw->canvas);
     g_signal_connect (G_OBJECT (dtw->zoom_status), "focus-in-event", G_CALLBACK (spinbutton_focus_in), dtw->zoom_status);
     g_signal_connect (G_OBJECT (dtw->zoom_status), "key-press-event", G_CALLBACK (spinbutton_keypress), dtw->zoom_status);
     dtw->zoom_update = g_signal_connect (G_OBJECT (dtw->zoom_status), "value_changed", G_CALLBACK (sp_dtw_zoom_value_changed), dtw);
@@ -630,7 +630,7 @@ sp_desktop_widget_destroy (GtkObject *object)
 void
 SPDesktopWidget::updateTitle(gchar const* uri)
 {
-    Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+    Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
 
     if (window) {
         gchar const *fname = ( TRUE
@@ -908,7 +908,7 @@ SPDesktopWidget::shutdown()
             switch (response) {
             case GTK_RESPONSE_YES:
             {
-                Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+                Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
 
                 doc->doRef();
                 sp_namedview_document_from_window(desktop);
@@ -969,7 +969,7 @@ SPDesktopWidget::shutdown()
             {
                 doc->doRef();
 
-                Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+                Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
 
                 if (sp_file_save_dialog(*window, doc, Inkscape::Extension::FILE_SAVE_METHOD_INKSCAPE_SVG)) {
                     doc->doUnref();
@@ -1081,7 +1081,7 @@ SPDesktopWidget::getWindowGeometry (gint &x, gint &y, gint &w, gint &h)
     gboolean vis = gtk_widget_get_visible (GTK_WIDGET(this));
     (void)vis; // TODO figure out why it is here but not used.
 
-    Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+    Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
 
     if (window)
     {
@@ -1093,7 +1093,7 @@ SPDesktopWidget::getWindowGeometry (gint &x, gint &y, gint &w, gint &h)
 void
 SPDesktopWidget::setWindowPosition (Geom::Point p)
 {
-    Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+    Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
 
     if (window)
     {
@@ -1104,12 +1104,12 @@ SPDesktopWidget::setWindowPosition (Geom::Point p)
 void
 SPDesktopWidget::setWindowSize (gint w, gint h)
 {
-    Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+    Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
 
     if (window)
     {
         window->set_default_size (w, h);
-        window->reshow_with_initial_size ();
+        window->resize (w, h);
     }
 }
 
@@ -1122,7 +1122,7 @@ SPDesktopWidget::setWindowSize (gint w, gint h)
 void
 SPDesktopWidget::setWindowTransient (void *p, int transient_policy)
 {
-    Gtk::Window *window = (Gtk::Window*)gtk_object_get_data (GTK_OBJECT(this), "window");
+    Gtk::Window *window = (Gtk::Window*)g_object_get_data(G_OBJECT(this), "window");
     if (window)
     {
         GtkWindow *w = (GtkWindow *) window->gobj();

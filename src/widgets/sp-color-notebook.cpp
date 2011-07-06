@@ -62,7 +62,7 @@ static SPColorSelectorClass *parent_class;
 
 GType sp_color_notebook_get_type(void)
 {
-    static GtkType type = 0;
+    static GType type = 0;
     if (!type) {
         GTypeInfo info = {
             sizeof(SPColorNotebookClass),
@@ -102,7 +102,7 @@ sp_color_notebook_class_init (SPColorNotebookClass *klass)
 
 static void
 sp_color_notebook_switch_page(GtkNotebook *notebook,
-                              GtkNotebookPage *page,
+                              GtkWidget   *page,
                               guint page_num,
                               SPColorNotebook *colorbook)
 {
@@ -111,14 +111,14 @@ sp_color_notebook_switch_page(GtkNotebook *notebook,
         ColorNotebook* nb = (ColorNotebook*)(SP_COLOR_SELECTOR(colorbook)->base);
         nb->switchPage( notebook, page, page_num );
 
-        // remember the page we seitched to
+        // remember the page we switched to
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->setInt("/colorselector/page", page_num);
     }
 }
 
 void ColorNotebook::switchPage(GtkNotebook*,
-                              GtkNotebookPage*,
+                              GtkWidget*,
                               guint page_num)
 {
     SPColorSelector* csel;
@@ -231,7 +231,7 @@ void ColorNotebook::init()
         if (!g_type_is_a (selector_types[i], SP_TYPE_COLOR_NOTEBOOK))
         {
             guint howmany = 1;
-            gpointer klass = gtk_type_class (selector_types[i]);
+            gpointer klass = g_type_class_ref (selector_types[i]);
             if ( klass && SP_IS_COLOR_SELECTOR_CLASS (klass) )
             {
                 SPColorSelectorClass *ck = SP_COLOR_SELECTOR_CLASS (klass);
@@ -294,7 +294,7 @@ void ColorNotebook::init()
                 GtkWidget *item = gtk_check_menu_item_new_with_label (_(entry->name));
                 gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (item), entry->enabledFull);
                 gtk_widget_show (item);
-                gtk_menu_append (menu, item);
+                gtk_menu_shell_append (GTK_MENU_SHELL(menu), item);
 
                 g_signal_connect (G_OBJECT (item), "activate",
                                   G_CALLBACK (sp_color_notebook_menuitem_response),
@@ -431,7 +431,7 @@ sp_color_notebook_new (void)
 {
     SPColorNotebook *colorbook;
 
-    colorbook = (SPColorNotebook*)gtk_type_new (SP_TYPE_COLOR_NOTEBOOK);
+    colorbook = (SPColorNotebook*)g_object_new (SP_TYPE_COLOR_NOTEBOOK, NULL);
 
     return GTK_WIDGET (colorbook);
 }

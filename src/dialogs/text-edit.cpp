@@ -186,8 +186,6 @@ sp_text_edit_dialog (void)
         g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg );
         g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg );
 
-        gtk_window_set_policy (GTK_WINDOW (dlg), TRUE, TRUE, FALSE);
-
         // box containing the notebook and the bottom buttons
         GtkWidget *mainvb = gtk_vbox_new (FALSE, 0);
         gtk_container_add (GTK_CONTAINER (dlg), mainvb);
@@ -251,7 +249,7 @@ sp_text_edit_dialog (void)
                     {
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_CENTER, GTK_ICON_SIZE_LARGE_TOOLBAR );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
                         /* TRANSLATORS: `Center' here is a verb. */
                         gtk_widget_set_tooltip_text (b, _("Center lines"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
@@ -266,7 +264,7 @@ sp_text_edit_dialog (void)
                     {
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_RIGHT, GTK_ICON_SIZE_LARGE_TOOLBAR );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
                         gtk_widget_set_tooltip_text (b, _("Align lines right"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
@@ -280,7 +278,7 @@ sp_text_edit_dialog (void)
                     {
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_FILL, GTK_ICON_SIZE_LARGE_TOOLBAR );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
                         gtk_widget_set_tooltip_text (b, _("Justify lines"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
@@ -316,7 +314,7 @@ sp_text_edit_dialog (void)
                     {
                         GtkWidget *px = sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
                                                       INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
                         gtk_widget_set_tooltip_text (b, _("Vertical text"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
@@ -348,42 +346,24 @@ sp_text_edit_dialog (void)
 #if GTK_CHECK_VERSION(2, 24,0)
                     GtkWidget *c = gtk_combo_box_text_new_with_entry ();
 #else
-                    GtkWidget *c = gtk_combo_new ();
-                    gtk_combo_set_value_in_list ((GtkCombo *) c, FALSE, FALSE);
-                    gtk_combo_set_use_arrows ((GtkCombo *) c, TRUE); 
-                    gtk_combo_set_use_arrows_always ((GtkCombo *) c, TRUE);
+                    GtkWidget *c = gtk_combo_box_entry_new_text ();
 #endif
                     gtk_widget_set_size_request (c, 90, -1);
 
+                    { /* Setup strings */
+                        for (int i = 0; spacings[i]; i++) {
 //This would introduce dependency on gtk version 2.24 which is currently not available in
 // Trisquel GNU/Linux 4.5.1 (released on May 25th, 2011)
 //This conditional and its #else block can be deleted in the future.
 #if GTK_CHECK_VERSION(2, 24,0)
-                    { /* Setup strings */
-                        for (int i = 0; spacings[i]; i++) {
 				gtk_combo_box_text_append_text((GtkComboBoxText *) c, spacings[i]);
-                        }
-                    }
 #else
-                    { /* Setup strings */
-                        GList *sl = NULL;
-                        for (int i = 0; spacings[i]; i++) {
-			    sl = g_list_prepend (sl, (void *) spacings[i]);
-                        }
-                        sl = g_list_reverse (sl);
-                        gtk_combo_set_popdown_strings ((GtkCombo *) c, sl);
-                        g_list_free (sl);
-                    }
+				gtk_combo_box_append_text((GtkComboBox *) c, spacings[i]);
 #endif
+                        }
+                    }
 
-//This would introduce dependency on gtk version 2.24 which is currently not available in
-// Trisquel GNU/Linux 4.5.1 (released on May 25th, 2011)
-//This conditional and its #else block can be deleted in the future.            
-#if GTK_CHECK_VERSION(2, 24,0)
                     g_signal_connect ( (GObject *) c,
-#else
-                    g_signal_connect ( (GObject *) ((GtkCombo *) c)->entry,
-#endif
                                        "changed",
                                        (GCallback) sp_text_edit_dialog_line_spacing_changed,
                                        dlg );
@@ -470,11 +450,11 @@ sp_text_edit_dialog (void)
 
         {
             GtkWidget *b = gtk_button_new_from_stock (GTK_STOCK_APPLY);
-            gtk_widget_set_can_default (b, TRUE);
-            gtk_widget_grab_default (b);
             g_signal_connect ( G_OBJECT (b), "clicked",
                                G_CALLBACK (sp_text_edit_dialog_apply), dlg );
             gtk_box_pack_end ( GTK_BOX (hb), b, FALSE, FALSE, 0 );
+            gtk_widget_set_can_default (b, TRUE);
+            gtk_widget_grab_default (b);
             g_object_set_data (G_OBJECT (dlg), "apply", b);
         }
 
@@ -642,7 +622,7 @@ sp_get_text_dialog_style ()
 #if GTK_CHECK_VERSION(2, 24,0)
         const gchar *sstr = gtk_combo_box_text_get_active_text ((GtkComboBoxText *) combo);
 #else
-        const char *sstr = gtk_entry_get_text ((GtkEntry *) ((GtkCombo *) (combo))->entry);
+        const gchar *sstr = gtk_entry_get_text ((GtkEntry *) (gtk_bin_get_child (GTK_BIN (combo))));
 #endif
         sp_repr_css_set_property (css, "line-height", sstr);
 
@@ -768,9 +748,6 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
             str = sp_te_get_string_multiline (text);
 
             if (str) {
-                int pos;
-                pos = 0;
-
                 if (items == 1) {
                     gtk_text_buffer_set_text (tb, str, strlen (str));
                     gtk_text_buffer_set_modified (tb, FALSE);
@@ -855,14 +832,7 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
         else height = query->line_height.computed;
         gchar *sstr = g_strdup_printf ("%d%%", (int) floor(height * 100 + 0.5));
 
-//This would introduce dependency on gtk version 2.24 which is currently not available in
-// Trisquel GNU/Linux 4.5.1 (released on May 25th, 2011)
-//This conditional and its #else block can be deleted in the future.
-#if GTK_CHECK_VERSION(2, 24,0)
         gtk_entry_set_text ((GtkEntry *) gtk_bin_get_child ((GtkBin *) (combo)), sstr);
-#else
-        gtk_entry_set_text ((GtkEntry *) ((GtkCombo *) (combo))->entry, sstr);
-#endif
         g_free(sstr);
 
         sp_style_unref(query);
