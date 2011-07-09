@@ -21,6 +21,7 @@
 
 #include "display/cairo-utils.h"
 #include "display/cairo-templates.h"
+#include "display/canvas-arena.h"
 #include "nr-arena.h"
 #include "nr-arena-item.h"
 #include "gc-core.h"
@@ -482,7 +483,8 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     // apply filter
     if (item->filter && filter) {
-        item->filter->render(item, ct, area, this_ct, &carea);
+        NRRectL bgarea(item->arena->canvasarena->cache_area);
+        item->filter->render(item, ct, &bgarea, this_ct, &carea);
     }
 
     if (needs_intermediate_rendering) {

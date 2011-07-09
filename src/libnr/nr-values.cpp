@@ -9,8 +9,7 @@ The following predefined objects are for reference
 and comparison.
 */
 NRRect   NR_RECT_EMPTY(NR_HUGE, NR_HUGE, -NR_HUGE, -NR_HUGE);
-NRRectL  NR_RECT_L_EMPTY =
-       {NR_HUGE_L, NR_HUGE_L, -NR_HUGE_L, -NR_HUGE_L};
+NRRectL  NR_RECT_L_EMPTY(NR_HUGE_L, NR_HUGE_L, -NR_HUGE_L, -NR_HUGE_L);
 
 /** component_vectors[i] is like $e_i$ in common mathematical usage;
     or equivalently $I_i$ (where $I$ is the identity matrix). */

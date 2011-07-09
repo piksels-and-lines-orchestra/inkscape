@@ -691,6 +691,7 @@ static void sp_canvas_group_destroy (GtkObject *object);
 static void sp_canvas_group_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int flags);
 static double sp_canvas_group_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_item);
 static void sp_canvas_group_render (SPCanvasItem *item, SPCanvasBuf *buf);
+static void sp_canvas_group_visible_area_changed (SPCanvasItem *item, Geom::IntRect const &old_area, Geom::IntRect const &new_area);
 
 static SPCanvasItemClass *group_parent_class;
 
@@ -734,6 +735,7 @@ sp_canvas_group_class_init (SPCanvasGroupClass *klass)
     item_class->update = sp_canvas_group_update;
     item_class->render = sp_canvas_group_render;
     item_class->point = sp_canvas_group_point;
+    item_class->visible_area_changed = sp_canvas_group_visible_area_changed;
 }
 
 /**
@@ -873,6 +875,20 @@ sp_canvas_group_render (SPCanvasItem *item, SPCanvasBuf *buf)
                 if (SP_CANVAS_ITEM_GET_CLASS (child)->render)
                     SP_CANVAS_ITEM_GET_CLASS (child)->render (child, buf);
             }
+        }
+    }
+}
+
+static void
+sp_canvas_group_visible_area_changed (SPCanvasItem *item, Geom::IntRect const &old_area, Geom::IntRect const &new_area)
+{
+    SPCanvasGroup *group = SP_CANVAS_GROUP (item);
+    
+    for (GList *list = group->items; list; list = list->next) {
+        SPCanvasItem *child = (SPCanvasItem *)list->data;
+        if (child->flags & SP_CANVAS_ITEM_VISIBLE) {
+            if (SP_CANVAS_ITEM_GET_CLASS (child)->visible_area_changed)
+                SP_CANVAS_ITEM_GET_CLASS (child)->visible_area_changed (child, old_area, new_area);
         }
     }
 }
@@ -1218,8 +1234,16 @@ sp_canvas_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 {
     SPCanvas *canvas = SP_CANVAS (widget);
 
+    Geom::IntRect old_area = Geom::IntRect::from_xywh(canvas->x0, canvas->y0,
+        widget->allocation.width, widget->allocation.height);
+    Geom::IntRect new_area = Geom::IntRect::from_xywh(canvas->x0, canvas->y0,
+        allocation->width, allocation->height);
+
     /* Schedule redraw of new region */
     sp_canvas_resize_tiles(canvas,canvas->x0,canvas->y0,canvas->x0+allocation->width,canvas->y0+allocation->height);
+    if (SP_CANVAS_ITEM_GET_CLASS (canvas->root)->visible_area_changed)
+        SP_CANVAS_ITEM_GET_CLASS (canvas->root)->visible_area_changed (canvas->root, old_area, new_area);
+    
     if (allocation->width > widget->allocation.width) {
         sp_canvas_request_redraw (canvas,
                                   canvas->x0 + widget->allocation.width,
@@ -2152,12 +2176,17 @@ sp_canvas_scroll_to (SPCanvas *canvas, double cx, double cy, unsigned int clear,
     int dx = ix - canvas->x0; // dx and dy specify the displacement (scroll) of the
     int dy = iy - canvas->y0; // canvas w.r.t its previous position
 
+    Geom::IntRect old_area = canvas->getViewboxIntegers();
+    Geom::IntRect new_area = old_area + Geom::IntPoint(dx, dy);
+    
     canvas->dx0 = cx; // here the 'd' stands for double, not delta!
     canvas->dy0 = cy;
     canvas->x0 = ix;
     canvas->y0 = iy;
 
     sp_canvas_resize_tiles (canvas, canvas->x0, canvas->y0, canvas->x0+canvas->widget.allocation.width, canvas->y0+canvas->widget.allocation.height);
+    if (SP_CANVAS_ITEM_GET_CLASS (canvas->root)->visible_area_changed)
+        SP_CANVAS_ITEM_GET_CLASS (canvas->root)->visible_area_changed (canvas->root, old_area, new_area);
 
     if (!clear) {
         // scrolling without zoom; redraw only the newly exposed areas
@@ -2170,7 +2199,6 @@ sp_canvas_scroll_to (SPCanvas *canvas, double cx, double cy, unsigned int clear,
     } else {
         // scrolling as part of zoom; do nothing here - the next do_update will perform full redraw
     }
-
 }
 
 /**

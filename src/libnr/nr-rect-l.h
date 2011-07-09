@@ -2,9 +2,16 @@
 #define SEEN_NR_RECT_L_H
 
 #include <glib.h>
+#include <2geom/int-rect.h>
 
 struct NRRectL {
     gint32 x0, y0, x1, y1;
+    NRRectL();
+    NRRectL(gint32 xmin, gint32 ymin, gint32 xmax, gint32 ymax);
+    explicit NRRectL(Geom::IntRect const &r);
+    explicit NRRectL(Geom::OptIntRect const &r);
+    operator Geom::OptIntRect() const { Geom::OptIntRect r = upgrade_2geom(); return r; }
+    Geom::OptIntRect upgrade_2geom() const;
 };
 
 #endif /* !SEEN_NR_RECT_L_H */
