@@ -282,7 +282,8 @@ nr_arena_glyphs_group_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint s
 }
 
 
-static unsigned int nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock * /*pb*/, unsigned int /*flags*/)
+static unsigned int
+nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock * /*pb*/, unsigned int /*flags*/)
 {
     NRArenaItem *child = 0;
 
@@ -309,9 +310,11 @@ static unsigned int nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item,
             Geom::Affine transform = g->g_transform * group->ctm;
 
             cairo_new_path(ct);
+            cairo_save(ct);
             ink_cairo_transform(ct, transform);
             feed_pathvector_to_cairo (ct, *pathv);
             cairo_fill(ct);
+            cairo_restore(ct);
         }
 
         return item->state;
@@ -352,20 +355,26 @@ static unsigned int nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item,
     return item->state;
 }
 
-static unsigned int nr_arena_glyphs_group_clip(cairo_t * /*ct*/, NRArenaItem *item, NRRectL * /*area*/)
+static unsigned int nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, NRRectL * /*area*/)
 {
-    //NRArenaGroup *group = NR_ARENA_GROUP(item);
+    NRArenaGroup *ggroup = NR_ARENA_GLYPHS_GROUP(item);
 
-    guint ret = item->state;
+    cairo_save(ct);
+    ink_cairo_transform(ct, ggroup->ctm);
 
-    // Render children fill mask
-    /*
-    for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
-        ret = nr_arena_glyphs_fill_mask(NR_ARENA_GLYPHS(child), area, pb);
-        if (!(ret & NR_ARENA_ITEM_STATE_RENDER)) return ret;
-    }*/
+    for (NRArenaItem *child = ggroup->children; child != NULL; child = child->next) {
+        NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
+        Geom::PathVector const &pathv = *g->font->PathVector(g->glyph);
 
-    return ret;
+        cairo_save(ct);
+        ink_cairo_transform(ct, g->g_transform);
+        feed_pathvector_to_cairo(ct, pathv);
+        cairo_fill(ct);
+        cairo_restore(ct);
+    }
+    cairo_restore(ct);
+
+    return item->state;
 }
 
 static NRArenaItem *

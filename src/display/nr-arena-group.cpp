@@ -237,7 +237,6 @@ nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area)
 
     unsigned int ret = item->state;
 
-    /* Just compose children into parent buffer */
     for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
         ret = nr_arena_item_invoke_clip (ct, child, area);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) break;
