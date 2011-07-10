@@ -160,7 +160,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
         }
     }
 
-    FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, bgarea, cairo_get_target(graphic), area, units);
+    FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, bgarea, cairo_get_group_target(graphic), area, units);
     slot.set_quality(filterquality);
     slot.set_blurquality(blurquality);
 
