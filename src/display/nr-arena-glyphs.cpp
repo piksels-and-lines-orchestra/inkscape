@@ -360,6 +360,14 @@ static unsigned int nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, N
     NRArenaGroup *ggroup = NR_ARENA_GLYPHS_GROUP(item);
 
     cairo_save(ct);
+    // handle clip-rule
+    if (ggroup->style) {
+        if (ggroup->style->clip_rule.computed == SP_WIND_RULE_EVENODD) {
+            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_EVEN_ODD);
+        } else {
+            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_WINDING);
+        }
+    }
     ink_cairo_transform(ct, ggroup->ctm);
 
     for (NRArenaItem *child = ggroup->children; child != NULL; child = child->next) {
@@ -369,9 +377,9 @@ static unsigned int nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, N
         cairo_save(ct);
         ink_cairo_transform(ct, g->g_transform);
         feed_pathvector_to_cairo(ct, pathv);
-        cairo_fill(ct);
         cairo_restore(ct);
     }
+    cairo_fill(ct);
     cairo_restore(ct);
 
     return item->state;

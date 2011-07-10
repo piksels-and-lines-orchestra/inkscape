@@ -12,6 +12,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include "display/canvas-bpath.h"
 #include "display/nr-arena-group.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-types.h"
@@ -234,14 +235,25 @@ static unsigned int
 nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area)
 {
     NRArenaGroup *group = NR_ARENA_GROUP (item);
-
     unsigned int ret = item->state;
+
+    cairo_save(ct);
+
+    // handle clip-rule
+    if (group->style) {
+        if (group->style->clip_rule.computed == SP_WIND_RULE_EVENODD) {
+            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_EVEN_ODD);
+        } else {
+            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_WINDING);
+        }
+    }
 
     for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
         ret = nr_arena_item_invoke_clip (ct, child, area);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) break;
     }
 
+    cairo_restore(ct);
     return ret;
 }
 

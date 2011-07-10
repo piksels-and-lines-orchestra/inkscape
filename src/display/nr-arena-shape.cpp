@@ -21,6 +21,7 @@
 #include <2geom/svg-path-parser.h>
 #include "display/cairo-utils.h"
 #include "display/canvas-arena.h"
+#include "display/canvas-bpath.h"
 #include "display/curve.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-shape.h"
@@ -401,10 +402,15 @@ static guint nr_arena_shape_clip(cairo_t *ct, NRArenaItem *item, NRRectL * /*are
         return item->state;
     }
 
-    // TODO: Handling of the clip-rule property / CSS attribute.
-    // Once the required bits are in SPStyle, this is as trivial as adding a single
-    // call to cairo_set_fill_rule() before cairo_fill().
     cairo_save(ct);
+    // handle clip-rule
+    if (shape->style) {
+        if (shape->style->clip_rule.computed == SP_WIND_RULE_EVENODD) {
+            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_EVEN_ODD);
+        } else {
+            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_WINDING);
+        }
+    }
     ink_cairo_transform(ct, shape->ctm);
     feed_pathvector_to_cairo(ct, shape->curve->get_pathvector());
     cairo_fill(ct);
