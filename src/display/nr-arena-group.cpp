@@ -13,9 +13,11 @@
  */
 
 #include "display/canvas-bpath.h"
+#include "display/nr-arena.h"
 #include "display/nr-arena-group.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-types.h"
+#include "display/rendermode.h"
 #include "style.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
@@ -164,10 +166,9 @@ static unsigned int
 nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset)
 {
     unsigned int newstate;
-
     NRArenaGroup *group = NR_ARENA_GROUP (item);
-
     unsigned int beststate = NR_ARENA_ITEM_STATE_ALL;
+    bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
         NRGC cgc(gc);
@@ -180,7 +181,7 @@ nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int 
         item->bbox = NR_RECT_L_EMPTY;
         for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
             if (child->visible)
-                nr_rect_l_union (&item->bbox, &item->bbox, &child->drawbox);
+                nr_rect_l_union (&item->bbox, &item->bbox, outline ? &child->bbox : &child->drawbox);
         }
     }
 
