@@ -496,7 +496,15 @@ nr_arena_item_invoke_render (cairo_t *ct, NRArenaItem *item, NRRectL const *area
 
     // 4. Apply filter.
     if (item->filter && filter) {
-        NRRectL bgarea(item->arena->canvasarena->cache_area);
+        // HACK: SPCanvasArena doesn't exist when this is called for offscreen rendering
+        // Proper fix: call this function with a drawing context class
+        // that contains information about the surface's bounds
+        NRRectL bgarea;
+        if (flags & NR_ARENA_ITEM_RENDER_NO_CACHE || !item->arena->canvasarena) {
+            bgarea = carea;
+        } else {
+            bgarea = NRRectL(item->arena->canvasarena->cache_area);
+        }
         item->filter->render(item, ct, &bgarea, ict, &carea);
         // Note that because the object was rendered to a group,
         // the internals of the filter need to use cairo_get_group_target()
