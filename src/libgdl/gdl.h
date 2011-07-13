@@ -1,8 +1,8 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- 
- * gdl-stock.h
- * 
- * Copyright (C) 2003 Jeroen Zwartepoorte
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- 
  *
+ * This file is part of the GNOME Devtools Libraries.
+ *
+ * Copyright (C) 1999-2000 Dave Camp <dave@helixcode.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,19 +19,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __GDL_STOCK_H__
-#define __GDL_STOCK_H__
+#ifndef __GDL_H__
+#define __GDL_H__
 
-#include <glib/gmacros.h>   // G_BEGIN_DECLS
+#include "libgdl/gdl-tools.h"
+#include "libgdl/gdl-dock-object.h"
+#include "libgdl/gdl-dock-master.h"
+#include "libgdl/gdl-dock.h"
+#include "libgdl/gdl-dock-item.h"
+#include "libgdl/gdl-dock-item-grip.h"
+#include "libgdl/gdl-dock-bar.h"
 
-G_BEGIN_DECLS
-
-#define GDL_STOCK_CLOSE			"gdl-close"
-#define GDL_STOCK_MENU_LEFT		"gdl-menu-left"
-#define GDL_STOCK_MENU_RIGHT		"gdl-menu-right"
-
-void gdl_stock_init (void);
-
-G_END_DECLS
-
-#endif /* __GDL_STOCK_H__ */
+#endif

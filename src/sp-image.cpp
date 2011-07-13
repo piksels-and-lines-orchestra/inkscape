@@ -45,8 +45,9 @@
 
 #include "io/sys.h"
 #if ENABLE_LCMS
-#include "color-profile-fns.h"
+#include "cms-system.h"
 #include "color-profile.h"
+#include <lcms.h>
 //#define DEBUG_LCMS
 #ifdef DEBUG_LCMS
 
@@ -849,9 +850,9 @@ static void sp_image_update( SPObject *object, SPCtx *ctx, unsigned int flags )
                         DEBUG_MESSAGE( lcmsFive, "in <image>'s sp_image_update. About to call colorprofile_get_handle()" );
 #endif // DEBUG_LCMS
                         guint profIntent = Inkscape::RENDERING_INTENT_UNKNOWN;
-                        cmsHPROFILE prof = Inkscape::colorprofile_get_handle( object->document,
-                                                                              &profIntent,
-                                                                              image->color_profile );
+                        cmsHPROFILE prof = Inkscape::CMSSystem::getHandle( object->document,
+                                                                           &profIntent,
+                                                                           image->color_profile );
                         if ( prof ) {
                             icProfileClassSignature profileClass = cmsGetDeviceClass( prof );
                             if ( profileClass != icSigNamedColorClass ) {

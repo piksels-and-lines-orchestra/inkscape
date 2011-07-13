@@ -349,21 +349,6 @@ gdl_dock_constructor (GType                  type,
             g_signal_connect (dock, "notify::long-name",
                               (GCallback) gdl_dock_notify_cb, NULL);
             
-            /* set transient for the first dock if that is a non-floating dock */
-            controller = gdl_dock_master_get_controller (master);
-            if (controller && GDL_IS_DOCK (controller)) {
-                gboolean first_is_floating;
-                g_object_get (controller, "floating", &first_is_floating, NULL);
-                if (!first_is_floating) {
-                    GtkWidget *toplevel =
-                        gtk_widget_get_toplevel (GTK_WIDGET (controller));
-
-                    if (GTK_IS_WINDOW (toplevel))
-                        gtk_window_set_transient_for (GTK_WINDOW (dock->_priv->window),
-                                                      GTK_WINDOW (toplevel));
-                }
-            }
-
             gtk_container_add (GTK_CONTAINER (dock->_priv->window), GTK_WIDGET (dock));
     
             g_signal_connect (dock->_priv->window, "delete_event",
@@ -1139,6 +1124,8 @@ gdl_dock_select_larger_item (GdlDockItem *dock_item_1,
         return ((size_1.width * size_1.height)
                     >= (size_2.width * size_2.height)?
                     dock_item_1 : dock_item_2);
+    } else if (placement == GDL_DOCK_NONE) {
+	return dock_item_1;
     } else {
         g_warning ("Should not reach here: %s:%d", __FUNCTION__, __LINE__);
     }

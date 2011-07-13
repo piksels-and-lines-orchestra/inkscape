@@ -30,6 +30,7 @@
 #include "gdl-tools.h"
 #include "gdl-dock-placeholder.h"
 #include "gdl-dock-item.h"
+#include "gdl-dock-paned.h"
 #include "gdl-dock-master.h"
 #include "libgdltypebuiltins.h"
 
@@ -189,14 +190,14 @@ gdl_dock_placeholder_class_init (GdlDockPlaceholderClass *klass)
 	g_object_class_install_property (
         g_object_class, PROP_FLOAT_X,
         g_param_spec_int ("floatx", _("X-Coordinate"),
-                          	_("X coordinate for dock when floating"),
+                          	_("X-Coordinate for dock when floating"),
                           	-1, G_MAXINT, -1,
                           	G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                           	GDL_DOCK_PARAM_EXPORT));
 	g_object_class_install_property (
         g_object_class, PROP_FLOAT_Y,
         g_param_spec_int ("floaty", _("Y-Coordinate"),
-                          	_("Y coordinate for dock when floating"),
+                          	_("Y-Coordinate for dock when floating"),
                           	-1, G_MAXINT, -1,
                           	G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                           	GDL_DOCK_PARAM_EXPORT));
@@ -494,7 +495,7 @@ gdl_dock_placeholder_dock (GdlDockObject    *object,
         GdlDockObject *toplevel;
         
         if (!gdl_dock_object_is_bound (GDL_DOCK_OBJECT (ph))) {
-            g_warning ("%s",_("Attempt to dock a dock object to an unbound placeholder"));
+            g_warning ("%s", _("Attempt to dock a dock object to an unbound placeholder"));
             return;
         }
         
@@ -543,7 +544,7 @@ gdl_dock_placeholder_present (GdlDockObject *object,
 /* ----- Public interface ----- */ 
 								   
 GtkWidget * 
-gdl_dock_placeholder_new (gchar            *name,
+gdl_dock_placeholder_new (const gchar     *name,
                           GdlDockObject    *object,
                           GdlDockPlacement  position,
                           gboolean          sticky)

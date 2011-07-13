@@ -40,13 +40,24 @@ list(APPEND INKSCAPE_INCS_SYS ${POPT_INCLUDE_DIR})
 list(APPEND INKSCAPE_LIBS ${POPT_LIBRARIES})
 add_definitions(${POPT_DEFINITIONS})
 
+if(WITH_DBUS)
+	find_package(DBus REQUIRED)
+	if(DBUS_FOUND)
+		list(APPEND INKSCAPE_INCS_SYS ${DBUS_INCLUDE_DIR})
+		list(APPEND INKSCAPE_INCS_SYS ${DBUS_ARCH_INCLUDE_DIR})
+		list(APPEND INKSCAPE_LIBS ${DBUS_LIBRARIES})
+	else()
+		set(WITH_DBUS OFF)
+	endif()
+endif()
+
 # ----------------------------------------------------------------------------
 # CMake's builtin
 # ----------------------------------------------------------------------------
 
 # Include dependencies:
 # use patched version until GTK2_CAIROMMCONFIG_INCLUDE_DIR is added
-find_package(GTK2_patched COMPONENTS gtk gtkmm REQUIRED)
+find_package(GTK2 COMPONENTS gtk gtkmm REQUIRED)
 list(APPEND INKSCAPE_INCS_SYS
 	${GTK2_GDK_INCLUDE_DIR}
 	${GTK2_GDKMM_INCLUDE_DIR}

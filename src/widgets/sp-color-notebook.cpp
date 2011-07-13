@@ -1,5 +1,3 @@
-#define __SP_COLOR_NOTEBOOK_C__
-
 /*
  * A notebook with RGB, CMYK, CMS, HSL, and Wheel pages
  *
@@ -37,6 +35,10 @@
 #include "../inkscape.h"
 #include "../document.h"
 #include "../profile-manager.h"
+#include "color-profile.h"
+#include "cms-system.h"
+
+using Inkscape::CMSSystem;
 
 struct SPColorNotebookTracker {
     const gchar* name;
@@ -529,14 +531,14 @@ void ColorNotebook::_updateRgbaEntry( const SPColor& color, gfloat alpha )
     if (color.icc){
         Inkscape::ColorProfile* target_profile = SP_ACTIVE_DOCUMENT->profileManager->find(color.icc->colorProfile.c_str());
         if ( target_profile )
-            gtk_widget_set_sensitive (_box_outofgamut, target_profile->GamutCheck(color));
+            gtk_widget_set_sensitive(_box_outofgamut, target_profile->GamutCheck(color));
     }
 
     /* update too-much-ink icon */
     gtk_widget_set_sensitive (_box_toomuchink, false);
     if (color.icc){
         Inkscape::ColorProfile* prof = SP_ACTIVE_DOCUMENT->profileManager->find(color.icc->colorProfile.c_str());
-        if ( prof && ( (prof->getColorSpace() == icSigCmykData) || (prof->getColorSpace() == icSigCmyData) ) ) {
+        if ( prof && CMSSystem::isPrintColorSpace(prof) ) {
             gtk_widget_show(GTK_WIDGET(_box_toomuchink));
             double ink_sum = 0;
             for (unsigned int i=0; i<color.icc->colors.size(); i++){

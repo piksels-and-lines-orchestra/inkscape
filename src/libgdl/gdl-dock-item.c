@@ -163,6 +163,7 @@ enum {
     DOCK_DRAG_BEGIN,
     DOCK_DRAG_MOTION,
     DOCK_DRAG_END,
+    SELECTED,
     MOVE_FOCUS_CHILD,
     LAST_SIGNAL
 };
@@ -281,6 +282,16 @@ gdl_dock_item_class_init (GdlDockItemClass *klass)
 
     /* properties */
 
+    /**
+     * GdlDockItem:orientation:
+     *
+     * The orientation of the docking item. If the orientation is set to
+     * #GTK_ORIENTATION_VERTICAL, the grip widget will be shown along
+     * the top of the edge of item (if it is not hidden). If the
+     * orientation is set to #GTK_ORIENTATION_HORIZONTAL, the grip
+     * widget will be shown down the left edge of the item (even if the
+     * widget text direction is set to RTL).
+     */
     g_object_class_install_property (
         g_object_class, PROP_ORIENTATION,
         g_param_spec_enum ("orientation", _("Orientation"),
@@ -301,7 +312,7 @@ gdl_dock_item_class_init (GdlDockItemClass *klass)
         g_object_class, PROP_RESIZE,
         g_param_spec_boolean ("resize", _("Resizable"),
                               _("If set, the dock item can be resized when "
-                                "docked in a panel"),
+                                "docked in a GtkPanel widget"),
                               TRUE,
                               G_PARAM_READWRITE));
                                      
@@ -339,6 +350,12 @@ gdl_dock_item_class_init (GdlDockItemClass *klass)
 
     /* signals */
     
+    /**
+     * GdlDockItem::dock-drag-begin:
+     * @item: The dock item which is being dragged.
+     * 
+     * Signals that the dock item has begun to be dragged.
+     **/
     gdl_dock_item_signals [DOCK_DRAG_BEGIN] = 
         g_signal_new ("dock-drag-begin",
                       G_TYPE_FROM_CLASS (klass),
@@ -349,7 +366,15 @@ gdl_dock_item_class_init (GdlDockItemClass *klass)
                       gdl_marshal_VOID__VOID,
                       G_TYPE_NONE, 
                       0);
-
+    
+    /**
+     * GdlDockItem::dock-drag-motion:
+     * @item: The dock item which is being dragged.
+     * @x: The x-position that the dock item has been dragged to.
+     * @y: The y-position that the dock item has been dragged to.
+     * 
+     * Signals that a dock item dragging motion event has occured.
+     **/
     gdl_dock_item_signals [DOCK_DRAG_MOTION] = 
         g_signal_new ("dock-drag-motion",
                       G_TYPE_FROM_CLASS (klass),
@@ -363,6 +388,14 @@ gdl_dock_item_class_init (GdlDockItemClass *klass)
                       G_TYPE_INT,
                       G_TYPE_INT);
 
+    /**
+     * GdlDockItem::dock-drag-end:
+     * @item: The dock item which is no longer being dragged.
+     * @cancel: This value is set to TRUE if the drag was cancelled by
+     * the user. #cancel is set to FALSE if the drag was accepted.
+     * 
+     * Signals that the dock item dragging has ended.
+     **/
     gdl_dock_item_signals [DOCK_DRAG_END] = 
         g_signal_new ("dock_drag_end",
                       G_TYPE_FROM_CLASS (klass),
@@ -375,6 +408,22 @@ gdl_dock_item_class_init (GdlDockItemClass *klass)
                       1,
                       G_TYPE_BOOLEAN);
 
+    /**
+     * GdlDockItem::selected:
+     *
+     * Signals that this dock has been selected from a switcher.
+     */
+    gdl_dock_item_signals [SELECTED] =
+        g_signal_new ("selected",
+                      G_TYPE_FROM_CLASS (klass),
+                      G_SIGNAL_RUN_FIRST,
+                      0,
+                      NULL,
+                      NULL,
+                      g_cclosure_marshal_VOID__VOID,
+                      G_TYPE_NONE,
+                      0);
+    
     gdl_dock_item_signals [MOVE_FOCUS_CHILD] =
         g_signal_new ("move_focus_child",
                       G_TYPE_FROM_CLASS (klass),
@@ -1257,8 +1306,9 @@ gdl_dock_item_dock (GdlDockObject    *object,
                     GdlDockPlacement  position,
                     GValue           *other_data)
 {
-    GdlDockObject *new_parent, *parent;
-    gboolean       add_ourselves_first;
+    GdlDockObject *new_parent = NULL;
+    GdlDockObject *parent, *requestor_parent;
+    gboolean       add_ourselves_first = FALSE;
 
     guint	   available_space=0;
     gint	   pref_size=-1;
@@ -1372,11 +1422,16 @@ gdl_dock_item_dock (GdlDockObject    *object,
             pref_size = req.width;
             break;
         case GDL_DOCK_CENTER:
-            new_parent = g_object_new (gdl_dock_object_type_from_nick ("notebook"),
-                                       "preferred-width", object_req.width,
-                                       "preferred-height", object_req.height,
-                                       NULL);
-            add_ourselves_first = TRUE;
+            /* If the parent is already a DockNotebook, we don't need
+             to create a new one. */
+            if (!GDL_IS_DOCK_NOTEBOOK (parent))
+            {
+                new_parent = g_object_new (gdl_dock_object_type_from_nick ("notebook"),
+                                           "preferred-width", object_req.width,
+                                           "preferred-height", object_req.height,
+                                           NULL);
+                add_ourselves_first = TRUE;
+            }
             break;
         default: 
         {
@@ -1395,52 +1450,73 @@ gdl_dock_item_dock (GdlDockObject    *object,
     if (parent)
         gdl_dock_object_freeze (parent);
 
-    /* ref ourselves since we could be destroyed when detached */
-    g_object_ref (object);
-    GDL_DOCK_OBJECT_SET_FLAGS (object, GDL_DOCK_IN_REFLOW);
-    gdl_dock_object_detach (object, FALSE);
-
-    /* freeze the new parent, so reduce won't get called before it's
-       actually added to our parent */
-    gdl_dock_object_freeze (new_parent);
     
-    /* bind the new parent to our master, so the following adds work */
-    gdl_dock_object_bind (new_parent, G_OBJECT (GDL_DOCK_OBJECT_GET_MASTER (object)));
-    
-    /* add the objects */
-    if (add_ourselves_first) {
-        gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (object));
-        gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (requestor));
-        splitpos = available_space - pref_size;
-    } else {
-        gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (requestor));
-        gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (object));
-        splitpos = pref_size;
-    }
+    if (new_parent)
+    {
+        /* ref ourselves since we could be destroyed when detached */ 
+        g_object_ref (object);
+        GDL_DOCK_OBJECT_SET_FLAGS (object, GDL_DOCK_IN_REFLOW);
+        gdl_dock_object_detach (object, FALSE);
 
-    /* add the new parent to the parent */
-    if (parent)
-        gtk_container_add (GTK_CONTAINER (parent), GTK_WIDGET (new_parent));
-
-    /* show automatic object */
-    if (gtk_widget_get_visible (GTK_WIDGET (object)))
-        gtk_widget_show (GTK_WIDGET (new_parent));
+        /* freeze the new parent, so reduce won't get called before it's
+           actually added to our parent */
+        gdl_dock_object_freeze (new_parent);
     
-    /* use extra docking parameter */
-    if (position != GDL_DOCK_CENTER && other_data &&
-        G_VALUE_HOLDS (other_data, G_TYPE_UINT)) {
+        /* bind the new parent to our master, so the following adds work */
+        gdl_dock_object_bind (new_parent, G_OBJECT (GDL_DOCK_OBJECT_GET_MASTER (object)));
+    
+        /* add the objects */
+        if (add_ourselves_first) {
+            gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (object));
+            gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (requestor));
+            splitpos = available_space - pref_size;
+        } else {
+            gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (requestor));
+            gtk_container_add (GTK_CONTAINER (new_parent), GTK_WIDGET (object));
+            splitpos = pref_size;
+        }
+
+        /* add the new parent to the parent */
+        if (parent)
+            gtk_container_add (GTK_CONTAINER (parent), GTK_WIDGET (new_parent));
+
+        /* show automatic object */
+	if (gtk_widget_get_visible (GTK_WIDGET (object)))
+        {
+            gtk_widget_show (GTK_WIDGET (new_parent));
+            GDL_DOCK_OBJECT_UNSET_FLAGS (object, GDL_DOCK_IN_REFLOW);
+        }
+        gdl_dock_object_thaw (new_parent);
+
+        /* use extra docking parameter */
+        if (position != GDL_DOCK_CENTER && other_data &&
+            G_VALUE_HOLDS (other_data, G_TYPE_UINT)) {
         
-        g_object_set (G_OBJECT (new_parent),
-                      "position", g_value_get_uint (other_data),
-                      NULL);
-    } else if (splitpos > 0 && splitpos < available_space) {
-        g_object_set (G_OBJECT (new_parent), "position", splitpos, NULL);
+            g_object_set (G_OBJECT (new_parent),
+                          "position", g_value_get_uint (other_data),
+                          NULL);
+        } else if (splitpos > 0 && splitpos < available_space) {
+            g_object_set (G_OBJECT (new_parent), "position", splitpos, NULL);
+        }
+    
+        g_object_unref (object);
+    }
+    else
+    {
+        /* If the parent is already a DockNotebook, we don't need
+         to create a new one. */
+        gtk_container_add (GTK_CONTAINER (parent), GTK_WIDGET (requestor));
     }
     
-    GDL_DOCK_OBJECT_UNSET_FLAGS (object, GDL_DOCK_IN_REFLOW);
-    g_object_unref (object);
-
-    gdl_dock_object_thaw (new_parent);
+    requestor_parent = gdl_dock_object_get_parent_object (requestor);
+    if (GDL_IS_DOCK_NOTEBOOK (requestor_parent))
+    {
+        /* Activate the page we just added */
+        GdlDockItem* notebook = GDL_DOCK_ITEM (gdl_dock_object_get_parent_object (requestor));
+        gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook->child), 
+                               gtk_notebook_page_num (GTK_NOTEBOOK (notebook->child), GTK_WIDGET (requestor)));
+    }
+                               
     if (parent)
         gdl_dock_object_thaw (parent);
 
@@ -1642,6 +1718,17 @@ gdl_dock_item_real_set_orientation (GdlDockItem    *item,
 
 /* ----- Public interface ----- */
 
+/**
+ * gdl_dock_item_new:
+ * @name: Unique name for identifying the dock object.
+ * @long_name: Human readable name for the dock object.
+ * @behavior: General behavior for the dock item (i.e. whether it can
+ *            float, if it's locked, etc.), as specified by
+ *            #GdlDockItemBehavior flags.
+ * 
+ * Creates a new dock item widget.
+ * Returns: The newly created dock item grip widget.
+ **/
 GtkWidget *
 gdl_dock_item_new (const gchar         *name,
                    const gchar         *long_name,
@@ -1659,6 +1746,18 @@ gdl_dock_item_new (const gchar         *name,
     return GTK_WIDGET (item);
 }
 
+/**
+ * gdl_dock_item_new_with_stock:
+ * @name: Unique name for identifying the dock object.
+ * @long_name: Human readable name for the dock object.
+ * @stock_id: Stock icon for the dock object.
+ * @behavior: General behavior for the dock item (i.e. whether it can
+ *            float, if it's locked, etc.), as specified by
+ *            #GdlDockItemBehavior flags.
+ * 
+ * Creates a new dock item grip widget with a given stock id.
+ * Returns: The newly created dock item grip widget.
+ **/
 GtkWidget *
 gdl_dock_item_new_with_stock (const gchar         *name,
                               const gchar         *long_name,
@@ -1701,6 +1800,15 @@ gdl_dock_item_new_with_pixbuf_icon (const gchar         *name,
 }
 
 /* convenient function (and to preserve source compat) */
+/**
+ * gdl_dock_item_dock_to:
+ * @item: The dock item that will be relocated to the dock position.
+ * @target: The dock item that will be used as the point of reference.
+ * @position: The position to dock #item, relative to #target.
+ * @docking_param: This value is unused, and will be ignored.
+ * 
+ * Relocates a dock item to a new location relative to another dock item.
+ **/
 void
 gdl_dock_item_dock_to (GdlDockItem      *item,
                        GdlDockItem      *target,
@@ -1738,6 +1846,18 @@ gdl_dock_item_dock_to (GdlDockItem      *item,
                               position, NULL);
 }
 
+/**
+ * gdl_dock_item_set_orientation:
+ * @item: The dock item which will get it's orientation set.
+ * @orientation: The orientation to set the item to. If the orientation
+ * is set to #GTK_ORIENTATION_VERTICAL, the grip widget will be shown
+ * along the top of the edge of item (if it is not hidden). If the
+ * orientation is set to #GTK_ORIENTATION_HORIZONTAL, the grip widget
+ * will be shown down the left edge of the item (even if the widget
+ * text direction is set to RTL).
+ * 
+ * This function sets the layout of the dock item.
+ **/
 void
 gdl_dock_item_set_orientation (GdlDockItem    *item,
                                GtkOrientation  orientation)
@@ -1762,6 +1882,16 @@ gdl_dock_item_set_orientation (GdlDockItem    *item,
     }
 }
 
+/**
+ * gdl_dock_item_get_tablabel:
+ * @item: The dock item from which to get the tab label widget.
+ * 
+ * Gets the current tab label widget. Note that this label widget is
+ * only visible when the "switcher-style" property of the #GdlDockMaster
+ * is set to #GDL_SWITCHER_STYLE_TABS
+ * 
+ * Returns: Returns the tab label widget.
+ **/
 GtkWidget *
 gdl_dock_item_get_tablabel (GdlDockItem *item)
 {
@@ -1771,6 +1901,15 @@ gdl_dock_item_get_tablabel (GdlDockItem *item)
     return item->_priv->tab_label;
 }
 
+/**
+ * gdl_dock_item_set_tablabel:
+ * @item: The dock item which will get it's tab label widget set.
+ * @tablabel: The widget that will become the tab label.
+ * 
+ * Replaces the current tab label widget with another widget. Note that
+ * this label widget is only visible when the "switcher-style" property
+ * of the #GdlDockMaster is set to #GDL_SWITCHER_STYLE_TABS
+ **/
 void
 gdl_dock_item_set_tablabel (GdlDockItem *item,
                             GtkWidget   *tablabel)
@@ -1802,6 +1941,29 @@ gdl_dock_item_set_tablabel (GdlDockItem *item,
     }
 }
 
+/**
+ * gdl_dock_item_get_grip:
+ * @item: The dock item from which to to get the grip of.
+ * 
+ * This function returns the dock item's grip label widget.
+ * 
+ * Returns: Returns the current label widget.
+ **/
+GtkWidget *
+gdl_dock_item_get_grip(GdlDockItem *item)
+{
+    g_return_if_fail (item != NULL);
+    g_return_val_if_fail (GDL_IS_DOCK_ITEM (item), NULL);
+
+    return item->_priv->grip;
+}
+
+/**
+ * gdl_dock_item_hide_grip:
+ * @item: The dock item to hide the grip of.
+ * 
+ * This function hides the dock item's grip widget.
+ **/
 void 
 gdl_dock_item_hide_grip (GdlDockItem *item)
 {
@@ -1813,6 +1975,12 @@ gdl_dock_item_hide_grip (GdlDockItem *item)
     g_warning ("Grips always show unless GDL_DOCK_ITEM_BEH_NO_GRIP is set\n" );
 }
 
+/**
+ * gdl_dock_item_show_grip:
+ * @item: The dock item to show the grip of.
+ * 
+ * This function shows the dock item's grip widget.
+ **/
 void
 gdl_dock_item_show_grip (GdlDockItem *item)
 {
@@ -1823,7 +1991,28 @@ gdl_dock_item_show_grip (GdlDockItem *item)
     };
 }
 
+/**
+ * gdl_dock_item_notify_selected:
+ * @item: the dock item to emit a selected signal on.
+ *
+ * This function emits the selected signal. It is to be used by #GdlSwitcher 
+ * to let clients know that this item has been switched to.
+ **/
+void
+gdl_dock_item_notify_selected (GdlDockItem *item)
+{
+    g_signal_emit (item, gdl_dock_item_signals [SELECTED], 0);
+}
+
 /* convenient function (and to preserve source compat) */
+/**
+ * gdl_dock_item_bind:
+ * @item: The item to bind.
+ * @dock: The #GdlDock widget to bind it to. Note that this widget must
+ * be a type of #GdlDock.
+ * 
+ * Binds this dock item to a new dock master.
+ **/
 void
 gdl_dock_item_bind (GdlDockItem *item,
                     GtkWidget   *dock)
@@ -1836,6 +2025,12 @@ gdl_dock_item_bind (GdlDockItem *item,
 }
 
 /* convenient function (and to preserve source compat) */
+/**
+ * gdl_dock_item_unbind:
+ * @item: The item to unbind.
+ * 
+ * Unbinds this dock item from it's dock master.
+ **/
 void
 gdl_dock_item_unbind (GdlDockItem *item)
 {
@@ -1844,6 +2039,15 @@ gdl_dock_item_unbind (GdlDockItem *item)
     gdl_dock_object_unbind (GDL_DOCK_OBJECT (item));
 }
 
+/**
+ * gdl_dock_item_hide_item:
+ * @item: The dock item to hide.
+ * 
+ * This function hides the dock item. When dock items are hidden they
+ * are completely removed from the layout.
+ * 
+ * The dock item close button causes the panel to be hidden.
+ **/
 void
 gdl_dock_item_hide_item (GdlDockItem *item)
 {
@@ -1905,6 +2109,15 @@ gdl_dock_item_hide_item (GdlDockItem *item)
     gdl_dock_object_thaw (GDL_DOCK_OBJECT (item));
 }
 
+/**
+ * gdl_dock_item_iconify_item:
+ * @item: The dock item to iconify.
+ * 
+ * This function iconifies the dock item. When dock items are iconified
+ * they are hidden, and appear only as icons in dock bars.
+ * 
+ * The dock item iconify button causes the panel to be iconified.
+ **/
 void
 gdl_dock_item_iconify_item (GdlDockItem *item)
 {
@@ -1914,6 +2127,13 @@ gdl_dock_item_iconify_item (GdlDockItem *item)
     gdl_dock_item_hide_item (item);
 }
 
+/**
+ * gdl_dock_item_show_item:
+ * @item: The dock item to show.
+ * 
+ * This function shows the dock item. When dock items are shown, they
+ * are displayed in their normal layout position.
+ **/
 void
 gdl_dock_item_show_item (GdlDockItem *item)
 {
@@ -1965,18 +2185,41 @@ gdl_dock_item_show_item (GdlDockItem *item)
     gtk_widget_show (GTK_WIDGET (item));
 }
 
+/**
+ * gdl_dock_item_lock:
+ * @item: The dock item to lock.
+ * 
+ * This function locks the dock item. When locked the dock item cannot
+ * be dragged around and it doesn't show a grip.
+ **/
 void
 gdl_dock_item_lock (GdlDockItem *item)
 {
     g_object_set (item, "locked", TRUE, NULL);
 }
 
+/**
+ * gdl_dock_item_unlock:
+ * @item: The dock item to unlock.
+ * 
+ * This function unlocks the dock item. When unlocked the dock item can
+ * be dragged around and can show a grip.
+ **/
 void
 gdl_dock_item_unlock (GdlDockItem *item)
 {
     g_object_set (item, "locked", FALSE, NULL);
 }
 
+/**
+ * gdl_dock_item_set_default_position:
+ * @item: The dock item
+ * @reference: The GdlDockObject which is the default dock for @item 
+ *
+ * This method has only an effect when you add you dock_item with
+ * GDL_DOCK_ITEM_BEH_NEVER_FLOATING. In this case you have to assign
+ * it a default position.
+ **/
 void 
 gdl_dock_item_set_default_position (GdlDockItem   *item,
                                     GdlDockObject *reference)
@@ -2003,6 +2246,14 @@ gdl_dock_item_set_default_position (GdlDockItem   *item,
     }
 }
 
+/**
+ * gdl_dock_item_preferred_size:
+ * @item: The dock item to get the preferred size of.
+ * @req: A pointer to a #GtkRequisition into which the preferred size
+ * will be written.
+ * 
+ * Gets the preferred size of the dock item in pixels.
+ **/
 void 
 gdl_dock_item_preferred_size (GdlDockItem    *item,
                               GtkRequisition *req)
