@@ -112,9 +112,6 @@ struct SPCanvas {
 
     int close_enough;
 
-    /* GC for temporary draw pixmap */
-    GdkGC *pixmap_gc;
-
     unsigned int need_update : 1;
     unsigned int need_redraw : 1;
     unsigned int need_repick : 1;
@@ -143,7 +140,7 @@ struct SPCanvas {
 
 #if ENABLE_LCMS
     bool enable_cms_display_adj;
-    Glib::ustring* cms_key;
+    Glib::ustring cms_key;
 #endif // ENABLE_LCMS
 
     bool is_scrolling;
