@@ -544,10 +544,8 @@ void SPDesktopWidget::init( SPDesktopWidget *dtw )
         Glib::ustring id = Inkscape::CMSSystem::getDisplayId( 0, 0 );
 
         bool enabled = false;
-        if ( dtw->canvas->cms_key ) {
-            *(dtw->canvas->cms_key) = id;
-            enabled = !dtw->canvas->cms_key->empty();
-        }
+        dtw->canvas->cms_key = id;
+        enabled = !dtw->canvas->cms_key.empty();
         cms_adjust_set_sensitive( dtw, enabled );
     }
 #endif // ENABLE_LCMS
@@ -808,11 +806,9 @@ void sp_dtw_color_profile_event(EgeColorProfTracker */*tracker*/, SPDesktopWidge
     gint monitor = gdk_screen_get_monitor_at_window(screen, gtk_widget_get_toplevel(GTK_WIDGET(dtw))->window);
     Glib::ustring id = Inkscape::CMSSystem::getDisplayId( screenNum, monitor );
     bool enabled = false;
-    if ( dtw->canvas->cms_key ) {
-        *(dtw->canvas->cms_key) = id;
-        dtw->requestCanvasUpdate();
-        enabled = !dtw->canvas->cms_key->empty();
-    }
+    dtw->canvas->cms_key = id;
+    dtw->requestCanvasUpdate();
+    enabled = !dtw->canvas->cms_key.empty();
     cms_adjust_set_sensitive( dtw, enabled );
 #endif // ENABLE_LCMS
 }
