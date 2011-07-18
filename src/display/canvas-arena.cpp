@@ -199,12 +199,8 @@ sp_canvas_arena_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned
 static void
 sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
 {
+    // todo: handle NR_ARENA_ITEM_RENDER_NO_CACHE
     SPCanvasArena *arena = SP_CANVAS_ARENA (item);
-    //SPCanvas *canvas = item->canvas;
-
-    //nr_arena_item_invoke_update (arena->root, NULL, &arena->gc,
-    //                             NR_ARENA_ITEM_STATE_BBOX | NR_ARENA_ITEM_STATE_RENDER,
-    //                             NR_ARENA_ITEM_STATE_NONE);
 
     Geom::OptIntRect r = buf->rect;
     if (!r || r->hasZeroArea()) return;
@@ -221,11 +217,8 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
 
     cairo_save(buf->ct);
     cairo_translate(buf->ct, -r->left(), -r->top());
-    //cairo_rectangle(buf->ct, r->left(), r->top(), r->width(), r->height());
-    //cairo_clip(buf->ct);
     cairo_set_source_surface(buf->ct, arena->cache, arena->cache_area.left(), arena->cache_area.top());
     cairo_paint(buf->ct);
-    //nr_arena_item_invoke_render (buf->ct, arena->root, &area, NULL, 0);
     cairo_restore(buf->ct);
 }
 
