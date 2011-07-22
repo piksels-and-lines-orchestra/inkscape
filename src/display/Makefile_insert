@@ -23,6 +23,10 @@ ink_common_sources += \
 	display/canvas-text.h	\
 	display/curve.cpp	\
 	display/curve.h	\
+	display/drawing-context.cpp \
+	display/drawing-context.h \
+	display/drawing-surface.cpp \
+	display/drawing-surface.h \
 	display/gnome-canvas-acetate.cpp	\
 	display/gnome-canvas-acetate.h	\
 	display/grayscale.cpp	\

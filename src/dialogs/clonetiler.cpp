@@ -14,6 +14,8 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
+
+#include <climits>
 #include <glib/gmem.h>
 #include <gtk/gtk.h>
 #include <glibmm/i18n.h>
@@ -23,6 +25,7 @@
 #include "desktop-handles.h"
 #include "dialog-events.h"
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
 #include "document.h"
@@ -875,29 +878,20 @@ static guint32 clonetiler_trace_pick(Geom::Rect box)
     nr_arena_item_set_transform(trace_root, &t);
     NRGC gc(NULL);
     gc.transform.setIdentity();
-    nr_arena_item_invoke_update( trace_root, NULL, &gc,
+    nr_arena_item_invoke_update( trace_root, Geom::IntRect::infinite(), &gc,
                                  NR_ARENA_ITEM_STATE_ALL,
                                  NR_ARENA_ITEM_STATE_NONE );
 
     /* Item integer bbox in points */
-    NRRectL ibox;
-    ibox.x0 = floor(trace_zoom * box[Geom::X].min());
-    ibox.y0 = floor(trace_zoom * box[Geom::Y].min());
-    ibox.x1 = ceil(trace_zoom * box[Geom::X].max());
-    ibox.y1 = ceil(trace_zoom * box[Geom::Y].max());
+    Geom::IntRect ibox = (box * Geom::Scale(trace_zoom)).roundOutwards();
 
     /* Find visible area */
-    int width = ibox.x1 - ibox.x0;
-    int height = ibox.y1 - ibox.y0;
-    double R = 0, G = 0, B = 0, A = 0;
-
-    cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-    cairo_t *ct = cairo_create(s);
-    cairo_translate(ct, -ibox.x0, -ibox.y0);
+    cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, ibox.width(), ibox.height());
+    Inkscape::DrawingContext ct(s, ibox.min());
     /* Render */
-    nr_arena_item_invoke_render(ct, trace_root, &ibox, NULL,
+    nr_arena_item_invoke_render(ct, trace_root, ibox,
                                  NR_ARENA_ITEM_RENDER_NO_CACHE );
-    cairo_destroy(ct);
+    double R = 0, G = 0, B = 0, A = 0;
     ink_cairo_surface_average_color(s, R, G, B, A);
     cairo_surface_destroy(s);
 

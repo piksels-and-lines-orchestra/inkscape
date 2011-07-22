@@ -22,13 +22,15 @@
 struct NRArenaItem;
 
 namespace Inkscape {
+class DrawingContext;
+
 namespace Filters {
 
 class FilterSlot {
 public:
     /** Creates a new FilterSlot object. */
-    FilterSlot(NRArenaItem *item, cairo_t *bgct, NRRectL const *bgarea,
-        cairo_surface_t *graphic, NRRectL const *graphicarea, FilterUnits const &u);
+    FilterSlot(NRArenaItem *item, DrawingContext &bgct,
+        DrawingContext &graphic, FilterUnits const &u);
     /** Destroys the FilterSlot object and all its contents */
     virtual ~FilterSlot();
 
@@ -66,7 +68,7 @@ public:
 
     FilterUnits const &get_units() const { return _units; }
     Geom::Rect get_slot_area() const;
-    NRRectL const &get_sg_area() const { return *_source_graphic_area; }
+    NRRectL get_sg_area() const { NRRectL ret(_source_graphic_area); return ret; }
 
 private:
     typedef std::map<int, cairo_surface_t *> SlotMap;
@@ -81,8 +83,8 @@ private:
     double _slot_x, _slot_y;
     cairo_surface_t *_source_graphic;
     cairo_t *_background_ct;
-    NRRectL const *_source_graphic_area;
-    NRRectL const *_background_area; ///< needed to extract background
+    Geom::IntRect _source_graphic_area;
+    Geom::IntRect _background_area; ///< needed to extract background
     FilterUnits const &_units;
     int _last_out;
     FilterQuality filterquality;

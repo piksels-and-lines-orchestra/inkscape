@@ -23,6 +23,7 @@
 #include "interface.h"
 #include "helper/png-write.h"
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena-item.h"
 #include "display/nr-arena.h"
 #include "document.h"
@@ -144,27 +145,17 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
          hide_other_items_recursively(doc->getRoot(), items_only, dkey);
      }
 
-     NRRectL final_bbox;
-     final_bbox.x0 = 0;
-     final_bbox.y0 = 0;//row;
-     final_bbox.x1 = width;
-     final_bbox.y1 = height;//row + num_rows;
+    Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
 
-     nr_arena_item_invoke_update(root, &final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
+     nr_arena_item_invoke_update(root, final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
 
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 
     if (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS) {
-        cairo_t *ct = cairo_create(surface);
-
-        // clear to background
-        ink_cairo_set_source_rgba32(ct, bgcolor);
-        cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
-        cairo_paint(ct);
-        cairo_set_operator(ct, CAIRO_OPERATOR_OVER);
+        Inkscape::DrawingContext ct(surface, Geom::Point(0,0));
 
         // render items
-        nr_arena_item_invoke_render(ct, root, &final_bbox, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE );
+        nr_arena_item_invoke_render(ct, root, final_bbox, NR_ARENA_ITEM_RENDER_NO_CACHE );
 
         pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(surface),
                                           GDK_COLORSPACE_RGB, TRUE,

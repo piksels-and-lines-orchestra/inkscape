@@ -104,13 +104,13 @@ nr_arena_request_update (NRArena *arena, NRArenaItem *item)
 }
 
 void
-nr_arena_request_render_rect (NRArena *arena, NRRectL *area)
+nr_arena_request_render_rect (NRArena *arena, Geom::OptIntRect const &area)
 {
     NRActiveObject *aobject = (NRActiveObject *) arena;
 
     nr_return_if_fail (arena != NULL);
     nr_return_if_fail (NR_IS_ARENA (arena));
-    nr_return_if_fail (area != NULL);
+    if (!area) return;
 
     // setup render parameter
     if (arena->renderoffscreen == false) {
@@ -123,12 +123,13 @@ nr_arena_request_render_rect (NRArena *arena, NRRectL *area)
         arena->rendermode = Inkscape::RENDERMODE_NORMAL;
         arena->colorrendermode = Inkscape::COLORRENDERMODE_NORMAL;
     }
-    if (aobject->callbacks && area && !nr_rect_l_test_empty_ptr(area)) {
+    NRRectL nr_area(*area);
+    if (aobject->callbacks) {
         for (unsigned int i = 0; i < aobject->callbacks->length; i++) {
             NRObjectListener *listener = aobject->callbacks->listeners + i;
             NRArenaEventVector *avector = (NRArenaEventVector *) listener->vector;
             if ((listener->size >= sizeof (NRArenaEventVector)) && avector->request_render) {
-                avector->request_render (arena, area, listener->data);
+                avector->request_render (arena, &nr_area, listener->data);
             }
         }
     }

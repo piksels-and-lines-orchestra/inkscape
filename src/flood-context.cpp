@@ -53,6 +53,7 @@
 #include "display/nr-arena-image.h"
 #include "display/canvas-arena.h"
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include <2geom/pathvector.h>
 #include "sp-item.h"
 #include "sp-root.h"
@@ -805,8 +806,8 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     Geom::Point origin(screen.min()[Geom::X],
                        document->getHeight() - screen.height() - screen.min()[Geom::Y]);
                     
-    origin[Geom::X] = origin[Geom::X] + (screen.width() * ((1 - padding) / 2));
-    origin[Geom::Y] = origin[Geom::Y] + (screen.height() * ((1 - padding) / 2));
+    origin[Geom::X] += (screen.width() * ((1 - padding) / 2));
+    origin[Geom::Y] += (screen.height() * ((1 - padding) / 2));
     
     Geom::Scale scale(zoom_scale, zoom_scale);
     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
@@ -817,44 +818,42 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
 
     NRGC gc(NULL);
     gc.transform.setIdentity();
+
+    Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
     
-    NRRectL final_bbox;
-    final_bbox.x0 = 0;
-    final_bbox.y0 = 0; //row;
-    final_bbox.x1 = width;
-    final_bbox.y1 = height; //row + num_rows;
-    
-    nr_arena_item_invoke_update(root, &final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
+    nr_arena_item_invoke_update(root, final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
 
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
     guchar *px = g_new(guchar, stride * height);
-    
-    cairo_surface_t *s = cairo_image_surface_create_for_data(
-        px, CAIRO_FORMAT_ARGB32, width, height, stride);
-    cairo_t *ct = cairo_create(s);
-    // cairo_translate not necessary here - surface origin is at 0,0
+    guint32 bgcolor, dtc;
 
-    SPNamedView *nv = sp_desktop_namedview(desktop);
-    guint32 bgcolor = nv->pagecolor;
-    // bgcolor is 0xrrggbbaa, we need 0xaarrggbb
-    guint32 dtc = (bgcolor >> 8) | (bgcolor << 24);
+    { // this block limits the lifetime of DrawingContext
+        cairo_surface_t *s = cairo_image_surface_create_for_data(
+            px, CAIRO_FORMAT_ARGB32, width, height, stride);
+        Inkscape::DrawingContext ct(s, Geom::Point(0,0));
+        // cairo_translate not necessary here - surface origin is at 0,0
 
-    ink_cairo_set_source_rgba32(ct, bgcolor);
-    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(ct);
-    cairo_set_operator(ct, CAIRO_OPERATOR_OVER);
+        SPNamedView *nv = sp_desktop_namedview(desktop);
+        bgcolor = nv->pagecolor;
+        // bgcolor is 0xrrggbbaa, we need 0xaarrggbb
+        dtc = (bgcolor >> 8) | (bgcolor << 24);
 
-    nr_arena_item_invoke_render(ct, root, &final_bbox, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE );
+        ct.setSource(bgcolor);
+        ct.setOperator(CAIRO_OPERATOR_SOURCE);
+        ct.paint();
+        ct.setOperator(CAIRO_OPERATOR_OVER);
 
-    cairo_surface_flush(s);
-    cairo_destroy(ct);
-    cairo_surface_destroy(s);
-    
-    // Hide items
-    SP_ITEM(document->getRoot())->invoke_hide(dkey);
+        nr_arena_item_invoke_render(ct, root, final_bbox, NR_ARENA_ITEM_RENDER_NO_CACHE );
 
-    nr_object_unref((NRObject *) arena);
-    
+        cairo_surface_flush(s);
+        cairo_surface_destroy(s);
+        
+        // Hide items
+        SP_ITEM(document->getRoot())->invoke_hide(dkey);
+
+        nr_object_unref((NRObject *) arena);
+    }
+
     guchar *trace_px = g_new(guchar, width * height);
     memset(trace_px, 0x00, width * height);
     

@@ -23,6 +23,7 @@
 #include "display/canvas-arena.h"
 #include "display/canvas-bpath.h"
 #include "display/curve.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-shape.h"
 #include "display/nr-filter.h"
@@ -44,10 +45,10 @@ static void nr_arena_shape_add_child(NRArenaItem *item, NRArenaItem *child, NRAr
 static void nr_arena_shape_remove_child(NRArenaItem *item, NRArenaItem *child);
 static void nr_arena_shape_set_child_position(NRArenaItem *item, NRArenaItem *child, NRArenaItem *ref);
 
-static guint nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset);
-static unsigned int nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-static guint nr_arena_shape_clip(cairo_t *ct, NRArenaItem *item, NRRectL *area);
-static NRArenaItem *nr_arena_shape_pick(NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+static guint nr_arena_shape_update(NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, guint state, guint reset);
+static unsigned int nr_arena_shape_render(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags);
+static guint nr_arena_shape_clip(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area);
+static NRArenaItem *nr_arena_shape_pick(NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky);
 
 static NRArenaItemClass *shape_parent_class;
 
@@ -99,14 +100,6 @@ nr_arena_shape_init(NRArenaShape *shape)
 {
     shape->curve = NULL;
     shape->style = NULL;
-    shape->paintbox.x0 = shape->paintbox.y0 = 0.0F;
-    shape->paintbox.x1 = shape->paintbox.y1 = 256.0F;
-    shape->delayed_shp = false;
-    shape->path = NULL;
-
-    shape->approx_bbox.x0 = shape->approx_bbox.y0 = 0;
-    shape->approx_bbox.x1 = shape->approx_bbox.y1 = 0;
-
     shape->markers = NULL;
     shape->last_pick = NULL;
     shape->repick_after = 0;
@@ -117,7 +110,6 @@ nr_arena_shape_finalize(NRObject *object)
 {
     NRArenaShape *shape = (NRArenaShape *) object;
 
-    if (shape->path) cairo_path_destroy(shape->path);
     if (shape->style) sp_style_unref(shape->style);
     if (shape->curve) shape->curve->unref();
     shape->last_pick = NULL;
@@ -203,7 +195,7 @@ nr_arena_shape_set_child_position(NRArenaItem *item, NRArenaItem *child, NRArena
  * Updates the arena shape 'item' and all of its children, including the markers.
  */
 static guint
-nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset)
+nr_arena_shape_update(NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, guint state, guint reset)
 {
     Geom::OptRect boundingbox;
 
@@ -224,34 +216,26 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
             if (shape->curve) {
                 boundingbox = bounds_exact_transformed(shape->curve->get_pathvector(), gc->transform);
                 if (boundingbox) {
-                    item->bbox.x0 = floor((*boundingbox)[0][0]); // Floor gives the coordinate in which the point resides
-                    item->bbox.y0 = floor((*boundingbox)[1][0]);
-                    item->bbox.x1 = ceil ((*boundingbox)[0][1]); // Ceil gives the first coordinate beyond the point
-                    item->bbox.y1 = ceil ((*boundingbox)[1][1]);
+                    item->bbox = boundingbox->roundOutwards();
                 } else {
-                    item->bbox = NR_RECT_L_EMPTY;
+                    item->bbox = Geom::OptIntRect();
                 }
             }
             if (beststate & NR_ARENA_ITEM_STATE_BBOX) {
                 for (NRArenaItem *child = shape->markers; child != NULL; child = child->next) {
-                    nr_rect_l_union(&item->bbox, &item->bbox, &child->bbox);
+                    item->bbox.unionWith(child->bbox);
                 }
             }
         }
         return (state | item->state);
     }
 
-    shape->delayed_shp=true;
     boundingbox = Geom::OptRect();
 
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     // clear Cairo data to force update
     shape->nrstyle.update();
-    if (shape->path) {
-        cairo_path_destroy(shape->path);
-        shape->path = NULL;
-    }
 
     if (shape->curve) {
         boundingbox = bounds_exact_transformed(shape->curve->get_pathvector(), gc->transform);
@@ -273,19 +257,7 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
         }
     }
 
-    /// \todo  just write item->bbox = boundingbox
-    if (boundingbox) {
-        shape->approx_bbox.x0 = floor(boundingbox->left());
-        shape->approx_bbox.y0 = floor(boundingbox->top());
-        shape->approx_bbox.x1 = ceil (boundingbox->right());
-        shape->approx_bbox.y1 = ceil (boundingbox->bottom());
-    } else {
-        shape->approx_bbox = NR_RECT_L_EMPTY;
-    }
-    if ( area && nr_rect_l_test_intersect_ptr(area, &shape->approx_bbox) ) shape->delayed_shp=false;
-
-    // TODO: compute a better bounding box that respects miters
-    item->bbox = shape->approx_bbox;
+    item->bbox = boundingbox ? boundingbox->roundOutwards() : Geom::OptIntRect();
 
     if (!shape->curve || 
         !shape->style ||
@@ -299,7 +271,7 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
 
     if (beststate & NR_ARENA_ITEM_STATE_BBOX) {
         for (NRArenaItem *child = shape->markers; child != NULL; child = child->next) {
-            nr_rect_l_union(&item->bbox, &item->bbox, &child->bbox);
+            item->bbox.unionWith(child->bbox);
         }
     }
 
@@ -308,25 +280,22 @@ nr_arena_shape_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, g
 
 // cairo outline rendering:
 static unsigned int
-cairo_arena_shape_render_outline(cairo_t *ct, NRArenaItem *item, Geom::OptRect /*area*/)
+cairo_arena_shape_render_outline(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &/*area*/)
 {
     NRArenaShape *shape = NR_ARENA_SHAPE(item);
 
-    if (!ct) 
-        return item->state;
-
     guint32 rgba = NR_ARENA_ITEM(shape)->arena->outlinecolor;
 
-    cairo_save(ct);
-    ink_cairo_transform(ct, shape->ctm);
-    feed_pathvector_to_cairo (ct, shape->curve->get_pathvector());
-    cairo_restore(ct);
-    cairo_save(ct);
-    ink_cairo_set_source_rgba32(ct, rgba);
-    cairo_set_line_width(ct, 0.5);
-    cairo_set_tolerance(ct, 1.25); // low quality, but good enough for outline mode
-    cairo_stroke(ct);
-    cairo_restore(ct);
+    {   Inkscape::DrawingContext::Save save(ct);
+        ct.transform(shape->ctm);
+        ct.path(shape->curve->get_pathvector());
+    }
+    {   Inkscape::DrawingContext::Save save(ct);
+        ct.setSource(rgba);
+        ct.setLineWidth(0.5);
+        ct.setTolerance(1.25);
+        ct.stroke();
+    }
 
     return item->state;
 }
@@ -335,59 +304,55 @@ cairo_arena_shape_render_outline(cairo_t *ct, NRArenaItem *item, Geom::OptRect /
  * Renders the item.  Markers are just composed into the parent buffer.
  */
 static unsigned int
-nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags)
+nr_arena_shape_render(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags)
 {
     NRArenaShape *shape = NR_ARENA_SHAPE(item);
 
     if (!shape->curve) return item->state;
     if (!shape->style) return item->state;
-    if (!ct) return item->state;
 
     // skip if not within bounding box
-    if (!nr_rect_l_test_intersect_ptr(area, &item->bbox)) {
+    if (!area.intersects(item->bbox)) {
         return item->state;
     }
 
     bool outline = (NR_ARENA_ITEM(shape)->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
-    if (outline) { // cairo outline rendering
-
-        NRRect temp(area->x0, area->y0, area->x1, area->y1);
-        unsigned int ret = cairo_arena_shape_render_outline (ct, item, temp.upgrade_2geom());
+    if (outline) {
+        // cairo outline rendering
+        unsigned int ret = cairo_arena_shape_render_outline (ct, item, area);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) return ret;
-
     } else {
         bool has_stroke, has_fill;
         // we assume the context has no path
-        cairo_save(ct);
-        ink_cairo_transform(ct, shape->ctm);
+        Inkscape::DrawingContext::Save save(ct);
+        ct.transform(shape->ctm);
 
         // update fill and stroke paints.
         // this cannot be done during nr_arena_shape_update, because we need a Cairo context
         // to render svg:pattern
-        has_fill   = shape->nrstyle.prepareFill(ct, &shape->paintbox);
-        has_stroke = shape->nrstyle.prepareStroke(ct, &shape->paintbox);
+        has_fill   = shape->nrstyle.prepareFill(ct, shape->paintbox);
+        has_stroke = shape->nrstyle.prepareStroke(ct, shape->paintbox);
         has_stroke &= (shape->nrstyle.stroke_width != 0);
 
         if (has_fill || has_stroke) {
             // TODO: remove segments outside of bbox when no dashes present
-            feed_pathvector_to_cairo(ct, shape->curve->get_pathvector());
+            ct.path(shape->curve->get_pathvector());
             if (has_fill) {
                 shape->nrstyle.applyFill(ct);
-                cairo_fill_preserve(ct);
+                ct.fillPreserve();
             }
             if (has_stroke) {
                 shape->nrstyle.applyStroke(ct);
-                cairo_stroke_preserve(ct);
+                ct.strokePreserve();
             }
-            cairo_new_path(ct); // clear path
+            ct.newPath(); // clear path
         } // has fill or stroke pattern
-        cairo_restore(ct);
     }
 
     // marker rendering
     for (NRArenaItem *child = shape->markers; child != NULL; child = child->next) {
-        unsigned int ret = nr_arena_item_invoke_render(ct, child, area, pb, flags);
+        unsigned int ret = nr_arena_item_invoke_render(ct, child, area, flags);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) return ret;
     }
 
@@ -395,32 +360,31 @@ nr_arena_shape_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock 
 }
 
 
-static guint nr_arena_shape_clip(cairo_t *ct, NRArenaItem *item, NRRectL * /*area*/)
+static guint nr_arena_shape_clip(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &/*area*/)
 {
     NRArenaShape *shape = NR_ARENA_SHAPE(item);
     if (!shape->curve) {
         return item->state;
     }
 
-    cairo_save(ct);
+    Inkscape::DrawingContext::Save save(ct);
     // handle clip-rule
     if (shape->style) {
         if (shape->style->clip_rule.computed == SP_WIND_RULE_EVENODD) {
-            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_EVEN_ODD);
+            ct.setFillRule(CAIRO_FILL_RULE_EVEN_ODD);
         } else {
-            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_WINDING);
+            ct.setFillRule(CAIRO_FILL_RULE_WINDING);
         }
     }
-    ink_cairo_transform(ct, shape->ctm);
-    feed_pathvector_to_cairo(ct, shape->curve->get_pathvector());
-    cairo_fill(ct);
-    cairo_restore(ct);
+    ct.transform(shape->ctm);
+    ct.path(shape->curve->get_pathvector());
+    ct.fill();
 
     return item->state;
 }
 
 static NRArenaItem *
-nr_arena_shape_pick(NRArenaItem *item, Geom::Point p, double delta, unsigned int /*sticky*/)
+nr_arena_shape_pick(NRArenaItem *item, Geom::Point const &p, double delta, unsigned int /*sticky*/)
 {
     NRArenaShape *shape = NR_ARENA_SHAPE(item);
 
@@ -577,23 +541,14 @@ nr_arena_shape_set_paintbox(NRArenaShape *shape, NRRect const *pbox)
     g_return_if_fail(NR_IS_ARENA_SHAPE(shape));
     g_return_if_fail(pbox != NULL);
 
-    if ((pbox->x0 < pbox->x1) && (pbox->y0 < pbox->y1)) {
-        shape->paintbox = *pbox;
-    } else {
-        /* fixme: We kill warning, although not sure what to do here (Lauris) */
-        shape->paintbox.x0 = shape->paintbox.y0 = 0.0F;
-        shape->paintbox.x1 = shape->paintbox.y1 = 256.0F;
-    }
+    shape->paintbox = pbox->upgrade_2geom();
 
     nr_arena_item_request_update(shape, NR_ARENA_ITEM_STATE_ALL, FALSE);
 }
 
 void NRArenaShape::setPaintBox(Geom::Rect const &pbox)
 {
-    paintbox.x0 = pbox.min()[Geom::X];
-    paintbox.y0 = pbox.min()[Geom::Y];
-    paintbox.x1 = pbox.max()[Geom::X];
-    paintbox.y1 = pbox.max()[Geom::Y];
+    paintbox = pbox;
 
     nr_arena_item_request_update(this, NR_ARENA_ITEM_STATE_ALL, FALSE);
 }

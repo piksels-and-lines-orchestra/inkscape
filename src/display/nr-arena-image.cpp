@@ -17,6 +17,7 @@
 #include "nr-arena-image.h"
 #include "style.h"
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena.h"
 #include "display/nr-filter.h"
 #include "sp-filter.h"
@@ -34,9 +35,9 @@ static void nr_arena_image_class_init (NRArenaImageClass *klass);
 static void nr_arena_image_init (NRArenaImage *image);
 static void nr_arena_image_finalize (NRObject *object);
 
-static unsigned int nr_arena_image_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
-static unsigned int nr_arena_image_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-static NRArenaItem *nr_arena_image_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+static unsigned int nr_arena_image_update (NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, unsigned int state, unsigned int reset);
+static unsigned int nr_arena_image_render (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags);
+static NRArenaItem *nr_arena_image_pick (NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky);
 static Geom::Rect nr_arena_image_rect (NRArenaImage *image);
 
 static NRArenaItemClass *parent_class;
@@ -104,7 +105,7 @@ nr_arena_image_finalize (NRObject *object)
 }
 
 static unsigned int
-nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned int /*state*/, unsigned int /*reset*/ )
+nr_arena_image_update( NRArenaItem *item, Geom::IntRect const &/*area*/, NRGC *gc, unsigned int /*state*/, unsigned int /*reset*/ )
 {
     // clear old bbox
     nr_arena_item_request_render(item);
@@ -116,30 +117,17 @@ nr_arena_image_update( NRArenaItem *item, NRRectL */*area*/, NRGC *gc, unsigned 
 
     /* Calculate bbox */
     if (image->pixbuf) {
-        NRRect bbox;
-
         Geom::Rect r = nr_arena_image_rect(image) * gc->transform;
-
-        item->bbox.x0 = floor(r.left()); // Floor gives the coordinate in which the point resides
-        item->bbox.y0 = floor(r.top());
-        item->bbox.x1 = ceil(r.right()); // Ceil gives the first coordinate beyond the point
-        item->bbox.y1 = ceil(r.bottom());
+        item->bbox = r.roundOutwards();
     } else {
-        item->bbox.x0 = (int) gc->transform[4];
-        item->bbox.y0 = (int) gc->transform[5];
-        item->bbox.x1 = item->bbox.x0 - 1;
-        item->bbox.y1 = item->bbox.y0 - 1;
+        item->bbox = Geom::OptIntRect();
     }
 
     return NR_ARENA_ITEM_STATE_ALL;
 }
 
-static unsigned int nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRectL * /*area*/, NRPixBlock * /*pb*/, unsigned int /*flags*/ )
+static unsigned int nr_arena_image_render(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &/*area*/, unsigned int /*flags*/ )
 {
-    if (!ct) {
-        return item->state;
-    }
-
     bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
 
     NRArenaImage *image = NR_ARENA_IMAGE (item);
@@ -151,69 +139,63 @@ static unsigned int nr_arena_image_render( cairo_t *ct, NRArenaItem *item, NRRec
 
         // FIXME: at the moment gdk_cairo_set_source_pixbuf creates an ARGB copy
         // of the pixbuf. Fix this in Cairo and/or GDK.
-        cairo_save(ct);
-        ink_cairo_transform(ct, image->ctm);
+        Inkscape::DrawingContext::Save save(ct);
+        ct.transform(image->ctm);
+        ct.newPath();
+        ct.rectangle(image->clipbox);
+        ct.clip();
 
-        cairo_new_path(ct);
-        cairo_rectangle(ct, image->clipbox.left(), image->clipbox.top(),
-            image->clipbox.width(), image->clipbox.height());
-        cairo_clip(ct);
-
-        cairo_translate(ct, image->ox, image->oy);
-        cairo_scale(ct, image->sx, image->sy);
-
-        cairo_set_source_surface(ct, image->surface, 0, 0);
+        ct.translate(image->ox, image->oy);
+        ct.scale(image->sx, image->sy);
+        ct.setSource(image->surface, 0, 0);
 
         cairo_matrix_t tt;
         Geom::Affine total;
-        cairo_get_matrix(ct, &tt);
+        cairo_get_matrix(ct.raw(), &tt);
         ink_matrix_to_2geom(total, tt);
 
         if (total.expansionX() > 1.0 || total.expansionY() > 1.0) {
-            cairo_pattern_t *p = cairo_get_source(ct);
+            cairo_pattern_t *p = cairo_get_source(ct.raw());
             cairo_pattern_set_filter(p, CAIRO_FILTER_NEAREST);
         }
-
-        cairo_paint_with_alpha(ct, ((double) item->opacity) / 255.0);
-        cairo_restore(ct);
+        ct.paint(((double) item->opacity) / 255.0);
 
     } else { // outline; draw a rect instead
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         guint32 rgba = prefs->getInt("/options/wireframecolors/images", 0xff0000ff);
 
-        cairo_save(ct);
-        ink_cairo_transform(ct, image->ctm);
+        {   Inkscape::DrawingContext::Save save(ct);
+            ct.transform(image->ctm);
+            ct.newPath();
 
-        cairo_new_path(ct);
+            Geom::Rect r = nr_arena_image_rect (image);
+            Geom::Point c00 = r.corner(0);
+            Geom::Point c01 = r.corner(3);
+            Geom::Point c11 = r.corner(2);
+            Geom::Point c10 = r.corner(1);
 
-        Geom::Rect r = nr_arena_image_rect (image);
-        Geom::Point c00 = r.corner(0);
-        Geom::Point c01 = r.corner(3);
-        Geom::Point c11 = r.corner(2);
-        Geom::Point c10 = r.corner(1);
+            ct.moveTo(c00);
+            // the box
+            ct.lineTo(c10);
+            ct.lineTo(c11);
+            ct.lineTo(c01);
+            ct.lineTo(c00);
+            // the diagonals
+            ct.lineTo(c11);
+            ct.moveTo(c10);
+            ct.lineTo(c01);
+        }
 
-        cairo_move_to (ct, c00[Geom::X], c00[Geom::Y]);
-        // the box
-        cairo_line_to (ct, c10[Geom::X], c10[Geom::Y]);
-        cairo_line_to (ct, c11[Geom::X], c11[Geom::Y]);
-        cairo_line_to (ct, c01[Geom::X], c01[Geom::Y]);
-        cairo_line_to (ct, c00[Geom::X], c00[Geom::Y]);
-        // the diagonals
-        cairo_line_to (ct, c11[Geom::X], c11[Geom::Y]);
-        cairo_move_to (ct, c10[Geom::X], c10[Geom::Y]);
-        cairo_line_to (ct, c01[Geom::X], c01[Geom::Y]);
-        cairo_restore(ct);
-
-        cairo_set_line_width(ct, 0.5);
-        ink_cairo_set_source_rgba32(ct, rgba);
-        cairo_stroke(ct);
+        ct.setLineWidth(0.5);
+        ct.setSource(rgba);
+        ct.stroke();
     }
     return item->state;
 }
 
 /** Calculates the closest distance from p to the segment a1-a2*/
 double
-distance_to_segment (Geom::Point p, Geom::Point a1, Geom::Point a2)
+distance_to_segment (Geom::Point const &p, Geom::Point const &a1, Geom::Point const &a2)
 {
     // calculate sides of the triangle and their squares
     double d1 = Geom::L2(p - a1);
@@ -233,7 +215,7 @@ distance_to_segment (Geom::Point p, Geom::Point a1, Geom::Point a2)
 }
 
 static NRArenaItem *
-nr_arena_image_pick( NRArenaItem *item, Geom::Point p, double delta, unsigned int /*sticky*/ )
+nr_arena_image_pick( NRArenaItem *item, Geom::Point const &p, double delta, unsigned int /*sticky*/ )
 {
     NRArenaImage *image = NR_ARENA_IMAGE (item);
 

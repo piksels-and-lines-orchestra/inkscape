@@ -23,6 +23,7 @@
 #include <png.h>
 #include "png-write.h"
 #include "io/sys.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena-item.h"
 #include "display/nr-arena.h"
 #include "document.h"
@@ -322,16 +323,13 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     // bbox is now set to the entire image to prevent discontinuities
     // in the image when blur is used (the borders may still be a bit
     // off, but that's less noticeable).
-    NRRectL bbox;
-    bbox.x0 = 0;
-    bbox.y0 = row;
-    bbox.x1 = ebp->width;
-    bbox.y1 = row + num_rows;
+    Geom::IntRect bbox = Geom::IntRect::from_xywh(0, row, ebp->width, num_rows);
+
     /* Update to renderable state */
     NRGC gc(NULL);
     gc.transform.setIdentity();
 
-    nr_arena_item_invoke_update(ebp->root, &bbox, &gc,
+    nr_arena_item_invoke_update(ebp->root, bbox, &gc,
            NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
 
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ebp->width);
@@ -339,18 +337,14 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
 
     cairo_surface_t *s = cairo_image_surface_create_for_data(
         px, CAIRO_FORMAT_ARGB32, ebp->width, num_rows, stride);
-    cairo_t *ct = cairo_create(s);
-    cairo_translate(ct, -bbox.x0, -bbox.y0);
-
-    ink_cairo_set_source_rgba32(ct, ebp->background);
-    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(ct);
-    cairo_set_operator(ct, CAIRO_OPERATOR_OVER);
+    Inkscape::DrawingContext ct(s, bbox.min());
+    ct.setSource(ebp->background);
+    ct.setOperator(CAIRO_OPERATOR_SOURCE);
+    ct.paint();
+    ct.setOperator(CAIRO_OPERATOR_OVER);
 
     /* Render */
-    nr_arena_item_invoke_render(ct, ebp->root, &bbox, NULL, 0);
-
-    cairo_destroy(ct);
+    nr_arena_item_invoke_render(ct, ebp->root, bbox, 0);
     cairo_surface_destroy(s);
 
     *to_free = px;

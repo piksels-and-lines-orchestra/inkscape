@@ -23,6 +23,7 @@
 #include "nr-arena-forward.h"
 
 namespace Inkscape {
+class DrawingContext;
 namespace Filters {
 class Filter;
 } }
@@ -92,8 +93,8 @@ struct NRArenaItem : public NRObject {
     unsigned int key; ///< Some SPItems can have more than one NRArenaItem,
                       ///this value is a hack used to distinguish between them
 
-    NRRectL bbox; ///< Bounding box in pixel grid coordinates; (0,0) is at page origin
-    NRRectL drawbox; ///< Bounding box enlarged by filters, shrinked by clips and masks
+    Geom::OptIntRect bbox; ///< Bounding box in pixel grid coordinates; (0,0) is at page origin
+    Geom::OptIntRect drawbox; ///< Bounding box enlarged by filters, shrinked by clips and masks
     Geom::OptRect item_bbox; ///< Bounding box in item coordinates, required by filters
     Geom::Affine *transform; ///< Incremental transform of this item, as given by the transform= attribute
     Geom::Affine ctm; ///< Total transform from pixel grid to item coords
@@ -119,10 +120,10 @@ struct NRArenaItemClass : public NRObjectClass {
     void (* remove_child) (NRArenaItem *item, NRArenaItem *child);
     void (* set_child_position) (NRArenaItem *item, NRArenaItem *child, NRArenaItem *ref);
 
-    unsigned int (* update) (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
-    unsigned int (* render) (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-    unsigned int (* clip) (cairo_t *ct, NRArenaItem *item, NRRectL *area);
-    NRArenaItem * (* pick) (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+    unsigned int (* update) (NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, unsigned int state, unsigned int reset);
+    unsigned int (* render) (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags);
+    unsigned int (* clip) (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area);
+    NRArenaItem * (* pick) (NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky);
 };
 
 #define NR_ARENA_ITEM_ARENA(ai) (((NRArenaItem *) (ai))->arena)
@@ -147,12 +148,12 @@ void nr_arena_item_set_child_position (NRArenaItem *item, NRArenaItem *child, NR
  * reset - reset to state (bitwise or of flags to reset)
  */
 
-unsigned int nr_arena_item_invoke_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
+unsigned int nr_arena_item_invoke_update (NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, unsigned int state, unsigned int reset);
 
-unsigned int nr_arena_item_invoke_render(cairo_t *ct, NRArenaItem *item, NRRectL const *area, NRPixBlock *pb, unsigned int flags);
+unsigned int nr_arena_item_invoke_render(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags);
 
-unsigned int nr_arena_item_invoke_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area);
-NRArenaItem *nr_arena_item_invoke_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+unsigned int nr_arena_item_invoke_clip (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area);
+NRArenaItem *nr_arena_item_invoke_pick (NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky);
 
 void nr_arena_item_request_update (NRArenaItem *item, unsigned int reset, unsigned int propagate);
 void nr_arena_item_request_render (NRArenaItem *item);
@@ -171,7 +172,7 @@ void nr_arena_item_set_visible (NRArenaItem *item, unsigned int visible);
 void nr_arena_item_set_clip (NRArenaItem *item, NRArenaItem *clip);
 void nr_arena_item_set_mask (NRArenaItem *item, NRArenaItem *mask);
 void nr_arena_item_set_order (NRArenaItem *item, int order);
-void nr_arena_item_set_item_bbox (NRArenaItem *item, Geom::OptRect &bbox);
+void nr_arena_item_set_item_bbox (NRArenaItem *item, Geom::OptRect const &bbox);
 
 NRPixBlock *nr_arena_item_get_background (NRArenaItem const *item);
 

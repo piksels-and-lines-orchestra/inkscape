@@ -27,6 +27,7 @@ G_END_DECLS
 #define NR_ARENA(o) (NR_CHECK_INSTANCE_CAST ((o), NR_TYPE_ARENA, NRArena))
 #define NR_IS_ARENA(o) (NR_CHECK_INSTANCE_TYPE ((o), NR_TYPE_ARENA))
 
+#include <2geom/rect.h>
 #include <libnr/nr-forward.h>
 #include <libnr/nr-object.h>
 #include "nr-arena-forward.h"
@@ -61,7 +62,7 @@ struct NRArenaClass : public NRActiveObjectClass {
 };
 
 void nr_arena_request_update (NRArena *arena, NRArenaItem *item);
-void nr_arena_request_render_rect (NRArena *arena, NRRectL *area);
+void nr_arena_request_render_rect (NRArena *arena, Geom::OptIntRect const &area);
 void nr_arena_set_renderoffscreen (NRArena *arena);
 
 void nr_arena_separate_color_plates(guint32* rgba);

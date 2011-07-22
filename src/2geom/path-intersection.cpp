@@ -271,6 +271,8 @@ intersect_polish_root (Curve const &A, double &s,
     }
 
 #ifdef HAVE_GSL
+    int status;
+    size_t iter = 0;
     if(0) { // the GSL version is more accurate, but taints this with GPL
         const size_t n = 2;
         struct rparams p = {A, B};

@@ -27,9 +27,10 @@
 #include "inkscape.h"
 #include "sp-rect.h"
 #include "document-private.h"
+#include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
-#include "display/cairo-utils.h"
 
 #include "ui/cache/svg_preview_cache.h"
 
@@ -38,43 +39,33 @@ GdkPixbuf* render_pixbuf(NRArenaItem* root, double scale_factor, const Geom::Rec
 
     Geom::Affine t(Geom::Scale(scale_factor, scale_factor));
     nr_arena_item_set_transform(root, t);
-
     gc.transform.setIdentity();
-    nr_arena_item_invoke_update( root, NULL, &gc,
+
+    Geom::IntRect ibox = (dbox * Geom::Scale(scale_factor)).roundOutwards();
+
+    nr_arena_item_invoke_update( root, ibox, &gc,
                                  NR_ARENA_ITEM_STATE_ALL,
                                  NR_ARENA_ITEM_STATE_NONE );
 
-    /* Item integer bbox in points */
-    NRRectL ibox;
-    ibox.x0 = floor(scale_factor * dbox.min()[Geom::X]);
-    ibox.y0 = floor(scale_factor * dbox.min()[Geom::Y]);
-    ibox.x1 = ceil(scale_factor * dbox.max()[Geom::X]);
-    ibox.y1 = ceil(scale_factor * dbox.max()[Geom::Y]);
-
     /* Find visible area */
-    int width = ibox.x1 - ibox.x0;
-    int height = ibox.y1 - ibox.y0;
+    int width = ibox.width();
+    int height = ibox.height();
     int dx = psize;
     int dy = psize;
     dx = (dx - width)/2; // watch out for size, since 'unsigned'-'signed' can cause problems if the result is negative
     dy = (dy - height)/2;
 
-    NRRectL area;
-    area.x0 = ibox.x0 - dx;
-    area.y0 = ibox.y0 - dy;
-    area.x1 = area.x0 + psize;
-    area.y1 = area.y0 + psize;
+    Geom::IntRect area = Geom::IntRect::from_xywh(
+        ibox.min() - Geom::IntPoint(dx, dy), Geom::IntPoint(psize, psize));
 
     /* Render */
     cairo_surface_t *s = cairo_image_surface_create(
         CAIRO_FORMAT_ARGB32, psize, psize);
-    cairo_t *ct = cairo_create(s);
-    cairo_translate(ct, -area.x0, -area.y0);
+    Inkscape::DrawingContext ct(s, area.min());
 
-    nr_arena_item_invoke_render(ct, root, &area, NULL,
+    nr_arena_item_invoke_render(ct, root, area,
                                  NR_ARENA_ITEM_RENDER_NO_CACHE );
     cairo_surface_flush(s);
-    cairo_destroy(ct);
 
     GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(s),
                                       GDK_COLORSPACE_RGB,
@@ -135,6 +126,17 @@ GdkPixbuf* SvgPreview::get_preview(const gchar* uri, const gchar* id, NRArenaIte
     return px;
 }
 
-};
-};
-};
+}
+}
+}
+
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0)(case-label . +))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

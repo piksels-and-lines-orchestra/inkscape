@@ -251,11 +251,11 @@ Tracer::sioxProcessImage(SPImage *img,
     //g_message("img: %d %d %d %d\n", aImg->bbox.x0, aImg->bbox.y0,
     //                                aImg->bbox.x1, aImg->bbox.y1);
 
-    double width  = (double)(aImg->bbox.x1 - aImg->bbox.x0);
-    double height = (double)(aImg->bbox.y1 - aImg->bbox.y0);
+    double width  = aImg->bbox->width();
+    double height = aImg->bbox->height();
 
-    double iwidth  = (double)simage.getWidth();
-    double iheight = (double)simage.getHeight();
+    double iwidth  = simage.getWidth();
+    double iheight = simage.getHeight();
 
     double iwscale = width  / iwidth;
     double ihscale = height / iheight;
@@ -278,11 +278,11 @@ Tracer::sioxProcessImage(SPImage *img,
 
     for (int row=0 ; row<iheight ; row++)
         {
-        double ypos = ((double)aImg->bbox.y0) + ihscale * (double) row;
+        double ypos = aImg->bbox->top() + ihscale * (double) row;
         for (int col=0 ; col<simage.getWidth() ; col++)
             {
             //Get absolute X,Y position
-            double xpos = ((double)aImg->bbox.x0) + iwscale * (double)col;
+            double xpos = aImg->bbox->left() + iwscale * (double)col;
             Geom::Point point(xpos, ypos);
             if (aImg->transform)
                 point *= *aImg->transform;

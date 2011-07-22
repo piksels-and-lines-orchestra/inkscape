@@ -14,13 +14,15 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
-#include "libnr/nr-convert2geom.h"
+#include <cairo.h>
 #include <2geom/affine.h>
+#include <2geom/rect.h>
+#include "libnr/nr-convert2geom.h"
 #include "style.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-glyphs.h"
-#include <cairo.h>
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include "helper/geom.h"
 
 #ifdef test_glyph_liv
@@ -39,9 +41,8 @@ static void nr_arena_glyphs_class_init(NRArenaGlyphsClass *klass);
 static void nr_arena_glyphs_init(NRArenaGlyphs *glyphs);
 static void nr_arena_glyphs_finalize(NRObject *object);
 
-static guint nr_arena_glyphs_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset);
-static guint nr_arena_glyphs_clip(cairo_t *ct, NRArenaItem *item, NRRectL *area);
-static NRArenaItem *nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+static guint nr_arena_glyphs_update(NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, guint state, guint reset);
+static NRArenaItem *nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky);
 
 static NRArenaItemClass *glyphs_parent_class;
 
@@ -75,7 +76,6 @@ nr_arena_glyphs_class_init(NRArenaGlyphsClass *klass)
     object_class->cpp_ctor = NRObject::invoke_ctor<NRArenaGlyphs>;
 
     item_class->update = nr_arena_glyphs_update;
-    item_class->clip = nr_arena_glyphs_clip;
     item_class->pick = nr_arena_glyphs_pick;
 }
 
@@ -102,7 +102,7 @@ nr_arena_glyphs_finalize(NRObject *object)
 }
 
 static guint
-nr_arena_glyphs_update(NRArenaItem *item, NRRectL */*area*/, NRGC *gc, guint /*state*/, guint /*reset*/)
+nr_arena_glyphs_update(NRArenaItem *item, Geom::IntRect const &/*area*/, NRGC *gc, guint /*state*/, guint /*reset*/)
 {
     NRArenaGlyphs *glyphs = NR_ARENA_GLYPHS(item);
     NRArenaGlyphsGroup *ggroup = NR_ARENA_GLYPHS_GROUP(item->parent);
@@ -132,50 +132,32 @@ nr_arena_glyphs_update(NRArenaItem *item, NRRectL */*area*/, NRGC *gc, guint /*s
             // (one for each point on the curve)
             b->expandBy(miterMax);
         }
-    }
+    }    
 
     if (b) {
-        item->bbox.x0 = floor(b->left());
-        item->bbox.y0 = floor(b->top());
-        item->bbox.x1 = ceil (b->right());
-        item->bbox.y1 = ceil (b->bottom());
+        item->bbox = b->roundOutwards();
     } else {
-        item->bbox.x0 = 0;
-        item->bbox.y0 = 0;
-        item->bbox.x1 = -1;
-        item->bbox.y1 = -1;
+        item->bbox = Geom::OptIntRect();
     }
 
     return NR_ARENA_ITEM_STATE_ALL;
 }
 
-static guint nr_arena_glyphs_clip(cairo_t * /*ct*/, NRArenaItem *item, NRRectL * /*area*/)
-{
-    NRArenaGlyphs *glyphs;
-
-    glyphs = NR_ARENA_GLYPHS(item);
-
-    if (!glyphs->font) return item->state;
-
-    // TODO : render to greyscale pixblock provided for clipping
-
-    return item->state;
-}
-
 static NRArenaItem *
-nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point p, gdouble delta, unsigned int /*sticky*/)
+nr_arena_glyphs_pick(NRArenaItem *item, Geom::Point const &p, gdouble delta, unsigned int /*sticky*/)
 {
     NRArenaGlyphs *glyphs;
 
     glyphs = NR_ARENA_GLYPHS(item);
 
     if (!glyphs->font ) return NULL;
+    if (!item->bbox) return NULL;
 
-    double const x = p[Geom::X];
-    double const y = p[Geom::Y];
-    /* With text we take a simple approach: pick if the point is in a characher bbox */
-    if ((x + delta >= item->bbox.x0) && (y + delta >= item->bbox.y0) && (x - delta <= item->bbox.x1) && (y - delta <= item->bbox.y1)) return item;
-
+    // With text we take a simple approach: pick if the point is in a characher bbox
+    Geom::Rect expanded(*item->bbox);
+    expanded.expandBy(delta);
+    if (expanded.contains(p))
+        return item;
     return NULL;
 }
 
@@ -205,10 +187,10 @@ static void nr_arena_glyphs_group_class_init(NRArenaGlyphsGroupClass *klass);
 static void nr_arena_glyphs_group_init(NRArenaGlyphsGroup *group);
 static void nr_arena_glyphs_group_finalize(NRObject *object);
 
-static guint nr_arena_glyphs_group_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset);
-static unsigned int nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-static unsigned int nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, NRRectL *area);
-static NRArenaItem *nr_arena_glyphs_group_pick(NRArenaItem *item, Geom::Point p, gdouble delta, unsigned int sticky);
+static guint nr_arena_glyphs_group_update(NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, guint state, guint reset);
+static unsigned int nr_arena_glyphs_group_render(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags);
+static unsigned int nr_arena_glyphs_group_clip(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area);
+static NRArenaItem *nr_arena_glyphs_group_pick(NRArenaItem *item, Geom::Point const &p, gdouble delta, unsigned int sticky);
 
 static NRArenaGroupClass *group_parent_class;
 
@@ -251,14 +233,12 @@ static void
 nr_arena_glyphs_group_init(NRArenaGlyphsGroup *group)
 {
     group->style = NULL;
-    group->paintbox.x0 = group->paintbox.y0 = 0.0F;
-    group->paintbox.x1 = group->paintbox.y1 = -1.0F;
 }
 
 static void
 nr_arena_glyphs_group_finalize(NRObject *object)
 {
-    NRArenaGlyphsGroup *group=static_cast<NRArenaGlyphsGroup *>(object);
+    NRArenaGlyphsGroup *group = static_cast<NRArenaGlyphsGroup *>(object);
 
     if (group->style) {
         sp_style_unref(group->style);
@@ -269,7 +249,7 @@ nr_arena_glyphs_group_finalize(NRObject *object)
 }
 
 static guint
-nr_arena_glyphs_group_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint state, guint reset)
+nr_arena_glyphs_group_update(NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, guint state, guint reset)
 {
     NRArenaGlyphsGroup *group = NR_ARENA_GLYPHS_GROUP(item);
 
@@ -283,24 +263,20 @@ nr_arena_glyphs_group_update(NRArenaItem *item, NRRectL *area, NRGC *gc, guint s
 
 
 static unsigned int
-nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock * /*pb*/, unsigned int /*flags*/)
+nr_arena_glyphs_group_render(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int /*flags*/)
 {
     NRArenaItem *child = 0;
 
     NRArenaGroup *group = NR_ARENA_GROUP(item);
     NRArenaGlyphsGroup *ggroup = NR_ARENA_GLYPHS_GROUP(item);
 
-    if (!ct) {
-        return item->state;
-    }
-
     if (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE) {
-        cairo_save(ct);
+        Inkscape::DrawingContext::Save save(ct);
         guint32 rgba = item->arena->outlinecolor;
-        ink_cairo_set_source_rgba32(ct, rgba);
-        cairo_set_tolerance(ct, 1.25); // low quality, but good enough for outline mode
-        cairo_new_path(ct);
-        ink_cairo_transform(ct, ggroup->ctm);
+        ct.setSource(rgba);
+        ct.setTolerance(1.25); // low quality, but good enough for outline mode
+        ct.newPath();
+        ct.transform(ggroup->ctm);
 
         for (child = group->children; child != NULL; child = child->next) {
             NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
@@ -308,83 +284,78 @@ nr_arena_glyphs_group_render(cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPi
             Geom::PathVector const * pathv = g->font->PathVector(g->glyph);
             Geom::Affine transform = g->g_transform;
 
-            cairo_save(ct);
-            ink_cairo_transform(ct, transform);
-            feed_pathvector_to_cairo (ct, *pathv);
-            cairo_fill(ct);
-            cairo_restore(ct);
+            Inkscape::DrawingContext::Save save(ct);
+            ct.transform(transform);
+            ct.path(*pathv);
+            ct.fill();
         }
-        cairo_restore(ct);
         return item->state;
     }
 
     // NOTE: this is very similar to nr-arena-shape.cpp; the only difference is path feeding
     bool has_stroke, has_fill;
 
-    cairo_save(ct);
-    ink_cairo_transform(ct, ggroup->ctm);
+    Inkscape::DrawingContext::Save save(ct);
+    ct.transform(ggroup->ctm);
 
-    has_fill   = ggroup->nrstyle.prepareFill(ct, &ggroup->paintbox);
-    has_stroke = ggroup->nrstyle.prepareStroke(ct, &ggroup->paintbox);
+    has_fill   = ggroup->nrstyle.prepareFill(ct, ggroup->paintbox);
+    has_stroke = ggroup->nrstyle.prepareStroke(ct, ggroup->paintbox);
 
     if (has_fill || has_stroke) {
         for (NRArenaItem *child = ggroup->children; child != NULL; child = child->next) {
             NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
             Geom::PathVector const &pathv = *g->font->PathVector(g->glyph);
 
-            cairo_save(ct);
-            ink_cairo_transform(ct, g->g_transform);
-            feed_pathvector_to_cairo(ct, pathv);
-            cairo_restore(ct);
+            Inkscape::DrawingContext::Save save(ct);
+            ct.transform(g->g_transform);
+            ct.path(pathv);
         }
 
         if (has_fill) {
             ggroup->nrstyle.applyFill(ct);
-            cairo_fill_preserve(ct);
+            ct.fillPreserve();
         }
         if (has_stroke) {
             ggroup->nrstyle.applyStroke(ct);
-            cairo_stroke_preserve(ct);
+            ct.strokePreserve();
         }
-        cairo_new_path(ct); // clear path
+        ct.newPath(); // clear path
     } // has fill or stroke pattern
-    cairo_restore(ct);
 
     return item->state;
 }
 
-static unsigned int nr_arena_glyphs_group_clip(cairo_t *ct, NRArenaItem *item, NRRectL * /*area*/)
+static unsigned int nr_arena_glyphs_group_clip(Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &/*area*/)
 {
     NRArenaGroup *ggroup = NR_ARENA_GLYPHS_GROUP(item);
 
-    cairo_save(ct);
+    Inkscape::DrawingContext::Save save(ct);
+
     // handle clip-rule
     if (ggroup->style) {
         if (ggroup->style->clip_rule.computed == SP_WIND_RULE_EVENODD) {
-            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_EVEN_ODD);
+            ct.setFillRule(CAIRO_FILL_RULE_EVEN_ODD);
         } else {
-            cairo_set_fill_rule(ct, CAIRO_FILL_RULE_WINDING);
+            ct.setFillRule(CAIRO_FILL_RULE_WINDING);
         }
     }
-    ink_cairo_transform(ct, ggroup->ctm);
+    ct.transform(ggroup->ctm);
 
     for (NRArenaItem *child = ggroup->children; child != NULL; child = child->next) {
         NRArenaGlyphs *g = NR_ARENA_GLYPHS(child);
         Geom::PathVector const &pathv = *g->font->PathVector(g->glyph);
 
-        cairo_save(ct);
-        ink_cairo_transform(ct, g->g_transform);
-        feed_pathvector_to_cairo(ct, pathv);
-        cairo_restore(ct);
+        Inkscape::DrawingContext::Save save(ct);
+        ct.transform(g->g_transform);
+        ct.path(pathv);
     }
-    cairo_fill(ct);
-    cairo_restore(ct);
+    ct.fill();
 
     return item->state;
 }
 
 static NRArenaItem *
-nr_arena_glyphs_group_pick(NRArenaItem *item, Geom::Point p, gdouble delta, unsigned int sticky)
+nr_arena_glyphs_group_pick(NRArenaItem *item, Geom::Point const &p, gdouble delta, unsigned int sticky)
 {
     NRArenaItem *picked = NULL;
 
@@ -450,15 +421,7 @@ nr_arena_glyphs_group_set_paintbox(NRArenaGlyphsGroup *gg, NRRect const *pbox)
     nr_return_if_fail(NR_IS_ARENA_GLYPHS_GROUP(gg));
     nr_return_if_fail(pbox != NULL);
 
-    if ((pbox->x0 < pbox->x1) && (pbox->y0 < pbox->y1)) {
-        gg->paintbox.x0 = pbox->x0;
-        gg->paintbox.y0 = pbox->y0;
-        gg->paintbox.x1 = pbox->x1;
-        gg->paintbox.y1 = pbox->y1;
-    } else {
-        gg->paintbox.x0 = gg->paintbox.y0 = 0.0F;
-        gg->paintbox.x1 = gg->paintbox.y1 = -1.0F;
-    }
+    gg->paintbox = pbox->upgrade_2geom();
 
     nr_arena_item_request_update(NR_ARENA_ITEM(gg), NR_ARENA_ITEM_STATE_ALL, FALSE);
 }

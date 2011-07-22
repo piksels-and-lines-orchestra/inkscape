@@ -70,7 +70,7 @@ typedef struct NRArenaGlyphsGroupClass NRArenaGlyphsGroupClass;
 NRType nr_arena_glyphs_group_get_type (void);
 
 struct NRArenaGlyphsGroup : public NRArenaGroup {
-	NRRect paintbox;
+	Geom::OptRect paintbox;
 	NRStyle nrstyle;
 
 	static NRArenaGlyphsGroup *create(NRArena *arena) {

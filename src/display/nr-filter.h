@@ -24,6 +24,8 @@
 struct NRArenaItem;
 
 namespace Inkscape {
+class DrawingContext;
+
 namespace Filters {
 
 class Filter : public Inkscape::GC::Managed<> {
@@ -33,7 +35,7 @@ public:
      * the results of filter rendering. @a bgarea and @a area specify bounding boxes
      * of both surfaces in world coordinates; Cairo contexts are assumed to be in default state
      * (0,0 = surface origin, no path, OVER operator) */
-    int render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea, cairo_t *graphic, NRRectL const *area);
+    int render(NRArenaItem const *item, DrawingContext &bgct, DrawingContext &graphic);
 
     /**
      * Creates a new filter primitive under this filter object.
@@ -149,13 +151,13 @@ public:
      * to be rendered so that after filtering, the original area is
      * drawn correctly.
      */
-    void area_enlarge(NRRectL &area, NRArenaItem const *item) const;
+    void area_enlarge(Geom::IntRect &area, NRArenaItem const *item) const;
     /**
      * Given an item bounding box (in user coords), this function enlarges it
      * to contain the filter effects region and transforms it to screen
      * coordinates
      */
-    void compute_drawbox(NRArenaItem const *item, NRRectL &item_bbox);
+    Geom::IntRect compute_drawbox(NRArenaItem const *item, Geom::Rect const &item_bbox);
     /**
      * Returns the filter effects area in user coordinate system.
      * The given bounding box should be a bounding box as specified in

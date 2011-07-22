@@ -13,6 +13,7 @@
 #include "document.h"
 #include "sp-item.h"
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
 #include "display/nr-filter.h"
@@ -94,28 +95,23 @@ void FilterImage::render_cairo(FilterSlot &slot)
         Geom::Rect sa = slot.get_slot_area();
         cairo_surface_t *out = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
             sa.width(), sa.height());
-        cairo_t *ct = cairo_create(out);
-        cairo_translate(ct, -sa.min()[Geom::X], -sa.min()[Geom::Y]);
-        ink_cairo_transform(ct, pu2pb); // we are now in primitive units
-        cairo_translate(ct, feImageX, feImageY);
-        cairo_scale(ct, scaleX, scaleY);
+        Inkscape::DrawingContext ct(out, sa.min());
+        ct.transform(pu2pb); // we are now in primitive units
+        ct.translate(feImageX, feImageY);
+        ct.scale(scaleX, scaleY);
 
-        NRRectL render_rect;
-        render_rect.x0 = floor(area.left());
-        render_rect.y0 = floor(area.top());
-        render_rect.x1 = ceil(area.right());
-        render_rect.y1 = ceil(area.bottom());
-        cairo_translate(ct, render_rect.x0, render_rect.y0);
+        Geom::IntRect render_rect = area.roundOutwards();
+        ct.translate(render_rect.min());
 
         // Update to renderable state
         NRGC gc(NULL);
         Geom::Affine t = Geom::identity();
         nr_arena_item_set_transform(ai, &t);
         gc.transform.setIdentity();
-        nr_arena_item_invoke_update(ai, NULL, &gc,
+        nr_arena_item_invoke_update(ai, render_rect, &gc,
                                     NR_ARENA_ITEM_STATE_ALL,
                                     NR_ARENA_ITEM_STATE_NONE);
-        nr_arena_item_invoke_render(ct, ai, &render_rect, NULL, NR_ARENA_ITEM_RENDER_NO_CACHE);
+        nr_arena_item_invoke_render(ct, ai, render_rect, NR_ARENA_ITEM_RENDER_NO_CACHE);
         SVGElem->invoke_hide(key);
         nr_object_unref((NRObject*) arena);
 

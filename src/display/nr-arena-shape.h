@@ -31,16 +31,7 @@ struct NRArenaShape : public NRArenaItem {
     SPCurve *curve;
     SPStyle *style;
     NRStyle nrstyle;
-    NRRect paintbox;
-
-    cairo_path_t *path;
-
-    // delayed_shp=true means the *_shp polygons are not computed yet
-    // they'll be computed on demand in *_render(), *_pick() or *_clip()
-    // the goal is to not uncross polygons that are outside the viewing region
-    bool    delayed_shp;
-    // approximate bounding box, for the case when the polygons have been delayed
-    NRRectL approx_bbox;
+    Geom::OptRect paintbox;
 
     /* Markers */
     NRArenaItem *markers;

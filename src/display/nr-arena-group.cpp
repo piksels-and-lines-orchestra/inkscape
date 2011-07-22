@@ -24,6 +24,7 @@
 #include "filters/blend.h"
 #include "display/nr-filter-blend.h"
 #include "helper/geom.h"
+#include "display/drawing-context.h"
 
 static void nr_arena_group_class_init (NRArenaGroupClass *klass);
 static void nr_arena_group_init (NRArenaGroup *group);
@@ -34,10 +35,10 @@ static void nr_arena_group_add_child (NRArenaItem *item, NRArenaItem *child, NRA
 static void nr_arena_group_remove_child (NRArenaItem *item, NRArenaItem *child);
 static void nr_arena_group_set_child_position (NRArenaItem *item, NRArenaItem *child, NRArenaItem *ref);
 
-static unsigned int nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset);
-static unsigned int nr_arena_group_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags);
-static unsigned int nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area);
-static NRArenaItem *nr_arena_group_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky);
+static unsigned int nr_arena_group_update (NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, unsigned int state, unsigned int reset);
+static unsigned int nr_arena_group_render (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags);
+static unsigned int nr_arena_group_clip (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area);
+static NRArenaItem *nr_arena_group_pick (NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky);
 
 static NRArenaItemClass *parent_class;
 
@@ -163,7 +164,7 @@ nr_arena_group_set_child_position (NRArenaItem *item, NRArenaItem *child, NRAren
 }
 
 static unsigned int
-nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int state, unsigned int reset)
+nr_arena_group_update (NRArenaItem *item, Geom::IntRect const &area, NRGC *gc, unsigned int state, unsigned int reset)
 {
     unsigned int newstate;
     NRArenaGroup *group = NR_ARENA_GROUP (item);
@@ -178,10 +179,10 @@ nr_arena_group_update (NRArenaItem *item, NRRectL *area, NRGC *gc, unsigned int 
     }
 
     if (beststate & NR_ARENA_ITEM_STATE_BBOX) {
-        item->bbox = NR_RECT_L_EMPTY;
+        item->bbox = Geom::OptIntRect();
         for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
             if (child->visible)
-                nr_rect_l_union (&item->bbox, &item->bbox, outline ? &child->bbox : &child->drawbox);
+                item->bbox.unionWith(outline ? child->bbox : child->drawbox);
         }
     }
 
@@ -217,7 +218,7 @@ void nr_arena_group_set_style (NRArenaGroup *group, SPStyle *style)
 }
 
 static unsigned int
-nr_arena_group_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock *pb, unsigned int flags)
+nr_arena_group_render (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area, unsigned int flags)
 {
     NRArenaGroup *group = NR_ARENA_GROUP (item);
 
@@ -225,7 +226,7 @@ nr_arena_group_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
 
     /* Just compose children into parent buffer */
     for (NRArenaItem *child = group->children; child != NULL; child = child->next) {
-        ret = nr_arena_item_invoke_render (ct, child, area, pb, flags);
+        ret = nr_arena_item_invoke_render (ct, child, area, flags);
         if (ret & NR_ARENA_ITEM_STATE_INVALID) break;
     }
 
@@ -233,7 +234,7 @@ nr_arena_group_render (cairo_t *ct, NRArenaItem *item, NRRectL *area, NRPixBlock
 }
 
 static unsigned int
-nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area)
+nr_arena_group_clip (Inkscape::DrawingContext &ct, NRArenaItem *item, Geom::IntRect const &area)
 {
     NRArenaGroup *group = NR_ARENA_GROUP (item);
     unsigned int ret = item->state;
@@ -247,7 +248,7 @@ nr_arena_group_clip (cairo_t *ct, NRArenaItem *item, NRRectL *area)
 }
 
 static NRArenaItem *
-nr_arena_group_pick (NRArenaItem *item, Geom::Point p, double delta, unsigned int sticky)
+nr_arena_group_pick (NRArenaItem *item, Geom::Point const &p, double delta, unsigned int sticky)
 {
     NRArenaGroup *group = NR_ARENA_GROUP (item);
 

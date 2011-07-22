@@ -12,6 +12,9 @@ struct SPCanvasGroupClass;
 class SPCurve;
 
 namespace Inkscape {
+class DrawingContext;
+class DrawingSurface;
+
 namespace Display {
     class TemporaryItem;
     class TemporaryItemList;

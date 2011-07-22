@@ -40,6 +40,7 @@
 
 #include "display/nr-arena.h"
 #include "display/nr-arena-item.h"
+#include "display/drawing-context.h"
 #include <2geom/affine.h>
 #include <2geom/rect.h>
 #include "svg/svg-length.h"
@@ -96,14 +97,14 @@ Filter::~Filter()
 }
 
 
-int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea, cairo_t *graphic, NRRectL const *area)
+int Filter::render(NRArenaItem const *item, DrawingContext &bgct, DrawingContext &graphic)
 {
     if (_primitive.empty()) {
         // when no primitives are defined, clear source graphic
-        cairo_set_source_rgba(graphic, 0,0,0,0);
-        cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
-        cairo_paint(graphic);
-        cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
+        graphic.setSource(0,0,0,0);
+        graphic.setOperator(CAIRO_OPERATOR_SOURCE);
+        graphic.paint();
+        graphic.setOperator(CAIRO_OPERATOR_OVER);
         return 1;
     }
 
@@ -136,10 +137,10 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
         = _filter_resolution(filter_area, trans, filterquality);
     if (!(resolution.first > 0 && resolution.second > 0)) {
         // zero resolution - clear source graphic and return
-        cairo_set_source_rgba(graphic, 0,0,0,0);
-        cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
-        cairo_paint(graphic);
-        cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
+        graphic.setSource(0,0,0,0);
+        graphic.setOperator(CAIRO_OPERATOR_SOURCE);
+        graphic.paint();
+        graphic.setOperator(CAIRO_OPERATOR_OVER);
         return 1;
     }
 
@@ -160,7 +161,7 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
         }
     }
 
-    FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, bgarea, cairo_get_group_target(graphic), area, units);
+    FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, graphic, units);
     slot.set_quality(filterquality);
     slot.set_blurquality(blurquality);
 
@@ -168,11 +169,12 @@ int Filter::render(NRArenaItem const *item, cairo_t *bgct, NRRectL const *bgarea
         _primitive[i]->render_cairo(slot);
     }
 
+    Geom::Point origin = graphic.targetLogicalBounds().min();
     cairo_surface_t *result = slot.get_result(_output_slot);
-    cairo_set_source_surface(graphic, result, area->x0, area->y0);
-    cairo_set_operator(graphic, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(graphic);
-    cairo_set_operator(graphic, CAIRO_OPERATOR_OVER);
+    graphic.setSource(result, origin[Geom::X], origin[Geom::Y]);
+    graphic.setOperator(CAIRO_OPERATOR_SOURCE);
+    graphic.paint();
+    graphic.setOperator(CAIRO_OPERATOR_OVER);
     cairo_surface_destroy(result);
 
     return 0;
@@ -186,10 +188,12 @@ void Filter::set_primitive_units(SPFilterUnits unit) {
     _primitive_units = unit;
 }
 
-void Filter::area_enlarge(NRRectL &bbox, NRArenaItem const *item) const {
+void Filter::area_enlarge(Geom::IntRect &bbox, NRArenaItem const *item) const {
+    NRRectL b(bbox);
     for (unsigned i = 0 ; i < _primitive.size() ; i++) {
-        if (_primitive[i]) _primitive[i]->area_enlarge(bbox, item->ctm);
+        if (_primitive[i]) _primitive[i]->area_enlarge(b, item->ctm);
     }
+    bbox = *b.upgrade_2geom();
 
 /*
   TODO: something. See images at the bottom of filters.svg with medium-low
@@ -224,22 +228,13 @@ void Filter::area_enlarge(NRRectL &bbox, NRArenaItem const *item) const {
 */
 }
 
-void Filter::compute_drawbox(NRArenaItem const *item, NRRectL &item_bbox) {
-    // Modifying empty bounding boxes confuses rest of the renderer, so
-    // let's not do that.
-    if (item_bbox.x0 > item_bbox.x1 || item_bbox.y0 > item_bbox.y1) return;
+Geom::IntRect Filter::compute_drawbox(NRArenaItem const *item, Geom::Rect const &item_bbox) {
 
-    Geom::Point min(item_bbox.x0, item_bbox.y0);
-    Geom::Point max(item_bbox.x1, item_bbox.y1);
-    Geom::Rect tmp_bbox(min, max);
+    Geom::Rect enlarged = filter_effect_area(item_bbox);
+    enlarged *= item->ctm;
 
-    Geom::Rect enlarged = filter_effect_area(tmp_bbox);
-    enlarged = enlarged * item->ctm;
-
-    item_bbox.x0 = floor(enlarged.min()[X]);
-    item_bbox.y0 = floor(enlarged.min()[Y]);
-    item_bbox.x1 = ceil(enlarged.max()[X]);
-    item_bbox.y1 = ceil(enlarged.max()[Y]);
+    Geom::IntRect ret(enlarged.roundOutwards());
+    return ret;
 }
 
 Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)

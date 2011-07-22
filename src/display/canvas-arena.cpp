@@ -19,6 +19,8 @@
 #include "display/nr-arena-group.h"
 #include "display/canvas-arena.h"
 #include "display/cairo-utils.h"
+#include "display/drawing-context.h"
+#include "display/drawing-surface.h"
 
 enum {
     ARENA_EVENT,
@@ -161,12 +163,15 @@ sp_canvas_arena_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned
     guint reset;
     reset = (flags & SP_CANVAS_UPDATE_AFFINE)? NR_ARENA_ITEM_STATE_ALL : NR_ARENA_ITEM_STATE_NONE;
 
-    nr_arena_item_invoke_update (arena->root, NULL, &arena->gc, NR_ARENA_ITEM_STATE_ALL, reset);
+    nr_arena_item_invoke_update (arena->root, Geom::IntRect::infinite(), &arena->gc, NR_ARENA_ITEM_STATE_ALL, reset);
 
-    item->x1 = arena->root->bbox.x0 - 1;
-    item->y1 = arena->root->bbox.y0 - 1;
-    item->x2 = arena->root->bbox.x1 + 1;
-    item->y2 = arena->root->bbox.y1 + 1;
+    Geom::OptIntRect b = arena->root->bbox;
+    if (b) {
+        item->x1 = b->left() - 1;
+        item->y1 = b->top() - 1;
+        item->x2 = b->right() + 1;
+        item->y2 = b->bottom() + 1;
+    }
 
     if (arena->cursor) {
         /* Mess with enter/leave notifiers */
@@ -228,27 +233,23 @@ static void sp_canvas_arena_render_cache (SPCanvasItem *item, Geom::IntRect cons
     
     Geom::OptIntRect r = Geom::intersect(arena->cache_area, area);
     if (!r || r->hasZeroArea()) return; // nothing to do
-    
-    cairo_t *ct = cairo_create(arena->cache);
-    cairo_translate(ct, -arena->cache_area.left(), -arena->cache_area.top());
-    
-    // clear area to paint
-    cairo_rectangle(ct, area.left(), area.top(), area.width(), area.height());
-    cairo_clip(ct);
-    cairo_save(ct);
-    cairo_set_source_rgba(ct, 0,0,0,0);
-    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(ct);
-    cairo_restore(ct);
-    
-    NRRectL nr_area(r);
 
-    nr_arena_item_invoke_update (arena->root, NULL, &arena->gc,
+    Inkscape::DrawingSurface cache(arena->cache, arena->cache_area.min());
+    Inkscape::DrawingContext ct(cache);
+
+    ct.rectangle(area);
+    ct.clip();
+
+    {   Inkscape::DrawingContext::Save save(ct);
+        ct.setSource(0,0,0,0);
+        ct.setOperator(CAIRO_OPERATOR_SOURCE);
+        ct.paint();
+    }
+
+    nr_arena_item_invoke_update (arena->root, Geom::IntRect::infinite(), &arena->gc,
                                  NR_ARENA_ITEM_STATE_BBOX | NR_ARENA_ITEM_STATE_RENDER,
                                  NR_ARENA_ITEM_STATE_NONE);
-    nr_arena_item_invoke_render (ct, arena->root, &nr_area, NULL, 0);
-
-    cairo_destroy(ct);
+    nr_arena_item_invoke_render (ct, arena->root, *r, 0);
 }
 
 static void
@@ -267,7 +268,7 @@ sp_canvas_arena_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_
 {
     SPCanvasArena *arena = SP_CANVAS_ARENA (item);
 
-    nr_arena_item_invoke_update (arena->root, NULL, &arena->gc,
+    nr_arena_item_invoke_update (arena->root, Geom::IntRect::infinite(), &arena->gc,
                                  NR_ARENA_ITEM_STATE_BBOX | NR_ARENA_ITEM_STATE_PICK,
                                  NR_ARENA_ITEM_STATE_NONE);
 
@@ -367,7 +368,7 @@ sp_canvas_arena_event (SPCanvasItem *item, GdkEvent *event)
                 arena->c = Geom::Point(event->crossing.x, event->crossing.y);
 
                 /* fixme: Not sure abut this, but seems the right thing (Lauris) */
-                nr_arena_item_invoke_update (arena->root, NULL, &arena->gc, NR_ARENA_ITEM_STATE_PICK, NR_ARENA_ITEM_STATE_NONE);
+                nr_arena_item_invoke_update (arena->root, Geom::IntRect::infinite(), &arena->gc, NR_ARENA_ITEM_STATE_PICK, NR_ARENA_ITEM_STATE_NONE);
                 arena->active = nr_arena_item_invoke_pick (arena->root, arena->c, arena->arena->delta, arena->sticky);
                 if (arena->active) nr_object_ref ((NRObject *) arena->active);
                 ret = sp_canvas_arena_send_event (arena, event);
@@ -388,7 +389,7 @@ sp_canvas_arena_event (SPCanvasItem *item, GdkEvent *event)
             arena->c = Geom::Point(event->motion.x, event->motion.y);
 
             /* fixme: Not sure abut this, but seems the right thing (Lauris) */
-            nr_arena_item_invoke_update (arena->root, NULL, &arena->gc, NR_ARENA_ITEM_STATE_PICK, NR_ARENA_ITEM_STATE_NONE);
+            nr_arena_item_invoke_update (arena->root, Geom::IntRect::infinite(), &arena->gc, NR_ARENA_ITEM_STATE_PICK, NR_ARENA_ITEM_STATE_NONE);
             new_arena = nr_arena_item_invoke_pick (arena->root, arena->c, arena->arena->delta, arena->sticky);
             if (new_arena != arena->active) {
                 GdkEventCrossing ec;
@@ -474,10 +475,10 @@ sp_canvas_arena_render_surface (SPCanvasArena *ca, cairo_surface_t *surface, NRR
     g_return_if_fail (ca != NULL);
     g_return_if_fail (SP_IS_CANVAS_ARENA (ca));
 
-    cairo_t *ct = cairo_create(surface);
-    cairo_translate(ct, -r.x0, -r.y0);
-    nr_arena_item_invoke_render (ct, ca->root, &r, NULL, 0);
-    cairo_destroy(ct);
+    Geom::OptIntRect area = r.upgrade_2geom();
+    if (!area) return;
+    Inkscape::DrawingContext ct(surface, area->min());
+    nr_arena_item_invoke_render (ct, ca->root, *area, 0);
 }
 
 
