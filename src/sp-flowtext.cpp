@@ -371,7 +371,7 @@ sp_flowtext_print(SPItem *item, SPPrintContext *ctx)
     dbox.y0 = 0.0;
     dbox.x1 = item->document->getWidth();
     dbox.y1 = item->document->getHeight();
-    Geom::Affine const ctm (item->i2d_affine());
+    Geom::Affine const ctm (item->i2dt_affine());
 
     group->layout.print(ctx, &pbox, &dbox, &bbox, ctm);
 }
@@ -400,7 +400,7 @@ static void sp_flowtext_snappoints(SPItem const *item, std::vector<Inkscape::Sna
         if (layout != NULL && layout->outputExists()) {
             boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
             if (pt) {
-                p.push_back(Inkscape::SnapCandidatePoint((*pt) * item->i2d_affine(), Inkscape::SNAPSOURCE_TEXT_ANCHOR, Inkscape::SNAPTARGET_TEXT_ANCHOR));
+                p.push_back(Inkscape::SnapCandidatePoint((*pt) * item->i2dt_affine(), Inkscape::SNAPSOURCE_TEXT_ANCHOR, Inkscape::SNAPTARGET_TEXT_ANCHOR));
             }
         }
     }
@@ -554,12 +554,11 @@ void SPFlowtext::_clearFlow(NRArenaGroup *in_arena)
     }
 }
 
-Inkscape::XML::Node *
-SPFlowtext::getAsText()
+Inkscape::XML::Node *SPFlowtext::getAsText()
 {
-    if (!this->layout.outputExists()) return NULL;
-
-    SPItem *item = SP_ITEM(this);
+    if (!this->layout.outputExists()) {
+        return NULL;
+    }
 
     Inkscape::XML::Document *xml_doc = this->document->getReprDoc();
     Inkscape::XML::Node *repr = xml_doc->createElement("svg:text");
@@ -588,7 +587,7 @@ SPFlowtext::getAsText()
             // set x,y attributes only when we need to
             bool set_x = false;
             bool set_y = false;
-            if (!item->transform.isIdentity()) {
+            if (!this->transform.isIdentity()) {
                 set_x = set_y = true;
             } else {
                 Inkscape::Text::Layout::iterator it_chunk_start = it;

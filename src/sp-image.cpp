@@ -1017,7 +1017,7 @@ static void sp_image_modified( SPObject *object, unsigned int flags )
     }
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
-        for (SPItemView *v = SP_ITEM (image)->display; v != NULL; v = v->next) {
+        for (SPItemView *v = image->display; v != NULL; v = v->next) {
             nr_arena_image_set_style (NR_ARENA_IMAGE (v->arenaitem), object->style);
         }
     }
@@ -1273,8 +1273,7 @@ sp_image_update_arenaitem (SPImage *image, NRArenaImage *ai)
     nr_arena_image_set_clipbox(ai, image->clipbox);
 }
 
-static void
-sp_image_update_canvas_image (SPImage *image)
+static void sp_image_update_canvas_image(SPImage *image)
 {
     SPItem *item = SP_ITEM(image);
 
@@ -1304,7 +1303,7 @@ static void sp_image_snappoints( SPItem const *item, std::vector<Inkscape::SnapC
         double const y0 = image.y.computed;
         double const x1 = x0 + image.width.computed;
         double const y1 = y0 + image.height.computed;
-        Geom::Affine const i2d (item->i2d_affine ());
+        Geom::Affine const i2d (item->i2dt_affine ());
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y0) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
         p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));

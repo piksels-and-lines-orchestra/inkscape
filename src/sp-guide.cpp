@@ -261,9 +261,8 @@ static void sp_guide_set(SPObject *object, unsigned int key, const gchar *value)
     }
 }
 
-SPGuide *SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &pt2)
+SPGuide *SPGuide::createSPGuide(SPDocument *doc, Geom::Point const &pt1, Geom::Point const &pt2)
 {
-    SPDocument *doc = sp_desktop_document(desktop);
     Inkscape::XML::Document *xml_doc = doc->getReprDoc();
 
     Inkscape::XML::Node *repr = xml_doc->createElement("sodipodi:guide");
@@ -273,7 +272,10 @@ SPGuide *SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom
     sp_repr_set_point(repr, "position", pt1);
     sp_repr_set_point(repr, "orientation", n);
 
-    desktop->namedview->appendChild(repr);
+    SPNamedView *namedview = sp_document_namedview(doc, NULL);
+    if (namedview) {
+        namedview->appendChild(repr);
+    }
     Inkscape::GC::release(repr);
 
     SPGuide *guide= SP_GUIDE(doc->getObjectByRepr(repr));
@@ -281,9 +283,9 @@ SPGuide *SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom
 }
 
 void
-sp_guide_pt_pairs_to_guides(SPDesktop *dt, std::list<std::pair<Geom::Point, Geom::Point> > &pts) {
+sp_guide_pt_pairs_to_guides(SPDocument *doc, std::list<std::pair<Geom::Point, Geom::Point> > &pts) {
     for (std::list<std::pair<Geom::Point, Geom::Point> >::iterator i = pts.begin(); i != pts.end(); ++i) {
-        SPGuide::createSPGuide(dt, (*i).first, (*i).second);
+        SPGuide::createSPGuide(doc, (*i).first, (*i).second);
     }
 }
 
@@ -302,7 +304,7 @@ sp_guide_create_guides_around_page(SPDesktop *dt) {
     pts.push_back(std::make_pair<Geom::Point, Geom::Point>(C, D));
     pts.push_back(std::make_pair<Geom::Point, Geom::Point>(D, A));
 
-    sp_guide_pt_pairs_to_guides(dt, pts);
+    sp_guide_pt_pairs_to_guides(doc, pts);
 
     DocumentUndo::done(doc, SP_VERB_NONE, _("Create Guides Around the Page"));
 }
@@ -472,36 +474,46 @@ char *sp_guide_description(SPGuide const *guide, const bool verbose)
 {
     using Geom::X;
     using Geom::Y;
-            
-    GString *position_string_x = SP_PX_TO_METRIC_STRING(guide->point_on_line[X],
-                                                        SP_ACTIVE_DESKTOP->namedview->getDefaultMetric());
-    GString *position_string_y = SP_PX_TO_METRIC_STRING(guide->point_on_line[Y],
-                                                        SP_ACTIVE_DESKTOP->namedview->getDefaultMetric());
 
-    gchar *shortcuts = g_strdup_printf("; %s", _("<b>Shift+drag</b> to rotate, <b>Ctrl+drag</b> to move origin, <b>Del</b> to delete"));
-    gchar *descr;
-
-    if ( are_near(guide->normal_to_line, component_vectors[X]) ||
-         are_near(guide->normal_to_line, -component_vectors[X]) ) {
-        descr = g_strdup_printf(_("vertical, at %s"), position_string_x->str);
-    } else if ( are_near(guide->normal_to_line, component_vectors[Y]) ||
-                are_near(guide->normal_to_line, -component_vectors[Y]) ) {
-        descr = g_strdup_printf(_("horizontal, at %s"), position_string_y->str);
+    char *descr = 0;
+    if ( !guide->document ) {
+        // Guide has probably been deleted and no longer has an attached namedview.
+        descr = g_strdup_printf(_("Deleted"));
     } else {
-        double const radians = guide->angle();
-        double const degrees = Geom::rad_to_deg(radians);
-        int const degrees_int = (int) round(degrees);
-        descr = g_strdup_printf(_("at %d degrees, through (%s,%s)"), 
-                                degrees_int, position_string_x->str, position_string_y->str);
+        SPNamedView *namedview = sp_document_namedview(guide->document, NULL);
+
+        GString *position_string_x = SP_PX_TO_METRIC_STRING(guide->point_on_line[X],
+                                                            namedview->getDefaultMetric());
+        GString *position_string_y = SP_PX_TO_METRIC_STRING(guide->point_on_line[Y],
+                                                            namedview->getDefaultMetric());
+
+        gchar *shortcuts = g_strdup_printf("; %s", _("<b>Shift+drag</b> to rotate, <b>Ctrl+drag</b> to move origin, <b>Del</b> to delete"));
+
+        if ( are_near(guide->normal_to_line, component_vectors[X]) ||
+             are_near(guide->normal_to_line, -component_vectors[X]) ) {
+            descr = g_strdup_printf(_("vertical, at %s"), position_string_x->str);
+        } else if ( are_near(guide->normal_to_line, component_vectors[Y]) ||
+                    are_near(guide->normal_to_line, -component_vectors[Y]) ) {
+            descr = g_strdup_printf(_("horizontal, at %s"), position_string_y->str);
+        } else {
+            double const radians = guide->angle();
+            double const degrees = Geom::rad_to_deg(radians);
+            int const degrees_int = (int) round(degrees);
+            descr = g_strdup_printf(_("at %d degrees, through (%s,%s)"), 
+                                    degrees_int, position_string_x->str, position_string_y->str);
+        }
+
+        g_string_free(position_string_x, TRUE);
+        g_string_free(position_string_y, TRUE);
+
+        if (verbose) {
+            gchar *oldDescr = descr;
+            descr = g_strconcat(oldDescr, shortcuts, NULL);
+            g_free(oldDescr);
+        }
+        g_free(shortcuts);
     }
 
-    g_string_free(position_string_x, TRUE);
-    g_string_free(position_string_y, TRUE);
-
-    if (verbose) {
-        descr = g_strconcat(descr, shortcuts, NULL);
-    }
-    g_free(shortcuts);
     return descr;
 }
 

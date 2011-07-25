@@ -856,7 +856,7 @@ static void clonetiler_trace_setup(SPDocument *doc, gdouble zoom, SPItem *origin
     /* Create ArenaItem and set transform */
     trace_visionkey = SPItem::display_key_new(1);
     trace_doc = doc;
-    trace_root = SP_ITEM(trace_doc->getRoot())->invoke_show((NRArena *) trace_arena, trace_visionkey, SP_ITEM_SHOW_DISPLAY);
+    trace_root = trace_doc->getRoot()->invoke_show((NRArena *) trace_arena, trace_visionkey, SP_ITEM_SHOW_DISPLAY);
 
     // hide the (current) original and any tiled clones, we only want to pick the background
     original->invoke_hide(trace_visionkey);
@@ -901,7 +901,7 @@ static guint32 clonetiler_trace_pick(Geom::Rect box)
 static void clonetiler_trace_finish()
 {
     if (trace_doc) {
-        SP_ITEM(trace_doc->getRoot())->invoke_hide(trace_visionkey);
+        trace_doc->getRoot()->invoke_hide(trace_visionkey);
     }
     if (trace_arena) {
         ((NRObject *) trace_arena)->unreference();
@@ -1061,6 +1061,7 @@ static void clonetiler_apply(GtkWidget */*widget*/, void *)
     gdk_window_process_all_updates();
 
     SPObject *obj = selection->singleItem();
+    SPItem *item = SP_IS_ITEM(obj) ? SP_ITEM(obj) : 0;
     Inkscape::XML::Node *obj_repr = obj->getRepr();
     const char *id_href = g_strdup_printf("#%s", obj_repr->attribute("id"));
     SPObject *parent = obj->parent;
@@ -1150,7 +1151,7 @@ static void clonetiler_apply(GtkWidget */*widget*/, void *)
     double gamma_picked = prefs->getDoubleLimited(prefs_path + "gamma_picked", 0, -10, 10);
 
     if (dotrace) {
-        clonetiler_trace_setup (sp_desktop_document(desktop), 1.0, SP_ITEM (obj));
+        clonetiler_trace_setup (sp_desktop_document(desktop), 1.0, item);
     }
 
     Geom::Point center;
@@ -1177,16 +1178,16 @@ static void clonetiler_apply(GtkWidget */*widget*/, void *)
         y0 = sp_repr_get_double_attribute (obj_repr, "inkscape:tile-y0", 0);
     } else {
         bool prefs_bbox = prefs->getBool("/tools/bounding_box", false);
-        SPItem::BBoxType bbox_type = ( prefs_bbox ? 
+        SPItem::BBoxType bbox_type = ( prefs_bbox ?
             SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX );
-        Geom::OptRect r = SP_ITEM(obj)->getBounds(SP_ITEM(obj)->i2doc_affine(),
+        Geom::OptRect r = item->getBounds(item->i2doc_affine(),
                                                         bbox_type);
         if (r) {
             w = r->dimensions()[Geom::X];
             h = r->dimensions()[Geom::Y];
             x0 = r->min()[Geom::X];
             y0 = r->min()[Geom::Y];
-            center = desktop->dt2doc(SP_ITEM(obj)->getCenter());
+            center = desktop->dt2doc(item->getCenter());
 
             sp_repr_set_svg_double(obj_repr, "inkscape:tile-cx", center[Geom::X]);
             sp_repr_set_svg_double(obj_repr, "inkscape:tile-cy", center[Geom::Y]);
@@ -1402,7 +1403,7 @@ static void clonetiler_apply(GtkWidget */*widget*/, void *)
             Geom::Point new_center;
             bool center_set = false;
             if (obj_repr->attribute("inkscape:transform-center-x") || obj_repr->attribute("inkscape:transform-center-y")) {
-                new_center = desktop->dt2doc(SP_ITEM(obj)->getCenter()) * t;
+                new_center = desktop->dt2doc(item->getCenter()) * t;
                 center_set = true;
             }
 
@@ -1635,7 +1636,7 @@ static GtkWidget * clonetiler_table_x_y_rand(int values)
     {
         GtkWidget *hb = gtk_hbox_new (FALSE, 0);
 
-        GtkWidget *i = sp_icon_new (Inkscape::ICON_SIZE_DECORATION, INKSCAPE_ICON_OBJECT_ROWS);
+        GtkWidget *i = sp_icon_new (Inkscape::ICON_SIZE_DECORATION, INKSCAPE_ICON("object-rows"));
         gtk_box_pack_start (GTK_BOX (hb), i, FALSE, FALSE, 2);
 
         GtkWidget *l = gtk_label_new ("");
@@ -1648,7 +1649,7 @@ static GtkWidget * clonetiler_table_x_y_rand(int values)
     {
         GtkWidget *hb = gtk_hbox_new (FALSE, 0);
 
-        GtkWidget *i = sp_icon_new (Inkscape::ICON_SIZE_DECORATION, INKSCAPE_ICON_OBJECT_COLUMNS);
+        GtkWidget *i = sp_icon_new (Inkscape::ICON_SIZE_DECORATION, INKSCAPE_ICON("object-columns"));
         gtk_box_pack_start (GTK_BOX (hb), i, FALSE, FALSE, 2);
 
         GtkWidget *l = gtk_label_new ("");
@@ -1806,7 +1807,7 @@ void clonetiler_dialog(void)
 // Symmetry
         {
             GtkWidget *vb = clonetiler_new_tab (nb, _("_Symmetry"));
-            
+
 	    /* TRANSLATORS: For the following 17 symmetry groups, see
              * http://www.bib.ulb.ac.be/coursmath/doc/17.htm (visual examples);
              * http://www.clarku.edu/~djoyce/wallpaper/seventeen.html (English vocabulary); or
@@ -1844,14 +1845,14 @@ void clonetiler_dialog(void)
 	    // the symmetry group combo box.
 	    GtkListStore *store = gtk_list_store_new (1, G_TYPE_STRING);
 	    GtkTreeIter iter;
-            
+
 	    for (unsigned j = 0; j < G_N_ELEMENTS(sym_groups); ++j) {
                 SymGroups const &sg = sym_groups[j];
 
 		// Add the description of the symgroup to a new row
 		gtk_list_store_append (store, &iter);
-		gtk_list_store_set (store, &iter, 
-				    0, sg.label, 
+		gtk_list_store_set (store, &iter,
+				    0, sg.label,
 				    -1);
             }
 

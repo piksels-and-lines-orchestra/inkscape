@@ -87,7 +87,7 @@ bool sp_te_input_is_empty(SPObject const *item)
 Inkscape::Text::Layout::iterator
 sp_te_get_position_by_coords (SPItem const *item, Geom::Point const &i_p)
 {
-    Geom::Affine im (item->i2d_affine ());
+    Geom::Affine im (item->i2dt_affine ());
     im = im.inverse();
 
     Geom::Point p = i_p * im;
@@ -1232,7 +1232,7 @@ sp_te_adjust_linespacing_screen (SPItem *text, Inkscape::Text::Layout::iterator 
     gdouble zby = by / (desktop->current_zoom() * (line_count == 0 ? 1 : line_count));
 
     // divide increment by matrix expansion
-    Geom::Affine t (SP_ITEM(text)->i2doc_affine ());
+    Geom::Affine t(text->i2doc_affine());
     zby = zby / t.descrim();
 
     switch (style->line_height.unit) {

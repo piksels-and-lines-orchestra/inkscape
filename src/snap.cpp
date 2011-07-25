@@ -375,7 +375,7 @@ Inkscape::SnappedPoint SnapManager::constrainedSnap(Inkscape::SnapCandidatePoint
     // First project the mouse pointer onto the constraint
     Geom::Point pp = constraint.projection(p.getPoint());
 
-    Inkscape::SnappedPoint no_snap = Inkscape::SnappedPoint(pp, p.getSourceType(), p.getSourceNum(), Inkscape::SNAPTARGET_CONSTRAINT, NR_HUGE, 0, false, true, false);
+    Inkscape::SnappedPoint no_snap = Inkscape::SnappedPoint(pp, p.getSourceType(), p.getSourceNum(), Inkscape::SNAPTARGET_CONSTRAINT, Geom::infinity(), 0, false, true, false);
 
     if (!someSnapperMightSnap()) {
         // Always return point on constraint
@@ -437,7 +437,7 @@ Inkscape::SnappedPoint SnapManager::multipleConstrainedSnaps(Inkscape::SnapCandi
                                                     Geom::OptRect const &bbox_to_snap) const
 {
 
-    Inkscape::SnappedPoint no_snap = Inkscape::SnappedPoint(p.getPoint(), p.getSourceType(), p.getSourceNum(), Inkscape::SNAPTARGET_CONSTRAINT, NR_HUGE, 0, false, true, false);
+    Inkscape::SnappedPoint no_snap = Inkscape::SnappedPoint(p.getPoint(), p.getSourceType(), p.getSourceNum(), Inkscape::SNAPTARGET_CONSTRAINT, Geom::infinity(), 0, false, true, false);
     if (constraints.size() == 0) {
         return no_snap;
     }
@@ -746,6 +746,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
 
     // std::cout << std::endl;
     bool first_free_snap = true;
+
     for (std::vector<Inkscape::SnapCandidatePoint>::const_iterator i = points.begin(); i != points.end(); i++) {
 
         /* Snap it */
@@ -828,7 +829,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                 break;
             case SCALE:
             {
-                result = Geom::Point(NR_HUGE, NR_HUGE);
+                result = Geom::Point(Geom::infinity(), Geom::infinity());
                 // If this point *i is horizontally or vertically aligned with
                 // the origin of the scaling, then it will scale purely in X or Y
                 // We can therefore only calculate the scaling in this direction
@@ -839,7 +840,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                         if (fabs(fabs(a[index]/b[index]) - fabs(transformation[index])) > 1e-12) { // if SNAPPING DID occur in this direction
                             result[index] = a[index] / b[index]; // then calculate it!
                         }
-                        // we might have left result[1-index] = NR_HUGE
+                        // we might have left result[1-index] = Geom::infinity()
                         // if scaling didn't occur in the other direction
                     }
                 }
@@ -850,18 +851,19 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                         result[0] = result[1];
                     }
                 }
+
                 // Compare the resulting scaling with the desired scaling
-                Geom::Point scale_metric = Geom::abs(result - transformation); // One or both of its components might be NR_HUGE
-                if (scale_metric[0] == NR_HUGE || scale_metric[1] == NR_HUGE) {
+                Geom::Point scale_metric = Geom::abs(result - transformation); // One or both of its components might be Geom::infinity()
+                if (scale_metric[0] == Geom::infinity() || scale_metric[1] == Geom::infinity()) {
                     snapped_point.setSnapDistance(std::min(scale_metric[0], scale_metric[1]));
                 } else {
                     snapped_point.setSnapDistance(Geom::L2(scale_metric));
                 }
-                snapped_point.setSecondSnapDistance(NR_HUGE);
+                snapped_point.setSecondSnapDistance(Geom::infinity());
                 break;
             }
             case STRETCH:
-                result = Geom::Point(NR_HUGE, NR_HUGE);
+                result = Geom::Point(Geom::infinity(), Geom::infinity());
                 if (fabs(b[dim]) > 1e-6) { // if STRETCHING will occur for this point
                     result[dim] = a[dim] / b[dim];
                     result[1-dim] = uniform ? result[dim] : 1;
@@ -873,14 +875,14 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                 }
                 // Store the metric for this transformation as a virtual distance
                 snapped_point.setSnapDistance(std::abs(result[dim] - transformation[dim]));
-                snapped_point.setSecondSnapDistance(NR_HUGE);
+                snapped_point.setSecondSnapDistance(Geom::infinity());
                 break;
             case SKEW:
                 result[0] = (snapped_point.getPoint()[dim] - ((*i).getPoint())[dim]) / b[1 - dim]; // skew factor
                 result[1] = transformation[1]; // scale factor
                 // Store the metric for this transformation as a virtual distance
                 snapped_point.setSnapDistance(std::abs(result[0] - transformation[0]));
-                snapped_point.setSecondSnapDistance(NR_HUGE);
+                snapped_point.setSecondSnapDistance(Geom::infinity());
                 break;
             case ROTATE:
                 // a is vector to snapped point; b is vector to original point; now lets calculate angle between a and b
@@ -889,7 +891,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                 if (Geom::L2(b) < 1e-9) { // points too close to the rotation center will not move. Don't try to snap these
                     // as they will always yield a perfect snap result if they're already snapped beforehand (e.g.
                     // when the transformation center has been snapped to a grid intersection in the selector tool)
-                    snapped_point.setSnapDistance(NR_HUGE);
+                    snapped_point.setSnapDistance(Geom::infinity());
                     // PS1: Apparently we don't have to do this for skewing, but why?
                     // PS2: We cannot easily filter these points upstream, e.g. in the grab() method (seltrans.cpp)
                     // because the rotation center will change when pressing shift, and grab() won't be recalled.
@@ -898,7 +900,7 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
                 } else {
                     snapped_point.setSnapDistance(std::abs(result[0] - transformation[0]));
                 }
-                snapped_point.setSecondSnapDistance(NR_HUGE);
+                snapped_point.setSecondSnapDistance(Geom::infinity());
                 break;
             default:
                 g_assert_not_reached();
@@ -930,10 +932,10 @@ Inkscape::SnappedPoint SnapManager::_snapTransformed(
 
     Geom::Coord best_metric;
     if (transformation_type == SCALE) {
-        // When scaling, don't ever exit with one of scaling components set to Geom::infinity()
+        // When scaling, don't ever exit with one of scaling components uninitialized
         for (int index = 0; index < 2; index++) {
-            if (best_transformation[index] == Geom::infinity()) {
-                if (uniform && best_transformation[1-index] < Geom::infinity()) {
+            if (fabs(best_transformation[index]) == Geom::infinity()) {
+                if (uniform && fabs(best_transformation[1-index]) < Geom::infinity()) {
                     best_transformation[index] = best_transformation[1-index];
                 } else {
                     best_transformation[index] = transformation[index];
@@ -1456,8 +1458,8 @@ void SnapManager::keepClosestPointOnly(std::vector<Inkscape::SnapCandidatePoint>
 {
     if (points.size() < 2) return;
 
-    Inkscape::SnapCandidatePoint closest_point = Inkscape::SnapCandidatePoint(Geom::Point(NR_HUGE, NR_HUGE), Inkscape::SNAPSOURCE_UNDEFINED, Inkscape::SNAPTARGET_UNDEFINED);
-    Geom::Coord closest_dist = NR_HUGE;
+    Inkscape::SnapCandidatePoint closest_point = Inkscape::SnapCandidatePoint(Geom::Point(Geom::infinity(), Geom::infinity()), Inkscape::SNAPSOURCE_UNDEFINED, Inkscape::SNAPTARGET_UNDEFINED);
+    Geom::Coord closest_dist = Geom::infinity();
 
     for(std::vector<Inkscape::SnapCandidatePoint>::const_iterator i = points.begin(); i != points.end(); i++) {
         Geom::Coord dist = Geom::L2((*i).getPoint() - reference);

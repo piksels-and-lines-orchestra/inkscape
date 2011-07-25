@@ -25,7 +25,7 @@ sp_item_rotate_rel(SPItem *item, Geom::Rotate const &rotation)
     Geom::Affine affine = Geom::Affine(s).inverse() * Geom::Affine(rotation) * Geom::Affine(s);
 
     // Rotate item.
-    item->set_i2d_affine(item->i2d_affine() * (Geom::Affine)affine);
+    item->set_i2d_affine(item->i2dt_affine() * (Geom::Affine)affine);
     // Use each item's own transform writer, consistent with sp_selection_apply_affine()
     item->doWriteTransform(item->getRepr(), item->transform);
 
@@ -42,7 +42,7 @@ sp_item_scale_rel (SPItem *item, Geom::Scale const &scale)
     Geom::OptRect bbox = item->getBboxDesktop();
     if (bbox) {
         Geom::Translate const s(bbox->midpoint()); // use getCenter?
-        item->set_i2d_affine(item->i2d_affine() * s.inverse() * scale * s);
+        item->set_i2d_affine(item->i2dt_affine() * s.inverse() * scale * s);
         item->doWriteTransform(item->getRepr(), item->transform);
     }
 }
@@ -56,7 +56,7 @@ sp_item_skew_rel (SPItem *item, double skewX, double skewY)
     Geom::Affine const skew(1, skewY, skewX, 1, 0, 0);
     Geom::Affine affine = Geom::Affine(s).inverse() * skew * Geom::Affine(s);
 
-    item->set_i2d_affine(item->i2d_affine() * affine);
+    item->set_i2d_affine(item->i2dt_affine() * affine);
     item->doWriteTransform(item->getRepr(), item->transform);
 
     // Restore the center position (it's changed because the bbox center changed)
@@ -68,7 +68,7 @@ sp_item_skew_rel (SPItem *item, double skewX, double skewY)
 
 void sp_item_move_rel(SPItem *item, Geom::Translate const &tr)
 {
-    item->set_i2d_affine(item->i2d_affine() * tr);
+    item->set_i2d_affine(item->i2dt_affine() * tr);
 
     item->doWriteTransform(item->getRepr(), item->transform);
 }
@@ -248,10 +248,6 @@ get_scale_transform_with_unequal_stroke (Geom::Rect const &bbox_visual, Geom::Re
     gdouble r0w = w0 - bbox_geom.width(); // r0w is the average strokewidth of the left and right edges, i.e. 0.5*(r0l + r0r)
     gdouble r0h = h0 - bbox_geom.height(); // r0h is the average strokewidth of the top and bottom edges, i.e. 0.5*(r0t + r0b)
 
-    // Check whether the stroke is not negative; should not be possible, but just in case:
-    g_assert(r0w >= 0);
-    g_assert(r0h >= 0);
-
     if (bbox_visual.hasZeroArea()) { // Obviously we cannot scale from empty visual bounding boxes at all, so we will only translate in such a case
         Geom::Affine move = Geom::Translate(x0 - bbox_visual.min()[Geom::X], y0 - bbox_visual.min()[Geom::Y]);
         return (move);
@@ -263,6 +259,14 @@ get_scale_transform_with_unequal_stroke (Geom::Rect const &bbox_visual, Geom::Re
     // bounding box with one or both sides having zero length. We can't handle this and will therefore
     // simply return the scaling of the visual bounding box, without accounting for any stroke scaling
     if (fabs(w0 - r0w) < 1e-6 || fabs(h0 - r0h) < 1e-6 || (!transform_stroke && (fabs(w1 - r0w) < 1e-6 || fabs(h1 - r0h) < 1e-6))) {
+        return (p2o * direct * o2n);
+    }
+
+    // Check whether the stroke is negative; i.e. the geometric bounding box is larger than the visual bounding box, which
+    // occurs for example for clipped objects (see launchpad bug #811819)
+    if (r0w < 0 || r0w < 0) {
+        // How should we handle the stroke width scaling of clipped object? I don't know if we can/should handle this,
+        // so for now we simply return the direct scaling
         return (p2o * direct * o2n);
     }
 
