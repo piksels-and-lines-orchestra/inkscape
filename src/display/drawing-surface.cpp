@@ -25,17 +25,22 @@ using Geom::Y;
  * extra functionality provided by this class is that it automates
  * the mapping from "logical space" (coordinates in the rendering)
  * and the "physical space" (surface pixels). For example, patterns
- * have to be rendered on surfaces which have possibly non-integer
+ * have to be rendered on tiles which have possibly non-integer
  * widths and heights.
+ *
+ * This class has delayed allocation functionality - it creates
+ * the Cairo surface it wraps on the first call to createRawContext()
+ * of when a DrawingContext is constructed.
  */
 
 /** @brief Creates a surface with the given physical extents.
  * When a drawing context is created for this surface, its pixels
  * will cover the area under the given rectangle. */
 DrawingSurface::DrawingSurface(Geom::IntRect const &area)
-    : _surface(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, area.width(), area.height()))
+    : _surface(NULL)
     , _origin(area.min())
     , _scale(1, 1)
+    , _pixels(area.dimensions())
 {}
 
 /** @brief Creates a surface with the given logical extents.
@@ -44,9 +49,10 @@ DrawingSurface::DrawingSurface(Geom::IntRect const &area)
  * has non-integer width, there will be slightly more than 1 pixel
  * per logical unit. */
 DrawingSurface::DrawingSurface(Geom::Rect const &area)
-    : _surface(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, ceil(area.width()), ceil(area.height())))
+    : _surface(NULL)
     , _origin(area.min())
     , _scale(ceil(area.width()) / area.width(), ceil(area.height()) / area.height())
+    , _pixels(area.dimensions().ceil())
 {}
 
 /** @brief Creates a surface with the given logical and physical extents.
@@ -56,9 +62,10 @@ DrawingSurface::DrawingSurface(Geom::Rect const &area)
  * @param logbox Logical extents of the surface
  * @param pixdims Pixel dimensions of the surface. */
 DrawingSurface::DrawingSurface(Geom::Rect const &logbox, Geom::IntPoint const &pixdims)
-    : _surface(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, pixdims[X], pixdims[Y]))
+    : _surface(NULL)
     , _origin(logbox.min())
     , _scale(pixdims[X] / logbox.width(), pixdims[Y] / logbox.height())
+    , _pixels(pixdims)
 {}
 
 /** @brief Wrap a cairo_surface_t.
@@ -70,11 +77,14 @@ DrawingSurface::DrawingSurface(cairo_surface_t *surface, Geom::Point const &orig
     , _scale(1, 1)
 {
     cairo_surface_reference(surface);
+    _pixels[X] = cairo_image_surface_get_width(surface);
+    _pixels[Y] = cairo_image_surface_get_height(surface);
 }
 
 DrawingSurface::~DrawingSurface()
 {
-    cairo_surface_destroy(_surface);
+    if (_surface)
+        cairo_surface_destroy(_surface);
 }
 
 /// Get the logical extents of the surface.
@@ -85,13 +95,18 @@ DrawingSurface::area() const
     return r;
 }
 
+/// Get the pixel dimensions of the surface
+Geom::IntPoint
+DrawingSurface::pixels() const
+{
+    return _pixels;
+}
+
 /// Get the logical width and weight of the surface as a point.
 Geom::Point
 DrawingSurface::dimensions() const
 {
-    double w = cairo_image_surface_get_width(_surface);
-    double h = cairo_image_surface_get_height(_surface);
-    Geom::Point logical_dims(w / _scale[X], h / _scale[Y]);
+    Geom::Point logical_dims(_pixels[X] / _scale[X], _pixels[Y] / _scale[Y]);
     return logical_dims;
 }
 
@@ -122,11 +137,25 @@ DrawingSurface::type() const
     return CAIRO_SURFACE_TYPE_IMAGE;
 }
 
+/// Drop contents of the surface and release the underlying Cairo object.
+void
+DrawingSurface::dropContents()
+{
+    if (_surface) {
+        cairo_surface_destroy(_surface);
+        _surface = NULL;
+    }
+}
+
 /** @brief Create a drawing context for this surface.
  * It's better to use the surface constructor of DrawingContext. */
 cairo_t *
 DrawingSurface::createRawContext()
 {
+    // deferred allocation
+    if (!_surface) {
+        _surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, _pixels[X], _pixels[Y]);
+    }
     cairo_t *ct = cairo_create(_surface);
     if (_scale != Geom::Scale::identity()) {
         cairo_scale(ct, _scale[X], _scale[Y]);

@@ -32,11 +32,13 @@ public:
     virtual ~DrawingSurface();
 
     Geom::Rect area() const;
+    Geom::IntPoint pixels() const;
     Geom::Point dimensions() const;
     Geom::Point origin() const;
     Geom::Scale scale() const;
     Geom::Affine drawingTransform() const;
     cairo_surface_type_t type() const;
+    void dropContents();
 
     cairo_surface_t *raw() { return _surface; }
     cairo_t *createRawContext();
@@ -45,6 +47,7 @@ protected:
     cairo_surface_t *_surface;
     Geom::Point _origin;
     Geom::Scale _scale;
+    Geom::IntPoint _pixels;
     bool _has_context;
 
     friend class DrawingContext;
