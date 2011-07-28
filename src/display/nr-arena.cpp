@@ -151,6 +151,17 @@ nr_arena_set_renderoffscreen (NRArena *arena)
 
 }
 
+void
+nr_arena_set_cache_limit (NRArena *arena, Geom::OptIntRect const &cache_limit)
+{
+    arena->cache_limit = cache_limit;
+    for (std::set<NRArenaItem *>::iterator i = arena->cached_items.begin();
+         i != arena->cached_items.end(); ++i)
+    {
+        nr_arena_item_request_update(*i, NR_ARENA_ITEM_STATE_CACHE, FALSE);
+    }
+}
+
 #define FLOAT_TO_UINT8(f) (int(f*255))
 #define RGBA_R(v) ((v) >> 24)
 #define RGBA_G(v) (((v) >> 16) & 0xff)

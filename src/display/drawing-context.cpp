@@ -55,10 +55,23 @@ void DrawingContext::Save::save(DrawingContext &ct)
  * for drawing entire SPObjects when exporting.
  */
 
+DrawingContext::DrawingContext(cairo_t *ct, Geom::Point const &origin)
+    : _ct(ct)
+    , _surface(new DrawingSurface(cairo_get_group_target(ct), origin))
+    , _delete_surface(true)
+    , _restore_context(true)
+{
+    _surface->_has_context = true;
+    cairo_reference(_ct);
+    cairo_save(_ct);
+    cairo_translate(_ct, -origin[Geom::X], -origin[Geom::Y]);
+}
+
 DrawingContext::DrawingContext(cairo_surface_t *surface, Geom::Point const &origin)
     : _ct(NULL)
     , _surface(new DrawingSurface(surface, origin))
     , _delete_surface(true)
+    , _restore_context(false)
 {
     _surface->_has_context = true;
     _ct = _surface->createRawContext();
@@ -68,10 +81,14 @@ DrawingContext::DrawingContext(DrawingSurface &s)
     : _ct(s.createRawContext())
     , _surface(&s)
     , _delete_surface(false)
+    , _restore_context(false)
 {}
 
 DrawingContext::~DrawingContext()
 {
+    if (_restore_context) {
+        cairo_restore(_ct);
+    }
     cairo_destroy(_ct);
     _surface->_has_context = false;
     if (_delete_surface) {

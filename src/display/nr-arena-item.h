@@ -24,6 +24,7 @@
 
 namespace Inkscape {
 class DrawingContext;
+class DrawingCache;
 namespace Filters {
 class Filter;
 } }
@@ -57,15 +58,17 @@ class Filter;
 #define NR_ARENA_ITEM_STATE_MASK     (1 << 6)
 #define NR_ARENA_ITEM_STATE_PICK     (1 << 7)
 #define NR_ARENA_ITEM_STATE_IMAGE    (1 << 8)
+#define NR_ARENA_ITEM_STATE_CACHE    (1 << 9)
 
 #define NR_ARENA_ITEM_STATE_NONE  0x0000
-#define NR_ARENA_ITEM_STATE_ALL   0x01fe
+#define NR_ARENA_ITEM_STATE_ALL   0x03fe
 
 #define NR_ARENA_ITEM_STATE(i,s) (NR_ARENA_ITEM (i)->state & (s))
 #define NR_ARENA_ITEM_SET_STATE(i,s) (NR_ARENA_ITEM (i)->state |= (s))
 #define NR_ARENA_ITEM_UNSET_STATE(i,s) (NR_ARENA_ITEM (i)->state &= ~(s))
 
 #define NR_ARENA_ITEM_RENDER_NO_CACHE (1 << 0)
+#define NR_ARENA_ITEM_RENDER_CACHE    (1 << 1)
 
 struct NRGC {
     NRGC(NRGC const *p) : parent(p) {}
@@ -81,14 +84,15 @@ struct NRArenaItem : public NRObject {
     Inkscape::GC::soft_ptr<NRArenaItem> prev;
 
     /* Item state */
-    unsigned int state : 16;
-    unsigned int propagate : 1;
-    unsigned int sensitive : 1;
-    unsigned int visible : 1;
-    /* Whether items renders opacity itself */
-    unsigned int render_opacity : 1;
+    unsigned state : 16;
     /* Opacity itself */
-    unsigned int opacity : 8;
+    unsigned opacity : 8;
+    unsigned propagate : 1;
+    unsigned sensitive : 1;
+    unsigned visible : 1;
+    /* Whether items renders opacity itself */
+    unsigned render_opacity : 1;
+    unsigned render_cache : 1;
 
     unsigned int key; ///< Some SPItems can have more than one NRArenaItem,
                       ///this value is a hack used to distinguish between them
@@ -101,11 +105,10 @@ struct NRArenaItem : public NRObject {
     NRArenaItem *clip; ///< Clipping path
     NRArenaItem *mask; ///< Mask
     Inkscape::Filters::Filter *filter; ///< Filter
-    unsigned char *px; ///< Render cache; unused
+    Inkscape::DrawingCache *cache; ///< Render cache
 
     void *data; ///< Anonymous data member - this is used to associate SPItems with arena items
 
-    NRPixBlock *background_pb; ///< Background for filters; unused
     bool background_new;
 
     void init(NRArena *arena) {
@@ -173,6 +176,7 @@ void nr_arena_item_set_clip (NRArenaItem *item, NRArenaItem *clip);
 void nr_arena_item_set_mask (NRArenaItem *item, NRArenaItem *mask);
 void nr_arena_item_set_order (NRArenaItem *item, int order);
 void nr_arena_item_set_item_bbox (NRArenaItem *item, Geom::OptRect const &bbox);
+void nr_arena_item_set_cache (NRArenaItem *item, bool cache);
 
 NRPixBlock *nr_arena_item_get_background (NRArenaItem const *item);
 

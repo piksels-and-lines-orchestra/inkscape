@@ -90,14 +90,14 @@ nr_arena_item_init (NRArenaItem *item)
     item->ctm.setIdentity();
     item->opacity = 255;
     item->render_opacity = FALSE;
+    item->render_cache = FALSE;
 
     item->transform = NULL;
     item->clip = NULL;
     item->mask = NULL;
-    item->px = NULL;
+    item->cache = NULL;
     item->data = NULL;
     item->filter = NULL;
-    item->background_pb = NULL;
     item->background_new = false;
 }
 
@@ -106,13 +106,13 @@ nr_arena_item_private_finalize (NRObject *object)
 {
     NRArenaItem *item = static_cast < NRArenaItem * >(object);
 
-    item->px = NULL;
     item->transform = NULL;
 
     if (item->clip)
         nr_arena_item_detach(item, item->clip);
     if (item->mask)
         nr_arena_item_detach(item, item->mask);
+    delete item->cache;
 
     ((NRObjectClass *) (parent_class))->finalize (object);
 }
@@ -246,13 +246,9 @@ nr_arena_item_invoke_update (NRArenaItem *item, Geom::IntRect const &area, NRGC 
         return item->state;
     /* Test whether to return immediately */
     if (item->state & NR_ARENA_ITEM_STATE_BBOX) {
+        // we have up-to-date bbox
         if (!area.intersects(outline ? item->bbox : item->drawbox))
             return item->state;
-    }
-
-    /* Reset image cache, if not to be kept */
-    if (!(item->state & NR_ARENA_ITEM_STATE_IMAGE) && (item->px)) {
-        item->px = NULL;
     }
 
     /* Set up local gc */
@@ -261,6 +257,7 @@ nr_arena_item_invoke_update (NRArenaItem *item, Geom::IntRect const &area, NRGC 
         childgc.transform = (*item->transform) * childgc.transform;
     }
     /* Remember the transformation matrix */
+    Geom::Affine ctm_change = item->ctm.inverse() * childgc.transform;
     item->ctm = childgc.transform;
 
     /* Invoke the real method */
@@ -307,10 +304,31 @@ nr_arena_item_invoke_update (NRArenaItem *item, Geom::IntRect const &area, NRGC 
         }
     }
 
+    // update cache if enabled
+    if (item->render_cache) {
+        Geom::OptIntRect cl = item->arena->cache_limit;
+        cl.intersectWith(item->drawbox);
+        if (cl) {
+            if (item->cache) {
+                // this takes care of invalidation on transform
+                item->cache->resizeAndTransform(*cl, ctm_change);
+            } else {
+                item->cache = new Inkscape::DrawingCache(*cl);
+                // the cache is initially dirty
+            }
+        } else {
+            // disable cache for this item - not visible
+            delete item->cache;
+            item->cache = NULL;
+        }
+    }
+
     // now that we know drawbox, dirty the corresponding rect on canvas:
     if (!NR_IS_ARENA_GROUP(item) || (item->filter && filter)) {
         // unless filtered, groups do not need to render by themselves, only their members
-        nr_arena_item_request_render (item);
+        if (state & ~NR_ARENA_ITEM_STATE_CACHE) {
+            nr_arena_item_request_render (item);
+        }
     }
 
     return item->state;
@@ -379,12 +397,19 @@ nr_arena_item_invoke_render (Inkscape::DrawingContext &ct, NRArenaItem *item, Ge
 
         return item->state | NR_ARENA_ITEM_STATE_RENDER;
     }
-    
+
     // carea is the bounding box for intermediate rendering.
-    // NOTE: carea might be larger than area, because of filter effects.
     Geom::OptIntRect carea = Geom::intersect(area, item->drawbox);
     if (!carea)
         return item->state | NR_ARENA_ITEM_STATE_RENDER;
+
+    // render from cache
+    if (item->render_cache && item->cache) {
+        if(item->cache->paintFromCache(ct, *carea))
+            return item->state | NR_ARENA_ITEM_STATE_RENDER;
+    }
+
+    // expand carea to contain the dependent area of filters.
     if (item->filter && filter) {
         item->filter->area_enlarge(*carea, item);
         carea.intersectWith(item->drawbox);
@@ -422,12 +447,40 @@ nr_arena_item_invoke_render (Inkscape::DrawingContext &ct, NRArenaItem *item, Ge
 
     // short-circuit the simple case.
     if (!needs_intermediate_rendering) {
-        state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, *carea, flags);
-        if (state & NR_ARENA_ITEM_STATE_INVALID) {
-            item->state |= NR_ARENA_ITEM_STATE_INVALID;
-            return item->state;
+        if (item->render_cache && item->cache) {
+            Inkscape::DrawingContext cachect(*item->cache);
+            cachect.rectangle(area);
+            cachect.clip();
+
+            {   // 1. clear the corresponding part of cache
+                Inkscape::DrawingContext::Save save(cachect);
+                cachect.setSource(0,0,0,0);
+                cachect.setOperator(CAIRO_OPERATOR_SOURCE);
+                cachect.paint();
+            }
+            // 2. render to cache
+            state = NR_ARENA_ITEM_VIRTUAL (item, render) (cachect, item, *carea, flags);
+            if (state & NR_ARENA_ITEM_STATE_INVALID) {
+                item->state |= NR_ARENA_ITEM_STATE_INVALID;
+                return item->state;
+            }
+            // 3. copy from cache to output
+            Inkscape::DrawingContext::Save save(ct);
+            ct.rectangle(*carea);
+            ct.clip();
+            ct.setSource(item->cache);
+            ct.paint();
+            // 4. mark as clean
+            item->cache->markClean(area);
+            return item->state | NR_ARENA_ITEM_STATE_RENDER;
+        } else {
+            state = NR_ARENA_ITEM_VIRTUAL (item, render) (ct, item, *carea, flags);
+            if (state & NR_ARENA_ITEM_STATE_INVALID) {
+                item->state |= NR_ARENA_ITEM_STATE_INVALID;
+                return item->state;
+            }
+            return item->state | NR_ARENA_ITEM_STATE_RENDER;
         }
-        return item->state | NR_ARENA_ITEM_STATE_RENDER;
     }
 
     DrawingSurface intermediate(*carea);
@@ -490,7 +543,16 @@ nr_arena_item_invoke_render (Inkscape::DrawingContext &ct, NRArenaItem *item, Ge
     ict.setOperator(CAIRO_OPERATOR_IN);
     ict.paint();
 
-    // 6. Paint the completed rendering onto the base context
+    // 6. Paint the completed rendering onto the base context (or into cache)
+    if (item->render_cache && item->cache) {
+        DrawingContext cachect(*item->cache);
+        cachect.rectangle(area);
+        cachect.clip();
+        cachect.setOperator(CAIRO_OPERATOR_SOURCE);
+        cachect.setSource(&intermediate);
+        cachect.paint();
+        item->cache->markClean(area);
+    }
     ct.setSource(&intermediate);
     ct.paint();
     ct.setSource(0,0,0,0);
@@ -601,7 +663,17 @@ nr_arena_item_request_render (NRArenaItem *item)
     nr_return_if_fail (NR_IS_ARENA_ITEM (item));
 
     bool outline = (item->arena->rendermode == Inkscape::RENDERMODE_OUTLINE);
-    nr_arena_request_render_rect (item->arena, outline ? item->bbox : item->drawbox);
+    Geom::OptIntRect dirty = outline ? item->bbox : item->drawbox;
+    if (!dirty) return;
+
+    // dirty the caches of all parents
+    for (NRArenaItem *i = item; i; i = i->parent) {
+        if (i->render_cache && i->cache) {
+            i->cache->markDirty(*dirty);
+        }
+    }
+
+    nr_arena_request_render_rect (item->arena, dirty);
 }
 
 /* Public */
@@ -771,6 +843,19 @@ nr_arena_item_set_item_bbox (NRArenaItem *item, Geom::OptRect const &bbox)
     nr_return_if_fail(NR_IS_ARENA_ITEM(item));
 
     item->item_bbox = bbox;
+}
+
+void
+nr_arena_item_set_cache (NRArenaItem *item, bool cache)
+{
+    if (cache) {
+        item->render_cache = TRUE;
+        item->arena->cached_items.insert(item);
+    } else {
+        item->render_cache = FALSE;
+        item->arena->cached_items.erase(item);
+    }
+    nr_arena_item_request_update(item, NR_ARENA_ITEM_STATE_ALL, FALSE);
 }
 
 /** Returns a background image for use with filter effects. */

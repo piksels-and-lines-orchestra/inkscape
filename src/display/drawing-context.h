@@ -38,6 +38,7 @@ public:
         DrawingContext *_ct;
     };
 
+    DrawingContext(cairo_t *ct, Geom::Point const &origin);
     DrawingContext(cairo_surface_t *surface, Geom::Point const &origin);
     DrawingContext(DrawingSurface &s);
     ~DrawingContext();
@@ -103,6 +104,7 @@ private:
     cairo_t *_ct;
     DrawingSurface *_surface;
     bool _delete_surface;
+    bool _restore_context;
 
     friend class DrawingSurface;
 };

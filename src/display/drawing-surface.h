@@ -26,7 +26,6 @@ class DrawingSurface
 {
 public:
     explicit DrawingSurface(Geom::IntRect const &area);
-    explicit DrawingSurface(Geom::Rect const &area);
     DrawingSurface(Geom::Rect const &logbox, Geom::IntPoint const &pixdims);
     DrawingSurface(cairo_surface_t *surface, Geom::Point const &origin);
     virtual ~DrawingSurface();
@@ -44,6 +43,8 @@ public:
     cairo_t *createRawContext();
 
 protected:
+    Geom::IntRect pixelArea() const;
+
     cairo_surface_t *_surface;
     Geom::Point _origin;
     Geom::Scale _scale;
@@ -53,16 +54,23 @@ protected:
     friend class DrawingContext;
 };
 
-class PixbufSurface
+class DrawingCache
     : public DrawingSurface
 {
 public:
-    explicit PixbufSurface(GdkPixbuf *pb, Geom::Point const &origin = Geom::Point(0,0));
-    ~PixbufSurface();
-protected:
-    GdkPixbuf *pb;
+    explicit DrawingCache(Geom::IntRect const &area);
+    ~DrawingCache();
 
-    friend class DrawingContext;
+    void markDirty(Geom::IntRect const &area = Geom::IntRect::infinite());
+    void markClean(Geom::IntRect const &area = Geom::IntRect::infinite());
+    bool isClean(Geom::IntRect const &area) const;
+    void resizeAndTransform(Geom::IntRect const &new_area, Geom::Affine const &trans);
+    bool paintFromCache(DrawingContext &ct, Geom::IntRect const &area);
+
+protected:
+    cairo_region_t *_clean_region;
+private:
+    static cairo_rectangle_int_t _convertRect(Geom::IntRect const &r);
 };
 
 } // end namespace Inkscape

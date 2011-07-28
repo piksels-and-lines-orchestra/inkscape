@@ -10,6 +10,7 @@
  */
 
 #include "display/drawing-surface.h"
+#include "display/drawing-context.h"
 #include "display/cairo-utils.h"
 
 namespace Inkscape {
@@ -41,18 +42,6 @@ DrawingSurface::DrawingSurface(Geom::IntRect const &area)
     , _origin(area.min())
     , _scale(1, 1)
     , _pixels(area.dimensions())
-{}
-
-/** @brief Creates a surface with the given logical extents.
- * When a drawing context is created for this surface, its pixels
- * will cover the area under the given rectangle. If the rectangle
- * has non-integer width, there will be slightly more than 1 pixel
- * per logical unit. */
-DrawingSurface::DrawingSurface(Geom::Rect const &area)
-    : _surface(NULL)
-    , _origin(area.min())
-    , _scale(ceil(area.width()) / area.width(), ceil(area.height()) / area.height())
-    , _pixels(area.dimensions().ceil())
 {}
 
 /** @brief Creates a surface with the given logical and physical extents.
@@ -162,6 +151,130 @@ DrawingSurface::createRawContext()
     }
     cairo_translate(ct, -_origin[X], -_origin[Y]);
     return ct;
+}
+
+Geom::IntRect
+DrawingSurface::pixelArea() const
+{
+    Geom::IntRect ret = Geom::IntRect::from_xywh(_origin.round(), _pixels);
+    return ret;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+DrawingCache::DrawingCache(Geom::IntRect const &area)
+    : DrawingSurface(area)
+    , _clean_region(cairo_region_create())
+{}
+
+DrawingCache::~DrawingCache()
+{
+    cairo_region_destroy(_clean_region);
+}
+
+void
+DrawingCache::markDirty(Geom::IntRect const &area)
+{
+    cairo_rectangle_int_t dirty = _convertRect(area);
+    cairo_region_subtract_rectangle(_clean_region, &dirty);
+}
+void
+DrawingCache::markClean(Geom::IntRect const &area)
+{
+    Geom::OptIntRect r = Geom::intersect(area, pixelArea());
+    if (!r) return;
+    cairo_rectangle_int_t clean = _convertRect(*r);
+    cairo_region_union_rectangle(_clean_region, &clean);
+}
+bool
+DrawingCache::isClean(Geom::IntRect const &area) const
+{
+    cairo_rectangle_int_t test = _convertRect(area);
+    if (cairo_region_contains_rectangle(_clean_region, &test) == CAIRO_REGION_OVERLAP_IN) {
+        return true;
+    } else {
+        return false;
+    }
+}
+void
+DrawingCache::resizeAndTransform(Geom::IntRect const &new_area, Geom::Affine const &trans)
+{
+    Geom::IntRect old_area = pixelArea();
+    bool is_identity = false;
+    bool is_integer_translation = false;
+    if (trans.isIdentity()) {
+        is_identity = true;
+        if (new_area == old_area) return;
+    }
+    if (!is_identity && trans.isTranslation()) {
+        Geom::IntPoint t = trans.translation().round();
+        if (Geom::are_near(Geom::Point(t), trans.translation())) {
+            // integer translation or identity with change of area
+            is_integer_translation = true;
+            cairo_region_translate(_clean_region, t[X], t[Y]);
+            if (old_area + t == new_area) {
+                // if the areas match, the only thing to do
+                // is to ensure that the clean area is not too large
+                cairo_rectangle_int_t limit = _convertRect(new_area);
+                cairo_region_intersect_rectangle(_clean_region, &limit);
+                _origin += t;
+                return;
+            }
+        }
+    }
+    // otherwise, we need to transform the cache
+    Geom::IntPoint old_origin = old_area.min();
+    cairo_surface_t *old_surface = _surface;
+    _surface = NULL;
+    _pixels = new_area.dimensions();
+    _origin = new_area.min();
+
+    cairo_t *ct = createRawContext();
+    if (!is_identity) {
+        ink_cairo_transform(ct, trans);
+    }
+    cairo_set_source_surface(ct, old_surface, old_origin[X], old_origin[Y]);
+    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(ct);
+
+    cairo_surface_destroy(old_surface);
+    cairo_destroy(ct);
+
+    if (!is_identity && !is_integer_translation) {
+        // dirty everything
+        cairo_region_destroy(_clean_region);
+        _clean_region = cairo_region_create();
+    } else {
+        cairo_rectangle_int_t limit = _convertRect(new_area);
+        cairo_region_intersect_rectangle(_clean_region, &limit);
+    }
+}
+
+/** @brief Paints the clean area from cache and returns the remaining part */
+bool
+DrawingCache::paintFromCache(DrawingContext &ct, Geom::IntRect const &area)
+{
+    if (!isClean(area))
+        return false;
+
+    Inkscape::DrawingContext::Save save(ct);
+    ct.rectangle(area);
+    ct.clip();
+    ct.setSource(this);
+    ct.paint();
+    
+    return true;
+}
+
+cairo_rectangle_int_t
+DrawingCache::_convertRect(Geom::IntRect const &area)
+{
+    cairo_rectangle_int_t ret;
+    ret.x = area.left();
+    ret.y = area.top();
+    ret.width = area.width();
+    ret.height = area.height();
+    return ret;
 }
 
 } // end namespace Inkscape
