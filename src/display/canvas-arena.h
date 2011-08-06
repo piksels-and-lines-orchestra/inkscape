@@ -15,9 +15,10 @@
 
 #include <cairo.h>
 #include <2geom/rect.h>
+#include "display/display-forward.h"
+#include "display/drawing-item.h"
 #include "display/sp-canvas.h"
 #include "display/sp-canvas-item.h"
-#include "display/nr-arena-item.h"
 
 G_BEGIN_DECLS
 
@@ -38,19 +39,19 @@ struct _SPCanvasArena {
     Geom::Point c; // what is this?
 
     NRArena *arena;
-    NRArenaItem *root;
-    NRGC gc;
+    Inkscape::DrawingGroup *root;
+    Inkscape::UpdateContext ctx;
 
-    NRArenaItem *active;
+    Inkscape::DrawingItem *active;
     /* fixme: */
-    NRArenaItem *picked;
-    gdouble delta;
+    Inkscape::DrawingItem *picked;
+    double delta;
 };
 
 struct _SPCanvasArenaClass {
     SPCanvasItemClass parent_class;
 
-    gint (* arena_event) (SPCanvasArena *carena, NRArenaItem *item, GdkEvent *event);
+    gint (* arena_event) (SPCanvasArena *carena, Inkscape::DrawingItem *item, GdkEvent *event);
 };
 
 GType sp_canvas_arena_get_type (void);

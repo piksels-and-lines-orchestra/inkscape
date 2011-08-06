@@ -19,17 +19,16 @@
 #include "display/nr-filter-types.h"
 #include "display/nr-filter-units.h"
 
-struct NRArenaItem;
-
 namespace Inkscape {
 class DrawingContext;
+class DrawingItem;
 
 namespace Filters {
 
 class FilterSlot {
 public:
     /** Creates a new FilterSlot object. */
-    FilterSlot(NRArenaItem *item, DrawingContext &bgct,
+    FilterSlot(DrawingItem *item, DrawingContext &bgct,
         DrawingContext &graphic, FilterUnits const &u);
     /** Destroys the FilterSlot object and all its contents */
     virtual ~FilterSlot();
@@ -73,7 +72,7 @@ public:
 private:
     typedef std::map<int, cairo_surface_t *> SlotMap;
     SlotMap _slots;
-    NRArenaItem *_item;
+    DrawingItem *_item;
 
     //Geom::Rect _source_bbox; ///< bounding box of source graphic surface
     //Geom::Rect _intermediate_bbox; ///< bounding box of intermediate surfaces

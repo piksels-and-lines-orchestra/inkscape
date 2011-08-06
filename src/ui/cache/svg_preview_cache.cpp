@@ -29,23 +29,19 @@
 #include "document-private.h"
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
+#include "display/drawing-item.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
 
 #include "ui/cache/svg_preview_cache.h"
 
-GdkPixbuf* render_pixbuf(NRArenaItem* root, double scale_factor, const Geom::Rect& dbox, unsigned psize) {
-    NRGC gc(NULL);
-
+GdkPixbuf* render_pixbuf(Inkscape::DrawingItem* root, double scale_factor, const Geom::Rect& dbox, unsigned psize)
+{
     Geom::Affine t(Geom::Scale(scale_factor, scale_factor));
-    nr_arena_item_set_transform(root, t);
-    gc.transform.setIdentity();
+    root->setTransform(Geom::Scale(scale_factor));
 
     Geom::IntRect ibox = (dbox * Geom::Scale(scale_factor)).roundOutwards();
 
-    nr_arena_item_invoke_update( root, ibox, &gc,
-                                 NR_ARENA_ITEM_STATE_ALL,
-                                 NR_ARENA_ITEM_STATE_NONE );
+    root->update(ibox);
 
     /* Find visible area */
     int width = ibox.width();
@@ -63,8 +59,7 @@ GdkPixbuf* render_pixbuf(NRArenaItem* root, double scale_factor, const Geom::Rec
         CAIRO_FORMAT_ARGB32, psize, psize);
     Inkscape::DrawingContext ct(s, area.min());
 
-    nr_arena_item_invoke_render(ct, root, area,
-                                 NR_ARENA_ITEM_RENDER_NO_CACHE );
+    root->render(ct, area, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
     cairo_surface_flush(s);
 
     GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(s),
@@ -111,7 +106,7 @@ void SvgPreview::set_preview_in_cache(const Glib::ustring& key, GdkPixbuf* px) {
     _pixmap_cache[key] = px;
 }
 
-GdkPixbuf* SvgPreview::get_preview(const gchar* uri, const gchar* id, NRArenaItem */*root*/,
+GdkPixbuf* SvgPreview::get_preview(const gchar* uri, const gchar* id, Inkscape::DrawingItem */*root*/,
                                    double /*scale_factor*/, unsigned int psize) {
     // First try looking up the cached preview in the cache map
     Glib::ustring key = cache_key(uri, id, psize);

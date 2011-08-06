@@ -25,10 +25,11 @@
 #include "display/drawing-context.h"
 #include "display/drawing-surface.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-group.h"
+#include "display/drawing-group.h"
 #include "attributes.h"
 #include "document-private.h"
 #include "uri.h"
+#include "style.h"
 #include "sp-pattern.h"
 #include "xml/repr.h"
 #include "display/grayscale.h"
@@ -632,15 +633,15 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     /* Create arena */
     NRArena *arena = NRArena::create();
     unsigned int dkey = SPItem::display_key_new (1);
-    NRArenaGroup *root = NRArenaGroup::create(arena);
+    Inkscape::DrawingGroup *root = new Inkscape::DrawingGroup(arena);
 
     for (SPObject *child = shown->firstChild(); child != NULL; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
             // for each item in pattern, show it on our arena, add to the group,
             // and connect to the release signal in case the item gets deleted
-            NRArenaItem *cai;
+            Inkscape::DrawingItem *cai;
             cai = SP_ITEM(child)->invoke_show (arena, dkey, SP_ITEM_SHOW_DISPLAY);
-            nr_arena_item_append_child (root, cai);
+            root->appendChild(cai);
         }
     }
 
@@ -689,17 +690,17 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     }
 
     // TODO: make sure there are no leaks.
-    NRGC gc(NULL);
-    gc.transform = vb2ps;
-    nr_arena_item_invoke_update (root, Geom::IntRect::infinite(), &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_ALL);
-    nr_arena_item_invoke_render (ct, root, one_tile, 0);
+    Inkscape::UpdateContext ctx;
+    ctx.ctm = vb2ps;
+    root->update(Geom::IntRect::infinite(), ctx, Inkscape::DrawingItem::STATE_ALL, 0);
+    root->render(ct, one_tile, 0);
     for (SPObject *child = shown->firstChild() ; child != NULL; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
             SP_ITEM(child)->invoke_hide(dkey);
         }
     }
-    nr_object_unref(root);
     nr_object_unref(arena);
+    delete root;
 
     if (needs_opacity) {
         ct.popGroupToSource(); // pop raw pattern

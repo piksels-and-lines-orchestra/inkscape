@@ -19,7 +19,7 @@
 #include <glibmm/i18n.h>
 
 #include "sp-switch.h"
-#include "display/nr-arena-group.h"
+#include "display/drawing-group.h"
 #include "conditions.h"
 
 #include <sigc++/functors/ptr_fun.h>
@@ -157,20 +157,18 @@ void CSwitch::_releaseLastItem(SPObject *obj)
     _cached_item = NULL;
 }
 
-void CSwitch::_showChildren (NRArena *arena, NRArenaItem *ai, unsigned int key, unsigned int flags) {
+void CSwitch::_showChildren (NRArena *arena, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags) {
     SPObject *evaluated_child = _evaluateFirst();
 
-    NRArenaItem *ar = NULL;
     GSList *l = _childList(false, SPObject::ActionShow);
     while (l) {
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM (o)) {
             SPItem * child = SP_ITEM(o);
             child->setEvaluated(o == evaluated_child);
-            NRArenaItem *ac = child->invoke_show (arena, key, flags);
+            Inkscape::DrawingItem *ac = child->invoke_show (arena, key, flags);
             if (ac) {
-                nr_arena_item_add_child (ai, ac, ar);
-                ar = ac;
+                ai->appendChild(ac);
             }
         }
         l = g_slist_remove (l, o);

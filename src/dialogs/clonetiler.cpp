@@ -27,7 +27,7 @@
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing-item.h"
 #include "document.h"
 #include "filter-chemistry.h"
 #include "helper/unit-menu.h"
@@ -834,7 +834,7 @@ static bool clonetiler_is_a_clone_of(SPObject *tile, SPObject *obj)
 
 static NRArena const *trace_arena = NULL;
 static unsigned trace_visionkey;
-static NRArenaItem *trace_root;
+static Inkscape::DrawingItem *trace_root;
 static gdouble trace_zoom;
 static SPDocument *trace_doc;
 
@@ -852,6 +852,8 @@ static void clonetiler_trace_hide_tiled_clones_recursively(SPObject *from)
 
 static void clonetiler_trace_setup(SPDocument *doc, gdouble zoom, SPItem *original)
 {
+    // FIXME MEMORY LEAK: the stuff here is never freed
+
     trace_arena = NRArena::create();
     /* Create ArenaItem and set transform */
     trace_visionkey = SPItem::display_key_new(1);
@@ -874,13 +876,8 @@ static guint32 clonetiler_trace_pick(Geom::Rect box)
         return 0;
     }
 
-    Geom::Affine t(Geom::Scale(trace_zoom, trace_zoom));
-    nr_arena_item_set_transform(trace_root, &t);
-    NRGC gc(NULL);
-    gc.transform.setIdentity();
-    nr_arena_item_invoke_update( trace_root, Geom::IntRect::infinite(), &gc,
-                                 NR_ARENA_ITEM_STATE_ALL,
-                                 NR_ARENA_ITEM_STATE_NONE );
+    trace_root->setTransform(Geom::Scale(trace_zoom));
+    trace_root->update();
 
     /* Item integer bbox in points */
     Geom::IntRect ibox = (box * Geom::Scale(trace_zoom)).roundOutwards();
@@ -889,8 +886,7 @@ static guint32 clonetiler_trace_pick(Geom::Rect box)
     cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, ibox.width(), ibox.height());
     Inkscape::DrawingContext ct(s, ibox.min());
     /* Render */
-    nr_arena_item_invoke_render(ct, trace_root, ibox,
-                                 NR_ARENA_ITEM_RENDER_NO_CACHE );
+    trace_root->render(ct, ibox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
     double R = 0, G = 0, B = 0, A = 0;
     ink_cairo_surface_average_color(s, R, G, B, A);
     cairo_surface_destroy(s);

@@ -641,10 +641,10 @@ SPDesktopWidget::updateTitle(gchar const* uri)
         gchar const *colormodename = "";
         gchar const *colormodenamecomma = "";
 
-        if (this->desktop->getColorMode() == Inkscape::COLORRENDERMODE_GRAYSCALE) {
+        if (this->desktop->getColorMode() == Inkscape::COLORMODE_GRAYSCALE) {
                 colormodename = grayscalename;
                 colormodenamecomma = grayscalenamecomma;
-        } else if (this->desktop->getColorMode() == Inkscape::COLORRENDERMODE_PRINT_COLORS_PREVIEW) {
+        } else if (this->desktop->getColorMode() == Inkscape::COLORMODE_PRINT_COLORS_PREVIEW) {
                 colormodename = printcolorsname;
                 colormodenamecomma = printcolorsnamecomma;
         }

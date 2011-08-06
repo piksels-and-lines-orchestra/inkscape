@@ -28,7 +28,6 @@
 #include "extension/db.h"
 #include "extension/output.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
 
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
@@ -61,7 +60,7 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
     SPItem *base = doc->getRoot();
     NRArena *arena = NRArena::create();
     unsigned dkey = SPItem::display_key_new(1);
-    NRArenaItem *root = base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
     
     /* Create renderer and context */
     renderer = new CairoRenderer();

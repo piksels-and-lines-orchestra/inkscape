@@ -32,8 +32,8 @@
 #include "sp-item.h"
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
+#include "display/drawing-item.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
 #include "io/sys.h"
 #include "sp-root.h"
 
@@ -1090,7 +1090,7 @@ static Geom::IntRect round_rect(Geom::Rect const &r)
 
 // takes doc, root, icon, and icon name to produce pixels
 extern "C" guchar *
-sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
+sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
                   gchar const *name, unsigned psize,
                   unsigned &stride)
 {
@@ -1113,14 +1113,10 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
 
             /* This is in document coordinates, i.e. pixels */
             if ( dbox ) {
-                NRGC gc(NULL);
                 /* Update to renderable state */
                 double sf = 1.0;
-                nr_arena_item_set_transform(root, (Geom::Affine)Geom::Scale(sf, sf));
-                gc.transform.setIdentity();
-                nr_arena_item_invoke_update( root, Geom::IntRect::infinite(), &gc,
-                                             NR_ARENA_ITEM_STATE_ALL,
-                                             NR_ARENA_ITEM_STATE_NONE );
+                root->setTransform(Geom::Scale(sf));
+                root->update();
                 /* Item integer bbox in points */
                 // NOTE: previously, each rect coordinate was rounded using floor(c + 0.5)
                 Geom::IntRect ibox = round_rect(*dbox);
@@ -1145,11 +1141,8 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
                         }
                         sf = (double)psize / (double)block;
 
-                        nr_arena_item_set_transform(root, (Geom::Affine)Geom::Scale(sf, sf));
-                        gc.transform.setIdentity();
-                        nr_arena_item_invoke_update( root, Geom::IntRect::infinite(), &gc,
-                                                     NR_ARENA_ITEM_STATE_ALL,
-                                                     NR_ARENA_ITEM_STATE_NONE );
+                        root->setTransform(Geom::Scale(sf));
+                        root->update();
 
                         ibox = round_rect(*dbox * Geom::Scale(sf));
                         if ( dump ) {
@@ -1192,8 +1185,7 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
                     CAIRO_FORMAT_ARGB32, psize, psize, stride);
                 Inkscape::DrawingContext ct(s, ua.min());
 
-                nr_arena_item_invoke_render(ct, root, ua,
-                                             NR_ARENA_ITEM_RENDER_NO_CACHE );
+                root->render(ct, ua, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
                 cairo_surface_destroy(s);
 
                 // convert to GdkPixbuf format
@@ -1214,9 +1206,9 @@ sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
 class SVGDocCache
 {
 public:
-    SVGDocCache( SPDocument *doc, NRArenaItem *root ) : doc(doc), root(root) {}
+    SVGDocCache( SPDocument *doc, Inkscape::DrawingItem *root ) : doc(doc), root(root) {}
     SPDocument *doc;
-    NRArenaItem *root;
+    Inkscape::DrawingItem *root;
 };
 
 static std::map<Glib::ustring, SVGDocCache *> doc_cache;
@@ -1294,7 +1286,7 @@ guchar *IconImpl::load_svg_pixels(std::list<Glib::ustring> const &names,
                 // fixme: Memory manage root if needed (Lauris)
                 // This needs to be fixed indeed; this leads to a memory leak of a few megabytes these days
                 // because shapes are being rendered which are not being freed
-                NRArenaItem *root = doc->getRoot()->invoke_show( arena, visionkey, SP_ITEM_SHOW_DISPLAY );
+                Inkscape::DrawingItem *root = doc->getRoot()->invoke_show( arena, visionkey, SP_ITEM_SHOW_DISPLAY );
 
                 // store into the cache
                 info = new SVGDocCache(doc, root);

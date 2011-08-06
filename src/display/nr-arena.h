@@ -13,9 +13,14 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <set>
 #include <glib/gmacros.h>
-
+#include <sigc++/sigc++.h>
+#include <2geom/rect.h>
 #include "display/rendermode.h"
+#include "libnr/nr-forward.h"
+#include "libnr/nr-object.h"
+#include "display/display-forward.h"
 
 G_BEGIN_DECLS
 
@@ -27,19 +32,13 @@ G_END_DECLS
 #define NR_ARENA(o) (NR_CHECK_INSTANCE_CAST ((o), NR_TYPE_ARENA, NRArena))
 #define NR_IS_ARENA(o) (NR_CHECK_INSTANCE_TYPE ((o), NR_TYPE_ARENA))
 
-#include <set>
-#include <2geom/rect.h>
-#include <libnr/nr-forward.h>
-#include <libnr/nr-object.h>
-#include "nr-arena-forward.h"
-
 class SPPainter;
 
 NRType nr_arena_get_type (void);
 
 struct NRArenaEventVector {
 	NRObjectEventVector parent;
-	void (* request_update) (NRArena *arena, NRArenaItem *item, void *data);
+	void (* request_update) (NRArena *arena, Inkscape::DrawingItem *item, void *data);
 	void (* request_render) (NRArena *arena, NRRectL *area, void *data);
 };
 
@@ -51,20 +50,22 @@ struct NRArena : public NRActiveObject {
 	double delta;
 	bool renderoffscreen;  // if true then rendering must be exact
 	Inkscape::RenderMode rendermode;
-	Inkscape::ColorRenderMode colorrendermode;
+	Inkscape::ColorMode colormode;
 	int blurquality;    // will be updated during update from preferences
 	int filterquality;  // will be updated during update from preferences
 	Geom::OptIntRect cache_limit;
-	std::set<NRArenaItem *> cached_items;
+	std::set<Inkscape::DrawingItem *> cached_items;
 
 	guint32 outlinecolor;
 	SPCanvasArena *canvasarena; // may be NULL is this arena is not the screen but used for export etc.
+
+	sigc::signal<void, Inkscape::DrawingItem *> item_deleted;
 };
 
 struct NRArenaClass : public NRActiveObjectClass {
 };
 
-void nr_arena_request_update (NRArena *arena, NRArenaItem *item);
+void nr_arena_request_update (NRArena *arena, Inkscape::DrawingItem *item);
 void nr_arena_request_render_rect (NRArena *arena, Geom::OptIntRect const &area);
 void nr_arena_set_renderoffscreen (NRArena *arena);
 void nr_arena_set_cache_limit (NRArena *arena, Geom::OptIntRect const &cache_limit);

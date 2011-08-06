@@ -16,7 +16,6 @@
 #include "display/cairo-templates.h"
 #include "display/cairo-utils.h"
 #include "display/nr-3dutils.h"
-#include "display/nr-arena-item.h"
 #include "display/nr-filter-diffuselighting.h"
 #include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"

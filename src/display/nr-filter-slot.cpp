@@ -17,7 +17,6 @@
 #include <2geom/transforms.h>
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
-#include "display/nr-arena-item.h"
 #include "display/nr-filter-types.h"
 #include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-slot.h"
@@ -26,7 +25,7 @@
 namespace Inkscape {
 namespace Filters {
 
-FilterSlot::FilterSlot(NRArenaItem *item, DrawingContext &bgct,
+FilterSlot::FilterSlot(DrawingItem *item, DrawingContext &bgct,
         DrawingContext &graphic, FilterUnits const &u)
     : _item(item)
     , _source_graphic(graphic.rawTarget())

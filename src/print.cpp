@@ -15,6 +15,8 @@
 # include "config.h"
 #endif
 
+#include "display/nr-arena.h"
+#include "display/drawing-item.h"
 #include "inkscape.h"
 #include "desktop.h"
 #include "sp-item.h"
@@ -80,9 +82,6 @@ unsigned int sp_print_text(SPPrintContext *ctx, char const *text, Geom::Point p,
     return ctx->module->text(text, p, style);
 }
 
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
-
 /* UI */
 
 void
@@ -92,19 +91,11 @@ sp_print_document(Gtk::Window& parentWindow, SPDocument *doc)
 
     // Build arena
     SPItem      *base = doc->getRoot();
-    NRArena    *arena = NRArena::create();
-    unsigned int dkey = SPItem::display_key_new(1);
-    // TODO investigate why we are grabbing root and then ignoring it.
-    NRArenaItem *root = base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
 
     // Run print dialog
     Inkscape::UI::Dialog::Print printop(doc,base);
     Gtk::PrintOperationResult res = printop.run(Gtk::PRINT_OPERATION_ACTION_PRINT_DIALOG, parentWindow);
     (void)res; // TODO handle this
-
-    // Release arena
-    base->invoke_hide(dkey);
-    nr_object_unref((NRObject *) arena);
 }
 
 void
@@ -138,8 +129,8 @@ sp_print_document_to_file(SPDocument *doc, gchar const *filename)
     /* Release arena */
     (mod->base)->invoke_hide(mod->dkey);
     mod->base = NULL;
-    mod->root = NULL;
     nr_object_unref((NRObject *) mod->arena);
+    mod->root = NULL; // should be deleted by invoke_hide
     mod->arena = NULL;
 /* end */
 

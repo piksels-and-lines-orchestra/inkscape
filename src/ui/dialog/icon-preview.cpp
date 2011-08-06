@@ -38,7 +38,7 @@
 extern "C" {
 // takes doc, root, icon, and icon name to produce pixels
 guchar *
-sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
+sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
                   const gchar *name, unsigned int psize, unsigned &stride);
 }
 
@@ -438,7 +438,7 @@ void IconPreviewPanel::renderPreview( SPObject* obj )
     g_message("%s setting up to render '%s' as the icon", getTimestr().c_str(), id );
 #endif // ICON_VERBOSE
 
-    NRArenaItem *root = NULL;
+    Inkscape::DrawingItem *root = NULL;
 
     /* Create new arena */
     NRArena *arena = NRArena::create();

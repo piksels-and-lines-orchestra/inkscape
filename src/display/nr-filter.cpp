@@ -39,7 +39,7 @@
 #include "display/nr-filter-turbulence.h"
 
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing-item.h"
 #include "display/drawing-context.h"
 #include <2geom/affine.h>
 #include <2geom/rect.h>
@@ -97,7 +97,7 @@ Filter::~Filter()
 }
 
 
-int Filter::render(NRArenaItem const *item, DrawingContext &bgct, DrawingContext &graphic)
+int Filter::render(Inkscape::DrawingItem const *item, DrawingContext &bgct, DrawingContext &graphic)
 {
     if (_primitive.empty()) {
         // when no primitives are defined, clear source graphic
@@ -108,14 +108,14 @@ int Filter::render(NRArenaItem const *item, DrawingContext &bgct, DrawingContext
         return 1;
     }
 
-    FilterQuality const filterquality = (FilterQuality)item->arena->filterquality;
-    int const blurquality = item->arena->blurquality;
+    FilterQuality const filterquality = (FilterQuality)item->drawing()->filterquality;
+    int const blurquality = item->drawing()->blurquality;
 
-    Geom::Affine trans = item->ctm;
+    Geom::Affine trans = item->ctm();
 
     Geom::Rect item_bbox;
     {
-        Geom::OptRect maybe_bbox = item->item_bbox;
+        Geom::OptRect maybe_bbox = item->itemBounds();
         if (maybe_bbox.isEmpty()) {
             // Code below needs a bounding box
             return 1;
@@ -161,7 +161,7 @@ int Filter::render(NRArenaItem const *item, DrawingContext &bgct, DrawingContext
         }
     }
 
-    FilterSlot slot(const_cast<NRArenaItem*>(item), bgct, graphic, units);
+    FilterSlot slot(const_cast<Inkscape::DrawingItem*>(item), bgct, graphic, units);
     slot.set_quality(filterquality);
     slot.set_blurquality(blurquality);
 
@@ -188,10 +188,10 @@ void Filter::set_primitive_units(SPFilterUnits unit) {
     _primitive_units = unit;
 }
 
-void Filter::area_enlarge(Geom::IntRect &bbox, NRArenaItem const *item) const {
+void Filter::area_enlarge(Geom::IntRect &bbox, Inkscape::DrawingItem const *item) const {
     NRRectL b(bbox);
     for (unsigned i = 0 ; i < _primitive.size() ; i++) {
-        if (_primitive[i]) _primitive[i]->area_enlarge(b, item->ctm);
+        if (_primitive[i]) _primitive[i]->area_enlarge(b, item->ctm());
     }
     bbox = *b.upgrade_2geom();
 
@@ -208,7 +208,7 @@ void Filter::area_enlarge(Geom::IntRect &bbox, NRArenaItem const *item) const {
     }
 
     Geom::Rect item_bbox;
-    Geom::OptRect maybe_bbox = item->item_bbox;
+    Geom::OptRect maybe_bbox = item->itemBounds();
     if (maybe_bbox.isEmpty()) {
         // Code below needs a bounding box
         return;
@@ -216,9 +216,9 @@ void Filter::area_enlarge(Geom::IntRect &bbox, NRArenaItem const *item) const {
     item_bbox = *maybe_bbox;
 
     std::pair<double,double> res_low
-        = _filter_resolution(item_bbox, item->ctm, filterquality);
+        = _filter_resolution(item_bbox, item->ctm(), filterquality);
     //std::pair<double,double> res_full
-    //    = _filter_resolution(item_bbox, item->ctm, FILTER_QUALITY_BEST);
+    //    = _filter_resolution(item_bbox, item->ctm(), FILTER_QUALITY_BEST);
     double pixels_per_block = fmax(item_bbox.width() / res_low.first,
                                    item_bbox.height() / res_low.second);
     bbox.x0 -= (int)pixels_per_block;
@@ -228,10 +228,10 @@ void Filter::area_enlarge(Geom::IntRect &bbox, NRArenaItem const *item) const {
 */
 }
 
-Geom::IntRect Filter::compute_drawbox(NRArenaItem const *item, Geom::Rect const &item_bbox) {
+Geom::IntRect Filter::compute_drawbox(Inkscape::DrawingItem const *item, Geom::Rect const &item_bbox) {
 
     Geom::Rect enlarged = filter_effect_area(item_bbox);
-    enlarged *= item->ctm;
+    enlarged *= item->ctm();
 
     Geom::IntRect ret(enlarged.roundOutwards());
     return ret;

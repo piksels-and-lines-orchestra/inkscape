@@ -57,7 +57,7 @@ struct SPText : public SPItem {
     static void _adjustFontsizeRecursive(SPItem *item, double ex, bool is_root = true);
 	
     /** discards the NRArena objects representing this text. */
-    void _clearFlow(NRArenaGroup *in_arena);
+    void _clearFlow(Inkscape::DrawingGroup *in_arena);
 
 private:
     /** Recursively walks the xml tree adding tags and their contents. The

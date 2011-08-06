@@ -12,8 +12,6 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-
-
 #include "trace/potrace/inkscape-potrace.h"
 
 #include "inkscape.h"
@@ -32,22 +30,13 @@
 #include <2geom/transforms.h>
 
 #include "display/nr-arena.h"
-#include "display/nr-arena-shape.h"
+#include "display/drawing-shape.h"
 
 #include "siox.h"
 #include "imagemap-gdk.h"
 
-
-
-namespace Inkscape
-{
-
-namespace Trace
-{
-
-
-
-
+namespace Inkscape {
+namespace Trace {
 
 /**
  * Get the selected image.  Also check for any SPItems over it, in
@@ -247,12 +236,12 @@ Tracer::sioxProcessImage(SPImage *img,
         return Glib::RefPtr<Gdk::Pixbuf>(NULL);
         }
 
-    NRArenaItem *aImg = img->get_arenaitem(desktop->dkey);
+    Inkscape::DrawingItem *aImg = img->get_arenaitem(desktop->dkey);
     //g_message("img: %d %d %d %d\n", aImg->bbox.x0, aImg->bbox.y0,
     //                                aImg->bbox.x1, aImg->bbox.y1);
 
-    double width  = aImg->bbox->width();
-    double height = aImg->bbox->height();
+    double width  = aImg->geometricBounds()->width();
+    double height = aImg->geometricBounds()->height();
 
     double iwidth  = simage.getWidth();
     double iheight = simage.getHeight();
@@ -260,12 +249,12 @@ Tracer::sioxProcessImage(SPImage *img,
     double iwscale = width  / iwidth;
     double ihscale = height / iheight;
 
-    std::vector<NRArenaItem *> arenaItems;
+    std::vector<Inkscape::DrawingItem *> arenaItems;
     std::vector<SPShape *>::iterator iter;
     for (iter = sioxShapes.begin() ; iter!=sioxShapes.end() ; iter++)
         {
         SPItem *item = *iter;
-        NRArenaItem *aItem = item->get_arenaitem(desktop->dkey);
+        Inkscape::DrawingItem *aItem = item->get_arenaitem(desktop->dkey);
         arenaItems.push_back(aItem);
         }
 
@@ -278,25 +267,22 @@ Tracer::sioxProcessImage(SPImage *img,
 
     for (int row=0 ; row<iheight ; row++)
         {
-        double ypos = aImg->bbox->top() + ihscale * (double) row;
+        double ypos = aImg->geometricBounds()->top() + ihscale * (double) row;
         for (int col=0 ; col<simage.getWidth() ; col++)
             {
             //Get absolute X,Y position
-            double xpos = aImg->bbox->left() + iwscale * (double)col;
+            double xpos = aImg->geometricBounds()->left() + iwscale * (double)col;
             Geom::Point point(xpos, ypos);
-            if (aImg->transform)
-                point *= *aImg->transform;
+            point *= aImg->transform();
             //point *= imgMat;
             //point = desktop->doc2dt(point);
             //g_message("x:%f    y:%f\n", point[0], point[1]);
             bool weHaveAHit = false;
-            std::vector<NRArenaItem *>::iterator aIter;
+            std::vector<Inkscape::DrawingItem *>::iterator aIter;
             for (aIter = arenaItems.begin() ; aIter!=arenaItems.end() ; aIter++)
                 {
-                NRArenaItem *arenaItem = *aIter;
-                NRArenaItemClass *arenaClass =
-                    (NRArenaItemClass *) NR_OBJECT_GET_CLASS (arenaItem);
-                if (arenaClass->pick(arenaItem, point, 1.0f, 1))
+                Inkscape::DrawingItem *arenaItem = *aIter;
+                if (arenaItem->pick(point, 1.0f, 1))
                     {
                     weHaveAHit = true;
                     break;
@@ -337,17 +323,6 @@ Tracer::sioxProcessImage(SPImage *img,
         }
 
     //result.writePPM("siox2.ppm");
-
-    /* Free Arena and ArenaItem */
-    /*
-    std::vector<NRArenaItem *>::iterator aIter;
-    for (aIter = arenaItems.begin() ; aIter!=arenaItems.end() ; aIter++)
-       {
-       NRArenaItem *arenaItem = *aIter;
-       nr_arena_item_unref(arenaItem);
-       }
-    nr_object_unref((NRObject *) arena);
-    */
 
     Glib::RefPtr<Gdk::Pixbuf> newPixbuf = Glib::wrap(result.getGdkPixbuf());
 

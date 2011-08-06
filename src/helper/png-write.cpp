@@ -24,7 +24,7 @@
 #include "png-write.h"
 #include "io/sys.h"
 #include "display/drawing-context.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing-item.h"
 #include "display/nr-arena.h"
 #include "document.h"
 #include "sp-item.h"
@@ -51,7 +51,7 @@ static unsigned int const MAX_STRIPE_SIZE = 1024*1024;
 struct SPEBP {
     unsigned long int width, height, sheight;
     guint32 background;
-    NRArenaItem *root; // the root arena item to show; it is assumed that all unneeded items are hidden
+    Inkscape::DrawingItem *root; // the root arena item to show; it is assumed that all unneeded items are hidden
     guchar *px;
     unsigned (*status)(float, void *);
     void *data;
@@ -326,11 +326,8 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     Geom::IntRect bbox = Geom::IntRect::from_xywh(0, row, ebp->width, num_rows);
 
     /* Update to renderable state */
-    NRGC gc(NULL);
-    gc.transform.setIdentity();
-
-    nr_arena_item_invoke_update(ebp->root, bbox, &gc,
-           NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
+    Inkscape::UpdateContext ctx;
+    ebp->root->update(bbox, ctx, Inkscape::DrawingItem::STATE_ALL, 0);
 
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ebp->width);
     unsigned char *px = g_new(guchar, num_rows * stride);
@@ -344,7 +341,7 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     ct.setOperator(CAIRO_OPERATOR_OVER);
 
     /* Render */
-    nr_arena_item_invoke_render(ct, ebp->root, bbox, 0);
+    ebp->root->render(ct, bbox, 0);
     cairo_surface_destroy(s);
 
     *to_free = px;
@@ -462,7 +459,7 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
 
     // Create ArenaItems and set transform
     ebp.root = doc->getRoot()->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
-    nr_arena_item_set_transform(NR_ARENA_ITEM(ebp.root), affine);
+    ebp.root->setTransform(affine);
 
     // We show all and then hide all items we don't want, instead of showing only requested items,
     // because that would not work if the shown item references something in defs

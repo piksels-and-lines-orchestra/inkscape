@@ -28,8 +28,8 @@
 #include "desktop-style.h"
 #include "dialogs/dialog-events.h"
 #include "display/canvas-bpath.h" // for SP_STROKE_LINEJOIN_*
+#include "display/display-forward.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
 #include "document-private.h"
 #include "gradient-chemistry.h"
 #include "helper/stock-items.h"
@@ -153,7 +153,8 @@ sp_stroke_radio_button(Gtk::RadioButton *tb, char const *icon,
 static Gtk::Image *
 sp_marker_prev_new(unsigned psize, gchar const *mname,
                    SPDocument *source, SPDocument *sandbox,
-                   gchar const *menu_id, NRArena const * /*arena*/, unsigned /*visionkey*/, NRArenaItem *root)
+                   gchar const *menu_id, NRArena const * /*arena*/, unsigned /*visionkey*/,
+                   Inkscape::DrawingItem *root)
 {
     // Retrieve the marker named 'mname' from the source SVG document
     SPObject const *marker = source->getObjectById(mname);
@@ -250,7 +251,7 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
     // Do this here, outside of loop, to speed up preview generation:
     NRArena const *arena = NRArena::create();
     unsigned const visionkey = SPItem::display_key_new(1);
-    NRArenaItem *root = sandbox->getRoot()->invoke_show((NRArena *) arena, visionkey, SP_ITEM_SHOW_DISPLAY);
+    Inkscape::DrawingItem *root = sandbox->getRoot()->invoke_show((NRArena *) arena, visionkey, SP_ITEM_SHOW_DISPLAY);
 
     for (; marker_list != NULL; marker_list = marker_list->next) {
         Inkscape::XML::Node *repr = reinterpret_cast<SPItem *>(marker_list->data)->getRepr();

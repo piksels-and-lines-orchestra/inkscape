@@ -20,54 +20,53 @@
 #include "config.h"
 #endif
 
+#include <2geom/pathvector.h>
 #include <gdk/gdkkeysyms.h>
 #include <queue>
 #include <deque>
+#include <glibmm/i18n.h>
 
-#include "macros.h"
+#include "color.h"
+#include "context-fns.h"
+#include "desktop.h"
+#include "desktop-handles.h"
+#include "desktop-style.h"
+#include "display/cairo-utils.h"
+#include "display/canvas-arena.h"
+#include "display/drawing-context.h"
+#include "display/drawing-image.h"
+#include "display/drawing-item.h"
+#include "display/nr-arena.h"
 #include "display/sp-canvas.h"
 #include "document.h"
-#include "sp-namedview.h"
-#include "sp-object.h"
-#include "sp-rect.h"
-#include "selection.h"
-#include "desktop-handles.h"
-#include "desktop.h"
-#include "desktop-style.h"
-#include "message-stack.h"
-#include "message-context.h"
-#include "pixmaps/cursor-paintbucket.xpm"
 #include "flood-context.h"
-#include "sp-metrics.h"
-#include <glibmm/i18n.h>
-#include "object-edit.h"
-#include "xml/repr.h"
-#include "xml/node-event-vector.h"
-#include "preferences.h"
-#include "context-fns.h"
-#include "rubberband.h"
-#include "shape-editor.h"
-
-#include "display/nr-arena-item.h"
-#include "display/nr-arena.h"
-#include "display/nr-arena-image.h"
-#include "display/canvas-arena.h"
-#include "display/cairo-utils.h"
-#include "display/drawing-context.h"
-#include <2geom/pathvector.h>
-#include "sp-item.h"
-#include "sp-root.h"
-#include "sp-defs.h"
-#include "sp-path.h"
-#include "splivarot.h"
 #include "livarot/Path.h"
 #include "livarot/Shape.h"
+#include "macros.h"
+#include "message-context.h"
+#include "message-stack.h"
+#include "object-edit.h"
+#include "preferences.h"
+#include "rubberband.h"
+#include "selection.h"
+#include "shape-editor.h"
+#include "sp-defs.h"
+#include "sp-item.h"
+#include "splivarot.h"
+#include "sp-metrics.h"
+#include "sp-namedview.h"
+#include "sp-object.h"
+#include "sp-path.h"
+#include "sp-rect.h"
+#include "sp-root.h"
 #include "svg/svg.h"
-#include "color.h"
-
-#include "trace/trace.h"
 #include "trace/imagemap.h"
 #include "trace/potrace/inkscape-potrace.h"
+#include "trace/trace.h"
+#include "xml/node-event-vector.h"
+#include "xml/repr.h"
+
+#include "pixmaps/cursor-paintbucket.xpm"
 
 using Inkscape::DocumentUndo;
 
@@ -812,15 +811,12 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
     
     /* Create ArenaItems and set transform */
-    NRArenaItem *root = document->getRoot()->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
-    nr_arena_item_set_transform(NR_ARENA_ITEM(root), affine);
+    Inkscape::DrawingItem *root = document->getRoot()->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    root->setTransform(affine);
 
-    NRGC gc(NULL);
-    gc.transform.setIdentity();
-
+    Inkscape::UpdateContext ctx;
     Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
-    
-    nr_arena_item_invoke_update(root, final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
+    root->update(final_bbox, ctx, Inkscape::DrawingItem::STATE_ALL, 0);
 
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
     guchar *px = g_new(guchar, stride * height);
@@ -842,7 +838,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
         ct.paint();
         ct.setOperator(CAIRO_OPERATOR_OVER);
 
-        nr_arena_item_invoke_render(ct, root, final_bbox, NR_ARENA_ITEM_RENDER_NO_CACHE );
+        root->render(ct, final_bbox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
 
         cairo_surface_flush(s);
         cairo_surface_destroy(s);

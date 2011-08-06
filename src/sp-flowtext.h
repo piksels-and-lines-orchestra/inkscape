@@ -6,7 +6,7 @@
 
 #include "sp-item.h"
 
-#include "display/nr-arena-forward.h"
+#include "display/display-forward.h"
 #include <2geom/forward.h>
 #include "libnrtype/Layout-TNG.h"
 
@@ -32,7 +32,7 @@ struct SPFlowtext : public SPItem {
     Inkscape::Text::Layout layout;
 
     /** discards the NRArena objects representing this text. */
-    void _clearFlow(NRArenaGroup* in_arena);
+    void _clearFlow(Inkscape::DrawingGroup* in_arena);
 
     double par_indent;
 

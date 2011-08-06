@@ -19,7 +19,7 @@
 #include "extension/print.h"
 #include "extension/db.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/display-forward.h"
 #include "sp-root.h"
 
 
@@ -73,7 +73,7 @@ void LatexOutput::save(Inkscape::Extension::Output * /*mod2*/, SPDocument *doc, 
     /* Release arena */
     (mod->base)->invoke_hide (mod->dkey);
     mod->base = NULL;
-    mod->root = NULL;
+    mod->root = NULL; // should have been deleted by invoke_hide
     nr_object_unref ((NRObject *) mod->arena);
     mod->arena = NULL;
     /* end */

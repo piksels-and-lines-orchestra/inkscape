@@ -15,7 +15,7 @@
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
 #include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing-item.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-image.h"
 #include "display/nr-filter-units.h"
@@ -70,7 +70,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
 
         // TODO: do not recreate the rendering tree every time
         // TODO: the entire thing is a hack, we should give filter primitives an "update" method
-        //       like the one for NRArenaItems
+        //       like the one for DrawingItems
         document->ensureUpToDate();
 
         NRArena* arena = NRArena::create();
@@ -78,7 +78,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
         if (!optarea) return;
 
         unsigned const key = SPItem::display_key_new(1);
-        NRArenaItem* ai = SVGElem->invoke_show(arena, key, SP_ITEM_SHOW_DISPLAY);
+        DrawingItem *ai = SVGElem->invoke_show(arena, key, SP_ITEM_SHOW_DISPLAY);
 
         if (!ai) {
             g_warning("feImage renderer: error creating NRArenaItem for SVG Element");
@@ -104,15 +104,12 @@ void FilterImage::render_cairo(FilterSlot &slot)
         ct.translate(render_rect.min());
 
         // Update to renderable state
-        NRGC gc(NULL);
-        Geom::Affine t = Geom::identity();
-        nr_arena_item_set_transform(ai, &t);
-        gc.transform.setIdentity();
-        nr_arena_item_invoke_update(ai, render_rect, &gc,
-                                    NR_ARENA_ITEM_STATE_ALL,
-                                    NR_ARENA_ITEM_STATE_NONE);
-        nr_arena_item_invoke_render(ct, ai, render_rect, NR_ARENA_ITEM_RENDER_NO_CACHE);
+        UpdateContext ctx;
+        ai->setTransform(Geom::identity());
+        ai->update(render_rect, ctx, DrawingItem::STATE_ALL, 0);
+        ai->render(ct, render_rect, DrawingItem::RENDER_BYPASS_CACHE);
         SVGElem->invoke_hide(key);
+        //delete ai; // should be deleted by hide() above
         nr_object_unref((NRObject*) arena);
 
         slot.set(_output, out);

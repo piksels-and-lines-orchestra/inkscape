@@ -30,7 +30,7 @@
 #include <sigc++/adaptors/bind.h>
 
 #include "macros.h"
-#include "display/nr-arena-shape.h"
+#include "display/drawing-shape.h"
 #include "display/curve.h"
 #include "print.h"
 #include "document.h"
@@ -182,7 +182,7 @@ void SPShape::sp_shape_release(SPObject *object)
     for (i = 0; i < SP_MARKER_LOC_QTY; i++) {
         if (shape->marker[i]) {
             for (v = item->display; v != NULL; v = v->next) {
-              sp_marker_hide ((SPMarker *) shape->marker[i], NR_ARENA_ITEM_GET_KEY (v->arenaitem) + i);
+              sp_marker_hide ((SPMarker *) shape->marker[i], v->arenaitem->key() + i);
             }
             shape->release_connect[i].disconnect();
             shape->modified_connect[i].disconnect();
@@ -247,7 +247,8 @@ void SPShape::sp_shape_update(SPObject *object, SPCtx *ctx, unsigned int flags)
             double const aw = 1.0 / ictx->i2vp.descrim();
             style->stroke_width.computed = style->stroke_width.value * aw;
             for (SPItemView *v = ((SPItem *) (shape))->display; v != NULL; v = v->next) {
-                nr_arena_shape_set_style ((NRArenaShape *) v->arenaitem, style);
+                Inkscape::DrawingShape *sh = dynamic_cast<Inkscape::DrawingShape *>(v->arenaitem);
+                sh->setStyle(style);
             }
         }
     }
@@ -257,12 +258,12 @@ void SPShape::sp_shape_update(SPObject *object, SPCtx *ctx, unsigned int flags)
         /* But on the other hand - how can we know that parent does not tie style and transform */
         Geom::OptRect paintbox = SP_ITEM(object)->getBounds(Geom::identity(), SPItem::GEOMETRIC_BBOX);
         for (SPItemView *v = shape->display; v != NULL; v = v->next) {
-            NRArenaShape * const s = NR_ARENA_SHAPE(v->arenaitem);
+            Inkscape::DrawingShape *sh = dynamic_cast<Inkscape::DrawingShape *>(v->arenaitem);
             if (flags & SP_OBJECT_MODIFIED_FLAG) {
-                nr_arena_shape_set_path(s, shape->curve, (flags & SP_OBJECT_USER_MODIFIED_FLAG_B));
+                sh->setPath(shape->curve);
             }
             if (paintbox) {
-                s->setPaintBox(*paintbox);
+                sh->setPaintBox(*paintbox);
             }
         }
     }
@@ -270,13 +271,13 @@ void SPShape::sp_shape_update(SPObject *object, SPCtx *ctx, unsigned int flags)
     if (shape->hasMarkers ()) {
         /* Dimension marker views */
         for (SPItemView *v = shape->display; v != NULL; v = v->next) {
-            if (!v->arenaitem->key) {
-                NR_ARENA_ITEM_SET_KEY (v->arenaitem, SPItem::display_key_new (SP_MARKER_LOC_QTY));
+            if (!v->arenaitem->key()) {
+                v->arenaitem->setKey(SPItem::display_key_new (SP_MARKER_LOC_QTY));
             }
             for (int i = 0 ; i < SP_MARKER_LOC_QTY ; i++) {
                 if (shape->marker[i]) {
                     sp_marker_show_dimension ((SPMarker *) shape->marker[i],
-                                              NR_ARENA_ITEM_GET_KEY (v->arenaitem) + i,
+                                              v->arenaitem->key() + i,
                                               shape->numberOfMarkers (i));
                 }
             }
@@ -375,7 +376,7 @@ Geom::Affine sp_shape_marker_get_transform_at_end(Geom::Curve const & c)
  *
  * @todo figure out what to do when both 'marker' and for instance 'marker-end' are set.
  */
-void SPShape::sp_shape_update_marker_view(SPShape *shape, NRArenaItem *ai)
+void SPShape::sp_shape_update_marker_view(SPShape *shape, Inkscape::DrawingItem *ai)
 {
     SPStyle *style = ((SPObject *) shape)->style;
 
@@ -395,7 +396,7 @@ void SPShape::sp_shape_update_marker_view(SPShape *shape, NRArenaItem *ai)
         for (int i = 0; i < 2; i++) {  // SP_MARKER_LOC and SP_MARKER_LOC_START
             if ( shape->marker[i] ) {
                 sp_marker_show_instance ((SPMarker* ) shape->marker[i], ai,
-                                         NR_ARENA_ITEM_GET_KEY(ai) + i, counter[i], m,
+                                         ai->key() + i, counter[i], m,
                                          style->stroke_width.computed);
                  counter[i]++;
             }
@@ -413,7 +414,7 @@ void SPShape::sp_shape_update_marker_view(SPShape *shape, NRArenaItem *ai)
                 for (int i = 0; i < 3; i += 2) {  // SP_MARKER_LOC and SP_MARKER_LOC_MID
                     if ( shape->marker[i] ) {
                         sp_marker_show_instance ((SPMarker* ) shape->marker[i], ai,
-                                                 NR_ARENA_ITEM_GET_KEY(ai) + i, counter[i], m,
+                                                 ai->key() + i, counter[i], m,
                                                  style->stroke_width.computed);
                          counter[i]++;
                     }
@@ -433,7 +434,7 @@ void SPShape::sp_shape_update_marker_view(SPShape *shape, NRArenaItem *ai)
                     for (int i = 0; i < 3; i += 2) {  // SP_MARKER_LOC and SP_MARKER_LOC_MID
                         if (shape->marker[i]) {
                             sp_marker_show_instance ((SPMarker* ) shape->marker[i], ai,
-                                                     NR_ARENA_ITEM_GET_KEY(ai) + i, counter[i], m,
+                                                     ai->key() + i, counter[i], m,
                                                      style->stroke_width.computed);
                             counter[i]++;
                         }
@@ -450,7 +451,7 @@ void SPShape::sp_shape_update_marker_view(SPShape *shape, NRArenaItem *ai)
                 for (int i = 0; i < 3; i += 2) {  // SP_MARKER_LOC and SP_MARKER_LOC_MID
                     if (shape->marker[i]) {
                         sp_marker_show_instance ((SPMarker* ) shape->marker[i], ai,
-                                                 NR_ARENA_ITEM_GET_KEY(ai) + i, counter[i], m,
+                                                 ai->key() + i, counter[i], m,
                                                  style->stroke_width.computed);
                         counter[i]++;
                     }
@@ -474,7 +475,7 @@ void SPShape::sp_shape_update_marker_view(SPShape *shape, NRArenaItem *ai)
         for (int i = 0; i < 4; i += 3) {  // SP_MARKER_LOC and SP_MARKER_LOC_END
             if (shape->marker[i]) {
                 sp_marker_show_instance ((SPMarker* ) shape->marker[i], ai,
-                                         NR_ARENA_ITEM_GET_KEY(ai) + i, counter[i], m,
+                                         ai->key() + i, counter[i], m,
                                          style->stroke_width.computed);
                 counter[i]++;
             }
@@ -495,7 +496,8 @@ void SPShape::sp_shape_modified(SPObject *object, unsigned int flags)
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
         for (SPItemView *v = shape->display; v != NULL; v = v->next) {
-            nr_arena_shape_set_style (NR_ARENA_SHAPE (v->arenaitem), object->style);
+            Inkscape::DrawingShape *sh = dynamic_cast<Inkscape::DrawingShape *>(v->arenaitem);
+            sh->setStyle(object->style);
         }
     }
 }
@@ -850,15 +852,14 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
 /**
  * Sets style, path, and paintbox.  Updates marker views, including dimensions.
  */
-NRArenaItem * SPShape::sp_shape_show(SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/)
+Inkscape::DrawingItem * SPShape::sp_shape_show(SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/)
 {
     SPObject *object = item;
     SPShape *shape = SP_SHAPE(item);
 
-    NRArenaItem *arenaitem = NRArenaShape::create(arena);
-    NRArenaShape * const s = NR_ARENA_SHAPE(arenaitem);
-    nr_arena_shape_set_style(s, object->style);
-    nr_arena_shape_set_path(s, shape->curve, false);
+    Inkscape::DrawingShape *s = new Inkscape::DrawingShape(arena);
+    s->setStyle(object->style);
+    s->setPath(shape->curve);
     Geom::OptRect paintbox = item->getBounds(Geom::identity());
     if (paintbox) {
         s->setPaintBox(*paintbox);
@@ -876,23 +877,23 @@ NRArenaItem * SPShape::sp_shape_show(SPItem *item, NRArena *arena, unsigned int 
     if (shape->hasMarkers ()) {
 
         /* provide key and dimension the marker views */
-        if (!arenaitem->key) {
-            NR_ARENA_ITEM_SET_KEY (arenaitem, SPItem::display_key_new (SP_MARKER_LOC_QTY));
+        if (!s->key()) {
+            s->setKey(SPItem::display_key_new (SP_MARKER_LOC_QTY));
         }
 
         for (int i = 0; i < SP_MARKER_LOC_QTY; i++) {
             if (shape->marker[i]) {
                 sp_marker_show_dimension ((SPMarker *) shape->marker[i],
-                                          NR_ARENA_ITEM_GET_KEY (arenaitem) + i,
+                                          s->key() + i,
                                           shape->numberOfMarkers (i));
             }
         }
 
         /* Update marker views */
-        sp_shape_update_marker_view (shape, arenaitem);
+        sp_shape_update_marker_view (shape, s);
     }
 
-    return arenaitem;
+    return s;
 }
 
 /**
@@ -911,7 +912,7 @@ void SPShape::sp_shape_hide(SPItem *item, unsigned int key)
         for (v = item->display; v != NULL; v = v->next) {
                 if (key == v->key) {
           sp_marker_hide ((SPMarker *) shape->marker[i],
-                                    NR_ARENA_ITEM_GET_KEY (v->arenaitem) + i);
+                                    v->arenaitem->key() + i);
                 }
         }
       }
@@ -1013,9 +1014,9 @@ sp_shape_marker_release (SPObject *marker, SPShape *shape)
             SPItemView *v;
             /* Hide marker */
             for (v = item->display; v != NULL; v = v->next) {
-              sp_marker_hide ((SPMarker *) (shape->marker[i]), NR_ARENA_ITEM_GET_KEY (v->arenaitem) + i);
+              sp_marker_hide ((SPMarker *) (shape->marker[i]), v->arenaitem->key() + i);
               /* fixme: Do we need explicit remove here? (Lauris) */
-              /* nr_arena_item_set_mask (v->arenaitem, NULL); */
+              /* v->arenaitem->setMask(NULL); */
             }
             /* Detach marker */
             shape->release_connect[i].disconnect();
@@ -1064,9 +1065,9 @@ sp_shape_set_marker (SPObject *object, unsigned int key, const gchar *value)
             /* Hide marker */
             for (v = item->display; v != NULL; v = v->next) {
                 sp_marker_hide ((SPMarker *) (shape->marker[key]),
-                                NR_ARENA_ITEM_GET_KEY (v->arenaitem) + key);
+                                v->arenaitem->key() + key);
                 /* fixme: Do we need explicit remove here? (Lauris) */
-                /* nr_arena_item_set_mask (v->arenaitem, NULL); */
+                /* v->arenaitem->setMask(NULL); */
             }
 
             /* Unref marker */
