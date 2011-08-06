@@ -248,9 +248,9 @@ DrawingText::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
 }
 
 DrawingItem *
-DrawingText::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
+DrawingText::_pickItem(Geom::Point const &p, double delta, bool sticky)
 {
-    DrawingItem *picked = DrawingGroup::_pickItem(p, delta);
+    DrawingItem *picked = DrawingGroup::_pickItem(p, delta, sticky);
     if (picked) return this;
     return NULL;
 }

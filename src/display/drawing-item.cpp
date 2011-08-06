@@ -611,7 +611,7 @@ DrawingItem::pick(Geom::Point const &p, double delta, bool sticky)
     expanded.expandBy(delta);
 
     if (expanded.contains(p)) {
-        return _pickItem(p, delta);
+        return _pickItem(p, delta, sticky);
     }
     return NULL;
 }
