@@ -109,7 +109,7 @@ protected:
                                  unsigned flags, unsigned reset) { return 0; }
     virtual void _renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags) {}
     virtual void _clipItem(DrawingContext &ct, Geom::IntRect const &area) {}
-    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta) { return NULL; }
+    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, bool sticky) { return NULL; }
     virtual bool _canClip() { return false; }
 
     Drawing *_drawing;

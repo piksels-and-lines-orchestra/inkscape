@@ -32,7 +32,7 @@ public:
 protected:
     unsigned _updateItem(Geom::IntRect const &area, UpdateContext const &ctx,
                                  unsigned flags, unsigned reset);
-    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta);
+    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, bool sticky);
 
     Geom::Affine *_glyph_transform;
     font_instance *_font;
@@ -59,7 +59,7 @@ protected:
                                  unsigned flags, unsigned reset);
     virtual void _renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags);
     virtual void _clipItem(DrawingContext &ct, Geom::IntRect const &area);
-    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta);
+    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, bool sticky);
     virtual bool _canClip();
 
     Geom::OptRect _paintbox;

@@ -38,7 +38,7 @@ protected:
     virtual unsigned _updateItem(Geom::IntRect const &area, UpdateContext const &ctx,
                                  unsigned flags, unsigned reset);
     virtual void _renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags);
-    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta);
+    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, bool sticky);
 
     GdkPixbuf *_pixbuf;
     cairo_surface_t *_surface;

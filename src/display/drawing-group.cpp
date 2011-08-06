@@ -31,6 +31,9 @@ DrawingGroup::~DrawingGroup()
         sp_style_unref(_style);
 }
 
+/** @brief Set whether the group returns children from pick calls.
+ * Previously this feature was called "transparent groups".
+ */
 void
 DrawingGroup::setPickChildren(bool p)
 {
@@ -43,6 +46,10 @@ DrawingGroup::setStyle(SPStyle *style)
     _setStyleCommon(_style, style);
 }
 
+/** @brief Set additional transform for the group.
+ * This is applied after the normal transform and mainly useful for
+ * markers, clipping paths, etc.
+ */
 void
 DrawingGroup::setChildTransform(Geom::Affine const &new_trans)
 {
@@ -105,10 +112,10 @@ DrawingGroup::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
 }
 
 DrawingItem *
-DrawingGroup::_pickItem(Geom::Point const &p, double delta)
+DrawingGroup::_pickItem(Geom::Point const &p, double delta, bool sticky)
 {
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
-        DrawingItem *picked = i->pick(p, delta, false);
+        DrawingItem *picked = i->pick(p, delta, sticky);
         if (picked) {
             return _pick_children ? picked : this;
         }

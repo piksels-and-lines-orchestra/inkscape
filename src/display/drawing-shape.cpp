@@ -232,13 +232,13 @@ DrawingShape::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
 }
 
 DrawingItem *
-DrawingShape::_pickItem(Geom::Point const &p, double delta)
+DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
 {
     if (_repick_after > 0)
         --_repick_after;
 
-    if (_repick_after > 0) // we are a slow, huge path. skip this pick, returning what was returned last time
-        return _last_pick;
+    if (_repick_after > 0) // we are a slow, huge path
+        return _last_pick; // skip this pick, returning what was returned last time
 
     if (!_curve) return NULL;
     if (!_style) return NULL;

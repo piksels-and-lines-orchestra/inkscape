@@ -22,6 +22,26 @@
 
 namespace Inkscape {
 
+/** @class DrawingItem
+ * @brief SVG drawing item for display.
+ *
+ * This was previously known as NRArenaItem. It represents the renderable
+ * portion of the SVG document. Typically this is created by the SP tree,
+ * in particular the show() virtual function.
+ *
+ * @section ObjectLifetime Object Lifetime
+ * Deleting a DrawingItem will cause all of its children to be deleted as well.
+ * This can lead to nasty surprises if you hold references to things
+ * which are children of what is being deleted. Therefore, in the SP tree,
+ * you always need to delete the item views of children before deleting
+ * the view of the parent. Do not call delete on things returned from show()
+ * - this will cause dangling pointers inside the SPItem and lead to a crash.
+ * Use the corresponing hide() method.
+ *
+ * Outside of the SP tree you should not use any references after the root node
+ * has been deleted.
+ */
+
 DrawingItem::DrawingItem(Drawing *drawing)
     : _drawing(drawing)
     , _parent(NULL)
@@ -84,9 +104,8 @@ DrawingItem::~DrawingItem()
 DrawingItem *
 DrawingItem::parent() const
 {
-    //if (_clip_child || _mask_child)
-    //    return NULL;
-
+    // initially I wanted to return NULL if we are a clip or mask child,
+    // but the previous behavior was just to return the parent
     return _parent;
 }
 
@@ -106,6 +125,7 @@ DrawingItem::prependChild(DrawingItem *item)
     _markForUpdate(STATE_ALL, false);
 }
 
+/// Delete all regular children of this item (not mask or clip).
 void
 DrawingItem::clearChildren()
 {
@@ -118,6 +138,7 @@ DrawingItem::clearChildren()
     _children.clear_and_dispose(DeleteDisposer());
 }
 
+/// Set the incremental transform for this item
 void
 DrawingItem::setTransform(Geom::Affine const &new_trans)
 {
@@ -153,12 +174,14 @@ DrawingItem::setVisible(bool v)
     _markForRendering();
 }
 
+/// This is currently unused
 void
 DrawingItem::setSensitive(bool s)
 {
     _sensitive = s;
 }
 
+/// Enable / disable storing the rendering in memory.
 void
 DrawingItem::setCached(bool c)
 {
@@ -197,6 +220,8 @@ DrawingItem::setMask(DrawingItem *item)
     _markForUpdate(STATE_ALL, true);
 }
 
+/// Move this item to the given place in the Z order of siblings.
+/// Does nothing if the item has no parent.
 void
 DrawingItem::setZOrder(unsigned z)
 {
@@ -217,6 +242,27 @@ DrawingItem::setItemBounds(Geom::OptRect const &bounds)
     _item_bbox = bounds;
 }
 
+/** @brief Update derived data before operations.
+ * The purpose of this call is to recompute internal data which depends
+ * on the attributes of the object, but is not directly settable by the user.
+ * Precomputing this data speeds up later rendering, because some items
+ * can be omitted.
+ *
+ * Currently this method handles updating the visual and geometric bounding boxes
+ * in pixels, storing the total transformation from item space to the screen
+ * and cache invalidation.
+ *
+ * @param area Area to which the update should be restricted. Only takes effect
+ *             if the bounding box is known.
+ * @param ctx A structure to store cascading state.
+ * @param flags Which internal data should be recomputed. This can be any combination
+ *              of StateFlags.
+ * @param reset State fields that should be reset before processing them. This is
+ *              a means to force a recomputation of internal data even if the item
+ *              considers it up to date. Mainly for internal use, such as
+ *              propagating bunding box recomputation to children when the item's
+ *              transform changes.
+ */
 void
 DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
 {
@@ -315,6 +361,15 @@ struct MaskLuminanceToAlpha {
     }
 };
 
+/** @brief Rasterize items.
+ * This method submits the drawing opeartions required to draw this item
+ * to the supplied DrawingContext, restricting drawing the the specified area.
+ *
+ * This method does some common tasks and calls the item-specific rendering
+ * function, _renderItem(), to render e.g. paths or bitmaps.
+ *
+ * @param flags Rendering options. This deals mainly with cache control.
+ */
 void
 DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 {
@@ -490,6 +545,13 @@ DrawingItem::_renderOutline(DrawingContext &ct, Geom::IntRect const &area, unsig
     _drawing->outlinecolor = saved_rgba; // restore outline color
 }
 
+/** @brief Rasterize the clipping path.
+ * This method submits drawing operations required to draw a basic filled shape
+ * of the item to the supplied drawing context. Rendering is limited to the
+ * given area. The rendering of the clipped object is composited into
+ * the result of this call using the IN operator. See the implementation
+ * of render() for details.
+ */
 void
 DrawingItem::clip(Inkscape::DrawingContext &ct, Geom::IntRect const &area)
 {
@@ -523,6 +585,16 @@ DrawingItem::clip(Inkscape::DrawingContext &ct, Geom::IntRect const &area)
     }
 }
 
+/** @brief Get the item under the specified point.
+ * Searches the tree for the first item in the Z-order which is closer than
+ * @a delta to the given point. The pick should be visual - for example
+ * an object with a thick stroke should pick on the entire area of the stroke.
+ * @param p Search point
+ * @param delta Maximum allowed distance from the point
+ * @param sticky Whether the pick should ignore visibility and sensitivity.
+ *               When false, only visible and sensitive objects are considered.
+ *               When true, invisible and insensitive objects can also be picked.
+ */
 DrawingItem *
 DrawingItem::pick(Geom::Point const &p, double delta, bool sticky)
 {
@@ -544,6 +616,11 @@ DrawingItem::pick(Geom::Point const &p, double delta, bool sticky)
     return NULL;
 }
 
+/** Marks the current visual bounding box of the item for redrawing.
+ * This is called whenever the object changes its visible appearance.
+ * For some cases (such as setting opacity) this is enough, but for others
+ * _markForUpdate() also needs to be called.
+ */
 void
 DrawingItem::_markForRendering()
 {
@@ -561,10 +638,24 @@ DrawingItem::_markForRendering()
     nr_arena_request_render_rect (_drawing, dirty);
 }
 
+/** @brief Marks the item as needing a recomputation of internal data.
+ *
+ * This mechanism avoids traversing the entire rendering tree (which could be vast)
+ * on every trivial state changed in any item. Only items marked as needing
+ * an update (having some bits in their _state unset) will be traversed
+ * during the update call.
+ *
+ * The _propagate variable is another optimization. We use it to specify that
+ * all children should also have the corresponding flags unset before checking
+ * whether they need to be traversed. This way there is one less traversal
+ * of the tree. Without this we would need to unset state bits in all children.
+ * With _propagate we do this during the update call, when we have to traverse
+ * the tree anyway.
+ */
 void
 DrawingItem::_markForUpdate(unsigned flags, bool propagate)
 {
-    // here we can't simply assign because a previous markForUpdate call
+    // we can't simply assign because a previous markForUpdate call
     // could have had propagate=true even if this one has propagate=false
     if (propagate)
         _propagate = true;
