@@ -643,6 +643,13 @@ void FilterGaussian::render_cairo(FilterSlot &slot)
         }
     }
 
+    // free the temporary data
+    if ( use_IIR_x || use_IIR_y ) {
+        for(int i = 0; i < threads; ++i) {
+            delete[] tmpdata[i];
+        }
+    }
+
     cairo_surface_mark_dirty(downsampled);
     if (resampling) {
         cairo_surface_t *upsampled = cairo_surface_create_similar(downsampled, cairo_surface_get_content(downsampled),
