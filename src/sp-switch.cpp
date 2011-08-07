@@ -117,7 +117,7 @@ void CSwitch::onOrderChanged (Inkscape::XML::Node *, Inkscape::XML::Node *, Inks
     _reevaluate();
 }
 
-void CSwitch::_reevaluate(bool /*add_to_arena*/) {
+void CSwitch::_reevaluate(bool /*add_to_drawing*/) {
     SPObject *evaluated_child = _evaluateFirst();
     if (!evaluated_child || _cached_item == evaluated_child) {
         return;
@@ -157,7 +157,7 @@ void CSwitch::_releaseLastItem(SPObject *obj)
     _cached_item = NULL;
 }
 
-void CSwitch::_showChildren (NRArena *arena, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags) {
+void CSwitch::_showChildren (Inkscape::Drawing &drawing, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags) {
     SPObject *evaluated_child = _evaluateFirst();
 
     GSList *l = _childList(false, SPObject::ActionShow);
@@ -166,7 +166,7 @@ void CSwitch::_showChildren (NRArena *arena, Inkscape::DrawingItem *ai, unsigned
         if (SP_IS_ITEM (o)) {
             SPItem * child = SP_ITEM(o);
             child->setEvaluated(o == evaluated_child);
-            Inkscape::DrawingItem *ac = child->invoke_show (arena, key, flags);
+            Inkscape::DrawingItem *ac = child->invoke_show (drawing, key, flags);
             if (ac) {
                 ai->appendChild(ac);
             }

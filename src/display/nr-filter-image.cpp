@@ -14,7 +14,7 @@
 #include "sp-item.h"
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-item.h"
 #include "display/nr-filter.h"
 #include "display/nr-filter-image.h"
@@ -73,18 +73,17 @@ void FilterImage::render_cairo(FilterSlot &slot)
         //       like the one for DrawingItems
         document->ensureUpToDate();
 
-        NRArena* arena = NRArena::create();
+        Drawing drawing;
         Geom::OptRect optarea = SVGElem->getBounds(Geom::identity());
         if (!optarea) return;
 
         unsigned const key = SPItem::display_key_new(1);
-        DrawingItem *ai = SVGElem->invoke_show(arena, key, SP_ITEM_SHOW_DISPLAY);
-
+        DrawingItem *ai = SVGElem->invoke_show(drawing, key, SP_ITEM_SHOW_DISPLAY);
         if (!ai) {
-            g_warning("feImage renderer: error creating NRArenaItem for SVG Element");
-            nr_object_unref((NRObject *) arena);
+            g_warning("feImage renderer: error creating DrawingItem for SVG Element");
             return;
         }
+        drawing.setRoot(ai);
 
         Geom::Rect area = *optarea;
         Geom::Affine pu2pb = slot.get_units().get_matrix_primitiveunits2pb();
@@ -104,13 +103,9 @@ void FilterImage::render_cairo(FilterSlot &slot)
         ct.translate(render_rect.min());
 
         // Update to renderable state
-        UpdateContext ctx;
-        ai->setTransform(Geom::identity());
-        ai->update(render_rect, ctx, DrawingItem::STATE_ALL, 0);
-        ai->render(ct, render_rect, DrawingItem::RENDER_BYPASS_CACHE);
+        drawing.update(render_rect);
+        drawing.render(ct, render_rect);
         SVGElem->invoke_hide(key);
-        //delete ai; // should be deleted by hide() above
-        nr_object_unref((NRObject*) arena);
 
         slot.set(_output, out);
         cairo_surface_destroy(out);

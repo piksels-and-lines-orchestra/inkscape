@@ -16,6 +16,7 @@
 #include <cairo.h>
 #include <2geom/rect.h>
 #include "display/display-forward.h"
+#include "display/drawing.h"
 #include "display/drawing-item.h"
 #include "display/sp-canvas.h"
 #include "display/sp-canvas-item.h"
@@ -38,8 +39,7 @@ struct _SPCanvasArena {
     guint sticky : 1;
     Geom::Point c; // what is this?
 
-    NRArena *arena;
-    Inkscape::DrawingGroup *root;
+    Inkscape::Drawing drawing;
     Inkscape::UpdateContext ctx;
 
     Inkscape::DrawingItem *active;

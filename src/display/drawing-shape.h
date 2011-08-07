@@ -24,7 +24,7 @@ class DrawingShape
     : public DrawingItem
 {
 public:
-    DrawingShape(Drawing *drawing);
+    DrawingShape(Drawing &drawing);
     ~DrawingShape();
 
     void setPath(SPCurve *curve);

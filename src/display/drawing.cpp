@@ -1,0 +1,159 @@
+/**
+ * @file
+ * @brief SVG drawing for display
+ *//*
+ * Authors:
+ *   Krzysztof Kosiński <tweenk.pl@gmail.com>
+ *
+ * Copyright (C) 2011 Authors
+ * Released under GNU GPL, read the file 'COPYING' for more information
+ */
+
+#include "display/drawing.h"
+#include "nr-filter-gaussian.h"
+#include "nr-filter-types.h"
+
+namespace Inkscape {
+
+Drawing::Drawing(SPCanvasArena *arena)
+    : _root(NULL)
+    , outlinecolor(0x000000ff)
+    , delta(0)
+    , _exact(false)
+    , _rendermode(RENDERMODE_NORMAL)
+    , _colormode(COLORMODE_NORMAL)
+    , _blur_quality(BLUR_QUALITY_BEST)
+    , _filter_quality(Filters::FILTER_QUALITY_BEST)
+    , _canvasarena(arena)
+{
+
+}
+
+Drawing::~Drawing()
+{
+    delete _root;
+}
+
+void
+Drawing::setRoot(DrawingItem *item)
+{
+    delete _root;
+    _root = item;
+    _root->_drawing_root = true;
+}
+
+RenderMode
+Drawing::renderMode() const
+{
+    return _exact ? RENDERMODE_NORMAL : _rendermode;
+}
+ColorMode
+Drawing::colorMode() const
+{
+    return (outline() || _exact) ? COLORMODE_NORMAL : _colormode;
+}
+bool
+Drawing::outline() const
+{
+    return renderMode() == RENDERMODE_OUTLINE;
+}
+bool
+Drawing::renderFilters() const
+{
+    return renderMode() == RENDERMODE_NORMAL;
+}
+int
+Drawing::blurQuality() const
+{
+    if (renderMode() == RENDERMODE_NORMAL) {
+        return _exact ? BLUR_QUALITY_BEST : _blur_quality;
+    } else {
+        return BLUR_QUALITY_WORST;
+    }
+}
+int
+Drawing::filterQuality() const
+{
+    if (renderMode() == RENDERMODE_NORMAL) {
+        return _exact ? Filters::FILTER_QUALITY_BEST : _filter_quality;
+    } else {
+        return Filters::FILTER_QUALITY_WORST;
+    }
+}
+
+void
+Drawing::setRenderMode(RenderMode mode)
+{
+    _rendermode = mode;
+}
+void
+Drawing::setColorMode(ColorMode mode)
+{
+    _colormode = mode;
+}
+void
+Drawing::setBlurQuality(int q)
+{
+    _blur_quality = q;
+}
+void
+Drawing::setFilterQuality(int q)
+{
+    _filter_quality = q;
+}
+void
+Drawing::setExact(bool e)
+{
+    _exact = e;
+}
+
+Geom::OptIntRect const &
+Drawing::cacheLimit() const
+{
+    return _cache_limit;
+}
+void
+Drawing::setCacheLimit(Geom::OptIntRect const &r)
+{
+    _cache_limit = r;
+    for (std::set<DrawingItem *>::iterator i = _cached_items.begin();
+         i != _cached_items.end(); ++i)
+    {
+        (*i)->_markForUpdate(DrawingItem::STATE_CACHE, false);
+    }
+}
+
+void
+Drawing::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
+{
+    // TODO add autocache
+    if (!_root) return;
+    _root->update(area, ctx, flags, reset);
+}
+
+void
+Drawing::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+{
+    if (!_root) return;
+    _root->render(ct, area, flags);
+}
+
+DrawingItem *
+Drawing::pick(Geom::Point const &p, double delta, bool sticky)
+{
+    if (!_root) return NULL;
+    return _root->pick(p, delta, sticky);
+}
+
+} // end namespace Inkscape
+
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0)(case-label . +))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: filetype=cpp:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:fileencoding=utf-8:textwidth=99 :

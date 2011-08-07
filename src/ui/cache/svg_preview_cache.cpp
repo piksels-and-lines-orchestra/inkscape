@@ -30,18 +30,18 @@
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
 #include "display/drawing-item.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 
 #include "ui/cache/svg_preview_cache.h"
 
-GdkPixbuf* render_pixbuf(Inkscape::DrawingItem* root, double scale_factor, const Geom::Rect& dbox, unsigned psize)
+GdkPixbuf* render_pixbuf(Inkscape::Drawing &drawing, double scale_factor, const Geom::Rect& dbox, unsigned psize)
 {
     Geom::Affine t(Geom::Scale(scale_factor, scale_factor));
-    root->setTransform(Geom::Scale(scale_factor));
+    drawing.root()->setTransform(Geom::Scale(scale_factor));
 
     Geom::IntRect ibox = (dbox * Geom::Scale(scale_factor)).roundOutwards();
 
-    root->update(ibox);
+    drawing.update(ibox);
 
     /* Find visible area */
     int width = ibox.width();
@@ -59,7 +59,7 @@ GdkPixbuf* render_pixbuf(Inkscape::DrawingItem* root, double scale_factor, const
         CAIRO_FORMAT_ARGB32, psize, psize);
     Inkscape::DrawingContext ct(s, area.min());
 
-    root->render(ct, area, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
+    drawing.render(ct, area, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
     cairo_surface_flush(s);
 
     GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(s),

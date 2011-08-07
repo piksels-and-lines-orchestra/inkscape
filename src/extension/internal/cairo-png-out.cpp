@@ -27,7 +27,7 @@
 #include "extension/print.h"
 #include "extension/db.h"
 #include "extension/output.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
@@ -56,11 +56,11 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
     doc->ensureUpToDate();
 
 /* Start */
-    // Create new arena
+
     SPItem *base = doc->getRoot();
-    NRArena *arena = NRArena::create();
+    Inkscape::Drawing drawing;
     unsigned dkey = SPItem::display_key_new(1);
-    base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    base->invoke_show(drawing, dkey, SP_ITEM_SHOW_DISPLAY);
     
     /* Create renderer and context */
     renderer = new CairoRenderer();
@@ -75,9 +75,7 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
     }
     renderer->destroyContext(ctx);
 
-    /* Release arena */
     base->invoke_hide(dkey);
-    nr_object_unref((NRObject *) arena);
 /* end */
     delete renderer;
 

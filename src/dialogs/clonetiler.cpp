@@ -25,8 +25,8 @@
 #include "desktop-handles.h"
 #include "dialog-events.h"
 #include "display/cairo-utils.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
-#include "display/nr-arena.h"
 #include "display/drawing-item.h"
 #include "document.h"
 #include "filter-chemistry.h"
@@ -832,15 +832,14 @@ static bool clonetiler_is_a_clone_of(SPObject *tile, SPObject *obj)
     return result;
 }
 
-static NRArena const *trace_arena = NULL;
+static Inkscape::Drawing *trace_drawing = NULL;
 static unsigned trace_visionkey;
-static Inkscape::DrawingItem *trace_root;
 static gdouble trace_zoom;
-static SPDocument *trace_doc;
+static SPDocument *trace_doc = NULL;
 
 static void clonetiler_trace_hide_tiled_clones_recursively(SPObject *from)
 {
-    if (!trace_arena)
+    if (!trace_drawing)
         return;
 
     for (SPObject *o = from->firstChild(); o != NULL; o = o->next) {
@@ -852,13 +851,11 @@ static void clonetiler_trace_hide_tiled_clones_recursively(SPObject *from)
 
 static void clonetiler_trace_setup(SPDocument *doc, gdouble zoom, SPItem *original)
 {
-    // FIXME MEMORY LEAK: the stuff here is never freed
-
-    trace_arena = NRArena::create();
+    trace_drawing = new Inkscape::Drawing();
     /* Create ArenaItem and set transform */
     trace_visionkey = SPItem::display_key_new(1);
     trace_doc = doc;
-    trace_root = trace_doc->getRoot()->invoke_show((NRArena *) trace_arena, trace_visionkey, SP_ITEM_SHOW_DISPLAY);
+    trace_drawing->setRoot(trace_doc->getRoot()->invoke_show(*trace_drawing, trace_visionkey, SP_ITEM_SHOW_DISPLAY));
 
     // hide the (current) original and any tiled clones, we only want to pick the background
     original->invoke_hide(trace_visionkey);
@@ -872,12 +869,12 @@ static void clonetiler_trace_setup(SPDocument *doc, gdouble zoom, SPItem *origin
 
 static guint32 clonetiler_trace_pick(Geom::Rect box)
 {
-    if (!trace_arena) {
+    if (!trace_drawing) {
         return 0;
     }
 
-    trace_root->setTransform(Geom::Scale(trace_zoom));
-    trace_root->update();
+    trace_drawing->root()->setTransform(Geom::Scale(trace_zoom));
+    trace_drawing->update();
 
     /* Item integer bbox in points */
     Geom::IntRect ibox = (box * Geom::Scale(trace_zoom)).roundOutwards();
@@ -886,7 +883,7 @@ static guint32 clonetiler_trace_pick(Geom::Rect box)
     cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, ibox.width(), ibox.height());
     Inkscape::DrawingContext ct(s, ibox.min());
     /* Render */
-    trace_root->render(ct, ibox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
+    trace_drawing->render(ct, ibox);
     double R = 0, G = 0, B = 0, A = 0;
     ink_cairo_surface_average_color(s, R, G, B, A);
     cairo_surface_destroy(s);
@@ -898,10 +895,9 @@ static void clonetiler_trace_finish()
 {
     if (trace_doc) {
         trace_doc->getRoot()->invoke_hide(trace_visionkey);
-    }
-    if (trace_arena) {
-        ((NRObject *) trace_arena)->unreference();
-        trace_arena = NULL;
+        delete trace_drawing;
+        trace_doc = NULL;
+        trace_drawing = NULL;
     }
 }
 

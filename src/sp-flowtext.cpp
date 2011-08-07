@@ -50,7 +50,7 @@ static void sp_flowtext_bbox(SPItem const *item, NRRect *bbox, Geom::Affine cons
 static void sp_flowtext_print(SPItem *item, SPPrintContext *ctx);
 static gchar *sp_flowtext_description(SPItem *item);
 static void sp_flowtext_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
-static Inkscape::DrawingItem *sp_flowtext_show(SPItem *item, NRArena *arena, unsigned key, unsigned flags);
+static Inkscape::DrawingItem *sp_flowtext_show(SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags);
 static void sp_flowtext_hide(SPItem *item, unsigned key);
 
 static SPItemClass *parent_class;
@@ -409,10 +409,10 @@ static void sp_flowtext_snappoints(SPItem const *item, std::vector<Inkscape::Sna
 }
 
 static Inkscape::DrawingItem *
-sp_flowtext_show(SPItem *item, NRArena *arena, unsigned/* key*/, unsigned /*flags*/)
+sp_flowtext_show(SPItem *item, Inkscape::Drawing &drawing, unsigned/* key*/, unsigned /*flags*/)
 {
     SPFlowtext *group = (SPFlowtext *) item;
-    Inkscape::DrawingGroup *flowed = new Inkscape::DrawingGroup(arena);
+    Inkscape::DrawingGroup *flowed = new Inkscape::DrawingGroup(drawing);
     flowed->setPickChildren(false);
     flowed->setStyle(group->style);
 

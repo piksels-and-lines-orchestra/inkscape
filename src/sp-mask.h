@@ -90,7 +90,7 @@ protected:
 	}
 };
 
-Inkscape::DrawingItem *sp_mask_show (SPMask *mask, NRArena *arena, unsigned int key);
+Inkscape::DrawingItem *sp_mask_show (SPMask *mask, Inkscape::Drawing &drawing, unsigned int key);
 void sp_mask_hide (SPMask *mask, unsigned int key);
 
 void sp_mask_set_bbox (SPMask *mask, unsigned int key, NRRect *bbox);

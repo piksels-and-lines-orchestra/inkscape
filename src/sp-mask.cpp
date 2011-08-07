@@ -15,7 +15,7 @@
 #include <string>
 #include <2geom/transforms.h>
 
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-group.h"
 #include "xml/repr.h"
 
@@ -297,19 +297,17 @@ sp_mask_create (GSList *reprs, SPDocument *document, Geom::Affine const* applyTr
     return mask_id;
 }
 
-Inkscape::DrawingItem *sp_mask_show(SPMask *mask, NRArena *arena, unsigned int key)
+Inkscape::DrawingItem *sp_mask_show(SPMask *mask, Inkscape::Drawing &drawing, unsigned int key)
 {
 	g_return_val_if_fail (mask != NULL, NULL);
 	g_return_val_if_fail (SP_IS_MASK (mask), NULL);
-	g_return_val_if_fail (arena != NULL, NULL);
-	g_return_val_if_fail (NR_IS_ARENA (arena), NULL);
 
-	Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(arena);
+	Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(drawing);
 	mask->display = sp_mask_view_new_prepend (mask->display, key, ai);
 
 	for ( SPObject *child = mask->firstChild() ; child; child = child->getNext() ) {
 		if (SP_IS_ITEM (child)) {
-			Inkscape::DrawingItem *ac = SP_ITEM (child)->invoke_show (arena, key, SP_ITEM_REFERENCE_FLAGS);
+			Inkscape::DrawingItem *ac = SP_ITEM (child)->invoke_show (drawing, key, SP_ITEM_REFERENCE_FLAGS);
 			if (ac) {
 				ai->prependChild(ac);
 			}

@@ -10,15 +10,15 @@
  */
 
 #include "display/cairo-utils.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-image.h"
-#include "nr-arena.h"
 #include "preferences.h"
 #include "style.h"
 
 namespace Inkscape {
 
-DrawingImage::DrawingImage(Drawing *drawing)
+DrawingImage::DrawingImage(Drawing &drawing)
     : DrawingItem(drawing)
     , _pixbuf(NULL)
     , _surface(NULL)
@@ -115,7 +115,7 @@ DrawingImage::_updateItem(Geom::IntRect const &, UpdateContext const &, unsigned
 void
 DrawingImage::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 {
-    bool outline = (_drawing->rendermode == RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
 
     if (!outline) {
         if (!_pixbuf) return;
@@ -200,7 +200,7 @@ DrawingImage::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
 {
     if (!_pixbuf) return NULL;
 
-    bool outline = (_drawing->rendermode == RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
 
     if (outline) {
         Geom::Rect r = bounds();

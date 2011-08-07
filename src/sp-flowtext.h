@@ -31,7 +31,7 @@ struct SPFlowtext : public SPItem {
 //semiprivate:  (need to be accessed by the C-style functions still)
     Inkscape::Text::Layout layout;
 
-    /** discards the NRArena objects representing this text. */
+    /** discards the drawing objects representing this text. */
     void _clearFlow(Inkscape::DrawingGroup* in_arena);
 
     double par_indent;

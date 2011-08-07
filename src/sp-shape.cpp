@@ -852,12 +852,12 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
 /**
  * Sets style, path, and paintbox.  Updates marker views, including dimensions.
  */
-Inkscape::DrawingItem * SPShape::sp_shape_show(SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/)
+Inkscape::DrawingItem * SPShape::sp_shape_show(SPItem *item, Inkscape::Drawing &drawing, unsigned int /*key*/, unsigned int /*flags*/)
 {
     SPObject *object = item;
     SPShape *shape = SP_SHAPE(item);
 
-    Inkscape::DrawingShape *s = new Inkscape::DrawingShape(arena);
+    Inkscape::DrawingShape *s = new Inkscape::DrawingShape(drawing);
     s->setStyle(object->style);
     s->setPath(shape->curve);
     Geom::OptRect paintbox = item->getBounds(Geom::identity());
@@ -1015,8 +1015,6 @@ sp_shape_marker_release (SPObject *marker, SPShape *shape)
             /* Hide marker */
             for (v = item->display; v != NULL; v = v->next) {
               sp_marker_hide ((SPMarker *) (shape->marker[i]), v->arenaitem->key() + i);
-              /* fixme: Do we need explicit remove here? (Lauris) */
-              /* v->arenaitem->setMask(NULL); */
             }
             /* Detach marker */
             shape->release_connect[i].disconnect();
@@ -1066,8 +1064,6 @@ sp_shape_set_marker (SPObject *object, unsigned int key, const gchar *value)
             for (v = item->display; v != NULL; v = v->next) {
                 sp_marker_hide ((SPMarker *) (shape->marker[key]),
                                 v->arenaitem->key() + key);
-                /* fixme: Do we need explicit remove here? (Lauris) */
-                /* v->arenaitem->setMask(NULL); */
             }
 
             /* Unref marker */

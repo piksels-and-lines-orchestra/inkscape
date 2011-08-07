@@ -29,7 +29,6 @@
 #include "sp-item.h"
 #include "svg/svg.h"
 #include "print.h"
-#include "display/nr-arena.h"
 #include "display/drawing-item.h"
 #include "attributes.h"
 #include "document.h"
@@ -513,7 +512,6 @@ void SPItem::clip_ref_changed(SPObject *old_clip, SPObject *clip, SPItem *item)
         /* Hide clippath */
         for (v = item->display; v != NULL; v = v->next) {
             SP_CLIPPATH(old_clip)->hide(v->arenaitem->key());
-            v->arenaitem->setClip(NULL);
         }
     }
     if (SP_IS_CLIPPATH(clip)) {
@@ -539,7 +537,6 @@ void SPItem::mask_ref_changed(SPObject *old_mask, SPObject *mask, SPItem *item)
         /* Hide mask */
         for (SPItemView *v = item->display; v != NULL; v = v->next) {
             sp_mask_hide(SP_MASK(old_mask), v->arenaitem->key());
-            v->arenaitem->setMask(NULL);
         }
     }
     if (SP_IS_MASK(mask)) {
@@ -1017,14 +1014,11 @@ unsigned SPItem::display_key_new(unsigned numkeys)
     return dkey - numkeys;
 }
 
-Inkscape::DrawingItem *SPItem::invoke_show(NRArena *arena, unsigned key, unsigned flags)
+Inkscape::DrawingItem *SPItem::invoke_show(Inkscape::Drawing &drawing, unsigned key, unsigned flags)
 {
-    g_assert(arena != NULL);
-    g_assert(NR_IS_ARENA(arena));
-
     Inkscape::DrawingItem *ai = NULL;
     if (((SPItemClass *) G_OBJECT_GET_CLASS(this))->show) {
-        ai = ((SPItemClass *) G_OBJECT_GET_CLASS(this))->show(this, arena, key, flags);
+        ai = ((SPItemClass *) G_OBJECT_GET_CLASS(this))->show(this, drawing, key, flags);
     }
 
     if (ai != NULL) {
@@ -1042,7 +1036,7 @@ Inkscape::DrawingItem *SPItem::invoke_show(NRArena *arena, unsigned key, unsigne
             int clip_key = display->arenaitem->key();
 
             // Show and set clip
-            Inkscape::DrawingItem *ac = cp->show(arena, clip_key);
+            Inkscape::DrawingItem *ac = cp->show(drawing, clip_key);
             ai->setClip(ac);
 
             // Update bbox, in case the clip uses bbox units
@@ -1060,7 +1054,7 @@ Inkscape::DrawingItem *SPItem::invoke_show(NRArena *arena, unsigned key, unsigne
             int mask_key = display->arenaitem->key();
 
             // Show and set mask
-            Inkscape::DrawingItem *ac = sp_mask_show(mask, arena, mask_key);
+            Inkscape::DrawingItem *ac = sp_mask_show(mask, drawing, mask_key);
             ai->setMask(ac);
 
             // Update bbox, in case the mask uses bbox units

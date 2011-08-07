@@ -23,7 +23,7 @@ class Print : public Extension {
 
 public: /* TODO: These are public for the short term, but this should be fixed */
     SPItem *base;
-    NRArena *arena;
+    Inkscape::Drawing *drawing;
     Inkscape::DrawingItem *root;
     unsigned int dkey;
 

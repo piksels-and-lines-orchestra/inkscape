@@ -84,7 +84,7 @@ static void sp_image_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &
 static void sp_image_print (SPItem * item, SPPrintContext *ctx);
 static gchar * sp_image_description (SPItem * item);
 static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
-static Inkscape::DrawingItem *sp_image_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_image_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static Geom::Affine sp_image_set_transform (SPItem *item, Geom::Affine const &xform);
 static void sp_image_set_curve(SPImage *image);
 
@@ -1149,10 +1149,10 @@ static gchar *sp_image_description( SPItem *item )
     return ret;
 }
 
-static Inkscape::DrawingItem *sp_image_show( SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/ )
+static Inkscape::DrawingItem *sp_image_show( SPItem *item, Inkscape::Drawing &drawing, unsigned int /*key*/, unsigned int /*flags*/ )
 {
     SPImage * image = SP_IMAGE(item);
-    Inkscape::DrawingImage *ai = new Inkscape::DrawingImage(arena);
+    Inkscape::DrawingImage *ai = new Inkscape::DrawingImage(drawing);
 
     sp_image_update_arenaitem(image, ai);
 

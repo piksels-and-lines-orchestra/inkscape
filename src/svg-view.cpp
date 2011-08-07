@@ -204,12 +204,12 @@ SPSVGView::setDocument (SPDocument *document)
 
     if (document) {
         Inkscape::DrawingItem *ai = document->getRoot()->invoke_show(
-                SP_CANVAS_ARENA (_drawing)->arena,
+                SP_CANVAS_ARENA (_drawing)->drawing,
                 _dkey,
                 SP_ITEM_SHOW_DISPLAY);
 
         if (ai) {
-            SP_CANVAS_ARENA (_drawing)->root->prependChild(ai);
+            SP_CANVAS_ARENA (_drawing)->drawing.root()->prependChild(ai);
         }
 
         doRescale (!_rescale);

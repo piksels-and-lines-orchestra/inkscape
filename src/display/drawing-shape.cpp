@@ -19,10 +19,10 @@
 #include "display/canvas-arena.h"
 #include "display/canvas-bpath.h"
 #include "display/curve.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-group.h"
 #include "display/drawing-shape.h"
-#include "display/nr-arena.h"
 #include "helper/geom-curves.h"
 #include "helper/geom.h"
 #include "libnr/nr-convert2geom.h"
@@ -32,7 +32,7 @@
 
 namespace Inkscape {
 
-DrawingShape::DrawingShape(Drawing *drawing)
+DrawingShape::DrawingShape(Drawing &drawing)
     : DrawingItem(drawing)
     , _curve(NULL)
     , _style(NULL)
@@ -112,7 +112,7 @@ DrawingShape::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, u
     }
 
     boundingbox = Geom::OptRect();
-    bool outline = (_drawing->rendermode == RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
 
     // clear Cairo data to force update
     _nrstyle.update();
@@ -163,10 +163,10 @@ DrawingShape::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigne
     if (!_curve || !_style) return;
     if (!area.intersects(_bbox)) return; // skip if not within bounding box
 
-    bool outline = (_drawing->rendermode == RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
 
     if (outline) {
-        guint32 rgba = _drawing->outlinecolor;
+        guint32 rgba = _drawing.outlinecolor;
 
         {   Inkscape::DrawingContext::Save save(ct);
             ct.transform(_ctm);
@@ -243,7 +243,7 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
     if (!_curve) return NULL;
     if (!_style) return NULL;
 
-    bool outline = (_drawing->rendermode == RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
 
     if (SP_SCALE24_TO_FLOAT(_style->opacity.value) == 0 && !outline) 
         // fully transparent, no pick unless outline mode
@@ -267,8 +267,8 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
     bool needfill = (_nrstyle.fill.type != NRStyle::PAINT_NONE 
              && _nrstyle.fill.opacity > 1e-3 && !outline);
 
-    if (_drawing->canvasarena) {
-        Geom::Rect viewbox = _drawing->canvasarena->item.canvas->getViewbox();
+    if (_drawing.arena()) {
+        Geom::Rect viewbox = _drawing.arena()->item.canvas->getViewbox();
         viewbox.expandBy (width);
         pathv_matrix_point_bbox_wind_distance(_curve->get_pathvector(), _ctm, p, NULL, needfill? &wind : NULL, &dist, 0.5, &viewbox);
     } else {

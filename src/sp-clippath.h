@@ -40,7 +40,7 @@ public:
     static const gchar *create(GSList *reprs, SPDocument *document, Geom::Affine const* applyTransform);
     static GType sp_clippath_get_type(void);
 
-    Inkscape::DrawingItem *show(NRArena *arena, unsigned int key);
+    Inkscape::DrawingItem *show(Inkscape::Drawing &drawing, unsigned int key);
     void hide(unsigned int key);
 
     void setBBox(unsigned int key, NRRect *bbox);

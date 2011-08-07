@@ -37,7 +37,7 @@ static void sp_symbol_update (SPObject *object, SPCtx *ctx, guint flags);
 static void sp_symbol_modified (SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_symbol_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static Inkscape::DrawingItem *sp_symbol_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_symbol_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_symbol_hide (SPItem *item, unsigned int key);
 static void sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
 static void sp_symbol_print (SPItem *item, SPPrintContext *ctx);
@@ -325,7 +325,7 @@ static void sp_symbol_update(SPObject *object, SPCtx *ctx, guint flags)
             ((SPObjectClass *) (parent_class))->update (object, (SPCtx *) &rctx, flags);
 	}
 
-        // As last step set additional transform of arena group
+        // As last step set additional transform of drawing group
         for (SPItemView *v = symbol->display; v != NULL; v = v->next) {
         	Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
         	g->setChildTransform(symbol->c2p);
@@ -368,7 +368,7 @@ static Inkscape::XML::Node *sp_symbol_write(SPObject *object, Inkscape::XML::Doc
     return repr;
 }
 
-static Inkscape::DrawingItem *sp_symbol_show(SPItem *item, NRArena *arena, unsigned int key, unsigned int flags)
+static Inkscape::DrawingItem *sp_symbol_show(SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags)
 {
     SPSymbol *symbol = SP_SYMBOL(item);
     Inkscape::DrawingItem *ai = 0;
@@ -376,7 +376,7 @@ static Inkscape::DrawingItem *sp_symbol_show(SPItem *item, NRArena *arena, unsig
     if (symbol->cloned) {
         // Cloned <symbol> is actually renderable
         if (((SPItemClass *) (parent_class))->show) {
-            ai = ((SPItemClass *) (parent_class))->show (item, arena, key, flags);
+            ai = ((SPItemClass *) (parent_class))->show (item, drawing, key, flags);
             Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(ai);
             if (g) {
             	g->setChildTransform(symbol->c2p);

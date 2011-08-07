@@ -24,7 +24,7 @@ class DrawingGlyphs
     : public DrawingItem
 {
 public:
-    DrawingGlyphs(Drawing *drawing);
+    DrawingGlyphs(Drawing &drawing);
     ~DrawingGlyphs();
 
     void setGlyph(font_instance *font, int glyph, Geom::Affine const &trans);
@@ -46,7 +46,7 @@ class DrawingText
     : public DrawingGroup
 {
 public:
-    DrawingText(Drawing *drawing);
+    DrawingText(Drawing &drawing);
     ~DrawingText();
 
     void clear();

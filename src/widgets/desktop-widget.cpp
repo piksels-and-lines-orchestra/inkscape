@@ -36,7 +36,6 @@
 #include "desktop-widget.h"
 #include "display/sp-canvas.h"
 #include "display/canvas-arena.h"
-#include "display/nr-arena.h"
 #include "document.h"
 #include "ege-color-prof-tracker.h"
 #include "ege-select-one-action.h"

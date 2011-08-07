@@ -11,17 +11,17 @@
 
 #include "display/cairo-utils.h"
 #include "display/canvas-bpath.h" // for SPWindRule (WTF!)
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-surface.h"
 #include "display/drawing-text.h"
-#include "display/nr-arena.h"
 #include "helper/geom.h"
 #include "libnrtype/font-instance.h"
 #include "style.h"
 
 namespace Inkscape {
 
-DrawingGlyphs::DrawingGlyphs(Drawing *drawing)
+DrawingGlyphs::DrawingGlyphs(Drawing &drawing)
     : DrawingItem(drawing)
     , _glyph_transform(NULL)
     , _font(NULL)
@@ -115,7 +115,7 @@ DrawingGlyphs::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
 
 
 
-DrawingText::DrawingText(Drawing *drawing)
+DrawingText::DrawingText(Drawing &drawing)
     : DrawingGroup(drawing)
 {}
 
@@ -164,9 +164,9 @@ DrawingText::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, un
 void
 DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 {
-    if (_drawing->rendermode == RENDERMODE_OUTLINE) {
+    if (_drawing.outline()) {
         DrawingContext::Save save(ct);
-        guint32 rgba = _drawing->outlinecolor;
+        guint32 rgba = _drawing.outlinecolor;
         ct.setSource(rgba);
         ct.setTolerance(1.25); // low quality, but good enough for outline mode
         ct.newPath();

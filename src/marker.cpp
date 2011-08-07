@@ -43,7 +43,7 @@ static void sp_marker_set (SPObject *object, unsigned int key, const gchar *valu
 static void sp_marker_update (SPObject *object, SPCtx *ctx, guint flags);
 static Inkscape::XML::Node *sp_marker_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static Inkscape::DrawingItem *sp_marker_private_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_marker_private_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_marker_private_hide (SPItem *item, unsigned int key);
 static void sp_marker_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
 static void sp_marker_print (SPItem *item, SPPrintContext *ctx);
@@ -168,7 +168,7 @@ sp_marker_release (SPObject *object)
 	marker = (SPMarker *) object;
 
 	while (marker->views) {
-		/* Destroy all NRArenaitems etc. */
+		/* Destroy all DrawingItems etc. */
 		/* Parent class ::hide method */
 		((SPItemClass *) parent_class)->hide ((SPItem *) marker, marker->views->key);
 		sp_marker_view_remove (marker, marker->views, TRUE);
@@ -444,7 +444,7 @@ static void sp_marker_update(SPObject *object, SPCtx *ctx, guint flags)
 		((SPObjectClass *) (parent_class))->update (object, (SPCtx *) &rctx, flags);
         }
 
-        // As last step set additional transform of arena group
+        // As last step set additional transform of drawing group
         for (SPMarkerView *v = marker->views; v != NULL; v = v->next) {
             for (unsigned i = 0 ; i < v->items.size() ; i++) {
                 if (v->items[i]) {
@@ -523,7 +523,7 @@ sp_marker_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::X
  * This routine is disabled to break propagation.
  */
 static Inkscape::DrawingItem *
-sp_marker_private_show (SPItem */*item*/, NRArena */*arena*/, unsigned int /*key*/, unsigned int /*flags*/)
+sp_marker_private_show (SPItem */*item*/, Inkscape::Drawing &/*drawing*/, unsigned int /*key*/, unsigned int /*flags*/)
 {
     /* Break propagation */
     return NULL;
@@ -599,7 +599,7 @@ sp_marker_show_dimension (SPMarker *marker, unsigned int key, unsigned int size)
 
 /**
  * Shows an instance of a marker.  This is called during sp_shape_update_marker_view()
- * show and transform a child item in the arena for all views with the given key.
+ * show and transform a child item in the drawing for all views with the given key.
  */
 Inkscape::DrawingItem *
 sp_marker_show_instance ( SPMarker *marker, Inkscape::DrawingItem *parent,

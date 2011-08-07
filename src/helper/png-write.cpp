@@ -23,9 +23,9 @@
 #include <png.h>
 #include "png-write.h"
 #include "io/sys.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-item.h"
-#include "display/nr-arena.h"
 #include "document.h"
 #include "sp-item.h"
 #include "sp-root.h"
@@ -51,7 +51,7 @@ static unsigned int const MAX_STRIPE_SIZE = 1024*1024;
 struct SPEBP {
     unsigned long int width, height, sheight;
     guint32 background;
-    Inkscape::DrawingItem *root; // the root arena item to show; it is assumed that all unneeded items are hidden
+    Inkscape::Drawing *drawing; // it is assumed that all unneeded items are hidden
     guchar *px;
     unsigned (*status)(float, void *);
     void *data;
@@ -326,8 +326,7 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     Geom::IntRect bbox = Geom::IntRect::from_xywh(0, row, ebp->width, num_rows);
 
     /* Update to renderable state */
-    Inkscape::UpdateContext ctx;
-    ebp->root->update(bbox, ctx, Inkscape::DrawingItem::STATE_ALL, 0);
+    ebp->drawing->update(bbox);
 
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ebp->width);
     unsigned char *px = g_new(guchar, num_rows * stride);
@@ -341,7 +340,7 @@ sp_export_get_rows(guchar const **rows, void **to_free, int row, int num_rows, v
     ct.setOperator(CAIRO_OPERATOR_OVER);
 
     /* Render */
-    ebp->root->render(ct, bbox, 0);
+    ebp->drawing->render(ct, bbox);
     cairo_surface_destroy(s);
 
     *to_free = px;
@@ -451,15 +450,15 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
     ebp.height = height;
     ebp.background = bgcolor;
 
-    /* Create new arena */
-    NRArena *const arena = NRArena::create();
-    // export with maximum blur rendering quality
-    nr_arena_set_renderoffscreen(arena);
+    /* Create new drawing */
+    Inkscape::Drawing drawing;
+    drawing.setExact(true); // export with maximum blur rendering quality
     unsigned const dkey = SPItem::display_key_new(1);
 
     // Create ArenaItems and set transform
-    ebp.root = doc->getRoot()->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
-    ebp.root->setTransform(affine);
+    drawing.setRoot(doc->getRoot()->invoke_show(drawing, dkey, SP_ITEM_SHOW_DISPLAY));
+    drawing.root()->setTransform(affine);
+    ebp.drawing = &drawing;
 
     // We show all and then hide all items we don't want, instead of showing only requested items,
     // because that would not work if the shown item references something in defs
@@ -482,9 +481,6 @@ sp_export_png_file(SPDocument *doc, gchar const *filename,
 
     // Hide items, this releases arenaitem
     doc->getRoot()->invoke_hide(dkey);
-
-    /* Free arena */
-    nr_object_unref((NRObject *) arena);
 
     return write_status;
 }

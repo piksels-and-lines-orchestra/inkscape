@@ -24,7 +24,7 @@ class DrawingImage
     : public DrawingItem
 {
 public:
-    DrawingImage(Drawing *drawing);
+    DrawingImage(Drawing &drawing);
     ~DrawingImage();
 
     void setARGB32Pixbuf(GdkPixbuf *pb);

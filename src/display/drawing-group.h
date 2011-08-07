@@ -22,7 +22,7 @@ class DrawingGroup
     : public DrawingItem
 {
 public:
-    DrawingGroup(Drawing *drawing);
+    DrawingGroup(Drawing &drawing);
     ~DrawingGroup();
 
     bool pickChildren() { return _pick_children; }

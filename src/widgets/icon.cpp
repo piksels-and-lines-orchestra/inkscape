@@ -33,7 +33,7 @@
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
 #include "display/drawing-item.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "io/sys.h"
 #include "sp-root.h"
 
@@ -1088,9 +1088,9 @@ static Geom::IntRect round_rect(Geom::Rect const &r)
     return ret;
 }
 
-// takes doc, root, icon, and icon name to produce pixels
+// takes doc, drawing, icon, and icon name to produce pixels
 extern "C" guchar *
-sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
+sp_icon_doc_icon( SPDocument *doc, Inkscape::Drawing &drawing,
                   gchar const *name, unsigned psize,
                   unsigned &stride)
 {
@@ -1115,8 +1115,8 @@ sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
             if ( dbox ) {
                 /* Update to renderable state */
                 double sf = 1.0;
-                root->setTransform(Geom::Scale(sf));
-                root->update();
+                drawing.root()->setTransform(Geom::Scale(sf));
+                drawing.update();
                 /* Item integer bbox in points */
                 // NOTE: previously, each rect coordinate was rounded using floor(c + 0.5)
                 Geom::IntRect ibox = round_rect(*dbox);
@@ -1141,8 +1141,8 @@ sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
                         }
                         sf = (double)psize / (double)block;
 
-                        root->setTransform(Geom::Scale(sf));
-                        root->update();
+                        drawing.root()->setTransform(Geom::Scale(sf));
+                        drawing.update();
 
                         ibox = round_rect(*dbox * Geom::Scale(sf));
                         if ( dump ) {
@@ -1185,7 +1185,7 @@ sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
                     CAIRO_FORMAT_ARGB32, psize, psize, stride);
                 Inkscape::DrawingContext ct(s, ua.min());
 
-                root->render(ct, ua, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
+                drawing.render(ct, ua);
                 cairo_surface_destroy(s);
 
                 // convert to GdkPixbuf format
@@ -1206,9 +1206,21 @@ sp_icon_doc_icon( SPDocument *doc, Inkscape::DrawingItem *root,
 class SVGDocCache
 {
 public:
-    SVGDocCache( SPDocument *doc, Inkscape::DrawingItem *root ) : doc(doc), root(root) {}
+    SVGDocCache( SPDocument *doc )
+        : doc(doc)
+        , visionkey(SPItem::display_key_new(1))
+    {
+        doc->doRef();
+        doc->ensureUpToDate();
+        drawing.setRoot(doc->getRoot()->invoke_show(drawing, visionkey, SP_ITEM_SHOW_DISPLAY ));
+    }
+    ~SVGDocCache() {
+        doc->getRoot()->invoke_hide(visionkey);
+        doc->doUnref();
+    }
     SPDocument *doc;
-    Inkscape::DrawingItem *root;
+    Inkscape::Drawing drawing;
+    unsigned visionkey;
 };
 
 static std::map<Glib::ustring, SVGDocCache *> doc_cache;
@@ -1275,27 +1287,14 @@ guchar *IconImpl::load_svg_pixels(std::list<Glib::ustring> const &names,
                 if ( dump ) {
                     g_message("Loaded icon file %s", doc_filename);
                 }
-                // prep the document
-                doc->ensureUpToDate();
-
-                // Create new arena
-                NRArena *arena = NRArena::create();
-
-                // Create ArenaItem and set transform
-                unsigned visionkey = SPItem::display_key_new(1);
-                // fixme: Memory manage root if needed (Lauris)
-                // This needs to be fixed indeed; this leads to a memory leak of a few megabytes these days
-                // because shapes are being rendered which are not being freed
-                Inkscape::DrawingItem *root = doc->getRoot()->invoke_show( arena, visionkey, SP_ITEM_SHOW_DISPLAY );
-
                 // store into the cache
-                info = new SVGDocCache(doc, root);
+                info = new SVGDocCache(doc);
                 doc_cache[key] = info;
             }
         }
         if (info) {
             for (std::list<Glib::ustring>::const_iterator it = names.begin(); !px && (it != names.end()); ++it ) {
-                px = sp_icon_doc_icon( info->doc, info->root, it->c_str(), psize, stride );
+                px = sp_icon_doc_icon( info->doc, info->drawing, it->c_str(), psize, stride );
             }
         }
     }

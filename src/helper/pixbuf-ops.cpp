@@ -23,9 +23,9 @@
 #include "interface.h"
 #include "helper/png-write.h"
 #include "display/cairo-utils.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-item.h"
-#include "display/nr-arena.h"
 #include "document.h"
 #include "sp-item.h"
 #include "sp-root.h"
@@ -112,9 +112,9 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
     if (width == 0 || height == 0) return NULL;
 
     GdkPixbuf* pixbuf = NULL;
-    /* Create new arena for offscreen rendering*/
-    NRArena *arena = NRArena::create();
-    nr_arena_set_renderoffscreen(arena);
+    /* Create new drawing for offscreen rendering*/
+    Inkscape::Drawing drawing;
+    drawing.setExact(true);
     unsigned dkey = SPItem::display_key_new(1);
 
     doc->ensureUpToDate();
@@ -133,9 +133,9 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
 
     /* Create ArenaItems and set transform */
-    Inkscape::DrawingItem *root = doc->getRoot()->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    Inkscape::DrawingItem *root = doc->getRoot()->invoke_show( drawing, dkey, SP_ITEM_SHOW_DISPLAY);
     root->setTransform(affine);
-    Inkscape::UpdateContext ctx;
+    drawing.setRoot(root);
 
     // We show all and then hide all items we don't want, instead of showing only requested items,
     // because that would not work if the shown item references something in defs
@@ -144,7 +144,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
     }
 
     Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
-    root->update(final_bbox, ctx, Inkscape::DrawingItem::STATE_ALL, 0);
+    drawing.update(final_bbox);
 
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 
@@ -152,7 +152,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
         Inkscape::DrawingContext ct(surface, Geom::Point(0,0));
 
         // render items
-        root->render(ct, final_bbox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
+        drawing.render(ct, final_bbox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
 
         pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(surface),
                                           GDK_COLORSPACE_RGB, TRUE,
@@ -167,8 +167,7 @@ sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
         g_warning("sp_generate_internal_bitmap: not enough memory to create pixel buffer. Need %lld.", size);
         cairo_surface_destroy(surface);
     }
-     doc->getRoot()->invoke_hide(dkey);
-     nr_object_unref((NRObject *) arena);
+    doc->getRoot()->invoke_hide(dkey);
 
 //    gdk_pixbuf_save (pixbuf, "C:\\temp\\internal.jpg", "jpeg", NULL, "quality","100", NULL);
 

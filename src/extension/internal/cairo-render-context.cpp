@@ -32,7 +32,7 @@
 #include <glib/gmem.h>
 
 #include <glibmm/i18n.h>
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/display-forward.h"
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
@@ -1092,8 +1092,8 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
     pattern_ctx->setTransform(&pcs2dev);
     pattern_ctx->pushState();
 
-    // create arena and group
-    NRArena *arena = NRArena::create();
+    // create drawing and group
+    Inkscape::Drawing drawing;
     unsigned dkey = SPItem::display_key_new(1);
 
     // show items and render them
@@ -1101,7 +1101,7 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
         if (pat_i && SP_IS_OBJECT (pat_i) && pattern_hasItemChildren(pat_i)) { // find the first one with item children
             for ( SPObject *child = pat_i->firstChild() ; child; child = child->getNext() ) {
                 if (SP_IS_ITEM (child)) {
-                    SP_ITEM (child)->invoke_show (arena, dkey, SP_ITEM_REFERENCE_FLAGS);
+                    SP_ITEM (child)->invoke_show (drawing, dkey, SP_ITEM_REFERENCE_FLAGS);
                     _renderer->renderItem(pattern_ctx, SP_ITEM (child));
                 }
             }

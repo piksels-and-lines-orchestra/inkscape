@@ -72,7 +72,7 @@ static void sp_text_modified (SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_text_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
 static void sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
-static Inkscape::DrawingItem *sp_text_show (SPItem *item, NRArena *arena, unsigned key, unsigned flags);
+static Inkscape::DrawingItem *sp_text_show (SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags);
 static void sp_text_hide (SPItem *item, unsigned key);
 static char *sp_text_description (SPItem *item);
 static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
@@ -273,7 +273,7 @@ static void sp_text_modified(SPObject *object, guint flags)
 
     // FIXME: all that we need to do here is to call setStyle, to set the changed
     // style, but there's no easy way to access the drawing glyphs or texts corresponding to a
-    // text object. Therefore we do here the same as in _update, that is, destroy all arena items
+    // text object. Therefore we do here the same as in _update, that is, destroy all items
     // and create new ones. This is probably quite wasteful.
     if (flags & ( SP_OBJECT_STYLE_MODIFIED_FLAG )) {
         SPText *text = SP_TEXT (object);
@@ -386,11 +386,11 @@ sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, un
 
 
 static Inkscape::DrawingItem *
-sp_text_show(SPItem *item, NRArena *arena, unsigned /* key*/, unsigned /*flags*/)
+sp_text_show(SPItem *item, Inkscape::Drawing &drawing, unsigned /* key*/, unsigned /*flags*/)
 {
     SPText *group = (SPText *) item;
 
-    Inkscape::DrawingGroup *flowed = new Inkscape::DrawingGroup(arena);
+    Inkscape::DrawingGroup *flowed = new Inkscape::DrawingGroup(drawing);
     flowed->setPickChildren(false);
     flowed->setStyle(group->style);
 

@@ -10,16 +10,16 @@
  */
 
 #include "display/cairo-utils.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-item.h"
 #include "display/drawing-group.h"
 #include "libnr/nr-values.h"
-#include "nr-arena.h"
 #include "style.h"
 
 namespace Inkscape {
 
-DrawingGroup::DrawingGroup(Drawing *drawing)
+DrawingGroup::DrawingGroup(Drawing &drawing)
     : DrawingItem(drawing)
     , _style(NULL)
     , _child_transform(NULL)
@@ -75,7 +75,7 @@ unsigned
 DrawingGroup::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
 {
     unsigned beststate = STATE_ALL;
-    bool outline = (_drawing->rendermode == RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
 
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
         UpdateContext child_ctx(ctx);

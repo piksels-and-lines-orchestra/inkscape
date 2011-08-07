@@ -15,7 +15,7 @@
 #include <cstring>
 #include <string>
 
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-group.h"
 #include "xml/repr.h"
 
@@ -242,17 +242,14 @@ Inkscape::XML::Node *SPClipPath::write(SPObject *object, Inkscape::XML::Document
     return repr;
 }
 
-Inkscape::DrawingItem *SPClipPath::show(NRArena *arena, unsigned int key)
+Inkscape::DrawingItem *SPClipPath::show(Inkscape::Drawing &drawing, unsigned int key)
 {
-    g_return_val_if_fail(arena != NULL, NULL);
-    g_return_val_if_fail(NR_IS_ARENA(arena), NULL);
-
-    Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(arena);
+    Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(drawing);
     display = sp_clippath_view_new_prepend(display, key, ai);
 
     for ( SPObject *child = firstChild() ; child ; child = child->getNext() ) {
         if (SP_IS_ITEM(child)) {
-            Inkscape::DrawingItem *ac = SP_ITEM(child)->invoke_show(arena, key, SP_ITEM_REFERENCE_FLAGS);
+            Inkscape::DrawingItem *ac = SP_ITEM(child)->invoke_show(drawing, key, SP_ITEM_REFERENCE_FLAGS);
             if (ac) {
                 /* The order is not important in clippath */
                 ai->appendChild(ac);

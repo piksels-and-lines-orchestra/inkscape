@@ -181,7 +181,7 @@ public:
     gchar *description();
     void invoke_print(SPPrintContext *ctx);
     static unsigned int display_key_new(unsigned int numkeys);
-    Inkscape::DrawingItem *invoke_show(NRArena *arena, unsigned int key, unsigned int flags);
+    Inkscape::DrawingItem *invoke_show(Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
     void invoke_hide(unsigned int key);
     void getSnappoints(std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs=0) const;
     void adjust_pattern(/* Geom::Affine const &premul, */ Geom::Affine const &postmul, bool set = false);
@@ -246,7 +246,7 @@ public:
     /** Give short description of item (for status display) */
     gchar * (* description) (SPItem * item);
 
-    Inkscape::DrawingItem * (* show) (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+    Inkscape::DrawingItem * (* show) (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
     void (* hide) (SPItem *item, unsigned int key);
 
     /** Write to an iterator the points that should be considered for snapping

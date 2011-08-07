@@ -16,7 +16,7 @@
 
 #include "display/display-forward.h"
 
-GdkPixbuf* render_pixbuf(Inkscape::DrawingItem* root, double scale_factor, const Geom::Rect& dbox, unsigned psize);
+GdkPixbuf* render_pixbuf(Inkscape::Drawing &drawing, double scale_factor, const Geom::Rect& dbox, unsigned psize);
 
 namespace Inkscape {
 namespace UI {

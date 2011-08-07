@@ -29,7 +29,7 @@
 #include "sp-image.h"
 #include <2geom/transforms.h>
 
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-shape.h"
 
 #include "siox.h"

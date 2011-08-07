@@ -15,7 +15,6 @@
 #include "display/display-forward.h"
 #include "display/sp-canvas-util.h"
 #include "helper/sp-marshal.h"
-#include "display/nr-arena.h"
 #include "display/canvas-arena.h"
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
@@ -43,14 +42,8 @@ static gint sp_canvas_arena_event (SPCanvasItem *item, GdkEvent *event);
 
 static gint sp_canvas_arena_send_event (SPCanvasArena *arena, GdkEvent *event);
 
-static void sp_canvas_arena_request_update (NRArena *arena, DrawingItem *item, void *data);
-static void sp_canvas_arena_request_render (NRArena *arena, NRRectL *area, void *data);
-
-NRArenaEventVector carenaev = {
-    {NULL},
-    sp_canvas_arena_request_update,
-    sp_canvas_arena_request_render
-};
+static void sp_canvas_arena_request_update (SPCanvasArena *ca, DrawingItem *item);
+static void sp_canvas_arena_request_render (SPCanvasArena *ca, Geom::IntRect const &area);
 
 static SPCanvasItemClass *parent_class;
 static guint signals[LAST_SIGNAL] = {0};
@@ -108,21 +101,27 @@ sp_canvas_arena_init (SPCanvasArena *arena)
 {
     arena->sticky = FALSE;
 
-    arena->arena = NRArena::create();
-    nr_object_ref(arena->arena);
-    arena->arena->canvasarena = arena;
-    arena->arena->item_deleted.connect(
+    new (&arena->drawing) Inkscape::Drawing(arena);
+
+    Inkscape::DrawingGroup *root = new DrawingGroup(arena->drawing);
+    root->setPickChildren(true);
+    root->setCached(true);
+    arena->drawing.setRoot(root);
+
+    arena->drawing.signal_request_update.connect(
+        sigc::bind<0>(
+            sigc::ptr_fun(&sp_canvas_arena_request_update),
+            arena));
+    arena->drawing.signal_request_render.connect(
+        sigc::bind<0>(
+            sigc::ptr_fun(&sp_canvas_arena_request_render),
+            arena));
+    arena->drawing.signal_item_deleted.connect(
         sigc::bind<0>(
             sigc::ptr_fun(&sp_canvas_arena_item_deleted),
             arena));
 
-    arena->root = new DrawingGroup(arena->arena);
-    arena->root->setPickChildren(true);
-    arena->root->setCached(true);
-
     arena->active = NULL;
-
-    nr_active_object_add_listener ((NRActiveObject *) arena->arena, (NRObjectEventVector *) &carenaev, sizeof (carenaev), arena);
 }
 
 static void
@@ -130,11 +129,7 @@ sp_canvas_arena_destroy (GtkObject *object)
 {
     SPCanvasArena *arena = SP_CANVAS_ARENA (object);
 
-    delete arena->root;
-
-    nr_active_object_remove_listener_by_data ((NRActiveObject *) arena->arena, arena);
-    nr_object_unref ((NRObject *) arena->arena);
-    arena->arena = NULL;
+    arena->drawing.~Drawing();
 
     if (GTK_OBJECT_CLASS (parent_class)->destroy)
         (* GTK_OBJECT_CLASS (parent_class)->destroy) (object);
@@ -151,9 +146,9 @@ sp_canvas_arena_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned
     arena->ctx.ctm = affine;
 
     unsigned reset = flags & SP_CANVAS_UPDATE_AFFINE ? DrawingItem::STATE_ALL : 0;
-    arena->root->update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_ALL, reset);
+    arena->drawing.update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_ALL, reset);
 
-    Geom::OptIntRect b = arena->root->visualBounds();
+    Geom::OptIntRect b = arena->drawing.root()->visualBounds();
     if (b) {
         item->x1 = b->left() - 1;
         item->y1 = b->top() - 1;
@@ -163,7 +158,7 @@ sp_canvas_arena_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned
 
     if (arena->cursor) {
         /* Mess with enter/leave notifiers */
-        DrawingItem *new_arena = arena->root->pick(arena->c, arena->arena->delta, arena->sticky);
+        DrawingItem *new_arena = arena->drawing.pick(arena->c, arena->drawing.delta, arena->sticky);
         if (new_arena != arena->active) {
             GdkEventCrossing ec;
             ec.window = GTK_WIDGET (item->canvas)->window;
@@ -205,8 +200,8 @@ sp_canvas_arena_render (SPCanvasItem *item, SPCanvasBuf *buf)
 
     Inkscape::DrawingContext ct(buf->ct, r->min());
 
-    arena->root->update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_ALL, 0);
-    arena->root->render(ct, *r, 0);
+    arena->drawing.update(Geom::IntRect::infinite(), arena->ctx);
+    arena->drawing.render(ct, *r);
 }
 
 static double
@@ -214,8 +209,8 @@ sp_canvas_arena_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_
 {
     SPCanvasArena *arena = SP_CANVAS_ARENA (item);
 
-    arena->root->update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_PICK, 0);
-    DrawingItem *picked = arena->root->pick(p, arena->arena->delta, arena->sticky);
+    arena->drawing.update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_PICK);
+    DrawingItem *picked = arena->drawing.pick(p, arena->drawing.delta, arena->sticky);
 
     arena->picked = picked;
 
@@ -235,7 +230,7 @@ sp_canvas_arena_viewbox_changed (SPCanvasItem *item, Geom::IntRect const &new_ar
     Geom::IntRect expanded = new_area;
     Geom::IntPoint expansion(new_area.width()/2, new_area.height()/2);
     expanded.expandBy(expansion);
-    nr_arena_set_cache_limit(arena->arena, expanded);
+    arena->drawing.setCacheLimit(expanded);
 }
 
 static gint
@@ -260,8 +255,8 @@ sp_canvas_arena_event (SPCanvasItem *item, GdkEvent *event)
                 arena->c = Geom::Point(event->crossing.x, event->crossing.y);
 
                 /* fixme: Not sure abut this, but seems the right thing (Lauris) */
-                arena->root->update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_PICK, 0);
-                arena->active = arena->root->pick(arena->c, arena->arena->delta, arena->sticky);
+                arena->drawing.update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_PICK, 0);
+                arena->active = arena->drawing.pick(arena->c, arena->drawing.delta, arena->sticky);
                 ret = sp_canvas_arena_send_event (arena, event);
             }
             break;
@@ -279,8 +274,8 @@ sp_canvas_arena_event (SPCanvasItem *item, GdkEvent *event)
             arena->c = Geom::Point(event->motion.x, event->motion.y);
 
             /* fixme: Not sure abut this, but seems the right thing (Lauris) */
-            arena->root->update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_PICK, 0);
-            new_arena = arena->root->pick(arena->c, arena->arena->delta, arena->sticky);
+            arena->drawing.update(Geom::IntRect::infinite(), arena->ctx, DrawingItem::STATE_PICK);
+            new_arena = arena->drawing.pick(arena->c, arena->drawing.delta, arena->sticky);
             if (new_arena != arena->active) {
                 GdkEventCrossing ec;
                 ec.window = event->motion.window;
@@ -324,16 +319,16 @@ sp_canvas_arena_send_event (SPCanvasArena *arena, GdkEvent *event)
 }
 
 static void
-sp_canvas_arena_request_update (NRArena */*arena*/, DrawingItem */*item*/, void *data)
+sp_canvas_arena_request_update (SPCanvasArena *ca, DrawingItem */*item*/)
 {
-    sp_canvas_item_request_update (SP_CANVAS_ITEM (data));
+    sp_canvas_item_request_update (SP_CANVAS_ITEM (ca));
 }
 
 static void
-sp_canvas_arena_request_render (NRArena */*arena*/, NRRectL *area, void *data)
+sp_canvas_arena_request_render (SPCanvasArena *ca, Geom::IntRect const &area)
 {
-    if (!area) return;
-    sp_canvas_request_redraw (SP_CANVAS_ITEM (data)->canvas, area->x0, area->y0, area->x1, area->y1);
+    SPCanvas *canvas = SP_CANVAS_ITEM (ca)->canvas;
+    sp_canvas_request_redraw (canvas, area.left(), area.top(), area.right(), area.bottom());
 }
 
 void
@@ -365,10 +360,9 @@ sp_canvas_arena_render_surface (SPCanvasArena *ca, cairo_surface_t *surface, NRR
     Geom::OptIntRect area = r.upgrade_2geom();
     if (!area) return;
     Inkscape::DrawingContext ct(surface, area->min());
-    ca->root->update(Geom::IntRect::infinite(), ca->ctx, DrawingItem::STATE_ALL, 0);
-    ca->root->render(ct, *area, 0);
+    ca->drawing.update(Geom::IntRect::infinite(), ca->ctx);
+    ca->drawing.render(ct, *area);
 }
-
 
 /*
   Local Variables:

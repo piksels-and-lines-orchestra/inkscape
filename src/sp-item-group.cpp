@@ -68,7 +68,7 @@ static void sp_group_set(SPObject *object, unsigned key, char const *value);
 static void sp_group_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
 static void sp_group_print (SPItem * item, SPPrintContext *ctx);
 static gchar * sp_group_description (SPItem * item);
-static Inkscape::DrawingItem *sp_group_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_group_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_group_hide (SPItem * item, unsigned int key);
 static void sp_group_snappoints (SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 
@@ -313,9 +313,9 @@ static void sp_group_set(SPObject *object, unsigned key, char const *value) {
 }
 
 static Inkscape::DrawingItem *
-sp_group_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags)
+sp_group_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags)
 {
-    return SP_GROUP(item)->group->show(arena, key, flags);
+    return SP_GROUP(item)->group->show(drawing, key, flags);
 }
 
 static void
@@ -744,19 +744,19 @@ gchar *CGroup::getDescription() {
                  len), len);
 }
 
-Inkscape::DrawingItem *CGroup::show (NRArena *arena, unsigned int key, unsigned int flags) {
+Inkscape::DrawingItem *CGroup::show (Inkscape::Drawing &drawing, unsigned int key, unsigned int flags) {
     Inkscape::DrawingGroup *ai;
     SPObject *object = _group;
 
-    ai = new Inkscape::DrawingGroup(arena);
+    ai = new Inkscape::DrawingGroup(drawing);
     ai->setPickChildren(_group->effectiveLayerMode(key) == SPGroup::LAYER);
     ai->setStyle(object->style);
 
-    _showChildren(arena, ai, key, flags);
+    _showChildren(drawing, ai, key, flags);
     return ai;
 }
 
-void CGroup::_showChildren (NRArena *arena, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags) {
+void CGroup::_showChildren (Inkscape::Drawing &drawing, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags) {
     Inkscape::DrawingItem *ac = NULL;
     SPItem * child = NULL;
     GSList *l = g_slist_reverse(_group->childList(false, SPObject::ActionShow));
@@ -764,7 +764,7 @@ void CGroup::_showChildren (NRArena *arena, Inkscape::DrawingItem *ai, unsigned 
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM (o)) {
             child = SP_ITEM (o);
-            ac = child->invoke_show (arena, key, flags);
+            ac = child->invoke_show (drawing, key, flags);
             ai->appendChild(ac);
         }
         l = g_slist_remove (l, o);

@@ -38,7 +38,7 @@
 #include "display/nr-filter-tile.h"
 #include "display/nr-filter-turbulence.h"
 
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-item.h"
 #include "display/drawing-context.h"
 #include <2geom/affine.h>
@@ -108,8 +108,8 @@ int Filter::render(Inkscape::DrawingItem const *item, DrawingContext &bgct, Draw
         return 1;
     }
 
-    FilterQuality const filterquality = (FilterQuality)item->drawing()->filterquality;
-    int const blurquality = item->drawing()->blurquality;
+    FilterQuality const filterquality = (FilterQuality)item->drawing().filterQuality();
+    int const blurquality = item->drawing().blurQuality();
 
     Geom::Affine trans = item->ctm();
 

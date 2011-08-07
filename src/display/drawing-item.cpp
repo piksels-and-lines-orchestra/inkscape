@@ -11,11 +11,11 @@
 
 #include "display/cairo-utils.h"
 #include "display/cairo-templates.h"
+#include "display/drawing.h"
 #include "display/drawing-context.h"
 #include "display/drawing-item.h"
 #include "display/drawing-group.h"
 #include "display/drawing-surface.h"
-#include "nr-arena.h"
 #include "nr-filter.h"
 #include "preferences.h"
 #include "style.h"
@@ -42,7 +42,7 @@ namespace Inkscape {
  * has been deleted.
  */
 
-DrawingItem::DrawingItem(Drawing *drawing)
+DrawingItem::DrawingItem(Drawing &drawing)
     : _drawing(drawing)
     , _parent(NULL)
     , _key(0)
@@ -61,21 +61,21 @@ DrawingItem::DrawingItem(Drawing *drawing)
 //    , _renders_opacity(0)
     , _clip_child(0)
     , _mask_child(0)
+    , _drawing_root(0)
     , _pick_children(0)
 {
-    nr_object_ref(_drawing);
 }
 
 DrawingItem::~DrawingItem()
 {
-    _drawing->item_deleted.emit(this);
+    _drawing.signal_item_deleted.emit(this);
     //if (!_children.empty()) {
     //    g_warning("Removing item with children");
     //}
 
     // remove from the set of cached items
     if (_cached) {
-        _drawing->cached_items.erase(this);
+        _drawing._cached_items.erase(this);
     }
     // remove this item from parent's children list
     // due to the effect of clearChildren(), this only happens for the top-level deleted item
@@ -92,13 +92,14 @@ DrawingItem::~DrawingItem()
             _parent->_children.erase(ithis);
         }
         _parent->_markForUpdate(STATE_ALL, false);
+    } else if (_drawing_root) {
+        _drawing._root = NULL;
     }
     clearChildren();
     delete _transform;
     delete _clip;
     delete _mask;
     delete _filter;
-    nr_object_unref(_drawing);
 }
 
 DrawingItem *
@@ -187,9 +188,9 @@ DrawingItem::setCached(bool c)
 {
     _cached = c;
     if (c) {
-        _drawing->cached_items.insert(this);
+        _drawing._cached_items.insert(this);
     } else {
-        _drawing->cached_items.erase(this);
+        _drawing._cached_items.erase(this);
     }
     _markForUpdate(STATE_CACHE, false);
 }
@@ -266,8 +267,8 @@ DrawingItem::setItemBounds(Geom::OptRect const &bounds)
 void
 DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
 {
-    bool render_filters = (_drawing->rendermode == Inkscape::RENDERMODE_NORMAL);
-    bool outline = (_drawing->rendermode == Inkscape::RENDERMODE_OUTLINE);
+    bool render_filters = _drawing.renderFilters();
+    bool outline = _drawing.outline();
 
     // Set reset flags according to propagation status
     if (_propagate) {
@@ -324,7 +325,7 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
 
     // update cache if enabled
     if (_cached) {
-        Geom::OptIntRect cl = _drawing->cache_limit;
+        Geom::OptIntRect cl = _drawing.cacheLimit();
         cl.intersectWith(_drawbox);
         if (cl) {
             if (_cache) {
@@ -373,8 +374,8 @@ struct MaskLuminanceToAlpha {
 void
 DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 {
-    bool outline = (_drawing->rendermode == Inkscape::RENDERMODE_OUTLINE);
-    bool render_filters = (_drawing->rendermode == Inkscape::RENDERMODE_NORMAL);
+    bool outline = _drawing.outline();
+    bool render_filters = _drawing.renderFilters();
 
     /* If we are invisible, just return successfully */
     if (!_visible) return;
@@ -530,19 +531,19 @@ DrawingItem::_renderOutline(DrawingContext &ct, Geom::IntRect const &area, unsig
     _renderItem(ct, *carea, flags);
 
     // render clip and mask, if any
-    guint32 saved_rgba = _drawing->outlinecolor; // save current outline color
+    guint32 saved_rgba = _drawing.outlinecolor; // save current outline color
     // render clippath as an object, using a different color
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     if (_clip) {
-        _drawing->outlinecolor = prefs->getInt("/options/wireframecolors/clips", 0x00ff00ff); // green clips
+        _drawing.outlinecolor = prefs->getInt("/options/wireframecolors/clips", 0x00ff00ff); // green clips
         _clip->render(ct, *carea, flags);
     }
     // render mask as an object, using a different color
     if (_mask) {
-        _drawing->outlinecolor = prefs->getInt("/options/wireframecolors/masks", 0x0000ffff); // blue masks
+        _drawing.outlinecolor = prefs->getInt("/options/wireframecolors/masks", 0x0000ffff); // blue masks
         _mask->render(ct, *carea, flags);
     }
-    _drawing->outlinecolor = saved_rgba; // restore outline color
+    _drawing.outlinecolor = saved_rgba; // restore outline color
 }
 
 /** @brief Rasterize the clipping path.
@@ -624,7 +625,7 @@ DrawingItem::pick(Geom::Point const &p, double delta, bool sticky)
 void
 DrawingItem::_markForRendering()
 {
-    bool outline = (_drawing->rendermode == Inkscape::RENDERMODE_OUTLINE);
+    bool outline = _drawing.outline();
     Geom::OptIntRect dirty = outline ? _bbox : _drawbox;
     if (!dirty) return;
 
@@ -634,8 +635,7 @@ DrawingItem::_markForRendering()
             i->_cache->markDirty(*dirty);
         }
     }
-
-    nr_arena_request_render_rect (_drawing, dirty);
+    _drawing.signal_request_render.emit(*dirty);
 }
 
 /** @brief Marks the item as needing a recomputation of internal data.
@@ -665,7 +665,7 @@ DrawingItem::_markForUpdate(unsigned flags, bool propagate)
         if (_parent) {
             _parent->_markForUpdate(flags, false);
         } else {
-            nr_arena_request_update (_drawing, this);
+            _drawing.signal_request_update.emit(this);
         }
     }
 }

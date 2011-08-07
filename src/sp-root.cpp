@@ -46,7 +46,7 @@ static void sp_root_update(SPObject *object, SPCtx *ctx, guint flags);
 static void sp_root_modified(SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_root_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static Inkscape::DrawingItem *sp_root_show(SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_root_show(SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_root_print(SPItem *item, SPPrintContext *ctx);
 
 static SPGroupClass *parent_class;
@@ -538,7 +538,7 @@ static void sp_root_update(SPObject *object, SPCtx *ctx, guint flags)
     if (((SPObjectClass *) (parent_class))->update)
         ((SPObjectClass *) (parent_class))->update(object, (SPCtx *) &rctx, flags);
 
-    /* As last step set additional transform of arena group */
+    /* As last step set additional transform of drawing group */
     for (SPItemView *v = root->display; v != NULL; v = v->next) {
         Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
         g->setChildTransform(root->c2p);
@@ -608,16 +608,16 @@ sp_root_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML:
 }
 
 /**
- * Displays the SPRoot item on the NRArena.
+ * Displays the SPRoot item on the drawing.
  */
 static Inkscape::DrawingItem *
-sp_root_show(SPItem *item, NRArena *arena, unsigned int key, unsigned int flags)
+sp_root_show(SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags)
 {
     SPRoot *root = SP_ROOT(item);
 
     Inkscape::DrawingItem *ai;
     if (((SPItemClass *) (parent_class))->show) {
-        ai = ((SPItemClass *) (parent_class))->show(item, arena, key, flags);
+        ai = ((SPItemClass *) (parent_class))->show(item, drawing, key, flags);
         if (ai) {
             Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(ai);
             g->setChildTransform(root->c2p);

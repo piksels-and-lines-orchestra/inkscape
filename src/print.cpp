@@ -15,7 +15,7 @@
 # include "config.h"
 #endif
 
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-item.h"
 #include "inkscape.h"
 #include "desktop.h"
@@ -117,21 +117,20 @@ sp_print_document_to_file(SPDocument *doc, gchar const *filename)
 /* Start */
     context.module = mod;
     /* fixme: This has to go into module constructor somehow */
-    /* Create new arena */
+    /* Create new drawing */
     mod->base = doc->getRoot();
-    mod->arena = NRArena::create();
+    Inkscape::Drawing drawing;
     mod->dkey = SPItem::display_key_new(1);
-    mod->root = (mod->base)->invoke_show(mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+    mod->root = (mod->base)->invoke_show(drawing, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+    drawing.setRoot(mod->root);
     /* Print document */
     ret = mod->begin(doc);
     (mod->base)->invoke_print(&context);
     ret = mod->finish();
-    /* Release arena */
+    /* Release drawing items */
     (mod->base)->invoke_hide(mod->dkey);
     mod->base = NULL;
-    nr_object_unref((NRObject *) mod->arena);
     mod->root = NULL; // should be deleted by invoke_hide
-    mod->arena = NULL;
 /* end */
 
     mod->set_param_string("destination", oldoutput);

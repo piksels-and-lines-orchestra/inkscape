@@ -32,11 +32,10 @@
 #include "desktop-handles.h"
 #include "desktop-style.h"
 #include "display/cairo-utils.h"
-#include "display/canvas-arena.h"
 #include "display/drawing-context.h"
 #include "display/drawing-image.h"
 #include "display/drawing-item.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/sp-canvas.h"
 #include "document.h"
 #include "flood-context.h"
@@ -777,10 +776,6 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     SPDesktop *desktop = event_context->desktop;
     SPDocument *document = sp_desktop_document(desktop);
 
-    /* Create new arena */
-    NRArena *arena = NRArena::create();
-    unsigned dkey = SPItem::display_key_new(1);
-
     document->ensureUpToDate();
     
     Geom::OptRect bbox = document->getRoot()->getBounds(Geom::identity());
@@ -809,20 +804,22 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     
     Geom::Scale scale(zoom_scale, zoom_scale);
     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
-    
-    /* Create ArenaItems and set transform */
-    Inkscape::DrawingItem *root = document->getRoot()->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
-    root->setTransform(affine);
-
-    Inkscape::UpdateContext ctx;
-    Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
-    root->update(final_bbox, ctx, Inkscape::DrawingItem::STATE_ALL, 0);
 
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
     guchar *px = g_new(guchar, stride * height);
     guint32 bgcolor, dtc;
 
-    { // this block limits the lifetime of DrawingContext
+    { // this block limits the lifetime of Drawing and DrawingContext
+        /* Create DrawingItems and set transform */
+        unsigned dkey = SPItem::display_key_new(1);
+        Inkscape::Drawing drawing;
+        Inkscape::DrawingItem *root = document->getRoot()->invoke_show( drawing, dkey, SP_ITEM_SHOW_DISPLAY);
+        root->setTransform(affine);
+        drawing.setRoot(root);
+
+        Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
+        drawing.update(final_bbox);
+
         cairo_surface_t *s = cairo_image_surface_create_for_data(
             px, CAIRO_FORMAT_ARGB32, width, height, stride);
         Inkscape::DrawingContext ct(s, Geom::Point(0,0));
@@ -838,15 +835,13 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
         ct.paint();
         ct.setOperator(CAIRO_OPERATOR_OVER);
 
-        root->render(ct, final_bbox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
+        drawing.render(ct, final_bbox);
 
         cairo_surface_flush(s);
         cairo_surface_destroy(s);
         
         // Hide items
         document->getRoot()->invoke_hide(dkey);
-
-        nr_object_unref((NRObject *) arena);
     }
 
     guchar *trace_px = g_new(guchar, width * height);

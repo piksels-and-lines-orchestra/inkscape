@@ -13,21 +13,15 @@
 #define SEEN_INKSCAPE_DISPLAY_DRAWING_ITEM_H
 
 #include <exception>
+#include <boost/utility.hpp>
 #include <boost/intrusive/list.hpp>
 #include <2geom/rect.h>
 #include <2geom/affine.h>
+#include "display/display-forward.h"
 
-class NRArena;
 class SPStyle;
-void nr_arena_set_cache_limit(NRArena *, Geom::OptIntRect const &);
 
 namespace Inkscape {
-
-typedef ::NRArena Drawing;
-class DrawingContext;
-class DrawingCache;
-class DrawingItem;
-namespace Filters { class Filter; }
 
 struct UpdateContext {
     Geom::Affine ctm;
@@ -39,10 +33,8 @@ class InvalidItemException : public std::exception {
     }
 };
 
-typedef boost::intrusive::list_base_hook<> ChildrenListHook;
-
 class DrawingItem
-    : public ChildrenListHook
+    : boost::noncopyable
 {
 public:
     enum RenderFlags {
@@ -59,9 +51,8 @@ public:
         STATE_RENDER = (1<<4),  // can be rendered
         STATE_ALL = (1<<5)-1
     };
-    typedef boost::intrusive::list<DrawingItem> ChildrenList;
 
-    DrawingItem(Drawing *drawing);
+    DrawingItem(Drawing &drawing);
     virtual ~DrawingItem();
 
     Geom::OptIntRect geometricBounds() const { return _bbox; }
@@ -69,7 +60,7 @@ public:
     Geom::OptRect itemBounds() const { return _item_bbox; }
     Geom::Affine ctm() const { return _ctm; }
     Geom::Affine transform() const { return _transform ? *_transform : Geom::identity(); }
-    Drawing *drawing() const { return _drawing; }
+    Drawing &drawing() const { return _drawing; }
     DrawingItem *parent() const;
 
     void appendChild(DrawingItem *item);
@@ -112,11 +103,21 @@ protected:
     virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, bool sticky = false) { return NULL; }
     virtual bool _canClip() { return false; }
 
-    Drawing *_drawing;
+    // member variables start here
+
+    Drawing &_drawing;
     DrawingItem *_parent;
+
+    typedef boost::intrusive::list_member_hook<> ListHook;
+    ListHook _child_hook;
+
+    typedef boost::intrusive::list<
+        DrawingItem,
+        boost::intrusive::member_hook<DrawingItem, ListHook, &DrawingItem::_child_hook>
+        > ChildrenList;
     ChildrenList _children;
 
-    unsigned _key; ///< Some SPItems can have more than one NRArenaItem;
+    unsigned _key; ///< Some SPItems can have more than one DrawingItem;
                    ///  this value is a hack used to distinguish between them
     float _opacity;
 
@@ -140,12 +141,14 @@ protected:
     //unsigned _renders_opacity : 1; ///< Whether object needs temporary surface for opacity
     unsigned _clip_child : 1; ///< If set, this is not a child of _parent, but a clipping path
     unsigned _mask_child : 1; ///< If set, this is not a child of _parent, but a mask
+    unsigned _drawing_root : 1; ///< If set, this is the root item of Drawing
     unsigned _pick_children : 1; ///< For groups: if true, children are returned from pick(),
                                  ///  otherwise the group is returned
 
-    // temporary hacks until I rewrite NRArena to Inkscape::Drawing
-    friend class NRArena;
-    friend void ::nr_arena_set_cache_limit(NRArena *, Geom::OptIntRect const &);
+    friend class Drawing;
+
+private:
+    DrawingItem(DrawingItem const &);
 };
 
 struct DeleteDisposer {

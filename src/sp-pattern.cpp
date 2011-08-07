@@ -24,7 +24,7 @@
 #include "display/cairo-utils.h"
 #include "display/drawing-context.h"
 #include "display/drawing-surface.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/drawing-group.h"
 #include "attributes.h"
 #include "document-private.h"
@@ -630,17 +630,18 @@ sp_pattern_create_pattern(SPPaintServer *ps,
         return cairo_pattern_create_rgba(0,0,0,0);
     }
 
-    /* Create arena */
-    NRArena *arena = NRArena::create();
+    /* Create drawing for rendering */
+    Inkscape::Drawing drawing;
     unsigned int dkey = SPItem::display_key_new (1);
-    Inkscape::DrawingGroup *root = new Inkscape::DrawingGroup(arena);
+    Inkscape::DrawingGroup *root = new Inkscape::DrawingGroup(drawing);
+    drawing.setRoot(root);
 
     for (SPObject *child = shown->firstChild(); child != NULL; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
-            // for each item in pattern, show it on our arena, add to the group,
+            // for each item in pattern, show it on our drawing, add to the group,
             // and connect to the release signal in case the item gets deleted
             Inkscape::DrawingItem *cai;
-            cai = SP_ITEM(child)->invoke_show (arena, dkey, SP_ITEM_SHOW_DISPLAY);
+            cai = SP_ITEM(child)->invoke_show (drawing, dkey, SP_ITEM_SHOW_DISPLAY);
             root->appendChild(cai);
         }
     }
@@ -676,7 +677,10 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 
     // oversample the pattern slightly
     // TODO: find optimum value
-    Geom::Point c(pattern_tile.dimensions()*ps2user.descrim()*full.descrim()*1.1);
+    // TODO: this is lame. instead of using descrim(), we should extract
+    //       the scaling component from the complete matrix and use it
+    //       to find the optimum tile size for rendering
+    Geom::Point c(pattern_tile.dimensions()*vb2ps.descrim()*ps2user.descrim()*full.descrim()*1.1);
     c[Geom::X] = ceil(c[Geom::X]);
     c[Geom::Y] = ceil(c[Geom::Y]);
     
@@ -692,15 +696,13 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     // TODO: make sure there are no leaks.
     Inkscape::UpdateContext ctx;
     ctx.ctm = vb2ps;
-    root->update(Geom::IntRect::infinite(), ctx, Inkscape::DrawingItem::STATE_ALL, 0);
-    root->render(ct, one_tile, 0);
+    drawing.update(Geom::IntRect::infinite(), ctx);
+    drawing.render(ct, one_tile);
     for (SPObject *child = shown->firstChild() ; child != NULL; child = child->getNext() ) {
         if (SP_IS_ITEM (child)) {
             SP_ITEM(child)->invoke_hide(dkey);
         }
     }
-    nr_object_unref(arena);
-    delete root;
 
     if (needs_opacity) {
         ct.popGroupToSource(); // pop raw pattern

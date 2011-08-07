@@ -72,7 +72,7 @@
 #include "display/canvas-temporary-item-list.h"
 #include "display/drawing-group.h"
 #include "display/gnome-canvas-acetate.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "display/snap-indicator.h"
 #include "display/sodipodi-ctrlrect.h"
 #include "display/sp-canvas-group.h"
@@ -230,7 +230,7 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
     drawing = sp_canvas_item_new (main, SP_TYPE_CANVAS_ARENA, NULL);
     g_signal_connect (G_OBJECT (drawing), "arena_event", G_CALLBACK (_arena_handler), this);
 
-    SP_CANVAS_ARENA (drawing)->arena->delta = prefs->getDouble("/options/cursortolerance/value", 1.0); // default is 1 px
+    SP_CANVAS_ARENA (drawing)->drawing.delta = prefs->getDouble("/options/cursortolerance/value", 1.0); // default is 1 px
 
     if (prefs->getBool("/options/startmode/outline")) {
         // Start in outline mode
@@ -287,11 +287,11 @@ SPDesktop::init (SPNamedView *nv, SPCanvas *aCanvas, Inkscape::UI::View::EditWid
     _modified_connection = namedview->connectModified(sigc::bind<2>(sigc::ptr_fun(&_namedview_modified), this));
 
     Inkscape::DrawingItem *ai = document->getRoot()->invoke_show(
-            SP_CANVAS_ARENA (drawing)->arena,
+            SP_CANVAS_ARENA (drawing)->drawing,
             dkey,
             SP_ITEM_SHOW_DISPLAY);
     if (ai) {
-        SP_CANVAS_ARENA (drawing)->root->prependChild(ai);
+        SP_CANVAS_ARENA (drawing)->drawing.root()->prependChild(ai);
     }
 
     namedview->show(this);
@@ -404,6 +404,7 @@ void SPDesktop::destroy()
 
     if (drawing) {
         doc()->getRoot()->invoke_hide(dkey);
+        g_object_unref(drawing);
         drawing = NULL;
     }
 
@@ -455,14 +456,14 @@ SPDesktop::remove_temporary_canvasitem (Inkscape::Display::TemporaryItem * tempi
 }
 
 void SPDesktop::_setDisplayMode(Inkscape::RenderMode mode) {
-    SP_CANVAS_ARENA (drawing)->arena->rendermode = mode;
+    SP_CANVAS_ARENA (drawing)->drawing.setRenderMode(mode);
     canvas->rendermode = mode;
     _display_mode = mode;
     sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (main), _d2w); // redraw
     _widget->setTitle( sp_desktop_document(this)->getName() );
 }
 void SPDesktop::_setDisplayColorMode(Inkscape::ColorMode mode) {
-    SP_CANVAS_ARENA (drawing)->arena->colormode = mode;
+    SP_CANVAS_ARENA (drawing)->drawing.setColorMode(mode);
     canvas->colorrendermode = mode;
     _display_color_mode = mode;
     sp_canvas_item_affine_absolute (SP_CANVAS_ITEM (main), _d2w); // redraw
@@ -1570,11 +1571,11 @@ SPDesktop::setDocument (SPDocument *doc)
         number = namedview->getViewCount();
 
         ai = doc->getRoot()->invoke_show(
-                SP_CANVAS_ARENA (drawing)->arena,
+                SP_CANVAS_ARENA (drawing)->drawing,
                 dkey,
                 SP_ITEM_SHOW_DISPLAY);
         if (ai) {
-            SP_CANVAS_ARENA (drawing)->root->prependChild(ai);
+            SP_CANVAS_ARENA (drawing)->drawing.root()->prependChild(ai);
         }
         namedview->show(this);
         /* Ugly hack */
@@ -1788,9 +1789,9 @@ _namedview_modified (SPObject *obj, guint flags, SPDesktop *desktop)
              SP_RGBA32_G_U(nv->pagecolor) +
              SP_RGBA32_B_U(nv->pagecolor)) >= 384) {
             // the background color is light or transparent, use black outline
-            SP_CANVAS_ARENA (desktop->drawing)->arena->outlinecolor = prefs->getInt("/options/wireframecolors/onlight", 0xff);
+            SP_CANVAS_ARENA (desktop->drawing)->drawing.outlinecolor = prefs->getInt("/options/wireframecolors/onlight", 0xff);
         } else { // use white outline
-            SP_CANVAS_ARENA (desktop->drawing)->arena->outlinecolor = prefs->getInt("/options/wireframecolors/ondark", 0xffffffff);
+            SP_CANVAS_ARENA (desktop->drawing)->drawing.outlinecolor = prefs->getInt("/options/wireframecolors/ondark", 0xffffffff);
         }
     }
 }

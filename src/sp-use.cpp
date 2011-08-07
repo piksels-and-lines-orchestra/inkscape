@@ -53,7 +53,7 @@ static void sp_use_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &tr
 static void sp_use_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 static void sp_use_print(SPItem *item, SPPrintContext *ctx);
 static gchar *sp_use_description(SPItem *item);
-static Inkscape::DrawingItem *sp_use_show(SPItem *item, NRArena *arena, unsigned key, unsigned flags);
+static Inkscape::DrawingItem *sp_use_show(SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags);
 static void sp_use_hide(SPItem *item, unsigned key);
 
 static void sp_use_href_changed(SPObject *old_ref, SPObject *ref, SPUse *use);
@@ -347,16 +347,16 @@ sp_use_description(SPItem *item)
 }
 
 static Inkscape::DrawingItem *
-sp_use_show(SPItem *item, NRArena *arena, unsigned key, unsigned flags)
+sp_use_show(SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags)
 {
     SPUse *use = SP_USE(item);
 
-    Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(arena);
+    Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(drawing);
     ai->setPickChildren(false);
     ai->setStyle(item->style);
 
     if (use->child) {
-        Inkscape::DrawingItem *ac = SP_ITEM(use->child)->invoke_show(arena, key, flags);
+        Inkscape::DrawingItem *ac = SP_ITEM(use->child)->invoke_show(drawing, key, flags);
         if (ac) {
             ai->prependChild(ac);
         }

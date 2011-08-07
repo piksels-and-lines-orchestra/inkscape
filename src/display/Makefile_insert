@@ -23,6 +23,8 @@ ink_common_sources += \
 	display/canvas-text.h	\
 	display/curve.cpp	\
 	display/curve.h	\
+	display/drawing.cpp \
+	display/drawing.h \
 	display/drawing-context.cpp \
 	display/drawing-context.h \
 	display/drawing-group.cpp \
@@ -45,8 +47,6 @@ ink_common_sources += \
 	display/guideline.h	\
 	display/nr-3dutils.cpp \
 	display/nr-3dutils.h \
-	display/nr-arena.h	\
-	display/nr-arena.cpp	\
 	display/nr-arena-forward.h	\
 	display/nr-filter-blend.cpp     \
 	display/nr-filter-blend.h       \
