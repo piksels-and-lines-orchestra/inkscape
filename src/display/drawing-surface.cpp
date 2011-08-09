@@ -188,16 +188,6 @@ DrawingCache::markClean(Geom::IntRect const &area)
     cairo_rectangle_int_t clean = _convertRect(*r);
     cairo_region_union_rectangle(_clean_region, &clean);
 }
-bool
-DrawingCache::isClean(Geom::IntRect const &area) const
-{
-    cairo_rectangle_int_t test = _convertRect(area);
-    if (cairo_region_contains_rectangle(_clean_region, &test) == CAIRO_REGION_OVERLAP_IN) {
-        return true;
-    } else {
-        return false;
-    }
-}
 
 /// Call this during the update phase to schedule a transformation of the cache.
 void
@@ -267,20 +257,46 @@ DrawingCache::prepare()
     _pending_transform.setIdentity();
 }
 
-/** @brief Paints the clean area from cache and returns the remaining part */
-bool
-DrawingCache::paintFromCache(DrawingContext &ct, Geom::IntRect const &area)
+/** @brief Paints the clean area from cache and modifies the @a area
+ * parameter to the bounds of the region that must be repainted. */
+void
+DrawingCache::paintFromCache(DrawingContext &ct, Geom::OptIntRect &area)
 {
-    if (!isClean(area))
-        return false;
+    if (!area) return;
 
-    Inkscape::DrawingContext::Save save(ct);
-    ct.rectangle(area);
-    ct.clip();
-    ct.setSource(this);
-    ct.paint();
-    
-    return true;
+    // We subtract the clean region from the area, then get the bounds
+    // of the resulting region. This is the area that needs to be repainted
+    // by the item.
+    // Then we subtract the area that needs to be repainted from the
+    // original area and paint the resulting region from cache.
+    cairo_rectangle_int_t area_c = _convertRect(*area);
+    cairo_region_t *dirty_region = cairo_region_create_rectangle(&area_c);
+    cairo_region_t *cache_region = cairo_region_copy(dirty_region);
+    cairo_region_subtract(dirty_region, _clean_region);
+
+    if (cairo_region_is_empty(dirty_region)) {
+        area = Geom::OptIntRect();
+    } else {
+        cairo_rectangle_int_t to_repaint;
+        cairo_region_get_extents(dirty_region, &to_repaint);
+        *area = _convertRect(to_repaint);
+        cairo_region_subtract_rectangle(cache_region, &to_repaint);
+    }
+    cairo_region_destroy(dirty_region);
+
+    if (!cairo_region_is_empty(cache_region)) {
+        Inkscape::DrawingContext::Save save(ct);
+        int nr = cairo_region_num_rectangles(cache_region);
+        cairo_rectangle_int_t tmp;
+        for (int i = 0; i < nr; ++i) {
+            cairo_region_get_rectangle(cache_region, i, &tmp);
+            ct.rectangle(_convertRect(tmp));
+        }
+        ct.clip();
+        ct.setSource(this);
+        ct.paint();
+    }
+    cairo_region_destroy(cache_region);
 }
 
 cairo_rectangle_int_t
@@ -291,6 +307,15 @@ DrawingCache::_convertRect(Geom::IntRect const &area)
     ret.y = area.top();
     ret.width = area.width();
     ret.height = area.height();
+    return ret;
+}
+
+Geom::IntRect
+DrawingCache::_convertRect(cairo_rectangle_int_t const &r)
+{
+    Geom::IntRect ret = Geom::IntRect::from_xywh(
+        r.x, r.y,
+        r.width, r.height);
     return ret;
 }
 

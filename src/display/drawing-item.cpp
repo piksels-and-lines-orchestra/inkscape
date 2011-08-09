@@ -422,7 +422,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
         return;
     }
 
-    // carea is the bounding box for intermediate rendering.
+    // carea is the area to paint
     Geom::OptIntRect carea = Geom::intersect(area, _drawbox);
     if (!carea) return;
 
@@ -430,8 +430,8 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     if (_cached) {
         if (_cache) {
             _cache->prepare();
-            if (_cache->paintFromCache(ct, *carea))
-                return;
+            _cache->paintFromCache(ct, carea);
+            if (!carea) return;
         } else {
             // There is no cache. This could be because caching of this item
             // was just turned on after the last update phase, or because
@@ -445,12 +445,6 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     } else {
         // if our caching was turned off after the last update, it was already
         // deleted in setCached()
-    }
-
-    // expand carea to contain the dependent area of filters.
-    if (_filter && render_filters) {
-        _filter->area_enlarge(*carea, this);
-        carea.intersectWith(_drawbox);
     }
 
     // determine whether this shape needs intermediate rendering.
@@ -480,7 +474,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     if (!needs_intermediate_rendering) {
         if (_cached && _cache) {
             Inkscape::DrawingContext cachect(*_cache);
-            cachect.rectangle(area);
+            cachect.rectangle(*carea);
             cachect.clip();
 
             {   // 1. clear the corresponding part of cache
@@ -498,7 +492,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
             ct.setSource(_cache);
             ct.paint();
             // 4. mark as clean
-            _cache->markClean(area);
+            _cache->markClean(*carea);
             return;
         } else {
             _renderItem(ct, *carea, flags);
@@ -506,7 +500,19 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
         }
     }
 
-    DrawingSurface intermediate(*carea);
+    // iarea is the bounding box for intermediate rendering
+    // Note 1: pixels inside iarea but outside carea might be invalid
+    //         (incomplete filter dependence region).
+    // Note 2: We only need to render carea of clip and mask, but
+    //         iarea of the object.
+    Geom::OptIntRect iarea = carea;
+    // expand carea to contain the dependent area of filters.
+    if (_filter && render_filters) {
+        _filter->area_enlarge(*iarea, this);
+        iarea.intersectWith(_drawbox);
+    }
+
+    DrawingSurface intermediate(*iarea);
     DrawingContext ict(intermediate);
 
     // 1. Render clipping path with alpha = opacity.
@@ -537,9 +543,9 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
         ict.setOperator(CAIRO_OPERATOR_OVER);
     }
 
-    // 3. Render object itself.
+    // 3. Render object itself
     ict.pushGroup();
-    _renderItem(ict, *carea, flags);
+    _renderItem(ict, *iarea, flags);
 
     // 4. Apply filter.
     if (_filter && render_filters) {
@@ -557,12 +563,12 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     // 6. Paint the completed rendering onto the base context (or into cache)
     if (_cached && _cache) {
         DrawingContext cachect(*_cache);
-        cachect.rectangle(area);
+        cachect.rectangle(*carea);
         cachect.clip();
         cachect.setOperator(CAIRO_OPERATOR_SOURCE);
         cachect.setSource(&intermediate);
         cachect.paint();
-        _cache->markClean(area);
+        _cache->markClean(*carea);
     }
     ct.setSource(&intermediate);
     ct.paint();

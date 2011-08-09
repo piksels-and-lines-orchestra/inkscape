@@ -64,6 +64,9 @@ public:
     void rectangle(Geom::Rect const &r) {
         cairo_rectangle(_ct, r.left(), r.top(), r.width(), r.height());
     }
+    void rectangle(Geom::IntRect const &r) {
+        cairo_rectangle(_ct, r.left(), r.top(), r.width(), r.height());
+    }
     void newPath() { cairo_new_path(_ct); }
     void newSubpath() { cairo_new_sub_path(_ct); }
     void path(Geom::PathVector const &pv);

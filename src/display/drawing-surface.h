@@ -63,10 +63,9 @@ public:
 
     void markDirty(Geom::IntRect const &area = Geom::IntRect::infinite());
     void markClean(Geom::IntRect const &area = Geom::IntRect::infinite());
-    bool isClean(Geom::IntRect const &area) const;
     void scheduleTransform(Geom::IntRect const &new_area, Geom::Affine const &trans);
     void prepare();
-    bool paintFromCache(DrawingContext &ct, Geom::IntRect const &area);
+    void paintFromCache(DrawingContext &ct, Geom::OptIntRect &area);
 
 protected:
     cairo_region_t *_clean_region;
@@ -74,6 +73,7 @@ protected:
     Geom::Affine _pending_transform;
 private:
     static cairo_rectangle_int_t _convertRect(Geom::IntRect const &r);
+    static Geom::IntRect _convertRect(cairo_rectangle_int_t const &r);
 };
 
 } // end namespace Inkscape
