@@ -9,6 +9,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <iostream>
 #include "display/drawing-surface.h"
 #include "display/drawing-context.h"
 #include "display/cairo-utils.h"
@@ -165,6 +166,7 @@ DrawingSurface::pixelArea() const
 DrawingCache::DrawingCache(Geom::IntRect const &area)
     : DrawingSurface(area)
     , _clean_region(cairo_region_create())
+    , _pending_area(area)
 {}
 
 DrawingCache::~DrawingCache()
@@ -196,28 +198,41 @@ DrawingCache::isClean(Geom::IntRect const &area) const
         return false;
     }
 }
+
+/// Call this during the update phase to schedule a transformation of the cache.
 void
-DrawingCache::resizeAndTransform(Geom::IntRect const &new_area, Geom::Affine const &trans)
+DrawingCache::scheduleTransform(Geom::IntRect const &new_area, Geom::Affine const &trans)
+{
+    if (new_area.hasZeroArea() && trans.isIdentity()) return;
+    _pending_area = new_area;
+    _pending_transform *= trans;
+}
+
+/// Transforms the cache according to the transform specified during the update phase.
+/// Call this during render phase, before painting.
+void
+DrawingCache::prepare()
 {
     Geom::IntRect old_area = pixelArea();
-    bool is_identity = false;
-    bool is_integer_translation = false;
-    if (trans.isIdentity()) {
-        is_identity = true;
-        if (new_area == old_area) return;
+    bool is_identity = _pending_transform.isIdentity();
+    if (is_identity) {
+        if (_pending_area == old_area) return;
     }
-    if (!is_identity && trans.isTranslation()) {
-        Geom::IntPoint t = trans.translation().round();
-        if (Geom::are_near(Geom::Point(t), trans.translation())) {
+
+    bool is_integer_translation = false;
+    if (!is_identity && _pending_transform.isTranslation()) {
+        Geom::IntPoint t = _pending_transform.translation().round();
+        if (Geom::are_near(Geom::Point(t), _pending_transform.translation())) {
             // integer translation or identity with change of area
             is_integer_translation = true;
             cairo_region_translate(_clean_region, t[X], t[Y]);
-            if (old_area + t == new_area) {
+            if (old_area + t == _pending_area) {
                 // if the areas match, the only thing to do
                 // is to ensure that the clean area is not too large
-                cairo_rectangle_int_t limit = _convertRect(new_area);
+                cairo_rectangle_int_t limit = _convertRect(_pending_area);
                 cairo_region_intersect_rectangle(_clean_region, &limit);
                 _origin += t;
+                _pending_transform.setIdentity();
                 return;
             }
         }
@@ -226,12 +241,12 @@ DrawingCache::resizeAndTransform(Geom::IntRect const &new_area, Geom::Affine con
     Geom::IntPoint old_origin = old_area.min();
     cairo_surface_t *old_surface = _surface;
     _surface = NULL;
-    _pixels = new_area.dimensions();
-    _origin = new_area.min();
+    _pixels = _pending_area.dimensions();
+    _origin = _pending_area.min();
 
     cairo_t *ct = createRawContext();
     if (!is_identity) {
-        ink_cairo_transform(ct, trans);
+        ink_cairo_transform(ct, _pending_transform);
     }
     cairo_set_source_surface(ct, old_surface, old_origin[X], old_origin[Y]);
     cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
@@ -245,9 +260,11 @@ DrawingCache::resizeAndTransform(Geom::IntRect const &new_area, Geom::Affine con
         cairo_region_destroy(_clean_region);
         _clean_region = cairo_region_create();
     } else {
-        cairo_rectangle_int_t limit = _convertRect(new_area);
+        cairo_rectangle_int_t limit = _convertRect(_pending_area);
         cairo_region_intersect_rectangle(_clean_region, &limit);
     }
+    std::cout << _pending_transform << old_area << _pending_area << std::endl;
+    _pending_transform.setIdentity();
 }
 
 /** @brief Paints the clean area from cache and returns the remaining part */

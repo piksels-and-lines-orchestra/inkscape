@@ -282,6 +282,18 @@ Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
     return area;
 }
 
+double Filter::complexity(Geom::Affine const &ctm)
+{
+    double factor;
+    for (unsigned i = 0 ; i < _primitive.size() ; i++) {
+        if (_primitive[i]) {
+            double f = _primitive[i]->complexity(ctm);
+            factor += (f - 1.0);
+        }
+    }
+    return factor;
+}
+
 /* Constructor table holds pointers to static methods returning filter
  * primitives. This table is indexed with FilterPrimitiveType, so that
  * for example method in _constructor[NR_FILTER_GAUSSIANBLUR]

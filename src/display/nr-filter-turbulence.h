@@ -45,6 +45,7 @@ public:
     virtual ~FilterTurbulence();
 
     virtual void render_cairo(FilterSlot &slot);
+    virtual double complexity(Geom::Affine const &ctm);
 
     void set_baseFrequency(int axis, double freq);
     void set_numOctaves(int num);

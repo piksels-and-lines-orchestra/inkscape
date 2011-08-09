@@ -171,6 +171,11 @@ void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Affine const & /*t
     area.y1 += 1;
 }
 
+double FilterDiffuseLighting::complexity(Geom::Affine const &)
+{
+    return 9.0;
+}
+
 } /* namespace Filters */
 } /* namespace Inkscape */
 

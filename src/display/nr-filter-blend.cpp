@@ -196,6 +196,11 @@ bool FilterBlend::can_handle_affine(Geom::Affine const &)
     return true;
 }
 
+double FilterBlend::complexity(Geom::Affine const &)
+{
+    return 1.1;
+}
+
 void FilterBlend::set_input(int slot) {
     _input = slot;
 }

@@ -67,6 +67,11 @@ bool FilterMerge::can_handle_affine(Geom::Affine const &)
     return true;
 }
 
+double FilterMerge::complexity(Geom::Affine const &)
+{
+    return 1.02;
+}
+
 void FilterMerge::set_input(int slot) {
     _input_image[0] = slot;
 }

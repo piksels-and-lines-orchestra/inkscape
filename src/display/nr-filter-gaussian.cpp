@@ -691,6 +691,13 @@ bool FilterGaussian::can_handle_affine(Geom::Affine const &)
     return false;
 }
 
+double FilterGaussian::complexity(Geom::Affine const &trans)
+{
+    int area_x = _effect_area_scr(_deviation_x * trans.expansionX());
+    int area_y = _effect_area_scr(_deviation_y * trans.expansionY());
+    return 2.0 * area_x * area_y;
+}
+
 void FilterGaussian::set_deviation(double deviation)
 {
     if(IS_FINITE(deviation) && deviation >= 0) {

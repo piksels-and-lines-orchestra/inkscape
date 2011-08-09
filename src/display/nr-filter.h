@@ -164,6 +164,9 @@ public:
      */
     Geom::Rect filter_effect_area(Geom::Rect const &bbox);
 
+    // returns cache score factor
+    double complexity(Geom::Affine const &ctm);
+
     /** Creates a new filter with space for one filter element */
     Filter();
     /** 

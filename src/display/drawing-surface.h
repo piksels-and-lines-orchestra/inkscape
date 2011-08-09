@@ -64,11 +64,14 @@ public:
     void markDirty(Geom::IntRect const &area = Geom::IntRect::infinite());
     void markClean(Geom::IntRect const &area = Geom::IntRect::infinite());
     bool isClean(Geom::IntRect const &area) const;
-    void resizeAndTransform(Geom::IntRect const &new_area, Geom::Affine const &trans);
+    void scheduleTransform(Geom::IntRect const &new_area, Geom::Affine const &trans);
+    void prepare();
     bool paintFromCache(DrawingContext &ct, Geom::IntRect const &area);
 
 protected:
     cairo_region_t *_clean_region;
+    Geom::IntRect _pending_area;
+    Geom::Affine _pending_transform;
 private:
     static cairo_rectangle_int_t _convertRect(Geom::IntRect const &r);
 };

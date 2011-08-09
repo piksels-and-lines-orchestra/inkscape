@@ -9,6 +9,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <algorithm>
 #include "display/drawing.h"
 #include "nr-filter-gaussian.h"
 #include "nr-filter-types.h"
@@ -24,6 +25,8 @@ Drawing::Drawing(SPCanvasArena *arena)
     , _colormode(COLORMODE_NORMAL)
     , _blur_quality(BLUR_QUALITY_BEST)
     , _filter_quality(Filters::FILTER_QUALITY_BEST)
+    , _cache_score_threshold(50000.0)
+    , _cache_budget(128 << 20) // 128 MiB
     , _canvasarena(arena)
 {
 
@@ -126,23 +129,51 @@ Drawing::setCacheLimit(Geom::OptIntRect const &r)
 void
 Drawing::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
 {
-    // TODO add autocache
-    if (!_root) return;
-    _root->update(area, ctx, flags, reset);
+    if (_root) {
+        _root->update(area, ctx, flags, reset);
+    }
+    // process the updated cache scores
+    // we cache the objects with the highest score until the budget is exhausted
+    _candidate_items.sort(std::greater<CacheRecord>());
+    size_t used = 0;
+    CandidateList::iterator i;
+    for (i = _candidate_items.begin(); i != _candidate_items.end(); ++i) {
+        if (used + i->cache_size > _cache_budget) break;
+        used += i->cache_size;
+    }
+
+    std::set<DrawingItem*> to_cache;
+    for (i = _candidate_items.begin(); i != _candidate_items.end(); ++i) {
+        i->item->setCached(true);
+        to_cache.insert(i->item);
+    }
+    // Everything which is now in _cached_items but not in to_cache must be uncached
+    // Note that calling setCached on an item modifies _cached_items
+    // TODO: find a way to avoid the set copy
+    std::set<DrawingItem*> to_uncache;
+    std::set_difference(_cached_items.begin(), _cached_items.end(),
+                        to_cache.begin(), to_cache.end(),
+                        std::inserter(to_uncache, to_uncache.end()));
+    for (std::set<DrawingItem*>::iterator j = to_uncache.begin(); j != to_uncache.end(); ++j) {
+        (*j)->setCached(false);
+    }
 }
 
 void
 Drawing::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 {
-    if (!_root) return;
-    _root->render(ct, area, flags);
+    if (_root) {
+        _root->render(ct, area, flags);
+    }
 }
 
 DrawingItem *
 Drawing::pick(Geom::Point const &p, double delta, bool sticky)
 {
-    if (!_root) return NULL;
-    return _root->pick(p, delta, sticky);
+    if (_root) {
+        return _root->pick(p, delta, sticky);
+    }
+    return NULL;
 }
 
 } // end namespace Inkscape

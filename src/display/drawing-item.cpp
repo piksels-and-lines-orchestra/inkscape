@@ -9,6 +9,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <climits>
 #include "display/cairo-utils.h"
 #include "display/cairo-templates.h"
 #include "display/drawing.h"
@@ -29,7 +30,7 @@ namespace Inkscape {
  * portion of the SVG document. Typically this is created by the SP tree,
  * in particular the show() virtual function.
  *
- * @section ObjectLifetime Object Lifetime
+ * @section ObjectLifetime Object lifetime
  * Deleting a DrawingItem will cause all of its children to be deleted as well.
  * This can lead to nasty surprises if you hold references to things
  * which are children of what is being deleted. Therefore, in the SP tree,
@@ -38,7 +39,7 @@ namespace Inkscape {
  * - this will cause dangling pointers inside the SPItem and lead to a crash.
  * Use the corresponing hide() method.
  *
- * Outside of the SP tree you should not use any references after the root node
+ * Outside of the SP tree, you should not use any references after the root node
  * has been deleted.
  */
 
@@ -57,6 +58,8 @@ DrawingItem::DrawingItem(Drawing &drawing)
     , _visible(true)
     , _sensitive(true)
     , _cached(0)
+    , _cached_persistent(0)
+    , _has_cache_iterator(0)
     , _propagate(0)
 //    , _renders_opacity(0)
     , _clip_child(0)
@@ -76,6 +79,9 @@ DrawingItem::~DrawingItem()
     // remove from the set of cached items
     if (_cached) {
         _drawing._cached_items.erase(this);
+    }
+    if (_has_cache_iterator) {
+        _drawing._candidate_items.erase(_cache_iterator);
     }
     // remove this item from parent's children list
     // due to the effect of clearChildren(), this only happens for the top-level deleted item
@@ -182,17 +188,27 @@ DrawingItem::setSensitive(bool s)
     _sensitive = s;
 }
 
-/// Enable / disable storing the rendering in memory.
+/** @brief Enable / disable storing the rendering in memory.
+ * Calling setCached(false, true) will also remove the persistent status
+ */
 void
-DrawingItem::setCached(bool c)
+DrawingItem::setCached(bool cached, bool persistent)
 {
-    _cached = c;
-    if (c) {
+    static const char *cache_env = getenv("_INKSCAPE_DISABLE_CACHE");
+    if (cache_env) return;
+
+    if (_cached_persistent && !persistent)
+        return;
+
+    _cached = cached;
+    _cached_persistent = persistent ? cached : false;
+    if (cached) {
         _drawing._cached_items.insert(this);
     } else {
         _drawing._cached_items.erase(this);
+        delete _cache;
+        _cache = NULL;
     }
-    _markForUpdate(STATE_CACHE, false);
 }
 
 void
@@ -277,7 +293,7 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     }
     _state &= ~reset; // reset state of this item
 
-    if ((~_state & flags) == 0) return; // nothing to do
+    if ((~_state & flags) == 0) return;  // nothing to do
 
     // TODO this might be wrong
     if (_state & STATE_BBOX) {
@@ -323,20 +339,40 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
         }
     }
 
-    // update cache if enabled
-    if (_cached) {
-        Geom::OptIntRect cl = _drawing.cacheLimit();
-        cl.intersectWith(_drawbox);
-        if (cl) {
-            if (_cache) {
-                // this takes care of invalidation on transform
-                _cache->resizeAndTransform(*cl, ctm_change);
-            } else {
-                _cache = new Inkscape::DrawingCache(*cl);
-                // the cache is initially dirty
-            }
+    // Update cache score for this item
+    if (_has_cache_iterator) {
+        // remove old score information
+        _drawing._candidate_items.erase(_cache_iterator);
+        _has_cache_iterator = false;
+    }
+    double score = _cacheScore();
+    if (score >= _drawing._cache_score_threshold) {
+        CacheRecord cr;
+        cr.score = score;
+        // if _cacheRect() is empty, a negative score will be returnedfrom _cacheScore(),
+        // so this will not execute (cache score threshold must be positive)
+        cr.cache_size = _cacheRect()->area() * 4;
+        cr.item = this;
+        _drawing._candidate_items.push_back(cr);
+        _cache_iterator = --_drawing._candidate_items.end();
+        _has_cache_iterator = true;
+    }
+
+    /* Update cache if enabled.
+     * General note: here we only tell the cache how it has to transform
+     * during the render phase. The transformation is deferred because
+     * after the update the item can have its caching turned off,
+     * e.g. because its filter was removed. This way we avoid tempoerarily
+     * using more memory than the cache budget */
+    if (_cache) {
+        Geom::OptIntRect cl = _cacheRect();
+        if (_visible && cl) { // never create cache for invisible items
+            // this takes care of invalidation on transform
+            _cache->scheduleTransform(*cl, ctm_change);
         } else {
-            // disable cache for this item - not visible
+            // Destroy cache for this item - outside of canvas or invisible.
+            // The opposite transition (invisible -> visible or object
+            // entering the canvas) is handled during the render phase
             delete _cache;
             _cache = NULL;
         }
@@ -377,9 +413,10 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     bool outline = _drawing.outline();
     bool render_filters = _drawing.renderFilters();
 
-    /* If we are invisible, just return successfully */
+    // If we are invisible, return immediately
     if (!_visible) return;
 
+    // TODO convert outline rendering to a separate virtual function
     if (outline) {
         _renderOutline(ct, area, flags);
         return;
@@ -389,10 +426,25 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     Geom::OptIntRect carea = Geom::intersect(area, _drawbox);
     if (!carea) return;
 
-    // render from cache
-    if (_cached && _cache) {
-        if (_cache->paintFromCache(ct, *carea))
-            return;
+    // render from cache if possible
+    if (_cached) {
+        if (_cache) {
+            _cache->prepare();
+            if (_cache->paintFromCache(ct, *carea))
+                return;
+        } else {
+            // There is no cache. This could be because caching of this item
+            // was just turned on after the last update phase, or because
+            // we are outside of the canvas.
+            Geom::OptIntRect cl = _drawing.cacheLimit();
+            cl.intersectWith(_drawbox);
+            if (cl) {
+                _cache = new DrawingCache(*cl);
+            }
+        }
+    } else {
+        // if our caching was turned off after the last update, it was already
+        // deleted in setCached()
     }
 
     // expand carea to contain the dependent area of filters.
@@ -695,6 +747,48 @@ DrawingItem::_setStyleCommon(SPStyle *&_style, SPStyle *style)
         && style->enable_background.value == SP_CSS_BACKGROUND_NEW) {
         _background_new = true;
     }*/
+
+    // TODO: STATE_ALL unsets too much
+    _markForUpdate(STATE_ALL, false);
+}
+
+double
+DrawingItem::_cacheScore()
+{
+    Geom::OptIntRect cache_rect = _cacheRect();
+    if (!cache_rect) return -1.0;
+
+    // a crude first approximation:
+    // the basic score is the number of pixels in the drawbox
+    double score = cache_rect->area();
+    // this is multiplied by the filter complexity and its expansion
+    if (_filter &&_drawing.renderFilters()) {
+        score *= _filter->complexity(_ctm);
+        Geom::IntRect ref_area = Geom::IntRect::from_xywh(0, 0, 16, 16);
+        Geom::IntRect test_area = ref_area;
+        Geom::IntRect limit_area(0, INT_MIN, 16, INT_MAX);
+        _filter->area_enlarge(test_area, this);
+        // area_enlarge never shrinks the rect, so the result of intersection below
+        // must be non-empty
+        score *= double((test_area & limit_area)->area()) / ref_area.area();
+    }
+    // if the object is clipped, add 1/2 of its bbox pixels
+    if (_clip && _clip->_bbox) {
+        score += _clip->_bbox->area() * 0.5;
+    }
+    // if masked, add mask score
+    if (_mask) {
+        score += _mask->_cacheScore();
+    }
+    g_message("caching score: %f", score);
+    return score;
+}
+
+Geom::OptIntRect
+DrawingItem::_cacheRect()
+{
+    Geom::OptIntRect r = _drawbox & _drawing.cacheLimit();
+    return r;
 }
 
 } // end namespace Inkscape

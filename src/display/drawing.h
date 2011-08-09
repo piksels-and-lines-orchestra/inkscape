@@ -13,6 +13,7 @@
 #define SEEN_INKSCAPE_DISPLAY_DRAWING_H
 
 #include <set>
+#include <boost/operators.hpp>
 #include <boost/utility.hpp>
 #include <sigc++/sigc++.h>
 #include <2geom/rect.h>
@@ -22,17 +23,17 @@
 
 namespace Inkscape {
 
-struct OutlineColors {
-    guint32 paths;
-    guint32 clippaths;
-    guint32 masks;
-    guint32 images;
-};
-
 class Drawing
     : boost::noncopyable
 {
 public:
+    struct OutlineColors {
+        guint32 paths;
+        guint32 clippaths;
+        guint32 masks;
+        guint32 images;
+    };
+
     Drawing(SPCanvasArena *arena = NULL);
     ~Drawing();
 
@@ -66,8 +67,13 @@ public:
     sigc::signal<void, DrawingItem *> signal_item_deleted;
 
 private:
+    void _reportCacheScore(CacheRecord const &);
+
+    typedef std::list<CacheRecord> CandidateList;
+
     DrawingItem *_root;
-    std::set<DrawingItem *> _cached_items;
+    std::set<DrawingItem *> _cached_items; // modified by DrawingItem::setCached()
+    CacheList _candidate_items;
 public:
     // TODO: remove these temporarily public members
     guint32 outlinecolor;
@@ -80,9 +86,12 @@ private:
     int _filter_quality;
     Geom::OptIntRect _cache_limit;
 
-    OutlineColors _colors;
+    double _cache_score_threshold; ///< do not consider objects for caching below this score
+    size_t _cache_budget; ///< maximum allowed size of cache
 
-    SPCanvasArena *_canvasarena; // may be NULL is this arena is not the screen but used for export etc.
+    OutlineColors _colors;
+    SPCanvasArena *_canvasarena; // may be NULL is this arena is not the screen
+                                 // but used for export etc.
 
     friend class DrawingItem;
 };

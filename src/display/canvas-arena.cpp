@@ -105,7 +105,7 @@ sp_canvas_arena_init (SPCanvasArena *arena)
 
     Inkscape::DrawingGroup *root = new DrawingGroup(arena->drawing);
     root->setPickChildren(true);
-    root->setCached(true);
+    root->setCached(true, true);
     arena->drawing.setRoot(root);
 
     arena->drawing.signal_request_update.connect(

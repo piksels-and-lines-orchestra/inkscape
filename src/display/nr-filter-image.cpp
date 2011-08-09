@@ -196,6 +196,12 @@ bool FilterImage::can_handle_affine(Geom::Affine const &)
     return true;
 }
 
+double FilterImage::complexity(Geom::Affine const &)
+{
+    // TODO: right now we cannot actually measure this in any meaningful way.
+    return 1.1;
+}
+
 void FilterImage::set_href(const gchar *href){
     if (feImageHref) g_free (feImageHref);
     feImageHref = (href) ? g_strdup (href) : NULL;

@@ -12,7 +12,9 @@
 #ifndef SEEN_INKSCAPE_DISPLAY_DRAWING_ITEM_H
 #define SEEN_INKSCAPE_DISPLAY_DRAWING_ITEM_H
 
+#include <list>
 #include <exception>
+#include <boost/operators.hpp>
 #include <boost/utility.hpp>
 #include <boost/intrusive/list.hpp>
 #include <2geom/rect.h>
@@ -26,6 +28,18 @@ namespace Inkscape {
 struct UpdateContext {
     Geom::Affine ctm;
 };
+
+struct CacheRecord
+    : boost::totally_ordered<CacheRecord>
+{
+    bool operator<(CacheRecord const &other) const { return score < other.score; }
+    bool operator==(CacheRecord const &other) const { return score == other.score; }
+    operator DrawingItem *() const { return item; }
+    double score;
+    size_t cache_size;
+    DrawingItem *item;
+};
+typedef std::list<CacheRecord> CacheList;
 
 class InvalidItemException : public std::exception {
     virtual const char *what() const throw() {
@@ -72,7 +86,7 @@ public:
     bool sensitive() const { return _sensitive; }
     void setSensitive(bool v);
     bool cached() const { return _cached; }
-    void setCached(bool c);
+    void setCached(bool c, bool persistent = false);
 
     void setOpacity(float opacity);
     void setTransform(Geom::Affine const &trans);
@@ -96,6 +110,8 @@ protected:
     void _markForUpdate(unsigned state, bool propagate);
     void _markForRendering();
     void _setStyleCommon(SPStyle *&_style, SPStyle *style);
+    double _cacheScore();
+    Geom::OptIntRect _cacheRect();
     virtual unsigned _updateItem(Geom::IntRect const &area, UpdateContext const &ctx,
                                  unsigned flags, unsigned reset) { return 0; }
     virtual void _renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags) {}
@@ -133,10 +149,14 @@ protected:
     void *_user_data; ///< Used to associate DrawingItems with SPItems that created them
     DrawingCache *_cache;
 
+    CacheList::iterator _cache_iterator;
+
     unsigned _state : 8;
     unsigned _visible : 1;
     unsigned _sensitive : 1; ///< Whether this item responds to events
     unsigned _cached : 1; ///< Whether the rendering is stored for reuse
+    unsigned _cached_persistent : 1; ///< If set, will always be cached regardless of score
+    unsigned _has_cache_iterator : 1; ///< If set, _cache_list_pos is valid
     unsigned _propagate : 1; ///< Whether to call update for all children on next update
     //unsigned _renders_opacity : 1; ///< Whether object needs temporary surface for opacity
     unsigned _clip_child : 1; ///< If set, this is not a child of _parent, but a clipping path
