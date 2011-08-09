@@ -76,10 +76,8 @@ DrawingItem::~DrawingItem()
     //    g_warning("Removing item with children");
     //}
 
-    // remove from the set of cached items
-    if (_cached) {
-        _drawing._cached_items.erase(this);
-    }
+    // remove from the set of cached items and delete cache
+    setCached(false, true);
     if (_has_cache_iterator) {
         _drawing._candidate_items.erase(_cache_iterator);
     }
