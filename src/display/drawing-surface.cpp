@@ -193,7 +193,6 @@ DrawingCache::markClean(Geom::IntRect const &area)
 void
 DrawingCache::scheduleTransform(Geom::IntRect const &new_area, Geom::Affine const &trans)
 {
-    if (new_area.hasZeroArea() && trans.isIdentity()) return;
     _pending_area = new_area;
     _pending_transform *= trans;
 }
@@ -205,15 +204,12 @@ DrawingCache::prepare()
 {
     Geom::IntRect old_area = pixelArea();
     bool is_identity = _pending_transform.isIdentity();
-    if (is_identity) {
-        if (_pending_area == old_area) return;
-    }
+    if (is_identity && _pending_area == old_area) return; // no change
 
     bool is_integer_translation = false;
     if (!is_identity && _pending_transform.isTranslation()) {
         Geom::IntPoint t = _pending_transform.translation().round();
         if (Geom::are_near(Geom::Point(t), _pending_transform.translation())) {
-            // integer translation or identity with change of area
             is_integer_translation = true;
             cairo_region_translate(_clean_region, t[X], t[Y]);
             if (old_area + t == _pending_area) {

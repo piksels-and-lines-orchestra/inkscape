@@ -296,7 +296,7 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     if ((~_state & flags) == 0) return;  // nothing to do
 
     // TODO this might be wrong
-    if (_state & STATE_BBOX) {
+    if (_state & (outline ? STATE_BBOX : STATE_DRAWBOX)) {
         // we have up-to-date bbox
         if (!area.intersects(outline ? _bbox : _drawbox)) return;
     }
@@ -310,6 +310,7 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     _ctm = child_ctx.ctm;
 
     // update _bbox
+    unsigned old_state = _state;
     _state = _updateItem(area, child_ctx, flags, reset);
 
     // compute drawbox
@@ -349,7 +350,7 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     if (score >= _drawing._cache_score_threshold) {
         CacheRecord cr;
         cr.score = score;
-        // if _cacheRect() is empty, a negative score will be returnedfrom _cacheScore(),
+        // if _cacheRect() is empty, a negative score will be returned from _cacheScore(),
         // so this will not execute (cache score threshold must be positive)
         cr.cache_size = _cacheRect()->area() * 4;
         cr.item = this;
@@ -381,7 +382,8 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     // now that we know drawbox, dirty the corresponding rect on canvas
     // unless filtered, groups do not need to render by themselves, only their members
     if (!is_drawing_group(this) || (_filter && render_filters)) {
-        if (flags & ~STATE_CACHE) {
+        // mark for rendering if the item becomes renderable
+        if ((old_state ^ _state) & STATE_RENDER) {
             _markForRendering();
         }
     }
@@ -501,7 +503,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     }
 
     // iarea is the bounding box for intermediate rendering
-    // Note 1: pixels inside iarea but outside carea might be invalid
+    // Note 1: Pixels inside iarea but outside carea are invalid
     //         (incomplete filter dependence region).
     // Note 2: We only need to render carea of clip and mask, but
     //         iarea of the object.
@@ -665,11 +667,14 @@ DrawingItem::pick(Geom::Point const &p, double delta, bool sticky)
     if (!sticky && !(_visible && _sensitive))
         return NULL;
 
-    if (!_bbox) return NULL;
-    Geom::Rect expanded(*_bbox);
-    expanded.expandBy(delta);
+    // some part of the shape might be hidden by clipping
+    // TODO add Geom::OptRect(Geom::OptIntRect const &) constructor
+    Geom::OptIntRect expanded_i = _bbox & _drawbox;
+    Geom::OptRect expanded = expanded_i ? Geom::Rect(*expanded_i) : Geom::OptRect();
+    if (!expanded) return NULL;
+    expanded->expandBy(delta);
 
-    if (expanded.contains(p)) {
+    if (expanded->contains(p)) {
         return _pickItem(p, delta, sticky);
     }
     return NULL;
