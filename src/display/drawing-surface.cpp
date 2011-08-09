@@ -9,7 +9,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <iostream>
+//#include <iostream>
 #include "display/drawing-surface.h"
 #include "display/drawing-context.h"
 #include "display/cairo-utils.h"
@@ -263,7 +263,7 @@ DrawingCache::prepare()
         cairo_rectangle_int_t limit = _convertRect(_pending_area);
         cairo_region_intersect_rectangle(_clean_region, &limit);
     }
-    std::cout << _pending_transform << old_area << _pending_area << std::endl;
+    //std::cout << _pending_transform << old_area << _pending_area << std::endl;
     _pending_transform.setIdentity();
 }
 

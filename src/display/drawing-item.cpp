@@ -780,7 +780,7 @@ DrawingItem::_cacheScore()
     if (_mask) {
         score += _mask->_cacheScore();
     }
-    g_message("caching score: %f", score);
+    //g_message("caching score: %f", score);
     return score;
 }
 
