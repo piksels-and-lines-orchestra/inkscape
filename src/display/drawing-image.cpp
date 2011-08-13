@@ -196,7 +196,7 @@ distance_to_segment (Geom::Point const &p, Geom::Point const &a1, Geom::Point co
 }
 
 DrawingItem *
-DrawingImage::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
+DrawingImage::_pickItem(Geom::Point const &p, double delta, unsigned /*sticky*/)
 {
     if (!_pixbuf) return NULL;
 

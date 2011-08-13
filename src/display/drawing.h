@@ -60,7 +60,7 @@ public:
 
     void update(Geom::IntRect const &area = Geom::IntRect::infinite(), UpdateContext const &ctx = UpdateContext(), unsigned flags = DrawingItem::STATE_ALL, unsigned reset = 0);
     void render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags = 0);
-    DrawingItem *pick(Geom::Point const &p, double delta, bool sticky);
+    DrawingItem *pick(Geom::Point const &p, double delta, unsigned flags);
 
     sigc::signal<void, DrawingItem *> signal_request_update;
     sigc::signal<void, Geom::IntRect const &> signal_request_render;

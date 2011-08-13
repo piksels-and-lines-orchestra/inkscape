@@ -112,10 +112,10 @@ DrawingGroup::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
 }
 
 DrawingItem *
-DrawingGroup::_pickItem(Geom::Point const &p, double delta, bool sticky)
+DrawingGroup::_pickItem(Geom::Point const &p, double delta, unsigned flags)
 {
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
-        DrawingItem *picked = i->pick(p, delta, sticky);
+        DrawingItem *picked = i->pick(p, delta, flags);
         if (picked) {
             return _pick_children ? picked : this;
         }

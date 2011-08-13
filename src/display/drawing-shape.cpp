@@ -232,7 +232,7 @@ DrawingShape::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
 }
 
 DrawingItem *
-DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
+DrawingShape::_pickItem(Geom::Point const &p, double delta, unsigned flags)
 {
     if (_repick_after > 0)
         --_repick_after;
@@ -264,8 +264,9 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
 
     double dist = Geom::infinity();
     int wind = 0;
-    bool needfill = (_nrstyle.fill.type != NRStyle::PAINT_NONE 
+    bool needfill = (flags & PICK_AS_CLIP) || (_nrstyle.fill.type != NRStyle::PAINT_NONE 
              && _nrstyle.fill.opacity > 1e-3 && !outline);
+    bool wind_evenodd = (flags & PICK_AS_CLIP) ? (_style->clip_rule.computed == SP_WIND_RULE_EVENODD) : (_style->fill_rule.computed == SP_WIND_RULE_EVENODD);
 
     if (_drawing.arena()) {
         Geom::Rect viewbox = _drawing.arena()->item.canvas->getViewbox();
@@ -285,13 +286,13 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
 
     // covered by fill?
     if (needfill) {
-        if (!_style->fill_rule.computed) {
-            if (wind != 0) {
+        if (wind_evenodd) {
+            if (wind & 0x1) {
                 _last_pick = this;
                 return this;
             }
         } else {
-            if (wind & 0x1) {
+            if (wind != 0) {
                 _last_pick = this;
                 return this;
             }
@@ -309,7 +310,7 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
 
     // if not picked on the shape itself, try its markers
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
-        DrawingItem *ret = i->pick(p, delta, false);
+        DrawingItem *ret = i->pick(p, delta, flags & ~PICK_STICKY);
         if (ret) {
             _last_pick = this;
             return this;

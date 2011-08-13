@@ -102,7 +102,7 @@ DrawingGlyphs::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, 
 }
 
 DrawingItem *
-DrawingGlyphs::_pickItem(Geom::Point const &p, double delta, bool /*sticky*/)
+DrawingGlyphs::_pickItem(Geom::Point const &p, double delta, unsigned /*flags*/)
 {
     if (!_font || !_bbox) return NULL;
 
@@ -248,9 +248,9 @@ DrawingText::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
 }
 
 DrawingItem *
-DrawingText::_pickItem(Geom::Point const &p, double delta, bool sticky)
+DrawingText::_pickItem(Geom::Point const &p, double delta, unsigned flags)
 {
-    DrawingItem *picked = DrawingGroup::_pickItem(p, delta, sticky);
+    DrawingItem *picked = DrawingGroup::_pickItem(p, delta, flags);
     if (picked) return this;
     return NULL;
 }

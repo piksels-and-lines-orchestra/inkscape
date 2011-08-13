@@ -284,7 +284,7 @@ Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
 
 double Filter::complexity(Geom::Affine const &ctm)
 {
-    double factor;
+    double factor = 1.0;
     for (unsigned i = 0 ; i < _primitive.size() ; i++) {
         if (_primitive[i]) {
             double f = _primitive[i]->complexity(ctm);

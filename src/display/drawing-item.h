@@ -58,12 +58,16 @@ public:
     };
     enum StateFlags {
         STATE_NONE = 0,
-        STATE_BBOX = (1<<0),    // geometric bounding box is up-to-date
-        STATE_DRAWBOX = (1<<1), // visual bounding box is up-to-date
-        STATE_CACHE = (1<<2),   // cache extents and clean area are up-to-date
-        STATE_PICK = (1<<3),    // can process pick requests
-        STATE_RENDER = (1<<4),  // can be rendered
-        STATE_ALL = (1<<5)-1
+        STATE_BBOX = (1<<0),    // bounding boxes are up-to-date
+        STATE_CACHE = (1<<1),   // cache extents and clean area are up-to-date
+        STATE_PICK = (1<<2),    // can process pick requests
+        STATE_RENDER = (1<<3),  // can be rendered
+        STATE_ALL = (1<<4)-1
+    };
+    enum PickFlags {
+        PICK_NORMAL = 0, // normal pick
+        PICK_STICKY = (1<<0), // sticky pick - ignore visibility and sensitivity
+        PICK_AS_CLIP = (1<<2) // pick with no stroke and opaque fill regardless of item style
     };
 
     DrawingItem(Drawing &drawing);
@@ -103,9 +107,19 @@ public:
     void update(Geom::IntRect const &area = Geom::IntRect::infinite(), UpdateContext const &ctx = UpdateContext(), unsigned flags = STATE_ALL, unsigned reset = 0);
     void render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags = 0);
     void clip(DrawingContext &ct, Geom::IntRect const &area);
-    DrawingItem *pick(Geom::Point const &p, double delta, bool sticky);
+    DrawingItem *pick(Geom::Point const &p, double delta, unsigned flags = 0);
 
 protected:
+    enum ChildType {
+        CHILD_ORPHAN = 0, // no parent
+        CHILD_NORMAL = 1, // contained in _children of parent
+        CHILD_CLIP = 2, // referenced by _clip member of parent
+        CHILD_MASK = 3, // referenced by _mask member of parent
+        CHILD_ROOT = 4, // root item of _drawing
+        CHILD_FILL_PATTERN = 5, // not yet implemented: referenced by fill pattern of parent
+        CHILD_STROKE_PATTERN = 6 // not yet implemented: referenced by stroke pattern of parent
+    };
+
     void _renderOutline(DrawingContext &ct, Geom::IntRect const &area, unsigned flags);
     void _markForUpdate(unsigned state, bool propagate);
     void _markForRendering();
@@ -116,7 +130,7 @@ protected:
                                  unsigned flags, unsigned reset) { return 0; }
     virtual void _renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags) {}
     virtual void _clipItem(DrawingContext &ct, Geom::IntRect const &area) {}
-    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, bool sticky = false) { return NULL; }
+    virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, unsigned flags) { return NULL; }
     virtual bool _canClip() { return false; }
 
     // member variables start here
@@ -152,23 +166,18 @@ protected:
     CacheList::iterator _cache_iterator;
 
     unsigned _state : 8;
+    unsigned _child_type : 3; // see ChildType enum
     unsigned _visible : 1;
     unsigned _sensitive : 1; ///< Whether this item responds to events
     unsigned _cached : 1; ///< Whether the rendering is stored for reuse
     unsigned _cached_persistent : 1; ///< If set, will always be cached regardless of score
-    unsigned _has_cache_iterator : 1; ///< If set, _cache_list_pos is valid
+    unsigned _has_cache_iterator : 1; ///< If set, _cache_iterator is valid
     unsigned _propagate : 1; ///< Whether to call update for all children on next update
     //unsigned _renders_opacity : 1; ///< Whether object needs temporary surface for opacity
-    unsigned _clip_child : 1; ///< If set, this is not a child of _parent, but a clipping path
-    unsigned _mask_child : 1; ///< If set, this is not a child of _parent, but a mask
-    unsigned _drawing_root : 1; ///< If set, this is the root item of Drawing
     unsigned _pick_children : 1; ///< For groups: if true, children are returned from pick(),
                                  ///  otherwise the group is returned
 
     friend class Drawing;
-
-private:
-    DrawingItem(DrawingItem const &);
 };
 
 struct DeleteDisposer {

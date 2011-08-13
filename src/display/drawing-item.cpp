@@ -55,6 +55,7 @@ DrawingItem::DrawingItem(Drawing &drawing)
     , _user_data(NULL)
     , _cache(NULL)
     , _state(0)
+    , _child_type(CHILD_ORPHAN)
     , _visible(true)
     , _sensitive(true)
     , _cached(0)
@@ -62,9 +63,6 @@ DrawingItem::DrawingItem(Drawing &drawing)
     , _has_cache_iterator(0)
     , _propagate(0)
 //    , _renders_opacity(0)
-    , _clip_child(0)
-    , _mask_child(0)
-    , _drawing_root(0)
     , _pick_children(0)
 {
 }
@@ -85,19 +83,29 @@ DrawingItem::~DrawingItem()
     // due to the effect of clearChildren(), this only happens for the top-level deleted item
     if (_parent) {
         _markForRendering();
+    }
+
+    switch (_child_type) {
+    case CHILD_NORMAL: {
+        ChildrenList::iterator ithis = _parent->_children.iterator_to(*this);
+        _parent->_children.erase(ithis);
+        } break;
+    case CHILD_CLIP:
         // we cannot call setClip(NULL) or setMask(NULL),
         // because that would be an endless loop
-        if (_clip_child) {
-            _parent->_clip = NULL;
-        } else if (_mask_child) {
-            _parent->_mask = NULL;
-        } else {
-            ChildrenList::iterator ithis = _parent->_children.iterator_to(*this);
-            _parent->_children.erase(ithis);
-        }
-        _parent->_markForUpdate(STATE_ALL, false);
-    } else if (_drawing_root) {
+        _parent->_clip = NULL;
+        break;
+    case CHILD_MASK:
+        _parent->_mask = NULL;
+        break;
+    case CHILD_ROOT:
         _drawing._root = NULL;
+        break;
+    default: ;
+    }
+
+    if (_parent) {
+        _parent->_markForUpdate(STATE_ALL, false);
     }
     clearChildren();
     delete _transform;
@@ -118,6 +126,8 @@ void
 DrawingItem::appendChild(DrawingItem *item)
 {
     item->_parent = this;
+    assert(item->_child_type == CHILD_ORPHAN);
+    item->_child_type = CHILD_NORMAL;
     _children.push_back(*item);
     _markForUpdate(STATE_ALL, false);
 }
@@ -126,6 +136,8 @@ void
 DrawingItem::prependChild(DrawingItem *item)
 {
     item->_parent = this;
+    assert(item->_child_type == CHILD_ORPHAN);
+    item->_child_type = CHILD_NORMAL;
     _children.push_front(*item);
     _markForUpdate(STATE_ALL, false);
 }
@@ -139,6 +151,7 @@ DrawingItem::clearChildren()
     // from which they have already been removed by clear_and_dispose
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
         i->_parent = NULL;
+        i->_child_type = CHILD_ORPHAN;
     }
     _children.clear_and_dispose(DeleteDisposer());
 }
@@ -217,7 +230,8 @@ DrawingItem::setClip(DrawingItem *item)
     _clip = item;
     if (item) {
         item->_parent = this;
-        item->_clip_child = true;
+        assert(item->_child_type == CHILD_ORPHAN);
+        item->_child_type = CHILD_CLIP;
     }
     _markForUpdate(STATE_ALL, true);
 }
@@ -230,7 +244,8 @@ DrawingItem::setMask(DrawingItem *item)
     _mask = item;
         if (item) {
         item->_parent = this;
-        item->_mask_child = true;
+        assert(item->_child_type == CHILD_ORPHAN);
+        item->_child_type = CHILD_MASK;
     }
     _markForUpdate(STATE_ALL, true);
 }
@@ -294,7 +309,7 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     if ((~_state & flags) == 0) return;  // nothing to do
 
     // TODO this might be wrong
-    if (_state & (outline ? STATE_BBOX : STATE_DRAWBOX)) {
+    if (_state & STATE_BBOX) {
         // we have up-to-date bbox
         if (!area.intersects(outline ? _bbox : _drawbox)) return;
     }
@@ -655,25 +670,39 @@ DrawingItem::clip(Inkscape::DrawingContext &ct, Geom::IntRect const &area)
  *               When true, invisible and insensitive objects can also be picked.
  */
 DrawingItem *
-DrawingItem::pick(Geom::Point const &p, double delta, bool sticky)
+DrawingItem::pick(Geom::Point const &p, double delta, unsigned flags)
 {
     // Sometimes there's no BBOX in state, reason unknown (bug 992817)
     // I made this not an assert to remove the warning
     if (!(_state & STATE_BBOX) || !(_state & STATE_PICK))
         return NULL;
-
-    if (!sticky && !(_visible && _sensitive))
+    // ignore invisible and insensitive items unless sticky
+    if (!(flags & PICK_STICKY) && !(_visible && _sensitive))
         return NULL;
 
-    // some part of the shape might be hidden by clipping
-    // TODO add Geom::OptRect(Geom::OptIntRect const &) constructor
-    Geom::OptIntRect expanded_i = _bbox & _drawbox;
-    Geom::OptRect expanded = expanded_i ? Geom::Rect(*expanded_i) : Geom::OptRect();
-    if (!expanded) return NULL;
-    expanded->expandBy(delta);
+    bool outline = _drawing.outline();
 
-    if (expanded->contains(p)) {
-        return _pickItem(p, delta, sticky);
+    if (!_drawing.outline()) {
+        // pick inside clipping path; if NULL, it means the object is clipped away there
+        if (_clip) {
+            DrawingItem *cpick = _clip->pick(p, delta, flags | PICK_AS_CLIP);
+            if (!cpick) return NULL;
+        }
+        // same for mask
+        if (_mask) {
+            DrawingItem *mpick = _mask->pick(p, delta, flags);
+            if (!mpick) return NULL;
+        }
+    }
+
+    Geom::OptIntRect box = (outline || (flags & PICK_AS_CLIP)) ? _bbox : _drawbox;
+    if (!box) return NULL;
+
+    Geom::Rect expanded = *box;
+    expanded.expandBy(delta);
+
+    if (expanded.contains(p)) {
+        return _pickItem(p, delta, flags);
     }
     return NULL;
 }

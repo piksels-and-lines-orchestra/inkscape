@@ -42,7 +42,10 @@ Drawing::setRoot(DrawingItem *item)
 {
     delete _root;
     _root = item;
-    _root->_drawing_root = true;
+    if (item) {
+        assert(item->_child_type == DrawingItem::CHILD_ORPHAN);
+        item->_child_type = DrawingItem::CHILD_ROOT;
+    }
 }
 
 RenderMode
@@ -168,10 +171,10 @@ Drawing::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 }
 
 DrawingItem *
-Drawing::pick(Geom::Point const &p, double delta, bool sticky)
+Drawing::pick(Geom::Point const &p, double delta, unsigned flags)
 {
     if (_root) {
-        return _root->pick(p, delta, sticky);
+        return _root->pick(p, delta, flags);
     }
     return NULL;
 }
