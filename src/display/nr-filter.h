@@ -167,6 +167,9 @@ public:
     // returns cache score factor
     double complexity(Geom::Affine const &ctm);
 
+    // says whether the filter accesses any of the background images
+    bool uses_background();
+
     /** Creates a new filter with space for one filter element */
     Filter();
     /** 

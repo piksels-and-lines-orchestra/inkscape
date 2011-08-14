@@ -294,6 +294,16 @@ double Filter::complexity(Geom::Affine const &ctm)
     return factor;
 }
 
+bool Filter::uses_background()
+{
+    for (unsigned i = 0 ; i < _primitive.size() ; i++) {
+        if (_primitive[i] && _primitive[i]->uses_background()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* Constructor table holds pointers to static methods returning filter
  * primitives. This table is indexed with FilterPrimitiveType, so that
  * for example method in _constructor[NR_FILTER_GAUSSIANBLUR]

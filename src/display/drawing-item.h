@@ -62,7 +62,8 @@ public:
         STATE_CACHE = (1<<1),   // cache extents and clean area are up-to-date
         STATE_PICK = (1<<2),    // can process pick requests
         STATE_RENDER = (1<<3),  // can be rendered
-        STATE_ALL = (1<<4)-1
+        STATE_BACKGROUND = (1<<4), // filter background data is up to date
+        STATE_ALL = (1<<5)-1
     };
     enum PickFlags {
         PICK_NORMAL = 0, // normal pick
@@ -123,6 +124,7 @@ protected:
     void _renderOutline(DrawingContext &ct, Geom::IntRect const &area, unsigned flags);
     void _markForUpdate(unsigned state, bool propagate);
     void _markForRendering();
+    void _invalidateFilterBackground(Geom::IntRect const &area);
     void _setStyleCommon(SPStyle *&_style, SPStyle *style);
     double _cacheScore();
     Geom::OptIntRect _cacheRect();
@@ -166,7 +168,11 @@ protected:
     CacheList::iterator _cache_iterator;
 
     unsigned _state : 8;
+    unsigned _propagate_state : 8;
     unsigned _child_type : 3; // see ChildType enum
+    unsigned _background_new : 1; ///< Whether enable-background: new is set for this element
+    unsigned _background_accumulate : 1; ///< Whether this element accumulates background 
+                                         ///  (has any ancestor with enable-background: new)
     unsigned _visible : 1;
     unsigned _sensitive : 1; ///< Whether this item responds to events
     unsigned _cached : 1; ///< Whether the rendering is stored for reuse

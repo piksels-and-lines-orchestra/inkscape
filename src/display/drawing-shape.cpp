@@ -244,8 +244,9 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, unsigned flags)
     if (!_style) return NULL;
 
     bool outline = _drawing.outline();
+    bool pick_as_clip = flags & PICK_AS_CLIP;
 
-    if (SP_SCALE24_TO_FLOAT(_style->opacity.value) == 0 && !outline) 
+    if (SP_SCALE24_TO_FLOAT(_style->opacity.value) == 0 && !outline && !pick_as_clip) 
         // fully transparent, no pick unless outline mode
         return NULL;
 
@@ -253,9 +254,14 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, unsigned flags)
     g_get_current_time (&tstart);
 
     double width;
-    if (outline) {
-        width = 0.5;
+    if (pick_as_clip) {
+        width = 0; // no width should be applied to clip picking
+                   // this overrides display mode and stroke style considerations
+    } else if (outline) {
+        width = 0.5; // in outline mode, everything is stroked with the same 0.5px line width
     } else if (_nrstyle.stroke.type != NRStyle::PAINT_NONE && _nrstyle.stroke.opacity > 1e-3) {
+        // for normal picking calculate the distance corresponding top the stroke width
+        // FIXME BUG: this is incorrect for transformed strokes
         float const scale = _ctm.descrim();
         width = std::max(0.125f, _nrstyle.stroke_width * scale) / 2;
     } else {
@@ -264,10 +270,12 @@ DrawingShape::_pickItem(Geom::Point const &p, double delta, unsigned flags)
 
     double dist = Geom::infinity();
     int wind = 0;
-    bool needfill = (flags & PICK_AS_CLIP) || (_nrstyle.fill.type != NRStyle::PAINT_NONE 
-             && _nrstyle.fill.opacity > 1e-3 && !outline);
-    bool wind_evenodd = (flags & PICK_AS_CLIP) ? (_style->clip_rule.computed == SP_WIND_RULE_EVENODD) : (_style->fill_rule.computed == SP_WIND_RULE_EVENODD);
+    bool needfill = pick_as_clip || (_nrstyle.fill.type != NRStyle::PAINT_NONE &&
+        _nrstyle.fill.opacity > 1e-3 && !outline);
+    bool wind_evenodd = pick_as_clip ? (_style->clip_rule.computed == SP_WIND_RULE_EVENODD) :
+        (_style->fill_rule.computed == SP_WIND_RULE_EVENODD);
 
+    // actual shape picking
     if (_drawing.arena()) {
         Geom::Rect viewbox = _drawing.arena()->item.canvas->getViewbox();
         viewbox.expandBy (width);

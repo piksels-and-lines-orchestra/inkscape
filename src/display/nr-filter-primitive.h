@@ -12,6 +12,7 @@
 #define SEEN_NR_FILTER_PRIMITIVE_H
 
 #include <2geom/forward.h>
+#include "display/nr-filter-types.h"
 #include "svg/svg-length.h"
 
 struct NRRectL;
@@ -66,6 +67,14 @@ public:
     // returns cache score factor, reflecting the cost of rendering this filter
     // this should return how many times slower this primitive is that normal rendering
     virtual double complexity(Geom::Affine const &/*ctm*/) { return 1.0; }
+    
+    virtual bool uses_background() {
+        if (_input == NR_FILTER_BACKGROUNDIMAGE || _input == NR_FILTER_BACKGROUNDALPHA) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     /**
      * Sets the filter primitive subregion. Passing an unset length

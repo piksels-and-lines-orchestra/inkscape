@@ -56,6 +56,8 @@ DrawingItem::DrawingItem(Drawing &drawing)
     , _cache(NULL)
     , _state(0)
     , _child_type(CHILD_ORPHAN)
+    , _background_new(0)
+    , _background_accumulate(0)
     , _visible(true)
     , _sensitive(true)
     , _cached(0)
@@ -300,10 +302,9 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     bool outline = _drawing.outline();
 
     // Set reset flags according to propagation status
-    if (_propagate) {
-        reset |= ~_state;
-        _propagate = FALSE;
-    }
+    reset |= _propagate_state;
+    _propagate_state = 0;
+
     _state &= ~reset; // reset state of this item
 
     if ((~_state & flags) == 0) return;  // nothing to do
@@ -323,80 +324,91 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     _ctm = child_ctx.ctm;
 
     // update _bbox
-    unsigned old_state = _state;
+    unsigned to_update = _state ^ flags;
     _state = _updateItem(area, child_ctx, flags, reset);
 
-    // compute drawbox
-    if (_filter && render_filters && _item_bbox) {
-        _drawbox = _filter->compute_drawbox(this, *_item_bbox);
-    } else {
-        _drawbox = _bbox;
-    }
-
-    // Clipping
-    if (_clip) {
-        _clip->update(area, child_ctx, flags, reset);
-        if (outline) {
-            _bbox.unionWith(_clip->_bbox);
+    if (to_update & STATE_BBOX) {
+        // compute drawbox
+        if (_filter && render_filters && _item_bbox) {
+            _drawbox = _filter->compute_drawbox(this, *_item_bbox);
         } else {
-            _drawbox.intersectWith(_clip->_bbox);
+            _drawbox = _bbox;
         }
-    }
-    // masking
-    if (_mask) {
-        _mask->update(area, child_ctx, flags, reset);
-        if (outline) {
-            _bbox.unionWith(_mask->_bbox);
-        } else {
-            // for masking, we need full drawbox of mask
-            _drawbox.intersectWith(_mask->_drawbox);
+
+        // Clipping
+        if (_clip) {
+            _clip->update(area, child_ctx, flags, reset);
+            if (outline) {
+                _bbox.unionWith(_clip->_bbox);
+            } else {
+                _drawbox.intersectWith(_clip->_bbox);
+            }
         }
-    }
-
-    // Update cache score for this item
-    if (_has_cache_iterator) {
-        // remove old score information
-        _drawing._candidate_items.erase(_cache_iterator);
-        _has_cache_iterator = false;
-    }
-    double score = _cacheScore();
-    if (score >= _drawing._cache_score_threshold) {
-        CacheRecord cr;
-        cr.score = score;
-        // if _cacheRect() is empty, a negative score will be returned from _cacheScore(),
-        // so this will not execute (cache score threshold must be positive)
-        cr.cache_size = _cacheRect()->area() * 4;
-        cr.item = this;
-        _drawing._candidate_items.push_back(cr);
-        _cache_iterator = --_drawing._candidate_items.end();
-        _has_cache_iterator = true;
-    }
-
-    /* Update cache if enabled.
-     * General note: here we only tell the cache how it has to transform
-     * during the render phase. The transformation is deferred because
-     * after the update the item can have its caching turned off,
-     * e.g. because its filter was removed. This way we avoid tempoerarily
-     * using more memory than the cache budget */
-    if (_cache) {
-        Geom::OptIntRect cl = _cacheRect();
-        if (_visible && cl) { // never create cache for invisible items
-            // this takes care of invalidation on transform
-            _cache->scheduleTransform(*cl, ctm_change);
-        } else {
-            // Destroy cache for this item - outside of canvas or invisible.
-            // The opposite transition (invisible -> visible or object
-            // entering the canvas) is handled during the render phase
-            delete _cache;
-            _cache = NULL;
+        // Masking
+        if (_mask) {
+            _mask->update(area, child_ctx, flags, reset);
+            if (outline) {
+                _bbox.unionWith(_mask->_bbox);
+            } else {
+                // for masking, we need full drawbox of mask
+                _drawbox.intersectWith(_mask->_drawbox);
+            }
         }
     }
 
-    // now that we know drawbox, dirty the corresponding rect on canvas
-    // unless filtered, groups do not need to render by themselves, only their members
-    if (!is_drawing_group(this) || (_filter && render_filters)) {
-        // mark for rendering if the item becomes renderable
-        if ((old_state ^ _state) & STATE_RENDER) {
+    if (to_update & STATE_CACHE) {
+        // Update cache score for this item
+        if (_has_cache_iterator) {
+            // remove old score information
+            _drawing._candidate_items.erase(_cache_iterator);
+            _has_cache_iterator = false;
+        }
+        double score = _cacheScore();
+        if (score >= _drawing._cache_score_threshold) {
+            CacheRecord cr;
+            cr.score = score;
+            // if _cacheRect() is empty, a negative score will be returned from _cacheScore(),
+            // so this will not execute (cache score threshold must be positive)
+            cr.cache_size = _cacheRect()->area() * 4;
+            cr.item = this;
+            _drawing._candidate_items.push_back(cr);
+            _cache_iterator = --_drawing._candidate_items.end();
+            _has_cache_iterator = true;
+        }
+
+        /* Update cache if enabled.
+         * General note: here we only tell the cache how it has to transform
+         * during the render phase. The transformation is deferred because
+         * after the update the item can have its caching turned off,
+         * e.g. because its filter was removed. This way we avoid tempoerarily
+         * using more memory than the cache budget */
+        if (_cache) {
+            Geom::OptIntRect cl = _cacheRect();
+            if (_visible && cl) { // never create cache for invisible items
+                // this takes care of invalidation on transform
+                _cache->scheduleTransform(*cl, ctm_change);
+            } else {
+                // Destroy cache for this item - outside of canvas or invisible.
+                // The opposite transition (invisible -> visible or object
+                // entering the canvas) is handled during the render phase
+                delete _cache;
+                _cache = NULL;
+            }
+        }
+    }
+
+    if (to_update & STATE_BACKGROUND) {
+        // Update _background_accumulate flag
+        // The code below correctly passes information from _background_new down the tree
+        _background_accumulate = _background_new;
+        if (_child_type == CHILD_NORMAL && _parent->_background_accumulate)
+            _background_accumulate = true;
+    }
+
+    if (to_update & STATE_RENDER) {
+        // now that we know drawbox, dirty the corresponding rect on canvas
+        // unless filtered, groups do not need to render by themselves, only their members
+        if (!is_drawing_group(this) || (_filter && render_filters)) {
             _markForRendering();
         }
     }
@@ -720,12 +732,35 @@ DrawingItem::_markForRendering()
     if (!dirty) return;
 
     // dirty the caches of all parents
+    DrawingItem *bkg_root = NULL;
+
     for (DrawingItem *i = this; i; i = i->_parent) {
         if (i->_cached && i->_cache) {
             i->_cache->markDirty(*dirty);
         }
+        if (i->_background_accumulate) {
+            bkg_root = i;
+        }
+    }
+    
+    if (bkg_root) {
+        bkg_root->_invalidateFilterBackground(*dirty);
     }
     _drawing.signal_request_render.emit(*dirty);
+}
+
+void
+DrawingItem::_invalidateFilterBackground(Geom::IntRect const &area)
+{
+    if (!_drawbox.intersects(area)) return;
+
+    if (_cache && _filter && _filter->uses_background()) {
+        _cache->markDirty(area);
+    }
+
+    for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
+        i->_invalidateFilterBackground(area);
+    }
 }
 
 /** @brief Marks the item as needing a recomputation of internal data.
@@ -745,10 +780,9 @@ DrawingItem::_markForRendering()
 void
 DrawingItem::_markForUpdate(unsigned flags, bool propagate)
 {
-    // we can't simply assign because a previous markForUpdate call
-    // could have had propagate=true even if this one has propagate=false
-    if (propagate)
-        _propagate = true;
+    if (propagate) {
+        _propagate_state |= flags;
+    }
 
     if (_state & flags) {
         _state &= ~flags;
@@ -780,16 +814,23 @@ DrawingItem::_setStyleCommon(SPStyle *&_style, SPStyle *style)
         _filter = NULL;
     }
 
-    /*
-    if (style && style->enable_background.set
-        && style->enable_background.value == SP_CSS_BACKGROUND_NEW) {
-        _background_new = true;
-    }*/
+    if (style && style->enable_background.set) {
+        if (style->enable_background.value == SP_CSS_BACKGROUND_NEW && !_background_new) {
+            _background_new = true;
+            _markForUpdate(STATE_BACKGROUND, true);
+        } else if (style->enable_background.value == SP_CSS_BACKGROUND_ACCUMULATE && _background_new) {
+            _background_new = false;
+            _markForUpdate(STATE_BACKGROUND, true);
+        }
+    }
 
-    // TODO: STATE_ALL unsets too much
     _markForUpdate(STATE_ALL, false);
 }
 
+/** @brief Compute the caching score.
+ *
+ * Higher scores mean the item is more aggresively prioritized for automatic
+ * caching by Inkscape::Drawing. */
 double
 DrawingItem::_cacheScore()
 {
