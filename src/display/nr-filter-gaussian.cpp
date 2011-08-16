@@ -511,7 +511,7 @@ gaussian_pass_IIR(Geom::Dim2 d, double deviation, cairo_surface_t *src, cairo_su
             w, h, b, M, tmpdata, num_threads);
         break;
     default:
-        assert(false);
+        g_warning("gaussian_pass_IIR: unsupported image format");
     };
 }
 
@@ -544,7 +544,7 @@ gaussian_pass_FIR(Geom::Dim2 d, double deviation, cairo_surface_t *src, cairo_su
             w, h, &kernel[0], scr_len, num_threads);
         break;
     default:
-        assert(false);
+        g_warning("gaussian_pass_FIR: unsupported image format");
     };
 }
 

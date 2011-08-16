@@ -23,7 +23,6 @@ namespace Inkscape {
 
 DrawingGlyphs::DrawingGlyphs(Drawing &drawing)
     : DrawingItem(drawing)
-    , _glyph_transform(NULL)
     , _font(NULL)
     , _glyph(0)
 {}
@@ -34,7 +33,6 @@ DrawingGlyphs::~DrawingGlyphs()
         _font->Unref();
         _font = NULL;
     }
-    delete _glyph_transform;
 }
 
 void
@@ -42,12 +40,7 @@ DrawingGlyphs::setGlyph(font_instance *font, int glyph, Geom::Affine const &tran
 {
     _markForRendering();
 
-    if (trans.isIdentity()) {
-        delete _glyph_transform; // delete NULL; is safe
-        _glyph_transform = NULL;
-    } else {
-        _glyph_transform = new Geom::Affine(trans);
-    }
+    setTransform(trans);
 
     if (font) font->Ref();
     if (_font) _font->Unref();
@@ -70,12 +63,7 @@ DrawingGlyphs::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, 
         return STATE_ALL;
     }
 
-    Geom::OptRect b;
-    Geom::Affine t = _glyph_transform ? *_glyph_transform * ctx.ctm : ctx.ctm;
-    _x = t[4];
-    _y = t[5];
-
-    b = bounds_exact_transformed(*_font->PathVector(_glyph), t);
+    Geom::OptRect b = bounds_exact_transformed(*_font->PathVector(_glyph), ctx.ctm);
     if (b && ggroup->_nrstyle.stroke.type != NRStyle::PAINT_NONE) {
         float width, scale;
         scale = ctx.ctm.descrim();
@@ -165,21 +153,19 @@ void
 DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
 {
     if (_drawing.outline()) {
-        DrawingContext::Save save(ct);
         guint32 rgba = _drawing.outlinecolor;
+        Inkscape::DrawingContext::Save save(ct);
         ct.setSource(rgba);
         ct.setTolerance(1.25); // low quality, but good enough for outline mode
-        ct.newPath();
-        ct.transform(_ctm);
 
         for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
             DrawingGlyphs *g = dynamic_cast<DrawingGlyphs *>(&*i);
             if (!g) throw InvalidItemException();
 
             Inkscape::DrawingContext::Save save(ct);
-            if (g->_glyph_transform) {
-                ct.transform(*g->_glyph_transform);
-            }
+            // skip glpyhs with singular transforms
+            if (g->_ctm.isSingular()) continue;
+            ct.transform(g->_ctm);
             ct.path(*g->_font->PathVector(g->_glyph));
             ct.fill();
         }
@@ -188,9 +174,6 @@ DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned
 
     // NOTE: this is very similar to drawing-shape.cpp; the only difference is in path feeding
     bool has_stroke, has_fill;
-
-    Inkscape::DrawingContext::Save save(ct);
-    ct.transform(_ctm);
 
     has_fill   = _nrstyle.prepareFill(ct, _paintbox);
     has_stroke = _nrstyle.prepareStroke(ct, _paintbox);
@@ -201,9 +184,8 @@ DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned
             if (!g) throw InvalidItemException();
 
             Inkscape::DrawingContext::Save save(ct);
-            if (g->_glyph_transform) {
-                ct.transform(*g->_glyph_transform);
-            }
+            if (g->_ctm.isSingular()) continue;
+            ct.transform(g->_ctm);
             ct.path(*g->_font->PathVector(g->_glyph));
         }
 
@@ -232,16 +214,13 @@ DrawingText::_clipItem(DrawingContext &ct, Geom::IntRect const &area)
             ct.setFillRule(CAIRO_FILL_RULE_WINDING);
         }
     }
-    ct.transform(_ctm);
 
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
         DrawingGlyphs *g = dynamic_cast<DrawingGlyphs *>(&*i);
         if (!g) throw InvalidItemException();
 
         Inkscape::DrawingContext::Save save(ct);
-        if (g->_glyph_transform) {
-            ct.transform(*g->_glyph_transform);
-        }
+        ct.transform(g->_ctm);
         ct.path(*g->_font->PathVector(g->_glyph));
     }
     ct.fill();

@@ -34,10 +34,8 @@ protected:
                                  unsigned flags, unsigned reset);
     virtual DrawingItem *_pickItem(Geom::Point const &p, double delta, unsigned flags);
 
-    Geom::Affine *_glyph_transform;
     font_instance *_font;
     int _glyph;
-    float _x, _y;
 
     friend class DrawingText;
 };

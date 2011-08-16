@@ -66,8 +66,7 @@ DrawingItem::DrawingItem(Drawing &drawing)
     , _propagate(0)
 //    , _renders_opacity(0)
     , _pick_children(0)
-{
-}
+{}
 
 DrawingItem::~DrawingItem()
 {
@@ -120,7 +119,7 @@ DrawingItem *
 DrawingItem::parent() const
 {
     // initially I wanted to return NULL if we are a clip or mask child,
-    // but the previous behavior was just to return the parent
+    // but the previous behavior was just to return the parent regardless of child type
     return _parent;
 }
 
@@ -442,6 +441,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
 
     // If we are invisible, return immediately
     if (!_visible) return;
+    if (_ctm.isSingular(NR_EPSILON)) return;
 
     // TODO convert outline rendering to a separate virtual function
     if (outline) {

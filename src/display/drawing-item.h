@@ -112,7 +112,7 @@ public:
 
 protected:
     enum ChildType {
-        CHILD_ORPHAN = 0, // no parent
+        CHILD_ORPHAN = 0, // no parent - implies _parent == NULL
         CHILD_NORMAL = 1, // contained in _children of parent
         CHILD_CLIP = 2, // referenced by _clip member of parent
         CHILD_MASK = 3, // referenced by _mask member of parent
