@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 
 typedef struct _SPCanvasArena      SPCanvasArena;
 typedef struct _SPCanvasArenaClass SPCanvasArenaClass;
+struct CacheBudgetObserver;
 
 struct _SPCanvasArena {
     SPCanvasItem item;
@@ -45,6 +46,7 @@ struct _SPCanvasArena {
     Inkscape::DrawingItem *active;
     /* fixme: */
     Inkscape::DrawingItem *picked;
+    CacheBudgetObserver *observer;
     double delta;
 };
 

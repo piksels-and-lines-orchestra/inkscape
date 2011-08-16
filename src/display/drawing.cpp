@@ -26,7 +26,7 @@ Drawing::Drawing(SPCanvasArena *arena)
     , _blur_quality(BLUR_QUALITY_BEST)
     , _filter_quality(Filters::FILTER_QUALITY_BEST)
     , _cache_score_threshold(50000.0)
-    , _cache_budget(128 << 20) // 128 MiB
+    , _cache_budget(0)
     , _canvasarena(arena)
 {
 
@@ -128,6 +128,12 @@ Drawing::setCacheLimit(Geom::OptIntRect const &r)
         (*i)->_markForUpdate(DrawingItem::STATE_CACHE, false);
     }
 }
+void
+Drawing::setCacheBudget(size_t bytes)
+{
+    _cache_budget = bytes;
+    _pickItemsForCaching();
+}
 
 void
 Drawing::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
@@ -136,6 +142,29 @@ Drawing::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned fl
         _root->update(area, ctx, flags, reset);
     }
     // process the updated cache scores
+    _pickItemsForCaching();
+}
+
+void
+Drawing::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+{
+    if (_root) {
+        _root->render(ct, area, flags);
+    }
+}
+
+DrawingItem *
+Drawing::pick(Geom::Point const &p, double delta, unsigned flags)
+{
+    if (_root) {
+        return _root->pick(p, delta, flags);
+    }
+    return NULL;
+}
+
+void
+Drawing::_pickItemsForCaching()
+{
     // we cache the objects with the highest score until the budget is exhausted
     _candidate_items.sort(std::greater<CacheRecord>());
     size_t used = 0;
@@ -160,23 +189,6 @@ Drawing::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigned fl
     for (std::set<DrawingItem*>::iterator j = to_uncache.begin(); j != to_uncache.end(); ++j) {
         (*j)->setCached(false);
     }
-}
-
-void
-Drawing::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
-{
-    if (_root) {
-        _root->render(ct, area, flags);
-    }
-}
-
-DrawingItem *
-Drawing::pick(Geom::Point const &p, double delta, unsigned flags)
-{
-    if (_root) {
-        return _root->pick(p, delta, flags);
-    }
-    return NULL;
 }
 
 } // end namespace Inkscape

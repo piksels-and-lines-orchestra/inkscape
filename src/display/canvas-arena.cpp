@@ -21,6 +21,7 @@
 #include "display/drawing-item.h"
 #include "display/drawing-group.h"
 #include "display/drawing-surface.h"
+#include "preferences.h"
 
 using namespace Inkscape;
 
@@ -47,6 +48,22 @@ static void sp_canvas_arena_request_render (SPCanvasArena *ca, Geom::IntRect con
 
 static SPCanvasItemClass *parent_class;
 static guint signals[LAST_SIGNAL] = {0};
+
+struct CacheBudgetObserver : public Inkscape::Preferences::Observer {
+    CacheBudgetObserver(SPCanvasArena *arena)
+        : Inkscape::Preferences::Observer("/options/renderingcache/size")
+        , _arena(arena)
+    {
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        Inkscape::Preferences::Entry v = prefs->getEntry(observed_path);
+        notify(v);
+        prefs->addObserver(*this);
+    }
+    void notify(Preferences::Entry const &v) {
+        _arena->drawing.setCacheBudget((1 << 20) * v.getIntLimited(128, 0, 4096));
+    }
+    SPCanvasArena *_arena;
+};
 
 GType
 sp_canvas_arena_get_type (void)
@@ -102,6 +119,7 @@ sp_canvas_arena_init (SPCanvasArena *arena)
     arena->sticky = FALSE;
 
     new (&arena->drawing) Inkscape::Drawing(arena);
+    arena->observer = new CacheBudgetObserver(arena);
 
     Inkscape::DrawingGroup *root = new DrawingGroup(arena->drawing);
     root->setPickChildren(true);
@@ -129,6 +147,7 @@ sp_canvas_arena_destroy (GtkObject *object)
 {
     SPCanvasArena *arena = SP_CANVAS_ARENA (object);
 
+    delete arena->observer;
     arena->drawing.~Drawing();
 
     if (GTK_OBJECT_CLASS (parent_class)->destroy)

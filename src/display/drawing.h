@@ -55,6 +55,7 @@ public:
 
     Geom::OptIntRect const &cacheLimit() const;
     void setCacheLimit(Geom::OptIntRect const &r);
+    void setCacheBudget(size_t bytes);
 
     OutlineColors const &colors() const { return _colors; }
 
@@ -67,7 +68,7 @@ public:
     sigc::signal<void, DrawingItem *> signal_item_deleted;
 
 private:
-    void _reportCacheScore(CacheRecord const &);
+    void _pickItemsForCaching();
 
     typedef std::list<CacheRecord> CandidateList;
 
