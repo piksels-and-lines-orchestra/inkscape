@@ -57,7 +57,7 @@ DrawingGroup::setChildTransform(Geom::Affine const &new_trans)
     if (_child_transform) {
         current = *_child_transform;
     }
-    
+
     if (!Geom::are_near(current, new_trans, NR_EPSILON)) {
         // mark the area where the object was for redraw.
         _markForRendering();
@@ -77,11 +77,11 @@ DrawingGroup::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, u
     unsigned beststate = STATE_ALL;
     bool outline = _drawing.outline();
 
+    UpdateContext child_ctx(ctx);
+    if (_child_transform) {
+        child_ctx.ctm = *_child_transform * ctx.ctm;
+    }
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
-        UpdateContext child_ctx(ctx);
-        if (_child_transform) {
-            child_ctx.ctm = *_child_transform * ctx.ctm;
-        }
         i->update(area, child_ctx, flags, reset);
     }
     if (beststate & STATE_BBOX) {

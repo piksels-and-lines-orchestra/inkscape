@@ -72,6 +72,7 @@ protected:
     Geom::IntRect _pending_area;
     Geom::Affine _pending_transform;
 private:
+    void _dumpCache(Geom::OptIntRect const &area);
     static cairo_rectangle_int_t _convertRect(Geom::IntRect const &r);
     static Geom::IntRect _convertRect(cairo_rectangle_int_t const &r);
 };

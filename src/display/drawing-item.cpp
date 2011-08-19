@@ -370,8 +370,8 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
             // so this will not execute (cache score threshold must be positive)
             cr.cache_size = _cacheRect()->area() * 4;
             cr.item = this;
-            _drawing._candidate_items.push_back(cr);
-            _cache_iterator = --_drawing._candidate_items.end();
+            _drawing._candidate_items.push_front(cr);
+            _cache_iterator = _drawing._candidate_items.begin();
             _has_cache_iterator = true;
         }
 
@@ -462,7 +462,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
         } else {
             // There is no cache. This could be because caching of this item
             // was just turned on after the last update phase, or because
-            // we are outside of the canvas.
+            // we were previously outside of the canvas.
             Geom::OptIntRect cl = _drawing.cacheLimit();
             cl.intersectWith(_drawbox);
             if (cl) {
@@ -515,9 +515,8 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
             // 3. copy from cache to output
             Inkscape::DrawingContext::Save save(ct);
             ct.rectangle(*carea);
-            ct.clip();
             ct.setSource(_cache);
-            ct.paint();
+            ct.fill();
             // 4. mark as clean
             _cache->markClean(*carea);
             return;
@@ -591,14 +590,14 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     if (_cached && _cache) {
         DrawingContext cachect(*_cache);
         cachect.rectangle(*carea);
-        cachect.clip();
         cachect.setOperator(CAIRO_OPERATOR_SOURCE);
         cachect.setSource(&intermediate);
-        cachect.paint();
+        cachect.fill();
         _cache->markClean(*carea);
     }
+    ct.rectangle(*carea);
     ct.setSource(&intermediate);
-    ct.paint();
+    ct.fill();
     ct.setSource(0,0,0,0);
     // the call above is to clear a ref on the intermediate surface held by ct
 }
@@ -735,7 +734,10 @@ DrawingItem::_markForRendering()
     DrawingItem *bkg_root = NULL;
 
     for (DrawingItem *i = this; i; i = i->_parent) {
-        if (i->_cached && i->_cache) {
+        if (i != this && i->_filter) {
+            i->_filter->area_enlarge(*dirty, i);
+        }
+        if (i->_cache) {
             i->_cache->markDirty(*dirty);
         }
         if (i->_background_accumulate) {

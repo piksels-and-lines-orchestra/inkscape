@@ -275,24 +275,49 @@ DrawingCache::paintFromCache(DrawingContext &ct, Geom::OptIntRect &area)
     } else {
         cairo_rectangle_int_t to_repaint;
         cairo_region_get_extents(dirty_region, &to_repaint);
-        *area = _convertRect(to_repaint);
+        area = _convertRect(to_repaint);
         cairo_region_subtract_rectangle(cache_region, &to_repaint);
     }
     cairo_region_destroy(dirty_region);
 
     if (!cairo_region_is_empty(cache_region)) {
-        Inkscape::DrawingContext::Save save(ct);
         int nr = cairo_region_num_rectangles(cache_region);
         cairo_rectangle_int_t tmp;
         for (int i = 0; i < nr; ++i) {
             cairo_region_get_rectangle(cache_region, i, &tmp);
             ct.rectangle(_convertRect(tmp));
         }
-        ct.clip();
         ct.setSource(this);
-        ct.paint();
+        ct.fill();
     }
     cairo_region_destroy(cache_region);
+}
+
+// debugging utility
+void
+DrawingCache::_dumpCache(Geom::OptIntRect const &area)
+{
+    static int dumpnr = 0;
+    cairo_surface_t *surface = ink_cairo_surface_copy(_surface);
+    DrawingContext ct(surface, _origin);
+    if (!cairo_region_is_empty(_clean_region)) {
+        Inkscape::DrawingContext::Save save(ct);
+        int nr = cairo_region_num_rectangles(_clean_region);
+        cairo_rectangle_int_t tmp;
+        for (int i = 0; i < nr; ++i) {
+            cairo_region_get_rectangle(_clean_region, i, &tmp);
+            ct.rectangle(_convertRect(tmp));
+        }
+        ct.setSource(0,1,0,0.1);
+        ct.fill();
+    }
+    ct.rectangle(*area);
+    ct.setSource(1,0,0,0.1);
+    ct.fill();
+    char *fn = g_strdup_printf("dump%d.png", dumpnr++);
+    cairo_surface_write_to_png(surface, fn);
+    cairo_surface_destroy(surface);
+    g_free(fn);
 }
 
 cairo_rectangle_int_t
