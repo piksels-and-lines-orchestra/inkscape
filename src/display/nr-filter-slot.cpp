@@ -25,13 +25,13 @@
 namespace Inkscape {
 namespace Filters {
 
-FilterSlot::FilterSlot(DrawingItem *item, DrawingContext &bgct,
+FilterSlot::FilterSlot(DrawingItem *item, DrawingContext *bgct,
         DrawingContext &graphic, FilterUnits const &u)
     : _item(item)
     , _source_graphic(graphic.rawTarget())
-    , _background_ct(bgct.raw())
+    , _background_ct(bgct ? bgct->raw() : NULL)
     , _source_graphic_area(graphic.targetLogicalBounds().roundOutwards()) // fixme
-    , _background_area(bgct.targetLogicalBounds().roundOutwards()) // fixme
+    , _background_area(bgct ? bgct->targetLogicalBounds().roundOutwards() : Geom::IntRect()) // fixme
     , _units(u)
     , _last_out(NR_FILTER_SOURCEGRAPHIC)
     , filterquality(FILTER_QUALITY_BEST)
@@ -152,19 +152,25 @@ cairo_surface_t *FilterSlot::_get_transformed_background()
 {
     Geom::Affine trans = _units.get_matrix_display2pb();
 
-    cairo_surface_t *bg = cairo_get_group_target(_background_ct);
-    cairo_surface_t *tbg = cairo_surface_create_similar(
-        bg, cairo_surface_get_content(bg),
-        _slot_w, _slot_h);
-    cairo_t *tbg_ct = cairo_create(tbg);
+    cairo_surface_t *tbg;
 
-    cairo_translate(tbg_ct, -_slot_x, -_slot_y);
-    ink_cairo_transform(tbg_ct, trans);
-    cairo_translate(tbg_ct, _background_area.left(), _background_area.top());
-    cairo_set_source_surface(tbg_ct, bg, 0, 0);
-    cairo_set_operator(tbg_ct, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(tbg_ct);
-    cairo_destroy(tbg_ct);
+    if (_background_ct) {
+        cairo_surface_t *bg = cairo_get_group_target(_background_ct);
+        tbg = cairo_surface_create_similar(
+            bg, cairo_surface_get_content(bg),
+            _slot_w, _slot_h);
+        cairo_t *tbg_ct = cairo_create(tbg);
+
+        cairo_translate(tbg_ct, -_slot_x, -_slot_y);
+        ink_cairo_transform(tbg_ct, trans);
+        cairo_translate(tbg_ct, _background_area.left(), _background_area.top());
+        cairo_set_source_surface(tbg_ct, bg, 0, 0);
+        cairo_set_operator(tbg_ct, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(tbg_ct);
+        cairo_destroy(tbg_ct);
+    } else {
+        tbg = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, _slot_w, _slot_h);
+    }
 
     return tbg;
 }

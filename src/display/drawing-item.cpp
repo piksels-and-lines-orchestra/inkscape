@@ -123,6 +123,16 @@ DrawingItem::parent() const
     return _parent;
 }
 
+/// Returns true if item is among the descendants. Will return false if item == this.
+bool
+DrawingItem::isAncestorOf(DrawingItem *item) const
+{
+    for (DrawingItem *i = item->_parent; i; i = i->_parent) {
+        if (i == this) return true;
+    }
+    return false;
+}
+
 void
 DrawingItem::appendChild(DrawingItem *item)
 {
@@ -314,6 +324,16 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
         if (!area.intersects(outline ? _bbox : _drawbox)) return;
     }
 
+    // compute which elements need an update
+    unsigned to_update = _state ^ flags;
+
+    // this needs to be called before we recurse into children
+    if (to_update & STATE_BACKGROUND) {
+        _background_accumulate = _background_new;
+        if (_child_type == CHILD_NORMAL && _parent->_background_accumulate)
+            _background_accumulate = true;
+    }
+
     UpdateContext child_ctx(ctx);
     if (_transform) {
         child_ctx.ctm = *_transform * ctx.ctm;
@@ -322,14 +342,13 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
     Geom::Affine ctm_change = _ctm.inverse() * child_ctx.ctm;
     _ctm = child_ctx.ctm;
 
-    // update _bbox
-    unsigned to_update = _state ^ flags;
+    // update _bbox and call this function for children
     _state = _updateItem(area, child_ctx, flags, reset);
 
     if (to_update & STATE_BBOX) {
         // compute drawbox
-        if (_filter && render_filters && _item_bbox) {
-            _drawbox = _filter->compute_drawbox(this, *_item_bbox);
+        if (_filter && render_filters) {
+            _drawbox = _filter->compute_drawbox(this, _item_bbox);
         } else {
             _drawbox = _bbox;
         }
@@ -396,14 +415,6 @@ DrawingItem::update(Geom::IntRect const &area, UpdateContext const &ctx, unsigne
         }
     }
 
-    if (to_update & STATE_BACKGROUND) {
-        // Update _background_accumulate flag
-        // The code below correctly passes information from _background_new down the tree
-        _background_accumulate = _background_new;
-        if (_child_type == CHILD_NORMAL && _parent->_background_accumulate)
-            _background_accumulate = true;
-    }
-
     if (to_update & STATE_RENDER) {
         // now that we know drawbox, dirty the corresponding rect on canvas
         // unless filtered, groups do not need to render by themselves, only their members
@@ -433,32 +444,36 @@ struct MaskLuminanceToAlpha {
  *
  * @param flags Rendering options. This deals mainly with cache control.
  */
-void
-DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+unsigned
+DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flags, DrawingItem *stop_at)
 {
     bool outline = _drawing.outline();
     bool render_filters = _drawing.renderFilters();
 
+    // stop_at is handled in DrawingGroup, but this check is required to handle the case
+    // where a filtered item with background-accessing filter has enable-background: new
+    if (this == stop_at) return RENDER_STOP;
+
     // If we are invisible, return immediately
-    if (!_visible) return;
-    if (_ctm.isSingular(NR_EPSILON)) return;
+    if (!_visible) return RENDER_OK;
+    if (_ctm.isSingular(NR_EPSILON)) return RENDER_OK;
 
     // TODO convert outline rendering to a separate virtual function
     if (outline) {
         _renderOutline(ct, area, flags);
-        return;
+        return RENDER_OK;
     }
 
     // carea is the area to paint
     Geom::OptIntRect carea = Geom::intersect(area, _drawbox);
-    if (!carea) return;
+    if (!carea) return RENDER_OK;
 
     // render from cache if possible
     if (_cached) {
         if (_cache) {
             _cache->prepare();
             _cache->paintFromCache(ct, carea);
-            if (!carea) return;
+            if (!carea) return RENDER_OK;
         } else {
             // There is no cache. This could be because caching of this item
             // was just turned on after the last update phase, or because
@@ -484,6 +499,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     nir |= (_mask != NULL); // 2. it has a mask
     nir |= (_filter != NULL && render_filters); // 3. it has a filter
     nir |= needs_opacity; // 4. it is non-opaque
+    nir |= (_cache != NULL); // 5. it is cached
 
     /* How the rendering is done.
      *
@@ -497,33 +513,12 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
      * to the opacity value.
      */
 
-    // short-circuit the simple case.
-    if (!needs_intermediate_rendering) {
-        if (_cached && _cache) {
-            Inkscape::DrawingContext cachect(*_cache);
-            cachect.rectangle(*carea);
-            cachect.clip();
-
-            {   // 1. clear the corresponding part of cache
-                Inkscape::DrawingContext::Save save(cachect);
-                cachect.setSource(0,0,0,0);
-                cachect.setOperator(CAIRO_OPERATOR_SOURCE);
-                cachect.paint();
-            }
-            // 2. render to cache
-            _renderItem(cachect, *carea, flags);
-            // 3. copy from cache to output
-            Inkscape::DrawingContext::Save save(ct);
-            ct.rectangle(*carea);
-            ct.setSource(_cache);
-            ct.fill();
-            // 4. mark as clean
-            _cache->markClean(*carea);
-            return;
-        } else {
-            _renderItem(ct, *carea, flags);
-            return;
-        }
+    // Short-circuit the simple case.
+    // We also use this path for filter background rendering, because masking, clipping,
+    // filters and opacity do not apply when rendering the ancestors of the filtered
+    // element
+    if ((flags & RENDER_FILTER_BACKGROUND) || !needs_intermediate_rendering) {
+        return _renderItem(ct, *carea, flags & ~RENDER_FILTER_BACKGROUND, stop_at);
     }
 
     // iarea is the bounding box for intermediate rendering
@@ -540,6 +535,7 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
 
     DrawingSurface intermediate(*iarea);
     DrawingContext ict(intermediate);
+    unsigned render_result = RENDER_OK;
 
     // 1. Render clipping path with alpha = opacity.
     ict.setSource(0,0,0,_opacity);
@@ -571,11 +567,27 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
 
     // 3. Render object itself
     ict.pushGroup();
-    _renderItem(ict, *iarea, flags);
+    render_result = _renderItem(ict, *iarea, flags, stop_at);
 
     // 4. Apply filter.
     if (_filter && render_filters) {
-        _filter->render(this, ct, ict);
+        bool rendered = false;
+        if (_filter->uses_background() && _background_accumulate) {
+            DrawingItem *bg_root = this;
+            for (; bg_root; bg_root = bg_root->_parent) {
+                if (bg_root->_background_new) break;
+            }
+            if (bg_root) {
+                DrawingSurface bg(*iarea);
+                DrawingContext bgct(bg);
+                bg_root->render(bgct, *iarea, flags | RENDER_FILTER_BACKGROUND, this);
+                _filter->render(this, ict, &bgct);
+                rendered = true;
+            }
+        }
+        if (!rendered) {
+            _filter->render(this, ict, NULL);
+        }
         // Note that because the object was rendered to a group,
         // the internals of the filter need to use cairo_get_group_target()
         // instead of cairo_get_target().
@@ -600,6 +612,8 @@ DrawingItem::render(DrawingContext &ct, Geom::IntRect const &area, unsigned flag
     ct.fill();
     ct.setSource(0,0,0,0);
     // the call above is to clear a ref on the intermediate surface held by ct
+
+    return render_result;
 }
 
 void
@@ -612,7 +626,7 @@ DrawingItem::_renderOutline(DrawingContext &ct, Geom::IntRect const &area, unsig
 
     // just render everything: item, clip, mask
     // First, render the object itself
-    _renderItem(ct, *carea, flags);
+    _renderItem(ct, *carea, flags, NULL);
 
     // render clip and mask, if any
     guint32 saved_rgba = _drawing.outlinecolor; // save current outline color

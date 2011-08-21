@@ -112,13 +112,13 @@ DrawingImage::_updateItem(Geom::IntRect const &, UpdateContext const &, unsigned
     return STATE_ALL;
 }
 
-void
-DrawingImage::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+unsigned
+DrawingImage::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags, DrawingItem *stop_at)
 {
     bool outline = _drawing.outline();
 
     if (!outline) {
-        if (!_pixbuf) return;
+        if (!_pixbuf) return RENDER_OK;
 
         Inkscape::DrawingContext::Save save(ct);
         ct.transform(_ctm);
@@ -172,6 +172,7 @@ DrawingImage::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigne
         ct.setSource(rgba);
         ct.stroke();
     }
+    return RENDER_OK;
 }
 
 /** Calculates the closest distance from p to the segment a1-a2*/

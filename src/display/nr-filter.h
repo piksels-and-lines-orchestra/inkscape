@@ -34,7 +34,7 @@ public:
      * the results of filter rendering. @a bgarea and @a area specify bounding boxes
      * of both surfaces in world coordinates; Cairo contexts are assumed to be in default state
      * (0,0 = surface origin, no path, OVER operator) */
-    int render(Inkscape::DrawingItem const *item, DrawingContext &bgct, DrawingContext &graphic);
+    int render(Inkscape::DrawingItem const *item, DrawingContext &graphic, DrawingContext *bgct);
 
     /**
      * Creates a new filter primitive under this filter object.
@@ -156,13 +156,13 @@ public:
      * to contain the filter effects region and transforms it to screen
      * coordinates
      */
-    Geom::IntRect compute_drawbox(Inkscape::DrawingItem const *item, Geom::Rect const &item_bbox);
+    Geom::OptIntRect compute_drawbox(Inkscape::DrawingItem const *item, Geom::OptRect const &item_bbox);
     /**
      * Returns the filter effects area in user coordinate system.
      * The given bounding box should be a bounding box as specified in
      * SVG standard and in user coordinate system.
      */
-    Geom::Rect filter_effect_area(Geom::Rect const &bbox);
+    Geom::OptRect filter_effect_area(Geom::OptRect const &bbox);
 
     // returns cache score factor
     double complexity(Geom::Affine const &ctm);

@@ -95,12 +95,29 @@ DrawingGroup::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, u
     return beststate;
 }
 
-void
-DrawingGroup::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+unsigned
+DrawingGroup::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags, DrawingItem *stop_at)
 {
-    for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
-        i->render(ct, area, flags);
+    if (stop_at == NULL) {
+        // normal rendering
+        for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
+            i->render(ct, area, flags, stop_at);
+        }
+    } else {
+        // background rendering
+        for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
+            if (&*i == stop_at) return RENDER_OK; // do not render the stop_at item at all
+            if (i->isAncestorOf(stop_at)) {
+                // render its ancestors without masks, opacity or filters
+                i->render(ct, area, flags | RENDER_FILTER_BACKGROUND, stop_at);
+                // stop further rendering
+                return RENDER_OK;
+            } else {
+                i->render(ct, area, flags, stop_at);
+            }
+        }
     }
+    return RENDER_OK;
 }
 
 void

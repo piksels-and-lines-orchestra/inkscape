@@ -97,7 +97,7 @@ Filter::~Filter()
 }
 
 
-int Filter::render(Inkscape::DrawingItem const *item, DrawingContext &bgct, DrawingContext &graphic)
+int Filter::render(Inkscape::DrawingItem const *item, DrawingContext &graphic, DrawingContext *bgct)
 {
     if (_primitive.empty()) {
         // when no primitives are defined, clear source graphic
@@ -113,28 +113,16 @@ int Filter::render(Inkscape::DrawingItem const *item, DrawingContext &bgct, Draw
 
     Geom::Affine trans = item->ctm();
 
-    Geom::Rect item_bbox;
-    {
-        Geom::OptRect maybe_bbox = item->itemBounds();
-        if (maybe_bbox.isEmpty()) {
-            // Code below needs a bounding box
-            return 1;
-        }
-        item_bbox = *maybe_bbox;
-    }
-    if (item_bbox.hasZeroArea()) {
-        // It's no use to try and filter an empty object.
-        return 1;
-    }
-    Geom::Rect filter_area = filter_effect_area(item_bbox);
+    Geom::OptRect filter_area = filter_effect_area(item->itemBounds());
+    if (!filter_area) return 1;
 
     FilterUnits units(_filter_units, _primitive_units);
     units.set_ctm(trans);
-    units.set_item_bbox(item_bbox);
-    units.set_filter_area(filter_area);
+    units.set_item_bbox(item->itemBounds());
+    units.set_filter_area(*filter_area);
 
     std::pair<double,double> resolution
-        = _filter_resolution(filter_area, trans, filterquality);
+        = _filter_resolution(*filter_area, trans, filterquality);
     if (!(resolution.first > 0 && resolution.second > 0)) {
         // zero resolution - clear source graphic and return
         graphic.setSource(0,0,0,0);
@@ -228,30 +216,36 @@ void Filter::area_enlarge(Geom::IntRect &bbox, Inkscape::DrawingItem const *item
 */
 }
 
-Geom::IntRect Filter::compute_drawbox(Inkscape::DrawingItem const *item, Geom::Rect const &item_bbox) {
+Geom::OptIntRect Filter::compute_drawbox(Inkscape::DrawingItem const *item, Geom::OptRect const &item_bbox) {
 
-    Geom::Rect enlarged = filter_effect_area(item_bbox);
-    enlarged *= item->ctm();
+    Geom::OptRect enlarged = filter_effect_area(item_bbox);
+    if (enlarged) {
+        *enlarged *= item->ctm();
 
-    Geom::IntRect ret(enlarged.roundOutwards());
-    return ret;
+        Geom::OptIntRect ret(enlarged->roundOutwards());
+        return ret;
+    } else {
+        return Geom::OptIntRect();
+    }
 }
 
-Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
+Geom::OptRect Filter::filter_effect_area(Geom::OptRect const &bbox)
 {
     Geom::Point minp, maxp;
-    double len_x = bbox.width();
-    double len_y = bbox.height();
+    double len_x = bbox ? bbox->width() : 0;
+    double len_y = bbox ? bbox->height() : 0;
     /* TODO: fetch somehow the object ex and em lengths */
     _region_x.update(12, 6, len_x);
     _region_y.update(12, 6, len_y);
     _region_width.update(12, 6, len_x);
     _region_height.update(12, 6, len_y);
     if (_filter_units == SP_FILTER_UNITS_OBJECTBOUNDINGBOX) {
+        if (!bbox) return Geom::OptRect();
+
         if (_region_x.unit == SVGLength::PERCENT) {
-            minp[X] = bbox.min()[X] + _region_x.computed;
+            minp[X] = bbox->left() + _region_x.computed;
         } else {
-            minp[X] = bbox.min()[X] + _region_x.computed * len_x;
+            minp[X] = bbox->left() + _region_x.computed * len_x;
         }
         if (_region_width.unit == SVGLength::PERCENT) {
             maxp[X] = minp[X] + _region_width.computed;
@@ -260,9 +254,9 @@ Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
         }
 
         if (_region_y.unit == SVGLength::PERCENT) {
-            minp[Y] = bbox.min()[Y] + _region_y.computed;
+            minp[Y] = bbox->top() + _region_y.computed;
         } else {
-            minp[Y] = bbox.min()[Y] + _region_y.computed * len_y;
+            minp[Y] = bbox->top() + _region_y.computed * len_y;
         }
         if (_region_height.unit == SVGLength::PERCENT) {
             maxp[Y] = minp[Y] + _region_height.computed;
@@ -278,7 +272,7 @@ Geom::Rect Filter::filter_effect_area(Geom::Rect const &bbox)
     } else {
         g_warning("Error in Inkscape::Filters::Filter::filter_effect_area: unrecognized value of _filter_units");
     }
-    Geom::Rect area(minp, maxp);
+    Geom::OptRect area(minp, maxp);
     return area;
 }
 

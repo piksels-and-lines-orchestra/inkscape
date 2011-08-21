@@ -149,8 +149,8 @@ DrawingText::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, un
     return DrawingGroup::_updateItem(area, ctx, flags, reset);
 }
 
-void
-DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+unsigned
+DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags, DrawingItem *stop_at)
 {
     if (_drawing.outline()) {
         guint32 rgba = _drawing.outlinecolor;
@@ -169,7 +169,7 @@ DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned
             ct.path(*g->_font->PathVector(g->_glyph));
             ct.fill();
         }
-        return;
+        return RENDER_OK;
     }
 
     // NOTE: this is very similar to drawing-shape.cpp; the only difference is in path feeding
@@ -199,6 +199,7 @@ DrawingText::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned
         }
         ct.newPath(); // clear path
     }
+    return RENDER_OK;
 }
 
 void

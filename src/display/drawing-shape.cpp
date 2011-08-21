@@ -157,11 +157,11 @@ DrawingShape::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, u
     return STATE_ALL;
 }
 
-void
-DrawingShape::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags)
+unsigned
+DrawingShape::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigned flags, DrawingItem *stop_at)
 {
-    if (!_curve || !_style) return;
-    if (!area.intersects(_bbox)) return; // skip if not within bounding box
+    if (!_curve || !_style) return RENDER_OK;
+    if (!area.intersects(_bbox)) return RENDER_OK; // skip if not within bounding box
 
     bool outline = _drawing.outline();
 
@@ -208,8 +208,9 @@ DrawingShape::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigne
 
     // marker rendering
     for (ChildrenList::iterator i = _children.begin(); i != _children.end(); ++i) {
-        i->render(ct, area, flags);
+        i->render(ct, area, flags, stop_at);
     }
+    return RENDER_OK;
 }
 
 void
