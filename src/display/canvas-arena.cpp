@@ -49,18 +49,23 @@ static void sp_canvas_arena_request_render (SPCanvasArena *ca, Geom::IntRect con
 static SPCanvasItemClass *parent_class;
 static guint signals[LAST_SIGNAL] = {0};
 
-struct CacheBudgetObserver : public Inkscape::Preferences::Observer {
-    CacheBudgetObserver(SPCanvasArena *arena)
-        : Inkscape::Preferences::Observer("/options/renderingcache/size")
+struct CachePrefObserver : public Inkscape::Preferences::Observer {
+    CachePrefObserver(SPCanvasArena *arena)
+        : Inkscape::Preferences::Observer("/options/renderingcache")
         , _arena(arena)
     {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        Inkscape::Preferences::Entry v = prefs->getEntry(observed_path);
-        notify(v);
+        std::vector<Inkscape::Preferences::Entry> v = prefs->getAllEntries(observed_path);
+        for (unsigned i=0; i<v.size(); ++i) {
+            notify(v[i]);
+        }
         prefs->addObserver(*this);
     }
     void notify(Preferences::Entry const &v) {
-        _arena->drawing.setCacheBudget((1 << 20) * v.getIntLimited(128, 0, 4096));
+        Glib::ustring name = v.getEntryName();
+        if (name == "size") {
+            _arena->drawing.setCacheBudget((1 << 20) * v.getIntLimited(64, 0, 4096));
+        }
     }
     SPCanvasArena *_arena;
 };
@@ -119,12 +124,12 @@ sp_canvas_arena_init (SPCanvasArena *arena)
     arena->sticky = FALSE;
 
     new (&arena->drawing) Inkscape::Drawing(arena);
-    arena->observer = new CacheBudgetObserver(arena);
 
     Inkscape::DrawingGroup *root = new DrawingGroup(arena->drawing);
     root->setPickChildren(true);
-    root->setCached(true, true);
     arena->drawing.setRoot(root);
+
+    arena->observer = new CachePrefObserver(arena);
 
     arena->drawing.signal_request_update.connect(
         sigc::bind<0>(
