@@ -29,7 +29,6 @@ public:
 
     void setPath(SPCurve *curve);
     void setStyle(SPStyle *style);
-    void setPaintBox(Geom::Rect const &box);
 
 protected:
     virtual unsigned _updateItem(Geom::IntRect const &area, UpdateContext const &ctx,
@@ -44,7 +43,6 @@ protected:
     SPStyle *_style;
     NRStyle _nrstyle;
 
-    Geom::OptRect _paintbox;
     DrawingItem *_last_pick;
     unsigned _repick_after;
 };

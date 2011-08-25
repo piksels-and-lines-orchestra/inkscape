@@ -256,14 +256,10 @@ void SPShape::sp_shape_update(SPObject *object, SPCtx *ctx, unsigned int flags)
     if (flags & (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_PARENT_MODIFIED_FLAG)) {
         /* This is suboptimal, because changing parent style schedules recalculation */
         /* But on the other hand - how can we know that parent does not tie style and transform */
-        Geom::OptRect paintbox = SP_ITEM(object)->getBounds(Geom::identity(), SPItem::GEOMETRIC_BBOX);
         for (SPItemView *v = shape->display; v != NULL; v = v->next) {
             Inkscape::DrawingShape *sh = dynamic_cast<Inkscape::DrawingShape *>(v->arenaitem);
             if (flags & SP_OBJECT_MODIFIED_FLAG) {
                 sh->setPath(shape->curve);
-            }
-            if (paintbox) {
-                sh->setPaintBox(*paintbox);
             }
         }
     }
@@ -860,10 +856,6 @@ Inkscape::DrawingItem * SPShape::sp_shape_show(SPItem *item, Inkscape::Drawing &
     Inkscape::DrawingShape *s = new Inkscape::DrawingShape(drawing);
     s->setStyle(object->style);
     s->setPath(shape->curve);
-    Geom::OptRect paintbox = item->getBounds(Geom::identity());
-    if (paintbox) {
-        s->setPaintBox(*paintbox);
-    }
 
     /* This stanza checks that an object's marker style agrees with
      * the marker objects it has allocated.  sp_shape_set_marker ensures

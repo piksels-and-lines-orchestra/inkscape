@@ -72,13 +72,6 @@ DrawingShape::setStyle(SPStyle *style)
     _nrstyle.set(style);
 }
 
-void
-DrawingShape::setPaintBox(Geom::Rect const &box)
-{
-    _paintbox = box;
-    _markForUpdate(STATE_ALL, false);
-}
-
 unsigned
 DrawingShape::_updateItem(Geom::IntRect const &area, UpdateContext const &ctx, unsigned flags, unsigned reset)
 {
@@ -187,8 +180,8 @@ DrawingShape::_renderItem(DrawingContext &ct, Geom::IntRect const &area, unsigne
         // update fill and stroke paints.
         // this cannot be done during nr_arena_shape_update, because we need a Cairo context
         // to render svg:pattern
-        has_fill   = _nrstyle.prepareFill(ct, _paintbox);
-        has_stroke = _nrstyle.prepareStroke(ct, _paintbox);
+        has_fill   = _nrstyle.prepareFill(ct, _item_bbox);
+        has_stroke = _nrstyle.prepareStroke(ct, _item_bbox);
         has_stroke &= (_nrstyle.stroke_width != 0);
 
         if (has_fill || has_stroke) {
