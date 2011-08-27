@@ -53,7 +53,7 @@ static void sp_pattern_modified (SPObject *object, unsigned int flags);
 static void pattern_ref_changed(SPObject *old_ref, SPObject *ref, SPPattern *pat);
 static void pattern_ref_modified (SPObject *ref, guint flags, SPPattern *pattern);
 
-static cairo_pattern_t *sp_pattern_create_pattern(SPPaintServer *ps, cairo_t *ct, NRRect const *bbox, double opacity);
+static cairo_pattern_t *sp_pattern_create_pattern(SPPaintServer *ps, cairo_t *ct, Geom::OptRect const &bbox, double opacity);
 
 static SPPaintServerClass * pattern_parent_class;
 
@@ -604,7 +604,7 @@ bool pattern_hasItemChildren (SPPattern *pat)
 static cairo_pattern_t *
 sp_pattern_create_pattern(SPPaintServer *ps,
                           cairo_t *base_ct,
-                          NRRect const *bbox,
+                          Geom::OptRect const &bbox,
                           double opacity)
 {
     SPPattern *pat = SP_PATTERN (ps);
@@ -657,7 +657,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     ps2user = pattern_patternTransform(pat);
     if (!pat->viewBox_set && pattern_patternContentUnits (pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
         /* BBox to user coordinate system */
-        Geom::Affine bbox2user (bbox->x1 - bbox->x0, 0.0, 0.0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        Geom::Affine bbox2user (bbox->width(), 0.0, 0.0, bbox->height(), bbox->left(), bbox->top());
         ps2user *= bbox2user;
     }
     ps2user = Geom::Translate (pattern_x (pat), pattern_y (pat)) * ps2user;
@@ -667,7 +667,7 @@ sp_pattern_create_pattern(SPPaintServer *ps,
 
     if (pattern_patternUnits(pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
         // interpret x, y, width, height in relation to bbox
-        Geom::Affine bbox2user(bbox->x1 - bbox->x0, 0,0, bbox->y1 - bbox->y0, bbox->x0, bbox->y0);
+        Geom::Affine bbox2user(bbox->width(), 0.0, 0.0, bbox->height(), bbox->left(), bbox->top());
         pattern_tile = pattern_tile * bbox2user;
     }
 

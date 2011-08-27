@@ -731,15 +731,11 @@ sp_desktop_widget_realize (GtkWidget *widget)
     if (GTK_WIDGET_CLASS (dtw_parent_class)->realize)
         (* GTK_WIDGET_CLASS (dtw_parent_class)->realize) (widget);
 
-    NRRect d;
-    d.x0 = 0.0;
-    d.y0 = 0.0;
-    d.x1 = (dtw->desktop->doc())->getWidth ();
-    d.y1 = (dtw->desktop->doc())->getHeight ();
+    Geom::Rect d = Geom::Rect::from_xywh(Geom::Point(0,0), (dtw->desktop->doc())->getDimensions());
 
-    if ((fabs (d.x1 - d.x0) < 1.0) || (fabs (d.y1 - d.y0) < 1.0)) return;
+    if (d.width() < 1.0 || d.height() < 1.0) return;
 
-    dtw->desktop->set_display_area (d.x0, d.y0, d.x1, d.y1, 10);
+    dtw->desktop->set_display_area (d.left(), d.top(), d.right(), d.bottom(), 10);
 
     dtw->updateNamedview();
 }

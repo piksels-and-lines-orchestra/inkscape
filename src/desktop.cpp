@@ -871,6 +871,7 @@ Geom::Rect SPDesktop::get_display_area() const
 
     double const scale = _d2w[0];
 
+    /// @fixme hardcoded desktop transform
     return Geom::Rect(Geom::Point(viewbox.min()[Geom::X] / scale, viewbox.max()[Geom::Y] / -scale),
                       Geom::Point(viewbox.max()[Geom::X] / scale, viewbox.min()[Geom::Y] / -scale));
 }
