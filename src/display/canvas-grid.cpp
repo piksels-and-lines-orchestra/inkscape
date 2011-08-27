@@ -993,14 +993,16 @@ CanvasXYGridSnapper::_getSnapLines(Geom::Point const &p) const
 
         Geom::Coord rounded;
         Geom::Point point_on_line;
+        Geom::Point cvec(0.,0.);
+        cvec[i] = 1.;
 
         rounded = Inkscape::Util::round_to_upper_multiple_plus(p[i], spacing, grid->origin[i]);
         point_on_line = i ? Geom::Point(0, rounded) : Geom::Point(rounded, 0);
-        s.push_back(std::make_pair(component_vectors[i], point_on_line));
+        s.push_back(std::make_pair(cvec, point_on_line));
 
         rounded = Inkscape::Util::round_to_lower_multiple_plus(p[i], spacing, grid->origin[i]);
         point_on_line = i ? Geom::Point(0, rounded) : Geom::Point(rounded, 0);
-        s.push_back(std::make_pair(component_vectors[i], point_on_line));
+        s.push_back(std::make_pair(cvec, point_on_line));
     }
 
     return s;

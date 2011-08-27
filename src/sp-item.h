@@ -19,14 +19,13 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 #include <vector>
+#include <2geom/forward.h>
+#include <2geom/affine.h>
+#include <2geom/rect.h>
 
 #include "display/display-forward.h"
 #include "sp-object.h"
-#include <2geom/affine.h>
-#include <libnr/nr-rect.h>
-#include <2geom/forward.h>
-#include <libnr/nr-convert2geom.h>
-#include <snap-preferences.h>
+#include "snap-preferences.h"
 #include "snap-candidate.h"
 
 class SPGuideConstraint;

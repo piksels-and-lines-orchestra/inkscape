@@ -46,8 +46,6 @@
 #include "extension/input.h"
 #include "extension/output.h"
 #include "selection-chemistry.h"
-#include "libnr/nr-rect.h"
-#include "libnr/nr-convert2geom.h"
 #include <2geom/rect.h>
 #include <2geom/transforms.h>
 #include "box3d.h"

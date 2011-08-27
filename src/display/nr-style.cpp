@@ -14,7 +14,6 @@
 #include "sp-paint-server.h"
 #include "display/canvas-bpath.h" // contains SPStrokeJoinType, SPStrokeCapType etc. (WTF!)
 #include "display/drawing-context.h"
-#include "libnr/nr-rect.h"
 
 void NRStyle::Paint::clear()
 {

@@ -28,7 +28,6 @@
 #include <signal.h>
 #include <errno.h>
 
-#include "libnr/nr-rect.h"
 #include "libnrtype/Layout-TNG.h"
 #include <2geom/transforms.h>
 #include <2geom/pathvector.h>

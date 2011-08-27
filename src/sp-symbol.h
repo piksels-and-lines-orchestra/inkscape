@@ -25,7 +25,6 @@ class SPSymbol;
 class SPSymbolClass;
 
 #include <2geom/affine.h>
-#include <libnr/nr-rect.h>
 #include "svg/svg-length.h"
 #include "enums.h"
 #include "sp-item-group.h"

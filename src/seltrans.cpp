@@ -1213,7 +1213,8 @@ gboolean Inkscape::SelTrans::skewRequest(SPSelTransHandle const &handle, Geom::P
         SnapManager &m = _desktop->namedview->snap_manager;
         m.setup(_desktop, false, _items_const);
 
-        Inkscape::Snapper::SnapConstraint const constraint(component_vectors[dim_b]);
+        Geom::Point cvec; cvec[dim_b] = 1.;
+        Inkscape::Snapper::SnapConstraint const constraint(cvec);
         // When skewing, we cannot snap the corners of the bounding box, see the comment in "constrainedSnapSkew" for details
         Geom::Point const s(skew[dim_a], scale[dim_a]);
         Inkscape::SnappedPoint sn = m.constrainedSnapSkew(_snap_points, _point, constraint, s, _origin, Geom::Dim2(dim_b));
@@ -1475,14 +1476,15 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             // the constraint-line once. The constraint lines are parallel, but might not be colinear.
             // Therefore we will have to set the point through which the constraint-line runs
             // individually for each point to be snapped; this will be handled however by _snapTransformed()
+            Geom::Point cvec; cvec[dim] = 1.;
             s.push_back(m.constrainedSnapTranslate(_bbox_points_for_translating,
                                                      _point,
-                                                     Inkscape::Snapper::SnapConstraint(component_vectors[dim]),
+                                                     Inkscape::Snapper::SnapConstraint(cvec),
                                                      dxy));
 
             s.push_back(m.constrainedSnapTranslate(_snap_points,
                                                      _point,
-                                                     Inkscape::Snapper::SnapConstraint(component_vectors[dim]),
+                                                     Inkscape::Snapper::SnapConstraint(cvec),
                                                      dxy));
         } else { // !control
 

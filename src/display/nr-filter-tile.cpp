@@ -9,6 +9,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <glib.h>
 #include "display/nr-filter-tile.h"
 #include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"

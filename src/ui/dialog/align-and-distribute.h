@@ -25,8 +25,6 @@
 #include <gtkmm/table.h>
 #include <gtkmm/buttonbox.h>
 #include <gtkmm/label.h>
-#include "libnr/nr-rect.h"
-
 
 #include "ui/widget/panel.h"
 #include "ui/widget/notebook-page.h"

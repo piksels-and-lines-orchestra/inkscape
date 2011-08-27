@@ -17,7 +17,6 @@
 #include <string>
 #include "config.h"
 
-#include "libnr/nr-convert2geom.h"
 #include <2geom/affine.h>
 #include <2geom/transforms.h>
 #include "svg/svg.h"

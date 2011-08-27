@@ -21,7 +21,6 @@
 #include "display/nr-filter-units.h"
 #include "display/nr-filter-utils.h"
 #include "display/nr-light.h"
-#include "libnr/nr-rect-l.h"
 
 namespace Inkscape {
 namespace Filters {

@@ -13,7 +13,6 @@
  */
 
 #include "display/nr-filter-primitive.h"
-#include "libnr/nr-rect-l.h"
 #include <vector>
 
 namespace Inkscape {

@@ -6,10 +6,11 @@
  *
  */
 
+#include <glib.h>
+#include <2geom/transforms.h>
 #include "Path.h"
 #include "Shape.h"
 #include "livarot/path-description.h"
-#include <2geom/transforms.h>
 
 /*
  * path description -> polyline

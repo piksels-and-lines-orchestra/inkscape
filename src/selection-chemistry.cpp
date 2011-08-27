@@ -85,7 +85,6 @@ SPCycleType SP_CYCLING = SP_CYCLE_FOCUS;
 #include "sp-filter-reference.h"
 #include "gradient-drag.h"
 #include "uri-references.h"
-#include "libnr/nr-convert2geom.h"
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
 #include "inkscape-private.h"

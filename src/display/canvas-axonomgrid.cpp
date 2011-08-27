@@ -744,13 +744,13 @@ CanvasAxonomGridSnapper::_getSnapLines(Geom::Point const &p) const
     if (use_left_half) {
         s.push_back(std::make_pair(norm_z, Geom::Point(grid->origin[Geom::X], y_proj_along_z_max)));
         s.push_back(std::make_pair(norm_x, Geom::Point(grid->origin[Geom::X], y_proj_along_x_min)));
-        s.push_back(std::make_pair(component_vectors[Geom::X], Geom::Point(x_max, 0)));
+        s.push_back(std::make_pair(Geom::Point(1, 0), Geom::Point(x_max, 0)));
     }
 
     if (use_right_half) {
         s.push_back(std::make_pair(norm_z, Geom::Point(grid->origin[Geom::X], y_proj_along_z_min)));
         s.push_back(std::make_pair(norm_x, Geom::Point(grid->origin[Geom::X], y_proj_along_x_max)));
-        s.push_back(std::make_pair(component_vectors[Geom::X], Geom::Point(x_min, 0)));
+        s.push_back(std::make_pair(Geom::Point(1, 0), Geom::Point(x_min, 0)));
     }
 
     return s;

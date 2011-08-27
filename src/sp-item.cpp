@@ -25,7 +25,6 @@
 # include "config.h"
 #endif
 
-
 #include "sp-item.h"
 #include "svg/svg.h"
 #include "print.h"
@@ -60,7 +59,6 @@
 #include "sp-title.h"
 #include "sp-desc.h"
 
-#include "libnr/nr-convert2geom.h"
 #include "util/find-last-if.h"
 #include "util/reverse-list.h"
 #include <2geom/rect.h>
@@ -1302,7 +1300,7 @@ gint SPItem::emitEvent(SPEvent &event)
  */
 void SPItem::set_item_transform(Geom::Affine const &transform_matrix)
 {
-    if (!matrix_equalp(transform_matrix, transform, NR_EPSILON)) {
+    if (!Geom::are_near(transform_matrix, transform, 1e-18)) {
         transform = transform_matrix;
         /* The SP_OBJECT_USER_MODIFIED_FLAG_B is used to mark the fact that it's only a
            transformation.  It's apparently not used anywhere else. */

@@ -14,7 +14,6 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <libnr/nr-rect.h>
 #include <2geom/d2.h>
 #include <2geom/affine.h>
 #include <glibmm/ustring.h>
