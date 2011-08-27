@@ -20,8 +20,6 @@
 #include "sp-object.h"
 #include "uri-references.h"
 
-struct NRRect;
-
 #define SP_TYPE_PAINT_SERVER (SPPaintServer::get_type())
 #define SP_PAINT_SERVER(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_PAINT_SERVER, SPPaintServer))
 #define SP_PAINT_SERVER_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), SP_TYPE_PAINT_SERVER, SPPaintServerClass))

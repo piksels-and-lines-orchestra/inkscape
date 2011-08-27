@@ -144,8 +144,6 @@ SPDesktop::SPDesktop() :
     page_border( 0 ),
     current( 0 ),
     _focusMode(false),
-    zooms_past( 0 ),
-    zooms_future( 0 ),
     dkey( 0 ),
     number( 0 ),
     window_state(0),
@@ -410,9 +408,6 @@ void SPDesktop::destroy()
 
     delete _guides_message_context;
     _guides_message_context = NULL;
-
-    g_list_free (zooms_past);
-    g_list_free (zooms_future);
 }
 
 SPDesktop::~SPDesktop() {}
@@ -771,25 +766,12 @@ SPDesktop::point() const
  * Put current zoom data in history list.
  */
 void
-SPDesktop::push_current_zoom (GList **history)
+SPDesktop::push_current_zoom (std::list<Geom::Rect> &history)
 {
-    Geom::Rect const area = get_display_area();
+    Geom::Rect area = get_display_area();
 
-    NRRect *old_zoom = g_new(NRRect, 1);
-    old_zoom->x0 = area.min()[Geom::X];
-    old_zoom->x1 = area.max()[Geom::X];
-    old_zoom->y0 = area.min()[Geom::Y];
-    old_zoom->y1 = area.max()[Geom::Y];
-    if ( *history == NULL
-         || !( ( ((NRRect *) ((*history)->data))->x0 == old_zoom->x0 ) &&
-               ( ((NRRect *) ((*history)->data))->x1 == old_zoom->x1 ) &&
-               ( ((NRRect *) ((*history)->data))->y0 == old_zoom->y0 ) &&
-               ( ((NRRect *) ((*history)->data))->y1 == old_zoom->y1 ) ) )
-    {
-        *history = g_list_prepend (*history, old_zoom);
-    } else {
-        g_free(old_zoom);
-        old_zoom = 0;
+    if (history.empty() || history.front() == area) {
+        history.push_front(area);
     }
 }
 
@@ -804,10 +786,9 @@ SPDesktop::set_display_area (double x0, double y0, double x1, double y1, double 
 
     // save the zoom
     if (log) {
-        push_current_zoom(&zooms_past);
+        push_current_zoom(zooms_past);
         // if we do a logged zoom, our zoom-forward list is invalidated, so delete it
-        g_list_free (zooms_future);
-        zooms_future = NULL;
+        zooms_future.clear();
     }
 
     double const cx = 0.5 * (x0 + x1);
@@ -882,23 +863,20 @@ Geom::Rect SPDesktop::get_display_area() const
 void
 SPDesktop::prev_zoom()
 {
-    if (zooms_past == NULL) {
+    if (zooms_past.empty()) {
         messageStack()->flash(Inkscape::WARNING_MESSAGE, _("No previous zoom."));
         return;
     }
 
     // push current zoom into forward zooms list
-    push_current_zoom (&zooms_future);
+    push_current_zoom (zooms_future);
 
     // restore previous zoom
-    set_display_area (((NRRect *) zooms_past->data)->x0,
-            ((NRRect *) zooms_past->data)->y0,
-            ((NRRect *) zooms_past->data)->x1,
-            ((NRRect *) zooms_past->data)->y1,
-            0, false);
+    Geom::Rect past = zooms_past.front();
+    set_display_area (past.left(), past.top(), past.right(), past.bottom(), 0, false);
 
     // remove the just-added zoom from the past zooms list
-    zooms_past = g_list_remove (zooms_past, ((NRRect *) zooms_past->data));
+    zooms_past.pop_front();
 }
 
 /**
@@ -907,23 +885,20 @@ SPDesktop::prev_zoom()
 void
 SPDesktop::next_zoom()
 {
-    if (zooms_future == NULL) {
+    if (zooms_future.empty()) {
         this->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("No next zoom."));
         return;
     }
 
     // push current zoom into past zooms list
-    push_current_zoom (&zooms_past);
+    push_current_zoom (zooms_past);
 
     // restore next zoom
-    set_display_area (((NRRect *) zooms_future->data)->x0,
-            ((NRRect *) zooms_future->data)->y0,
-            ((NRRect *) zooms_future->data)->x1,
-            ((NRRect *) zooms_future->data)->y1,
-            0, false);
+    Geom::Rect future = zooms_future.front();
+    set_display_area (future.left(), future.top(), future.right(), future.bottom(), 0, false);
 
     // remove the just-used zoom from the zooms_future list
-    zooms_future = g_list_remove (zooms_future, ((NRRect *) zooms_future->data));
+    zooms_future.pop_front();
 }
 
 /** \brief  Performs a quick zoom into what the user is working on

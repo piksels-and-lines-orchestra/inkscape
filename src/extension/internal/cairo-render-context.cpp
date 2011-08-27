@@ -87,19 +87,19 @@
 #define TEST(_args)
 
 // FIXME: expose these from sp-clippath/mask.cpp
-struct SPClipPathView {
+/*struct SPClipPathView {
     SPClipPathView *next;
     unsigned int key;
     Inkscape::DrawingItem *arenaitem;
-    NRRect bbox;
+    Geom::OptRect bbox;
 };
 
 struct SPMaskView {
     SPMaskView *next;
     unsigned int key;
     Inkscape::DrawingItem *arenaitem;
-    NRRect bbox;
-};
+    Geom::OptRect bbox;
+};*/
 
 namespace Inkscape {
 namespace Extension {
@@ -1043,27 +1043,22 @@ CairoRenderContext::_createPatternPainter(SPPaintServer const *const paintserver
 
     // create pattern contents coordinate system
     if (pat->viewBox_set) {
-        NRRect *view_box = pattern_viewBox(pat);
+        Geom::Rect view_box = *pattern_viewBox(pat);
 
         double x, y, w, h;
-        double view_width, view_height;
         x = 0;
         y = 0;
         w = width * bbox_width_scaler;
         h = height * bbox_height_scaler;
 
-        view_width = view_box->x1 - view_box->x0;
-        view_height = view_box->y1 - view_box->y0;
-
         //calculatePreserveAspectRatio(pat->aspect_align, pat->aspect_clip, view_width, view_height, &x, &y, &w, &h);
-        pcs2dev[0] = w / view_width;
-        pcs2dev[3] = h / view_height;
-        pcs2dev[4] = x - view_box->x0 * pcs2dev[0];
-        pcs2dev[5] = y - view_box->y0 * pcs2dev[3];
+        pcs2dev[0] = w / view_box.width();
+        pcs2dev[3] = h / view_box.height();
+        pcs2dev[4] = x - view_box.left() * pcs2dev[0];
+        pcs2dev[5] = y - view_box.top() * pcs2dev[3];
     } else if (pbox && pattern_patternContentUnits(pat) == SP_PATTERN_UNITS_OBJECTBOUNDINGBOX) {
         pcs2dev[0] = pbox->width();
         pcs2dev[3] = pbox->height();
-
     }
 
     // Calculate the size of the surface which has to be created

@@ -17,7 +17,6 @@
 #include "forward.h"
 #include "extension/extension-forward.h"
 
-struct NRRect;
 struct SPPrintContext {
     Inkscape::Extension::Print *module;
 };

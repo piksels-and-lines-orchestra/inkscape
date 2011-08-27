@@ -594,21 +594,18 @@ sp_use_update(SPObject *object, SPCtx *ctx, unsigned flags)
 
     /* Set up child viewport */
     if (use->x.unit == SVGLength::PERCENT) {
-        use->x.computed = use->x.value * (ictx->vp.x1 - ictx->vp.x0);
+        use->x.computed = use->x.value * ictx->viewport.width();
     }
     if (use->y.unit == SVGLength::PERCENT) {
-        use->y.computed = use->y.value * (ictx->vp.y1 - ictx->vp.y0);
+        use->y.computed = use->y.value * ictx->viewport.height();
     }
     if (use->width.unit == SVGLength::PERCENT) {
-        use->width.computed = use->width.value * (ictx->vp.x1 - ictx->vp.x0);
+        use->width.computed = use->width.value * ictx->viewport.width();
     }
     if (use->height.unit == SVGLength::PERCENT) {
-        use->height.computed = use->height.value * (ictx->vp.y1 - ictx->vp.y0);
+        use->height.computed = use->height.value * ictx->viewport.height();
     }
-    cctx.vp.x0 = 0.0;
-    cctx.vp.y0 = 0.0;
-    cctx.vp.x1 = use->width.computed;
-    cctx.vp.y1 = use->height.computed;
+    cctx.viewport = Geom::Rect::from_xywh(0, 0, use->width.computed, use->height.computed);
     cctx.i2vp = Geom::identity();
     flags&=~SP_OBJECT_USER_MODIFIED_FLAG_B;
 

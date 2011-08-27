@@ -33,7 +33,7 @@ class SPSymbolClass;
 struct SPSymbol : public SPGroup {
 	/* viewBox; */
 	unsigned int viewBox_set : 1;
-	NRRect viewBox;
+	Geom::Rect viewBox;
 
 	/* preserveAspectRatio */
 	unsigned int aspect_set : 1;

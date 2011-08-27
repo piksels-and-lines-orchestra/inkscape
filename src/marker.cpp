@@ -349,10 +349,7 @@ static void sp_marker_update(SPObject *object, SPCtx *ctx, guint flags)
 	rctx.i2doc = Geom::identity();
 	rctx.i2vp = Geom::identity();
 	/* Set up viewport */
-	rctx.vp.x0 = 0.0;
-	rctx.vp.y0 = 0.0;
-	rctx.vp.x1 = marker->markerWidth.computed;
-	rctx.vp.y1 = marker->markerHeight.computed;
+	rctx.viewport = Geom::Rect::from_xywh(0, 0, marker->markerWidth.computed, marker->markerHeight.computed);
 
 	/* Start with identity transform */
 	marker->c2p.setIdentity();
@@ -361,20 +358,20 @@ static void sp_marker_update(SPObject *object, SPCtx *ctx, guint flags)
     if (marker->viewBox) {
         vb = *marker->viewBox;
 	} else {
-        vb = *(rctx.vp.upgrade_2geom());
+        vb = rctx.viewport;
 	}
 	/* Now set up viewbox transformation */
 	/* Determine actual viewbox in viewport coordinates */
 	if (marker->aspect_align == SP_ASPECT_NONE) {
 		x = 0.0;
 		y = 0.0;
-		width = rctx.vp.x1 - rctx.vp.x0;
-		height = rctx.vp.y1 - rctx.vp.y0;
+		width = rctx.viewport.width();
+		height = rctx.viewport.height();
 	} else {
 		double scalex, scaley, scale;
 		/* Things are getting interesting */
-        scalex = (rctx.vp.x1 - rctx.vp.x0) / (vb.width());
-        scaley = (rctx.vp.y1 - rctx.vp.y0) / (vb.height());
+        scalex = rctx.viewport.width() / (vb.width());
+        scaley = rctx.viewport.height() / (vb.height());
 		scale = (marker->aspect_clip == SP_ASPECT_MEET) ? MIN (scalex, scaley) : MAX (scalex, scaley);
         width = (vb.width()) * scale;
         height = (vb.height()) * scale;
@@ -385,36 +382,36 @@ static void sp_marker_update(SPObject *object, SPCtx *ctx, guint flags)
 			y = 0.0;
 			break;
 		case SP_ASPECT_XMID_YMIN:
-			x = 0.5 * ((rctx.vp.x1 - rctx.vp.x0) - width);
+			x = 0.5 * (rctx.viewport.width() - width);
 			y = 0.0;
 			break;
 		case SP_ASPECT_XMAX_YMIN:
-			x = 1.0 * ((rctx.vp.x1 - rctx.vp.x0) - width);
+			x = 1.0 * (rctx.viewport.width() - width);
 			y = 0.0;
 			break;
 		case SP_ASPECT_XMIN_YMID:
 			x = 0.0;
-			y = 0.5 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			y = 0.5 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMID_YMID:
-			x = 0.5 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 0.5 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 0.5 * (rctx.viewport.width() - width);
+			y = 0.5 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMAX_YMID:
-			x = 1.0 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 0.5 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 1.0 * (rctx.viewport.width() - width);
+			y = 0.5 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMIN_YMAX:
 			x = 0.0;
-			y = 1.0 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			y = 1.0 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMID_YMAX:
-			x = 0.5 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 1.0 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 0.5 * (rctx.viewport.width() - width);
+			y = 1.0 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMAX_YMAX:
-			x = 1.0 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 1.0 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 1.0 * (rctx.viewport.width() - width);
+			y = 1.0 * (rctx.viewport.height() - height);
 			break;
 		default:
 			x = 0.0;
@@ -432,10 +429,7 @@ static void sp_marker_update(SPObject *object, SPCtx *ctx, guint flags)
 	/* If viewBox is set reinitialize child viewport */
 	/* Otherwise it already correct */
 	if (marker->viewBox) {
-            rctx.vp.x0 = marker->viewBox->min()[Geom::X];
-            rctx.vp.y0 = marker->viewBox->min()[Geom::Y];
-            rctx.vp.x1 = marker->viewBox->max()[Geom::X];
-            rctx.vp.y1 = marker->viewBox->max()[Geom::Y];
+	    rctx.viewport = *marker->viewBox;
             rctx.i2vp = Geom::identity();
 	}
 

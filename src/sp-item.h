@@ -88,7 +88,7 @@ public:
     /** Item to document transformation */
     Geom::Affine i2doc;
     /** Viewport size */
-    NRRect vp;
+    Geom::Rect viewport;
     /** Item to viewport transformation */
     Geom::Affine i2vp;
 };

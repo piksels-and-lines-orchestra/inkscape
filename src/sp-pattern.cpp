@@ -245,11 +245,8 @@ sp_pattern_set (SPObject *object, unsigned int key, const gchar *value)
 			height = g_ascii_strtod (eptr, &eptr);
 			while (*eptr && ((*eptr == ',') || (*eptr == ' '))) eptr++;
 			if ((width > 0) && (height > 0)) {
-				pat->viewBox.x0 = x;
-				pat->viewBox.y0 = y;
-				pat->viewBox.x1 = x + width;
-				pat->viewBox.y1 = y + height;
-				pat->viewBox_set = TRUE;
+			    pat->viewBox = Geom::Rect::from_xywh(x, y, width, height);
+			    pat->viewBox_set = TRUE;
 			} else {
 				pat->viewBox_set = FALSE;
 			}
@@ -581,13 +578,16 @@ gdouble pattern_height (SPPattern *pat)
 	return 0;
 }
 
-NRRect *pattern_viewBox (SPPattern *pat)
+Geom::OptRect pattern_viewBox (SPPattern *pat)
 {
-	for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
-		if (pat_i->viewBox_set)
-			return &(pat_i->viewBox);
-	}
-	return &(pat->viewBox);
+    Geom::OptRect viewbox;
+    for (SPPattern *pat_i = pat; pat_i != NULL; pat_i = pat_i->ref ? pat_i->ref->getObject() : NULL) {
+        if (pat_i->viewBox_set) {
+            viewbox = pat_i->viewBox;
+            break;
+        }
+    }
+    return viewbox;
 }
 
 bool pattern_hasItemChildren (SPPattern *pat)
@@ -647,11 +647,12 @@ sp_pattern_create_pattern(SPPaintServer *ps,
     }
 
     if (pat->viewBox_set) {
-        gdouble tmp_x = pattern_width (pat) / (pattern_viewBox(pat)->x1 - pattern_viewBox(pat)->x0);
-        gdouble tmp_y = pattern_height (pat) / (pattern_viewBox(pat)->y1 - pattern_viewBox(pat)->y0);
+        Geom::Rect vb = *pattern_viewBox(pat);
+        gdouble tmp_x = pattern_width (pat) / vb.width();
+        gdouble tmp_y = pattern_height (pat) / vb.height();
 
         // FIXME: preserveAspectRatio must be taken into account here too!
-        vb2ps = Geom::Affine(tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - pattern_viewBox(pat)->x0 * tmp_x, pattern_y(pat) - pattern_viewBox(pat)->y0 * tmp_y);
+        vb2ps = Geom::Affine(tmp_x, 0.0, 0.0, tmp_y, pattern_x(pat) - vb.left() * tmp_x, pattern_y(pat) - vb.top() * tmp_y);
     }
 
     ps2user = pattern_patternTransform(pat);

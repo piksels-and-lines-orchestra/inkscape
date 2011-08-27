@@ -87,14 +87,14 @@ struct SPClipPathView {
     SPClipPathView *next;
     unsigned int key;
     Inkscape::DrawingItem *arenaitem;
-    NRRect bbox;
+    Geom::OptRect bbox;
 };
 
 struct SPMaskView {
     SPMaskView *next;
     unsigned int key;
     Inkscape::DrawingItem *arenaitem;
-    NRRect bbox;
+    Geom::OptRect bbox;
 };
 
 namespace Inkscape {
@@ -394,8 +394,8 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
         width = 1.0;
         height = 1.0;
 
-        view_width = symbol->viewBox.x1 - symbol->viewBox.x0;
-        view_height = symbol->viewBox.y1 - symbol->viewBox.y0;
+        view_width = symbol->viewBox.width();
+        view_height = symbol->viewBox.height();
 
         calculatePreserveAspectRatio(symbol->aspect_align, symbol->aspect_clip, view_width, view_height,
                                      &x, &y,&width, &height);
@@ -404,8 +404,8 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
         vb2user = Geom::identity();
         vb2user[0] = width / view_width;
         vb2user[3] = height / view_height;
-        vb2user[4] = x - symbol->viewBox.x0 * vb2user[0];
-        vb2user[5] = y - symbol->viewBox.y0 * vb2user[3];
+        vb2user[4] = x - symbol->viewBox.left() * vb2user[0];
+        vb2user[5] = y - symbol->viewBox.top() * vb2user[3];
 
         ctx->transform(vb2user);
     }
@@ -668,13 +668,14 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
     CairoRenderContext::CairoRenderMode saved_mode = ctx->getRenderMode();
     ctx->setRenderMode(CairoRenderContext::RENDER_MODE_CLIP);
 
+    // FIXME: the access to the first clippath view to obtain the bbox is completely bogus
     Geom::Affine saved_ctm;
-    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
+    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX && cp->display->bbox) {
         //SP_PRINT_DRECT("clipd", cp->display->bbox);
-        NRRect clip_bbox(cp->display->bbox);
-        Geom::Affine t(Geom::Scale(clip_bbox.x1 - clip_bbox.x0, clip_bbox.y1 - clip_bbox.y0));
-        t[4] = clip_bbox.x0;
-        t[5] = clip_bbox.y0;
+        Geom::Rect clip_bbox = *cp->display->bbox;
+        Geom::Affine t(Geom::Scale(clip_bbox.dimensions()));
+        t[4] = clip_bbox.left();
+        t[5] = clip_bbox.top();
         t *= ctx->getCurrentState()->transform;
         saved_ctm = ctx->getTransform();
         ctx->setTransform(t);
@@ -720,13 +721,14 @@ CairoRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
     if (mask == NULL)
         return;
 
-    //SP_PRINT_DRECT("maskd", &mask->display->bbox);
-    NRRect mask_bbox(mask->display->bbox);
+    // FIXME: the access to the first mask view to obtain the bbox is completely bogus
     // TODO: should the bbox be transformed if maskUnits != userSpaceOnUse ?
-    if (mask->maskContentUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
-        Geom::Affine t(Geom::Scale(mask_bbox.x1 - mask_bbox.x0, mask_bbox.y1 - mask_bbox.y0));
-        t[4] = mask_bbox.x0;
-        t[5] = mask_bbox.y0;
+    if (mask->maskContentUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX && mask->display->bbox) {
+        //SP_PRINT_DRECT("maskd", &mask->display->bbox);
+        Geom::Rect mask_bbox = *mask->display->bbox;
+        Geom::Affine t(Geom::Scale(mask_bbox.dimensions()));
+        t[4] = mask_bbox.left();
+        t[5] = mask_bbox.top();
         t *= ctx->getCurrentState()->transform;
         ctx->setTransform(t);
     }
