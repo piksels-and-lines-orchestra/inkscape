@@ -1095,7 +1095,7 @@ static void sp_image_print( SPItem *item, SPPrintContext *ctx )
             Geom::Translate ti(0.0, -1.0);
             t = s * tp;
             t = ti * t;
-            sp_print_image_R8G8B8A8_N(ctx, px, w, h, rs, &t, item->style);
+            sp_print_image_R8G8B8A8_N(ctx, px, w, h, rs, t, item->style);
         } else { // preserveAspectRatio
             double vw = image->width.computed / image->sx;
             double vh = image->height.computed / image->sy;
@@ -1116,7 +1116,7 @@ static void sp_image_print( SPItem *item, SPPrintContext *ctx )
             Geom::Translate ti(0.0, -1.0);
             t = s * tp;
             t = ti * t;
-            sp_print_image_R8G8B8A8_N(ctx, px + trimx*pixskip + trimy*rs, trimwidth, trimheight, rs, &t, item->style);
+            sp_print_image_R8G8B8A8_N(ctx, px + trimx*pixskip + trimy*rs, trimwidth, trimheight, rs, t, item->style);
         }
     }
 }

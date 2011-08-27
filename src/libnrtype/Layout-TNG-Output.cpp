@@ -136,7 +136,6 @@ void Layout::print(SPPrintContext *ctx,
 {
     if (_input_stream.empty()) return;
 
-    Geom::Affine ctm_2geom(ctm);
     Direction block_progression = _blockProgression();
     bool text_to_path = ctx->module->textToPath();
     for (unsigned glyph_index = 0 ; glyph_index < _glyphs.size() ; ) {
@@ -156,9 +155,9 @@ void Layout::print(SPPrintContext *ctx,
                 _getGlyphTransformMatrix(glyph_index, &glyph_matrix);
                 Geom::PathVector temp_pv = (*pv) * glyph_matrix;
                 if (!text_source->style->fill.isNone())
-                    sp_print_fill(ctx, temp_pv, &ctm_2geom, text_source->style, pbox, dbox, bbox);
+                    sp_print_fill(ctx, temp_pv, ctm, text_source->style, pbox, dbox, bbox);
                 if (!text_source->style->stroke.isNone())
-                    sp_print_stroke(ctx, temp_pv, &ctm_2geom, text_source->style, pbox, dbox, bbox);
+                    sp_print_stroke(ctx, temp_pv, ctm, text_source->style, pbox, dbox, bbox);
             }
             glyph_index++;
         } else {

@@ -421,7 +421,7 @@ static void sp_symbol_print(SPItem *item, SPPrintContext *ctx)
     if (symbol->cloned) {
         // Cloned <symbol> is actually renderable
 
-        sp_print_bind(ctx, &symbol->c2p, 1.0);
+        sp_print_bind(ctx, symbol->c2p, 1.0);
 
         if (((SPItemClass *) (parent_class))->print) {
             ((SPItemClass *) (parent_class))->print (item, ctx);

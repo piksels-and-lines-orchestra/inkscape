@@ -657,7 +657,8 @@ Geom::OptRect SPShape::sp_shape_bbox(SPItem const *item, Geom::Affine const &tra
 }
 
 static void
-sp_shape_print_invoke_marker_printing(SPObject* obj, Geom::Affine tr, SPStyle* style, SPPrintContext *ctx) {
+sp_shape_print_invoke_marker_printing(SPObject *obj, Geom::Affine tr, SPStyle const *style, SPPrintContext *ctx)
+{
     SPMarker *marker = SP_MARKER(obj);
     if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH) {
         tr = Geom::Scale(style->stroke_width.computed) * tr;
@@ -709,11 +710,11 @@ sp_shape_print (SPItem *item, SPPrintContext *ctx)
     SPStyle* style = item->style;
 
     if (!style->fill.isNone()) {
-        sp_print_fill (ctx, pathv, &i2dt, style, pbox, dbox, bbox);
+        sp_print_fill (ctx, pathv, i2dt, style, pbox, dbox, bbox);
     }
 
     if (!style->stroke.isNone()) {
-        sp_print_stroke (ctx, pathv, &i2dt, style, pbox, dbox, bbox);
+        sp_print_stroke (ctx, pathv, i2dt, style, pbox, dbox, bbox);
     }
 
     /** \todo make code prettier */
