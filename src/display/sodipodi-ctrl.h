@@ -48,7 +48,7 @@ struct SPCtrl : public SPCanvasItem {
     guint32 stroke_color;
     bool _moved;
 
-    NRRectL box;   /* NB! x1 & y1 are included */
+    Geom::IntRect box;   /* NB! x1 & y1 are included */
     guint32 *cache;
     GdkPixbuf * pixbuf;
 

@@ -60,8 +60,8 @@ enum {
  */
 struct SPCanvasBuf {
     cairo_t *ct;
-    NRRectL rect;
-    NRRectL visible_rect;
+    Geom::IntRect rect;
+    Geom::IntRect visible_rect;
 
     unsigned char *buf;
     int buf_rowstride;

@@ -159,16 +159,13 @@ void FilterDiffuseLighting::render_cairo(FilterSlot &slot)
     cairo_surface_destroy(out);
 }
 
-void FilterDiffuseLighting::area_enlarge(NRRectL &area, Geom::Affine const & /*trans*/)
+void FilterDiffuseLighting::area_enlarge(Geom::IntRect &area, Geom::Affine const & /*trans*/)
 {
     // TODO: support kernelUnitLength
 
     // We expand the area by 1 in every direction to avoid artifacts on tile edges.
     // However, it means that edge pixels will be incorrect.
-    area.x0 -= 1;
-    area.x1 += 1;
-    area.y0 -= 1;
-    area.y1 += 1;
+    area.expandBy(1);
 }
 
 double FilterDiffuseLighting::complexity(Geom::Affine const &)

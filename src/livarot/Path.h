@@ -112,7 +112,6 @@ public:
   // transforms a description in a polyline (for stroking and filling)
   // treshhold is the max length^2 (sort of)
   void Convert (double treshhold);
-  void Convert(NRRectL *area, double treshhold);
   void ConvertEvenLines (double treshhold);	// decomposes line segments too, for later recomposition
   // same function for use when you want to later recompose the curves from the polyline
   void ConvertWithBackData (double treshhold);
