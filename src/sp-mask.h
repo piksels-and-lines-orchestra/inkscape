@@ -15,7 +15,6 @@
 
 #include <2geom/rect.h>
 #include "display/display-forward.h"
-#include "libnr/nr-forward.h"
 #include "sp-object-group.h"
 #include "uri-references.h"
 #include "xml/node.h"
