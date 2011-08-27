@@ -16,6 +16,7 @@ snap_vector_midpoint (Geom::Point const &p, Geom::Point const &begin, Geom::Poin
     return (begin + r_snapped * be);
 }
 
+// equivalent to Geom::LineSegment(begin, end).nearestPoint(p)
 double
 get_offset_between_points (Geom::Point const &p, Geom::Point const &begin, Geom::Point const &end)
 {
@@ -27,27 +28,6 @@ get_offset_between_points (Geom::Point const &p, Geom::Point const &begin, Geom:
     if (r > length) return 1.0;
 
     return (r / length);
-}
-
-Geom::Point
-project_on_linesegment(Geom::Point const &p, Geom::Point const &p1, Geom::Point const &p2) 
-{
-    // p_proj = projection of p on the linesegment running from p1 to p2
-    // p_proj = p1 + u (p2 - p1)
-    // calculate u according to "Minimum Distance between a Point and a Line"
-    // see http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/        
-    
-    // Warning: projected points will not necessarily be in between the endpoints of the linesegments!  
-    
-    if (p1 == p2) { // to avoid div. by zero below
-        return p;
-    }
-    
-    Geom::Point d1(p-p1); // delta 1
-    Geom::Point d2(p2-p1); // delta 2
-    double u = Geom::dot(d1, d2) / Geom::L2sq(d2);
-    
-    return (p1 + u*(p2-p1));
 }
 
 /*

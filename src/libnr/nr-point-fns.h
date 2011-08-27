@@ -7,8 +7,6 @@ Geom::Point snap_vector_midpoint (Geom::Point const &p, Geom::Point const &begin
 
 double get_offset_between_points (Geom::Point const &p, Geom::Point const &begin, Geom::Point const &end);
 
-Geom::Point project_on_linesegment(Geom::Point const &p, Geom::Point const &p1, Geom::Point const &p2); 
-
 #endif /* !__NR_POINT_OPS_H__ */
 
 /*
