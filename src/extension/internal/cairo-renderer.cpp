@@ -181,15 +181,13 @@ static void sp_shape_render_invoke_marker_rendering(SPMarker* marker, Geom::Affi
 
 static void sp_shape_render (SPItem *item, CairoRenderContext *ctx)
 {
-    NRRect pbox;
-
     SPShape *shape = SP_SHAPE(item);
 
     if (!shape->curve) {
         return;
     }
 
-    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
+    Geom::OptRect pbox = item->geometricBounds();
 
     SPStyle* style = item->style;
 
@@ -198,7 +196,7 @@ static void sp_shape_render (SPItem *item, CairoRenderContext *ctx)
         return;
     }
 
-    ctx->renderPathVector(pathv, style, &pbox);
+    ctx->renderPathVector(pathv, style, pbox);
 
     // START marker
     for (int i = 0; i < 2; i++) {  // SP_MARKER_LOC and SP_MARKER_LOC_START
@@ -316,7 +314,7 @@ static void sp_use_render(SPItem *item, CairoRenderContext *ctx)
     if ((use->x._set && use->x.computed != 0) || (use->y._set && use->y.computed != 0)) {
         Geom::Affine tp(Geom::Translate(use->x.computed, use->y.computed));
         ctx->pushState();
-        ctx->transform(&tp);
+        ctx->transform(tp);
         translated = true;
     }
 
@@ -372,7 +370,7 @@ static void sp_image_render(SPItem *item, CairoRenderContext *ctx)
     Geom::Scale s(width / (double)w, height / (double)h);
     Geom::Affine t(s * tp);
 
-    ctx->renderImage (image->pixbuf, &t, item->style);
+    ctx->renderImage (image->pixbuf, t, item->style);
 }
 
 static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
@@ -384,7 +382,7 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
 
     /* Cloned <symbol> is actually renderable */
     ctx->pushState();
-    ctx->transform(&symbol->c2p);
+    ctx->transform(symbol->c2p);
 
     // apply viewbox if set
     if (0 /*symbol->viewBox_set*/) {
@@ -409,7 +407,7 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
         vb2user[4] = x - symbol->viewBox.x0 * vb2user[0];
         vb2user[5] = y - symbol->viewBox.y0 * vb2user[3];
 
-        ctx->transform(&vb2user);
+        ctx->transform(vb2user);
     }
 
     sp_group_render(item, ctx);
@@ -425,8 +423,7 @@ static void sp_root_render(SPRoot *root, CairoRenderContext *ctx)
 
     ctx->pushState();
     renderer->setStateForItem(ctx, root);
-    Geom::Affine tempmat (root->c2p);
-    ctx->transform(&tempmat);
+    ctx->transform(root->c2p);
     sp_group_render(root, ctx);
     ctx->popState();
 }
@@ -450,9 +447,8 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
     }
     TRACE(("sp_asbitmap_render: resolution: %f\n", res ));
 
-    // Get the bounding box of the selection in document coordinates.
-    Geom::OptRect bbox = 
-           item->getBounds(item->i2dt_affine(), SPItem::RENDERING_BBOX);
+    // Get the bounding box of the selection in desktop coordinates.
+    Geom::OptRect bbox = item->desktopVisualBounds();
 
     // no bbox, e.g. empty group
 	if (!bbox) {
@@ -460,12 +456,7 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
     }
 
     Geom::Rect docrect(Geom::Rect(Geom::Point(0, 0), item->document->getDimensions()));
-    Geom::Rect bboxrect(Geom::Rect(Geom::Point(bbox->min()[Geom::X], bbox->min()[Geom::Y]), Geom::Point(bbox->max()[Geom::X], bbox->max()[Geom::Y])));
-
-    Geom::OptRect _bbox = Geom::intersect(docrect, bboxrect);
-
-	// assign the object dimension clipped on the document, no need to draw on area not on canvas
-    bbox = _bbox;
+    bbox &= docrect;
 
     // no bbox, e.g. empty group
     if (!bbox) {
@@ -473,14 +464,14 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
     }
 
     // The width and height of the bitmap in pixels
-    unsigned width =  ceil((bbox->max()[Geom::X] - bbox->min()[Geom::X]) * (res / PX_PER_IN));
-    unsigned height = ceil((bbox->max()[Geom::Y] - bbox->min()[Geom::Y]) * (res / PX_PER_IN));
+    unsigned width =  ceil(bbox->width() * (res / PX_PER_IN));
+    unsigned height = ceil(bbox->height() * (res / PX_PER_IN));
 
     if (width == 0 || height == 0) return;
 
     // Scale to exactly fit integer bitmap inside bounding box
-    double scale_x = (bbox->max()[Geom::X] - bbox->min()[Geom::X]) / width;
-    double scale_y = (bbox->max()[Geom::Y] - bbox->min()[Geom::Y]) / height;
+    double scale_x = bbox->width() / width;
+    double scale_y = bbox->height() / height;
 
     // Location of bounding box in document coordinates.
     double shift_x = bbox->min()[Geom::X];
@@ -516,7 +507,7 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
         TEST(gdk_pixbuf_save( pb, "bitmap.png", "png", NULL, NULL ));
         // TODO this is stupid - we just converted to pixbuf format when generating the bitmap!
         convert_pixbuf_normal_to_argb32(pb);
-        ctx->renderImage(pb, &t, item->style);
+        ctx->renderImage(pb, t, item->style);
         gdk_pixbuf_unref(pb);
         pb = 0;
     }
@@ -604,8 +595,7 @@ void CairoRenderer::renderItem(CairoRenderContext *ctx, SPItem *item)
         state->merge_opacity = FALSE;
         ctx->pushLayer();
     }
-    Geom::Affine tempmat (item->transform);
-    ctx->transform(&tempmat);
+    ctx->transform(item->transform);
     sp_item_invoke_render(item, ctx);
 
     if (state->need_layer)
@@ -625,25 +615,25 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
         base = doc->getRoot();
     }
 
-    NRRect d;
+    Geom::Rect d;
     if (pageBoundingBox) {
-        d.x0 = d.y0 = 0;
-        d.x1 = doc->getWidth();
-        d.y1 = doc->getHeight();
+        d = Geom::Rect::from_xywh(Geom::Point(0,0), doc->getDimensions());
     } else {
-        base->invoke_bbox( &d, base->i2dt_affine(), TRUE, SPItem::RENDERING_BBOX);
+        Geom::OptRect bbox = base->desktopVisualBounds();
+        if (!bbox) {
+            g_message("CairoRenderer: empty bounding box.");
+            return false;
+        }
+        d = *bbox;
     }
 
     if (ctx->_vector_based_target) {
         // convert from px to pt
-        d.x0 *= PT_PER_PX;
-        d.x1 *= PT_PER_PX;
-        d.y0 *= PT_PER_PX;
-        d.y1 *= PT_PER_PX;
+        d *= Geom::Scale(PT_PER_PX);
     }
 
-    ctx->_width = d.x1-d.x0;
-    ctx->_height = d.y1-d.y0;
+    ctx->_width = d.width();
+    ctx->_height = d.height();
 
     TRACE(("setupDocument: %f x %f\n", ctx->_width, ctx->_height));
 
@@ -655,11 +645,12 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
         if (ctx->_vector_based_target)
             high *= PT_PER_PX;
 
-        Geom::Affine tp(Geom::Translate(-d.x0 * (ctx->_vector_based_target ? PX_PER_PT : 1.0),
-                                    (d.y1 - high) * (ctx->_vector_based_target ? PX_PER_PT : 1.0)));
-        ctx->transform(&tp);
+        /// @fixme hardcoded dt2doc transform?
+        Geom::Affine tp(Geom::Translate(-d.left() * (ctx->_vector_based_target ? PX_PER_PT : 1.0),
+                                        (d.bottom() - high) * (ctx->_vector_based_target ? PX_PER_PT : 1.0)));
+        ctx->transform(tp);
     }
-    
+
     return ret;
 }
 
@@ -685,8 +676,8 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
         t[4] = clip_bbox.x0;
         t[5] = clip_bbox.y0;
         t *= ctx->getCurrentState()->transform;
-        ctx->getTransform(&saved_ctm);
-        ctx->setTransform(&t);
+        saved_ctm = ctx->getTransform();
+        ctx->setTransform(t);
     }
 
     TRACE(("BEGIN clip\n"));
@@ -696,12 +687,11 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
             SPItem const *item = SP_ITEM(child);
 
             // combine transform of the item in clippath and the item using clippath:
-            Geom::Affine tempmat (item->transform);
-            tempmat = tempmat * (ctx->getCurrentState()->item_transform);
+            Geom::Affine tempmat = item->transform * ctx->getCurrentState()->item_transform;
 
             // render this item in clippath
             ctx->pushState();
-            ctx->transform(&tempmat);
+            ctx->transform(tempmat);
             setStateForItem(ctx, item);
             // TODO fix this call to accept const items
             sp_item_invoke_render(const_cast<SPItem *>(item), ctx);
@@ -716,7 +706,7 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
         cairo_clip(ctx->_cr);
 
     if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX)
-        ctx->setTransform(&saved_ctm);
+        ctx->setTransform(saved_ctm);
 
     ctx->setRenderMode(saved_mode);
 }
@@ -738,7 +728,7 @@ CairoRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
         t[4] = mask_bbox.x0;
         t[5] = mask_bbox.y0;
         t *= ctx->getCurrentState()->transform;
-        ctx->setTransform(&t);
+        ctx->setTransform(t);
     }
 
     // Clip mask contents... but...

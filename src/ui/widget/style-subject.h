@@ -45,7 +45,7 @@ public:
 
     virtual iterator begin() = 0;
     virtual iterator end() { return iterator(NULL); }
-    virtual Geom::OptRect getBounds(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX) = 0;
+    virtual Geom::OptRect getBounds(SPItem::BBoxType type) = 0;
     virtual int queryStyle(SPStyle *query, int property) = 0;
     virtual void setCSS(SPCSSAttr *css) = 0;
 
@@ -68,7 +68,7 @@ public:
     ~Selection();
 
     virtual iterator begin();
-    virtual Geom::OptRect getBounds(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
+    virtual Geom::OptRect getBounds(SPItem::BBoxType type);
     virtual int queryStyle(SPStyle *query, int property);
     virtual void setCSS(SPCSSAttr *css);
 
@@ -89,7 +89,7 @@ public:
     ~CurrentLayer();
 
     virtual iterator begin();
-    virtual Geom::OptRect getBounds(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
+    virtual Geom::OptRect getBounds(SPItem::BBoxType type);
     virtual int queryStyle(SPStyle *query, int property);
     virtual void setCSS(SPCSSAttr *css);
 

@@ -120,7 +120,7 @@ struct BBoxSort
     SPItem *item;
     float anchor;
     Geom::Rect bbox;
-    BBoxSort(SPItem *pItem, Geom::Rect bounds, Geom::Dim2 orientation, double kBegin, double kEnd);
+    BBoxSort(SPItem *pItem, Geom::Rect const &bounds, Geom::Dim2 orientation, double kBegin, double kEnd);
     BBoxSort(const BBoxSort &rhs);
 };
 bool operator< (const BBoxSort &a, const BBoxSort &b);

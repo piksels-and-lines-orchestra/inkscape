@@ -74,7 +74,7 @@ void FilterImage::render_cairo(FilterSlot &slot)
         document->ensureUpToDate();
 
         Drawing drawing;
-        Geom::OptRect optarea = SVGElem->getBounds(Geom::identity());
+        Geom::OptRect optarea = SVGElem->visualBounds();
         if (!optarea) return;
 
         unsigned const key = SPItem::display_key_new(1);

@@ -43,8 +43,8 @@ public:
     Inkscape::DrawingItem *show(Inkscape::Drawing &drawing, unsigned int key);
     void hide(unsigned int key);
 
-    void setBBox(unsigned int key, NRRect *bbox);
-    void getBBox(NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+    void setBBox(unsigned int key, Geom::OptRect const &bbox);
+    Geom::OptRect geometricBounds(Geom::Affine const &transform);
 
 private:
     static void init(SPClipPath *clippath);

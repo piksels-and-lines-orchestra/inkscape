@@ -1325,7 +1325,7 @@ ObjectVerb::perform( SPAction *action, void *data, void */*pdata*/ )
     if (sel->isEmpty())
         return;
 
-    Geom::OptRect bbox = sel->bounds();
+    Geom::OptRect bbox = sel->visualBounds();
     if (!bbox) {
         return;
     }

@@ -557,7 +557,7 @@ LPERoughHatches::resetDefaults(SPItem * item)
 {
     Effect::resetDefaults(item);
 
-    Geom::OptRect bbox = item->getBounds(Geom::identity(), SPItem::GEOMETRIC_BBOX);
+    Geom::OptRect bbox = item->geometricBounds();
     Geom::Point origin(0.,0.);
     Geom::Point vector(50.,0.);
     if (bbox) {

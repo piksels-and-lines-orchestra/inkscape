@@ -112,7 +112,7 @@ public:
         // includes only the bare path bbox, no stroke, no nothing
         GEOMETRIC_BBOX,
         // includes everything: correctly done stroke (with proper miters and caps), markers, filter margins (e.g. blur)
-        RENDERING_BBOX
+        VISUAL_BBOX
     };
 
     unsigned int sensitive : 1;
@@ -151,7 +151,7 @@ public:
 
     void setExplicitlyHidden(bool val);
 
-    void setCenter(Geom::Point object_centre);
+    void setCenter(Geom::Point const &object_centre);
     void unsetCenter();
     bool isCenterSet();
     Geom::Point getCenter() const;
@@ -167,15 +167,19 @@ public:
     void raiseToTop();
     void lowerToBottom();
 
-    Geom::OptRect getBounds(Geom::Affine const &transform, BBoxType type=APPROXIMATE_BBOX, unsigned int dkey=0) const;
-
     sigc::connection connectTransformed(sigc::slot<void, Geom::Affine const *, SPItem *> slot)  {
         return _transformed_signal.connect(slot);
     }
-    void invoke_bbox( Geom::OptRect &bbox, Geom::Affine const &transform, unsigned const clear, SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
-    void invoke_bbox( NRRect *bbox, Geom::Affine const &transform, unsigned const clear, SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX) __attribute__ ((deprecated));
-    void invoke_bbox_full( Geom::OptRect &bbox, Geom::Affine const &transform, unsigned const flags, unsigned const clear) const;
-    void invoke_bbox_full( NRRect *bbox, Geom::Affine const &transform, unsigned const flags, unsigned const clear) __attribute__ ((deprecated));
+
+    Geom::OptRect geometricBounds(Geom::Affine const &transform = Geom::identity()) const;
+    Geom::OptRect visualBounds(Geom::Affine const &transform = Geom::identity()) const;
+    Geom::OptRect bounds(BBoxType type, Geom::Affine const &transform = Geom::identity()) const;
+    Geom::OptRect documentGeometricBounds() const;
+    Geom::OptRect documentVisualBounds() const;
+    Geom::OptRect documentBounds(BBoxType type) const;
+    Geom::OptRect desktopGeometricBounds() const;
+    Geom::OptRect desktopVisualBounds() const;
+    Geom::OptRect desktopBounds(BBoxType type) const;
 
     unsigned pos_in_parent();
     gchar *description();
@@ -195,8 +199,7 @@ public:
     void convert_item_to_guides();
     gint emitEvent (SPEvent &event);
     Inkscape::DrawingItem *get_arenaitem(unsigned int key);
-    void getBboxDesktop(NRRect *bbox, SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX) __attribute__ ((deprecated));
-    Geom::OptRect getBboxDesktop(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
+
     Geom::Affine i2doc_affine() const;
     Geom::Affine i2dt_affine() const;
     void set_i2d_affine(Geom::Affine const &transform);
@@ -237,7 +240,7 @@ public:
     SPObjectClass parent_class;
 
     /** BBox union in given coordinate system */
-    void (* bbox) (SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+    Geom::OptRect (* bbox) (SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 
     /** Printing method. Assumes ctm is set to item affine matrix */
     /* \todo Think about it, and maybe implement generic export method instead (Lauris) */

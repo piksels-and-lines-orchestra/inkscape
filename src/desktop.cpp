@@ -577,16 +577,16 @@ bool SPDesktop::isLayer(SPObject *object) const {
 }
 
 /**
- * True if desktop viewport fully contains \a item's bbox.
+ * True if desktop viewport intersects \a item's bbox.
  */
 bool SPDesktop::isWithinViewport (SPItem *item) const
 {
     Geom::Rect const viewport = get_display_area();
-    Geom::OptRect const bbox = item->getBboxDesktop();
+    Geom::OptRect const bbox = item->desktopVisualBounds();
     if (bbox) {
-        return viewport.contains(*bbox);
+        return viewport.intersects(*bbox);
     } else {
-        return true;
+        return false;
     }
 }
 
@@ -957,7 +957,7 @@ SPDesktop::zoom_quick (bool enable)
         }
 
         if (!zoomed) {
-            Geom::OptRect const d = selection->bounds();
+            Geom::OptRect const d = selection->visualBounds();
             if (d && d->area() * 2.0 < _quick_zoom_stored_area.area()) {
                 set_display_area(*d, true);
                 zoomed = true;
@@ -1109,7 +1109,7 @@ SPDesktop::zoom_page_width()
 void
 SPDesktop::zoom_selection()
 {
-    Geom::OptRect const d = selection->bounds();
+    Geom::OptRect const d = selection->visualBounds();
 
     if ( !d || d->minExtent() < 0.1 ) {
         return;
@@ -1137,7 +1137,7 @@ SPDesktop::zoom_drawing()
     SPItem *docitem = doc()->getRoot();
     g_return_if_fail (docitem != NULL);
 
-    Geom::OptRect d = docitem->getBboxDesktop();
+    Geom::OptRect d = docitem->desktopVisualBounds();
 
     /* Note that the second condition here indicates that
     ** there are no items in the drawing.

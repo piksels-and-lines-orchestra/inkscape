@@ -296,7 +296,7 @@ SPGradient *sp_gradient_reset_to_userspace(SPGradient *gr, SPItem *item)
 
     // calculate the bbox of the item
     item->document->ensureUpToDate();
-    Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
+    Geom::OptRect bbox = item->visualBounds(); // we need "true" bbox without item_i2d_affine
 
     if (!bbox)
         return gr;
@@ -363,7 +363,7 @@ SPGradient *sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar
         // calculate the bbox of the item
         item->document->ensureUpToDate();
         Geom::Affine bbox2user;
-        Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
+        Geom::OptRect bbox = item->visualBounds(); // we need "true" bbox without item_i2d_affine
         if ( bbox ) {
             bbox2user = Geom::Affine(bbox->dimensions()[Geom::X], 0,
                                    0, bbox->dimensions()[Geom::Y],
@@ -1063,7 +1063,7 @@ Geom::Point sp_item_gradient_get_coords(SPItem *item, guint point_type, guint po
 
     if (SP_GRADIENT(gradient)->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
         item->document->ensureUpToDate();
-        Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
+        Geom::OptRect bbox = item->visualBounds(); // we need "true" bbox without item_i2d_affine
         if (bbox) {
             p *= Geom::Affine(bbox->dimensions()[Geom::X], 0,
                             0, bbox->dimensions()[Geom::Y],

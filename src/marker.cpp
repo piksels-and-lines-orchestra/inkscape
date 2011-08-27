@@ -45,7 +45,7 @@ static Inkscape::XML::Node *sp_marker_write (SPObject *object, Inkscape::XML::Do
 
 static Inkscape::DrawingItem *sp_marker_private_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_marker_private_hide (SPItem *item, unsigned int key);
-static void sp_marker_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+static Geom::OptRect sp_marker_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 static void sp_marker_print (SPItem *item, SPPrintContext *ctx);
 
 static void sp_marker_view_remove (SPMarker *marker, SPMarkerView *view, unsigned int destroyitems);
@@ -541,10 +541,11 @@ sp_marker_private_hide (SPItem */*item*/, unsigned int /*key*/)
 /**
  * This routine is disabled to break propagation.
  */
-static void
-sp_marker_bbox(SPItem const *, NRRect *, Geom::Affine const &, unsigned const)
+static Geom::OptRect
+sp_marker_bbox(SPItem const *, Geom::Affine const &, SPItem::BBoxType)
 {
-	/* Break propagation */
+    /* Break propagation */
+    return Geom::OptRect();
 }
 
 /**

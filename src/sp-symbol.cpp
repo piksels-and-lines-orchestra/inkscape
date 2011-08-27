@@ -39,7 +39,7 @@ static Inkscape::XML::Node *sp_symbol_write (SPObject *object, Inkscape::XML::Do
 
 static Inkscape::DrawingItem *sp_symbol_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_symbol_hide (SPItem *item, unsigned int key);
-static void sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+static Geom::OptRect sp_symbol_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 static void sp_symbol_print (SPItem *item, SPPrintContext *ctx);
 
 static SPGroupClass *parent_class;
@@ -399,18 +399,20 @@ static void sp_symbol_hide(SPItem *item, unsigned int key)
     }
 }
 
-static void sp_symbol_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags)
+static Geom::OptRect sp_symbol_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type)
 {
     SPSymbol const *symbol = SP_SYMBOL(item);
+    Geom::OptRect bbox;
 
     if (symbol->cloned) {
         // Cloned <symbol> is actually renderable
 
         if (((SPItemClass *) (parent_class))->bbox) {
             Geom::Affine const a( symbol->c2p * transform );
-            ((SPItemClass *) (parent_class))->bbox(item, bbox, a, flags);
+            bbox = ((SPItemClass *) (parent_class))->bbox(item, a, type);
         }
     }
+    return bbox;
 }
 
 static void sp_symbol_print(SPItem *item, SPPrintContext *ctx)

@@ -5951,7 +5951,7 @@ static void lpetool_toggle_set_bbox(GtkToggleAction *act, gpointer data)
     SPDesktop *desktop = static_cast<SPDesktop *>(data);
     Inkscape::Selection *selection = desktop->selection;
 
-    Geom::OptRect bbox = selection->bounds();
+    Geom::OptRect bbox = selection->visualBounds();
 
     if (bbox) {
         Geom::Point A(bbox->min());
@@ -6799,8 +6799,7 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
                 axis = Geom::Y;
             }
 
-            Geom::OptRect bbox
-                  = item->getBounds(Geom::identity(), SPItem::GEOMETRIC_BBOX);
+            Geom::OptRect bbox = item->geometricBounds();
             if (!bbox)
                 continue;
             double width = bbox->dimensions()[axis];

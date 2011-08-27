@@ -1788,15 +1788,15 @@ GrDrag::updateLevels ()
 
     for (GSList const* i = this->selection->itemList(); i != NULL; i = i->next) {
         SPItem *item = SP_ITEM(i->data);
-        Geom::OptRect rect = item->getBboxDesktop ();
+        Geom::OptRect rect = item->desktopVisualBounds();
         if (rect) {
             // Remember the edges of the bbox and the center axis
             hor_levels.push_back(rect->min()[Geom::Y]);
             hor_levels.push_back(rect->max()[Geom::Y]);
-            hor_levels.push_back(0.5 * (rect->min()[Geom::Y] + rect->max()[Geom::Y]));
+            hor_levels.push_back(rect->midpoint()[Geom::Y]);
             vert_levels.push_back(rect->min()[Geom::X]);
             vert_levels.push_back(rect->max()[Geom::X]);
-            vert_levels.push_back(0.5 * (rect->min()[Geom::X] + rect->max()[Geom::X]));
+            vert_levels.push_back(rect->midpoint()[Geom::X]);
         }
     }
 }

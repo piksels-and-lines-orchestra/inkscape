@@ -56,16 +56,18 @@ sp_print_comment(SPPrintContext *ctx, char const *comment)
 
 unsigned int
 sp_print_fill(SPPrintContext *ctx, Geom::PathVector const &pathv, Geom::Affine const *ctm, SPStyle const *style,
-              NRRect const *pbox, NRRect const *dbox, NRRect const *bbox)
+              Geom::OptRect const &pbox, Geom::OptRect const &dbox, Geom::OptRect const &bbox)
 {
-    return ctx->module->fill(pathv, ctm, style, pbox, dbox, bbox);
+    NRRect nrpbox(pbox), nrdbox(dbox), nrbbox(bbox);
+    return ctx->module->fill(pathv, ctm, style, &nrpbox, &nrdbox, &nrbbox);
 }
 
 unsigned int
 sp_print_stroke(SPPrintContext *ctx, Geom::PathVector const &pathv, Geom::Affine const *ctm, SPStyle const *style,
-                NRRect const *pbox, NRRect const *dbox, NRRect const *bbox)
+                Geom::OptRect const &pbox, Geom::OptRect const &dbox, Geom::OptRect const &bbox)
 {
-    return ctx->module->stroke(pathv, ctm, style, pbox, dbox, bbox);
+    NRRect nrpbox(pbox), nrdbox(dbox), nrbbox(bbox);
+    return ctx->module->stroke(pathv, ctm, style, &nrpbox, &nrdbox, &nrbbox);
 }
 
 unsigned int

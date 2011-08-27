@@ -1881,7 +1881,7 @@ sp_desktop_widget_update_scrollbars (SPDesktopWidget *dtw, double scale)
     Geom::Rect darea ( Geom::Point(-doc->getWidth(), -doc->getHeight()),
                      Geom::Point(2 * doc->getWidth(), 2 * doc->getHeight())  );
 
-    Geom::OptRect deskarea = darea | doc->getRoot()->getBboxDesktop();
+    Geom::OptRect deskarea = darea | doc->getRoot()->desktopVisualBounds();
 
     /* Canvas region we always show unconditionally */
     Geom::Rect carea( Geom::Point(deskarea->min()[Geom::X] * scale - 64, deskarea->max()[Geom::Y] * -scale - 64),
