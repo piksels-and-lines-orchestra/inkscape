@@ -1,8 +1,5 @@
 ## Makefile.am fragment sourced by src/Makefile.am.
 
 ink_common_sources +=	\
-	libnr/nr-macros.h	\
-	libnr/nr-object.cpp	\
-	libnr/nr-object.h	\
 	libnr/nr-point-fns.cpp \
 	libnr/nr-point-fns.h

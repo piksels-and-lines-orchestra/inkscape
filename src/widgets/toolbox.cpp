@@ -863,23 +863,6 @@ static void trigger_sp_action( GtkAction* /*act*/, gpointer user_data )
     }
 }
 
-static void sp_action_action_set_sensitive(SPAction * /*action*/, unsigned int sensitive, void *data)
-{
-    if ( data ) {
-        GtkAction* act = GTK_ACTION(data);
-        gtk_action_set_sensitive( act, sensitive );
-    }
-}
-
-static SPActionEventVector action_event_vector = {
-    {NULL},
-    NULL,
-    NULL,
-    sp_action_action_set_sensitive,
-    NULL,
-    NULL
-};
-
 static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::View::View* view, Inkscape::IconSize size )
 {
     GtkAction* act = 0;
@@ -891,8 +874,13 @@ static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::Vi
 
     g_signal_connect( G_OBJECT(inky), "activate", G_CALLBACK(trigger_sp_action), targetAction );
 
-    SPAction*rebound = dynamic_cast<SPAction *>( nr_object_ref( dynamic_cast<NRObject *>(targetAction) ) );
-    nr_active_object_add_listener( (NRActiveObject *)rebound, (NRObjectEventVector *)&action_event_vector, sizeof(SPActionEventVector), inky );
+    // FIXME: memory leak: this is not unrefed anywhere
+    g_object_ref(G_OBJECT(targetAction));
+    g_object_set_data_full(G_OBJECT(inky), "SPAction", (void*) targetAction, (GDestroyNotify) &g_object_unref);
+    targetAction->signal_set_sensitive.connect(
+        sigc::bind<0>(
+            sigc::ptr_fun(&gtk_action_set_sensitive),
+            GTK_ACTION(inky)));
 
     return act;
 }
