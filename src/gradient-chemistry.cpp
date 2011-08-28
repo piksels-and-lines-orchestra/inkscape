@@ -16,6 +16,8 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <2geom/transforms.h>
+#include <2geom/bezier-curve.h>
 
 #include "style.h"
 #include "document-private.h"
@@ -30,14 +32,12 @@
 
 #include "sp-text.h"
 #include "sp-tspan.h"
-#include <2geom/transforms.h>
 #include "xml/repr.h"
 #include "svg/svg.h"
 #include "svg/svg-color.h"
 #include "svg/css-ostringstream.h"
 #include "preferences.h"
 
-#include "libnr/nr-point-fns.h"
 #define noSP_GR_VERBOSE
 
 // Terminology:
@@ -838,7 +838,9 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
             case POINT_LG_MID:
             {
                 // using X-coordinates only to determine the offset, assuming p has been snapped to the vector from begin to end.
-                double offset = get_offset_between_points (p, Geom::Point(lg->x1.computed, lg->y1.computed), Geom::Point(lg->x2.computed, lg->y2.computed));
+                Geom::Point begin(lg->x1.computed, lg->y1.computed);
+                Geom::Point end(lg->x2.computed, lg->y2.computed);
+                double offset = Geom::LineSegment(begin, end).nearestPoint(p);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (lg, false);
                 lg->ensureVector();
                 lg->vector.stops.at(point_i).offset = offset;
@@ -931,8 +933,8 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
         case POINT_RG_MID1:
             {
                 Geom::Point start = Geom::Point (rg->cx.computed, rg->cy.computed);
-                 Geom::Point end   = Geom::Point (rg->cx.computed + rg->r.computed, rg->cy.computed);
-                double offset = get_offset_between_points (p, start, end);
+                Geom::Point end   = Geom::Point (rg->cx.computed + rg->r.computed, rg->cy.computed);
+                double offset = Geom::LineSegment(start, end).nearestPoint(p);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (rg, false);
                 rg->ensureVector();
                 rg->vector.stops.at(point_i).offset = offset;
@@ -948,7 +950,7 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
         case POINT_RG_MID2:
                 Geom::Point start = Geom::Point (rg->cx.computed, rg->cy.computed);
                 Geom::Point end   = Geom::Point (rg->cx.computed, rg->cy.computed - rg->r.computed);
-                double offset = get_offset_between_points (p, start, end);
+                double offset = Geom::LineSegment(start, end).nearestPoint(p);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary(rg, false);
                 rg->ensureVector();
                 rg->vector.stops.at(point_i).offset = offset;
