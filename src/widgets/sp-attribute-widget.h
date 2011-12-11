@@ -14,15 +14,10 @@
 #ifndef SEEN_DIALOGS_SP_ATTRIBUTE_WIDGET_H
 #define SEEN_DIALOGS_SP_ATTRIBUTE_WIDGET_H
 
+#include <gtkmm/entry.h>
 #include <glib.h>
 #include <stddef.h>
 #include <sigc++/connection.h>
-
-#define SP_TYPE_ATTRIBUTE_WIDGET (sp_attribute_widget_get_type ())
-#define SP_ATTRIBUTE_WIDGET(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_ATTRIBUTE_WIDGET, SPAttributeWidget))
-#define SP_ATTRIBUTE_WIDGET_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), SP_TYPE_ATTRIBUTE_WIDGET, SPAttributeWidgetClass))
-#define SP_IS_ATTRIBUTE_WIDGET(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_ATTRIBUTE_WIDGET))
-#define SP_IS_ATTRIBUTE_WIDGET_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), SP_TYPE_ATTRIBUTE_WIDGET))
 
 #define SP_TYPE_ATTRIBUTE_TABLE (sp_attribute_table_get_type ())
 #define SP_ATTRIBUTE_TABLE(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_ATTRIBUTE_TABLE, SPAttributeTable))
@@ -36,10 +31,6 @@ class Node;
 }
 }
 
-
-struct SPAttributeWidget;
-struct SPAttributeWidgetClass;
-
 struct SPAttributeTable;
 struct SPAttributeTableClass;
 
@@ -47,35 +38,32 @@ class SPObject;
 
 #include <gtk/gtk.h>
 
-struct SPAttributeWidget {
-    GtkEntry entry;
-    guint blocked : 1;
-    guint hasobj : 1;
+class SPAttributeWidget : Gtk::Entry {
+//NOTE: SPAttributeWidget does not seem to be used nowhere in Inkscape, conversion to c++ not tested
+public:
+    SPAttributeWidget ();
+    ~SPAttributeWidget ();
+    void set_object(SPObject *object, const gchar *attribute);
+    void set_repr(Inkscape::XML::Node *repr, const gchar *attribute);
+    Glib::ustring get_attribute(void) {return _attribute;};
+    void set_blocked(guint b) {blocked = b;};
+    
     union {
         SPObject *object;
         Inkscape::XML::Node *repr;
     } src;
-    gchar *attribute;
 
+protected:
+    void on_changed (void);
+    
+private:
+    guint blocked;
+    guint hasobj;
+    Glib::ustring _attribute;
     sigc::connection modified_connection;
     sigc::connection release_connection;
 };
 
-struct SPAttributeWidgetClass {
-    GtkEntryClass entry_class;
-};
-
-GType sp_attribute_widget_get_type (void);
-
-GtkWidget *sp_attribute_widget_new (SPObject *object, const gchar *attribute);
-GtkWidget *sp_attribute_widget_new_repr (Inkscape::XML::Node *repr, const gchar *attribute);
-
-void sp_attribute_widget_set_object ( SPAttributeWidget *spw, 
-                                      SPObject *object, 
-                                      const gchar *attribute );
-void sp_attribute_widget_set_repr ( SPAttributeWidget *spw, 
-                                    Inkscape::XML::Node *repr, 
-                                    const gchar *attribute );
 
 /* SPAttributeTable */
 

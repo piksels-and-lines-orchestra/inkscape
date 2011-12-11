@@ -20,277 +20,133 @@
 
 using Inkscape::DocumentUndo;
 
-static void sp_attribute_widget_class_init (SPAttributeWidgetClass *klass);
-static void sp_attribute_widget_init (SPAttributeWidget *widget);
-static void sp_attribute_widget_destroy (GtkObject *object);
-
-static void sp_attribute_widget_changed (GtkEditable *editable);
-
 static void sp_attribute_widget_object_modified ( SPObject *object,
                                                   guint flags,
                                                   SPAttributeWidget *spaw );
 static void sp_attribute_widget_object_release ( SPObject *object,
                                                  SPAttributeWidget *spaw );
 
-static GtkEntryClass *parent_class;
 
-
-
-
-GType sp_attribute_widget_get_type(void)
+SPAttributeWidget::SPAttributeWidget () : 
+    blocked(0),
+    hasobj(0),
+    _attribute(),
+    modified_connection(),
+    release_connection()
 {
-    static GType type = 0;
-    if (!type) {
-        GTypeInfo info = {
-            sizeof(SPAttributeWidgetClass),
-            0, // base_init
-            0, // base_finalize
-            (GClassInitFunc)sp_attribute_widget_class_init,
-            0, // class_finalize
-            0, // class_data
-            sizeof(SPAttributeWidget),
-            0, // n_preallocs
-            (GInstanceInitFunc)sp_attribute_widget_init,
-            0 // value_table
-        };
-        type = g_type_register_static(GTK_TYPE_ENTRY, "SPAttributeWidget", &info, static_cast<GTypeFlags>(0));
-    }
-    return type;
-} // end of sp_attribute_widget_get_type()
-
-
-
-static void sp_attribute_widget_class_init (SPAttributeWidgetClass *klass)
-{
-    GtkObjectClass *object_class;
-    GtkEditableClass *editable_class;
-
-    object_class = GTK_OBJECT_CLASS (klass);
-    editable_class = GTK_EDITABLE_CLASS (klass);
-
-    parent_class = (GtkEntryClass*)g_type_class_peek_parent (klass);
-
-    object_class->destroy = sp_attribute_widget_destroy;
-
-    editable_class->changed = sp_attribute_widget_changed;
-
-} // end of sp_attribute_widget_class_init()
-
-
-
-static void sp_attribute_widget_init (SPAttributeWidget *spaw)
-{
-    spaw->blocked = FALSE;
-    spaw->hasobj = FALSE;
-
-    spaw->src.object = NULL;
-
-    spaw->attribute = NULL;
-
-    new (&spaw->modified_connection) sigc::connection();
-    new (&spaw->release_connection) sigc::connection();
+    src.object = NULL;
 }
 
-
-
-static void sp_attribute_widget_destroy (GtkObject *object)
+SPAttributeWidget::~SPAttributeWidget ()
 {
-
-    SPAttributeWidget *spaw;
-
-    spaw = SP_ATTRIBUTE_WIDGET (object);
-
-    if (spaw->attribute) {
-        g_free (spaw->attribute);
-        spaw->attribute = NULL;
+    if (hasobj)
+    {
+        if (src.object)
+        {
+            modified_connection.disconnect();
+            release_connection.disconnect();
+            src.object = NULL;
+        }
     }
+    else
+    {
+        if (src.repr)
+        {
+            src.repr = Inkscape::GC::release(src.repr);
+        }
+    }
+}
 
-
-    if (spaw->hasobj) {
-
-        if (spaw->src.object) {
-            spaw->modified_connection.disconnect();
-            spaw->release_connection.disconnect();
-            spaw->src.object = NULL;
+void SPAttributeWidget::set_object(SPObject *object, const gchar *attribute)
+{
+    if (hasobj) {
+        if (src.object) {
+            modified_connection.disconnect();
+            release_connection.disconnect();
+            src.object = NULL;
         }
     } else {
 
-        if (spaw->src.repr) {
-            spaw->src.repr = Inkscape::GC::release(spaw->src.repr);
-        }
-    } // end of if()
-
-    spaw->modified_connection.~connection();
-    spaw->release_connection.~connection();
-
-    ((GtkObjectClass *) parent_class)->destroy (object);
-
-}
-
-
-
-static void sp_attribute_widget_changed (GtkEditable *editable)
-{
-
-    SPAttributeWidget *spaw;
-
-    spaw = SP_ATTRIBUTE_WIDGET (editable);
-
-    if (!spaw->blocked) {
-
-        const gchar *text;
-        spaw->blocked = TRUE;
-        text = gtk_entry_get_text (GTK_ENTRY (spaw));
-        if (!*text)
-            text = NULL;
-
-        if (spaw->hasobj && spaw->src.object) {        
-            spaw->src.object->getRepr()->setAttribute(spaw->attribute, text, false);
-            DocumentUndo::done(spaw->src.object->document, SP_VERB_NONE,
-                                _("Set attribute"));
-
-        } else if (spaw->src.repr) {
-            spaw->src.repr->setAttribute(spaw->attribute, text, false);
-            /* TODO: Warning! Undo will not be flushed in given case */
-        }
-        spaw->blocked = FALSE;
-    }
-
-} // end of sp_attribute_widget_changed()
-
-
-
-GtkWidget *sp_attribute_widget_new ( SPObject *object, const gchar *attribute )
-{
-    SPAttributeWidget *spaw;
-
-    g_return_val_if_fail (!object || SP_IS_OBJECT (object), NULL);
-    g_return_val_if_fail (!object || attribute, NULL);
-
-    spaw = (SPAttributeWidget*)g_object_new (SP_TYPE_ATTRIBUTE_WIDGET, NULL);
-
-    sp_attribute_widget_set_object (spaw, object, attribute);
-
-    return GTK_WIDGET (spaw);
-
-} // end of sp_attribute_widget_new()
-
-
-
-GtkWidget *sp_attribute_widget_new_repr ( Inkscape::XML::Node *repr, const gchar *attribute )
-{
-    SPAttributeWidget *spaw;
-
-    spaw = (SPAttributeWidget*)g_object_new (SP_TYPE_ATTRIBUTE_WIDGET, NULL);
-
-    sp_attribute_widget_set_repr (spaw, repr, attribute);
-
-    return GTK_WIDGET (spaw);
-}
-
-
-
-void sp_attribute_widget_set_object ( SPAttributeWidget *spaw,
-                                 SPObject *object,
-                                 const gchar *attribute )
-{
-
-    g_return_if_fail (spaw != NULL);
-    g_return_if_fail (SP_IS_ATTRIBUTE_WIDGET (spaw));
-    g_return_if_fail (!object || SP_IS_OBJECT (object));
-    g_return_if_fail (!object || attribute);
-    g_return_if_fail (attribute != NULL);
-
-    if (spaw->attribute) {
-        g_free (spaw->attribute);
-        spaw->attribute = NULL;
-    }
-
-    if (spaw->hasobj) {
-
-        if (spaw->src.object) {
-            spaw->modified_connection.disconnect();
-            spaw->release_connection.disconnect();
-            spaw->src.object = NULL;
-        }
-    } else {
-
-        if (spaw->src.repr) {
-            spaw->src.repr = Inkscape::GC::release(spaw->src.repr);
+        if (src.repr) {
+            src.repr = Inkscape::GC::release(src.repr);
         }
     }
 
-    spaw->hasobj = TRUE;
-
+    hasobj = true;
+    
     if (object) {
         const gchar *val;
 
-        spaw->blocked = TRUE;
-        spaw->src.object = object;
+        blocked = true;
+        src.object = object;
 
-        spaw->modified_connection = object->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_attribute_widget_object_modified), spaw));
-        spaw->release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_attribute_widget_object_release), spaw));
+        modified_connection = object->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_attribute_widget_object_modified), this));
+        release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_attribute_widget_object_release), this));
 
-        spaw->attribute = g_strdup (attribute);
+        _attribute = attribute;
 
         val = object->getRepr()->attribute(attribute);
-        gtk_entry_set_text (GTK_ENTRY (spaw), val ? val : (const gchar *) "");
-        spaw->blocked = FALSE;
+        set_text (val ? val : (const gchar *) "");
+        blocked = false;
     }
+    gtk_widget_set_sensitive (GTK_WIDGET(this), (src.object != NULL));
+}
 
-    gtk_widget_set_sensitive (GTK_WIDGET (spaw), (spaw->src.object != NULL));
-
-} // end of sp_attribute_widget_set_object()
-
-
-
-void sp_attribute_widget_set_repr ( SPAttributeWidget *spaw,
-                               Inkscape::XML::Node *repr,
-                               const gchar *attribute )
+void SPAttributeWidget::set_repr(Inkscape::XML::Node *repr, const gchar *attribute)
 {
-
-    g_return_if_fail (spaw != NULL);
-    g_return_if_fail (SP_IS_ATTRIBUTE_WIDGET (spaw));
-    g_return_if_fail (attribute != NULL);
-
-    if (spaw->attribute) {
-        g_free (spaw->attribute);
-        spaw->attribute = NULL;
-    }
-
-    if (spaw->hasobj) {
-
-        if (spaw->src.object) {
-            spaw->modified_connection.disconnect();
-            spaw->release_connection.disconnect();
-            spaw->src.object = NULL;
+    if (hasobj) {
+        if (src.object) {
+            modified_connection.disconnect();
+            release_connection.disconnect();
+            src.object = NULL;
         }
     } else {
 
-        if (spaw->src.repr) {
-            spaw->src.repr = Inkscape::GC::release(spaw->src.repr);
+        if (src.repr) {
+            src.repr = Inkscape::GC::release(src.repr);
         }
     }
 
-    spaw->hasobj = FALSE;
-
+    hasobj = false;
+    
     if (repr) {
         const gchar *val;
 
-        spaw->blocked = TRUE;
-        spaw->src.repr = Inkscape::GC::anchor(repr);
-        spaw->attribute = g_strdup (attribute);
+        blocked = true;
+        src.repr = Inkscape::GC::anchor(repr);
+        attribute = g_strdup (attribute);
 
         val = repr->attribute(attribute);
-        gtk_entry_set_text (GTK_ENTRY (spaw), val ? val : (const gchar *) "");
-        spaw->blocked = FALSE;
+        set_text (val ? val : (const gchar *) "");
+        blocked = false;
     }
+    gtk_widget_set_sensitive (GTK_WIDGET (this), (src.repr != NULL));
+}
 
-    gtk_widget_set_sensitive (GTK_WIDGET (spaw), (spaw->src.repr != NULL));
+void SPAttributeWidget::on_changed (void)
+{
+    if (!blocked)
+    {
+        Glib::ustring text1;
+        const gchar *text;
+        blocked = TRUE;
+        text1 = get_text ();
+		text=text1.c_str();
+        if (!*text)
+            text = NULL;
 
-} // end of sp_attribute_widget_set_repr()
+        if (hasobj && src.object) {        
+            src.object->getRepr()->setAttribute(_attribute.c_str(), text, false);
+            DocumentUndo::done(src.object->document, SP_VERB_NONE,
+                                _("Set attribute"));
 
-
+        } else if (src.repr) {
+            src.repr->setAttribute(_attribute.c_str(), text, false);
+            /* TODO: Warning! Undo will not be flushed in given case */
+        }
+        blocked = false;
+    }
+}
 
 static void sp_attribute_widget_object_modified ( SPObject */*object*/,
                                       guint flags,
@@ -300,17 +156,17 @@ static void sp_attribute_widget_object_modified ( SPObject */*object*/,
     if (flags && SP_OBJECT_MODIFIED_FLAG) {
 
         const gchar *val, *text;
-        val = spaw->src.object->getRepr()->attribute(spaw->attribute);
+        val = spaw->src.object->getRepr()->attribute(spaw->get_attribute().c_str());
         text = gtk_entry_get_text (GTK_ENTRY (spaw));
 
         if (val || text) {
 
             if (!val || !text || strcmp (val, text)) {
                 /* We are different */
-                spaw->blocked = TRUE;
+                spaw->set_blocked(true);
                 gtk_entry_set_text ( GTK_ENTRY (spaw),
                                      val ? val : (const gchar *) "");
-                spaw->blocked = FALSE;
+                spaw->set_blocked(false);
             } // end of if()
 
         } // end of if()
@@ -319,13 +175,10 @@ static void sp_attribute_widget_object_modified ( SPObject */*object*/,
 
 } // end of sp_attribute_widget_object_modified()
 
-
-
-static void
-sp_attribute_widget_object_release ( SPObject */*object*/,
-                                     SPAttributeWidget *spaw )
+static void sp_attribute_widget_object_release ( SPObject */*object*/,
+                                     SPAttributeWidget * spaw )
 {
-    sp_attribute_widget_set_object (spaw, NULL, NULL);
+	spaw->set_object (NULL, NULL);
 }
 
 
