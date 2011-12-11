@@ -356,13 +356,25 @@ static void sp_item_widget_setup( SPWidget *spw, Inkscape::Selection *selection 
             gtk_container_remove(GTK_CONTAINER(w), int_table);
         }
 
-        const gchar* int_labels[10] = {"onclick", "onmouseover", "onmouseout", "onmousedown", "onmouseup", "onmousemove","onfocusin", "onfocusout", "onactivate", "onload"};
-
-        int_table = sp_attribute_table_new (obj, 10, int_labels, int_labels);
+        std::vector<Glib::ustring> int_labels;
+        std::vector<Glib::ustring> int_attributes;
+        int_labels.push_back("onclick");
+        int_labels.push_back("onmouseover");
+        int_labels.push_back("onmouseout");
+        int_labels.push_back("onmousedown");
+        int_labels.push_back("onmouseup");
+        int_labels.push_back("onmousemove");
+        int_labels.push_back("onfocusin");
+        int_labels.push_back("onfocusout");
+        int_labels.push_back("onfocusout");
+        int_labels.push_back("onload");
+int_attributes=int_labels;
+        SPAttributeTable* t = new SPAttributeTable (obj, int_labels, int_attributes, GTK_CONTAINER (w));
+        int_table = (GtkWidget*) t->gobj();
         gtk_widget_show_all (int_table);
         g_object_set_data(G_OBJECT(spw), "interactivity_table", int_table);
 
-        gtk_container_add (GTK_CONTAINER (w), int_table);
+//        gtk_container_add (GTK_CONTAINER (w), int_table);
 
     }
 
