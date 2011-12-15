@@ -17,8 +17,6 @@
 
 #include <gtk/gtk.h>
 #include <gtkmm.h>
-//#include <gtkmm/entry.h>
-//#include <gtkmm/table.h>
 #include <glib.h>
 #include <stddef.h>
 #include <sigc++/connection.h>
@@ -57,7 +55,7 @@ private:
     guint hasobj;
     Glib::ustring _attribute;
     sigc::connection modified_connection;
-    sigc::connection release_connection;
+    //sigc::connection release_connection;
 };
 
 
@@ -66,9 +64,9 @@ private:
 class SPAttributeTable : public Gtk::Widget {
 public:
     SPAttributeTable ();
-    SPAttributeTable (SPObject *object, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, GtkContainer* parent);
+    SPAttributeTable (SPObject *object, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, Gtk::Container* parent);
     ~SPAttributeTable ();
-    void set_object(SPObject *object, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, GtkContainer* parent);
+    void set_object(SPObject *object, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, Gtk::Container* parent);
     void set_repr(Inkscape::XML::Node *repr, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, GtkContainer* parent);
     std::vector<Glib::ustring> get_attributes(void) {return _attributes;};
     std::vector<Gtk::Widget *> get_entries(void) {return _entries;};
@@ -80,13 +78,10 @@ public:
     guint hasobj;
 
 private:
-//    GtkVBox vbox;
     Gtk::Table *table;
-//    Gtk::Container *_parent;
     std::vector<Glib::ustring> _attributes;
     std::vector<Gtk::Widget *> _entries;
     sigc::connection modified_connection;
-    //sigc::connection release_connection;
     
     void clear(void);
 };

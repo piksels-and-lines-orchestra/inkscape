@@ -24,16 +24,16 @@ using Inkscape::DocumentUndo;
 static void sp_attribute_widget_object_modified ( SPObject *object,
                                                   guint flags,
                                                   SPAttributeWidget *spaw );
-static void sp_attribute_widget_object_release ( SPObject *object,
-                                                 SPAttributeWidget *spaw );
+// static void sp_attribute_widget_object_release ( SPObject *object,
+                                                 // SPAttributeWidget *spaw );
 
 
 SPAttributeWidget::SPAttributeWidget () : 
     blocked(0),
     hasobj(0),
     _attribute(),
-    modified_connection(),
-    release_connection()
+    modified_connection()//,
+    // release_connection()
 {
     src.object = NULL;
 }
@@ -45,7 +45,7 @@ SPAttributeWidget::~SPAttributeWidget ()
         if (src.object)
         {
             modified_connection.disconnect();
-            release_connection.disconnect();
+            // release_connection.disconnect();
             src.object = NULL;
         }
     }
@@ -63,7 +63,7 @@ void SPAttributeWidget::set_object(SPObject *object, const gchar *attribute)
     if (hasobj) {
         if (src.object) {
             modified_connection.disconnect();
-            release_connection.disconnect();
+            // release_connection.disconnect();
             src.object = NULL;
         }
     } else {
@@ -82,7 +82,7 @@ void SPAttributeWidget::set_object(SPObject *object, const gchar *attribute)
         src.object = object;
 
         modified_connection = object->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_attribute_widget_object_modified), this));
-        release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_attribute_widget_object_release), this));
+        // release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_attribute_widget_object_release), this));
 
         _attribute = attribute;
 
@@ -98,7 +98,7 @@ void SPAttributeWidget::set_repr(Inkscape::XML::Node *repr, const gchar *attribu
     if (hasobj) {
         if (src.object) {
             modified_connection.disconnect();
-            release_connection.disconnect();
+            // release_connection.disconnect();
             src.object = NULL;
         }
     } else {
@@ -177,17 +177,16 @@ static void sp_attribute_widget_object_modified ( SPObject */*object*/,
 
 } // end of sp_attribute_widget_object_modified()
 
-static void sp_attribute_widget_object_release ( SPObject */*object*/,
-                                     SPAttributeWidget * spaw )
-{
-	spaw->set_object (NULL, NULL);
-}
+//static void sp_attribute_widget_object_release ( SPObject */*object*/,
+//                                     SPAttributeWidget * spaw )
+//{
+//	spaw->set_object (NULL, NULL);
+//}
 
 
 
 /* SPAttributeTable */
 static void sp_attribute_table_object_modified (SPObject *object, guint flags, SPAttributeTable *spaw);
-//static void sp_attribute_table_object_release (SPObject *object, SPAttributeTable *spaw);
 static void sp_attribute_table_entry_changed (Gtk::Editable *editable, SPAttributeTable *spat);
 
 #define XPAD 4
@@ -199,21 +198,19 @@ SPAttributeTable::SPAttributeTable () :
     table(0),
     _attributes(),
     _entries(),
-    modified_connection()/*,
-    release_connection()*/
+    modified_connection()
 {
 g_message("SPAttributeTable");
     src.object = NULL;
 }
 
-SPAttributeTable::SPAttributeTable (SPObject *object, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, GtkContainer* parent) : 
+SPAttributeTable::SPAttributeTable (SPObject *object, std::vector<Glib::ustring> &labels, std::vector<Glib::ustring> &attributes, Gtk::Container *parent) : 
     blocked(0),
     hasobj(0),
     table(0),
     _attributes(),
     _entries(),
-    modified_connection()/*,
-    release_connection()*/
+    modified_connection()
 {
 g_message("SPAttributeTable");
     src.object = NULL;
@@ -268,7 +265,6 @@ g_message("destroy 3");
     if (hasobj) {
         if (src.object) {
             modified_connection.disconnect();
-            //release_connection.disconnect();
             src.object = NULL;
         }
     } else {
@@ -282,10 +278,10 @@ g_message("destroy 4");
 void SPAttributeTable::set_object(SPObject *object,
                             std::vector<Glib::ustring> &labels,
                             std::vector<Glib::ustring> &attributes,
-                            GtkContainer* parent)
+                            Gtk::Container* parent)
 {
 g_message("set_object");
-    g_return_if_fail (parent);
+    // g_return_if_fail (parent);
     g_return_if_fail (!object || SP_IS_OBJECT (object));
     g_return_if_fail (!object || !labels.empty() || !attributes.empty());
     g_return_if_fail (labels.size() == attributes.size());
@@ -302,13 +298,12 @@ g_message("2");
         src.object = object;
 
         modified_connection = object->connectModified(sigc::bind<2>(sigc::ptr_fun(&sp_attribute_table_object_modified), this));
-        //release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&sp_attribute_table_object_release), this));
 
         /* Create table */
 g_message("3a");
-        table = new Gtk::Table (attributes.size(), 2, false);
+        table = Gtk::manage(new Gtk::Table (attributes.size(), 2, false));
 g_message("3b");
-		gtk_container_add (parent,(GtkWidget*)table->gobj());
+        gtk_container_add (GTK_CONTAINER ((GtkWidget*) parent),(GtkWidget*)table->gobj());//
 g_message("3c");
         
         /* Fill rows */
@@ -347,8 +342,6 @@ g_message("4b");
         table->show ();
         blocked = false;
     }
-
-    //set_sensitive ((src.object != NULL) );
 g_message("5");
 }
 
@@ -410,8 +403,6 @@ g_message("set_repr");
         table->show ();
         blocked = false;
     }
-
-    //set_sensitive ((src.repr != NULL));
 }
 
 

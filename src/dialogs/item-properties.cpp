@@ -39,6 +39,7 @@ using Inkscape::DocumentUndo;
 #define MIN_ONSCREEN_DISTANCE 50
 
 static GtkWidget *dlg = NULL;
+static SPAttributeTable* attrTable = NULL;
 static win_data wd;
 
 // impossible original values to make sure they are read from prefs
@@ -52,16 +53,18 @@ static void sp_item_widget_sensitivity_toggled (GtkWidget *widget, SPWidget *spw
 static void sp_item_widget_hidden_toggled (GtkWidget *widget, SPWidget *spw);
 static void sp_item_widget_label_changed (GtkWidget *widget, SPWidget *spw);
 
-static void
-sp_item_dialog_destroy( GtkObject */*object*/, gpointer /*data*/ )
+static void sp_item_dialog_destroy( GtkObject */*object*/, gpointer /*data*/ )
 {
+    if (attrTable)
+    {
+        delete attrTable;
+    }
     sp_signal_disconnect_by_data (INKSCAPE, dlg);
     wd.win = dlg = NULL;
     wd.stop = 0;
 }
 
-static gboolean
-sp_item_dialog_delete( GtkObject */*object*/, GdkEvent */*event*/, gpointer /*data*/ )
+static gboolean sp_item_dialog_delete( GtkObject */*object*/, GdkEvent */*event*/, gpointer /*data*/ )
 {
     gtk_window_get_position ((GtkWindow *) dlg, &x, &y);
     gtk_window_get_size ((GtkWindow *) dlg, &w, &h);
@@ -246,8 +249,7 @@ GtkWidget *sp_item_widget_new(void)
 
 
 
-static void
-sp_item_widget_modify_selection( SPWidget *spw,
+static void sp_item_widget_modify_selection( SPWidget *spw,
                                  Inkscape::Selection *selection,
                                  guint /*flags*/,
                                  GtkWidget */*itemw*/ )
@@ -257,8 +259,7 @@ sp_item_widget_modify_selection( SPWidget *spw,
 
 
 
-static void
-sp_item_widget_change_selection ( SPWidget *spw,
+static void sp_item_widget_change_selection ( SPWidget *spw,
                                   Inkscape::Selection *selection,
                                   GtkWidget */*itemw*/ )
 {
@@ -352,12 +353,11 @@ static void sp_item_widget_setup( SPWidget *spw, Inkscape::Selection *selection 
         w = GTK_WIDGET(g_object_get_data(G_OBJECT(spw), "interactivity"));
 
         GtkWidget* int_table = GTK_WIDGET(g_object_get_data(G_OBJECT(spw), "interactivity_table"));
-        if (int_table){
-            gtk_container_remove(GTK_CONTAINER(w), int_table);
-        }
+        //if (int_table){
+        //    gtk_container_remove(GTK_CONTAINER(w), int_table);
+        //}
 
         std::vector<Glib::ustring> int_labels;
-        std::vector<Glib::ustring> int_attributes;
         int_labels.push_back("onclick");
         int_labels.push_back("onmouseover");
         int_labels.push_back("onmouseout");
@@ -368,14 +368,15 @@ static void sp_item_widget_setup( SPWidget *spw, Inkscape::Selection *selection 
         int_labels.push_back("onfocusout");
         int_labels.push_back("onfocusout");
         int_labels.push_back("onload");
-int_attributes=int_labels;
-        SPAttributeTable* t = new SPAttributeTable (obj, int_labels, int_attributes, GTK_CONTAINER (w));
-        int_table = (GtkWidget*) t->gobj();
-        gtk_widget_show_all (int_table);
-        g_object_set_data(G_OBJECT(spw), "interactivity_table", int_table);
-
-//        gtk_container_add (GTK_CONTAINER (w), int_table);
-
+        
+        if (attrTable)
+        {
+            delete(attrTable);
+        }
+        attrTable = new SPAttributeTable (obj, int_labels, int_labels, (Gtk::Container*) w);
+        attrTable->show_all();
+        g_object_set_data(G_OBJECT(spw), "interactivity_table", (GtkWidget*) attrTable->gobj());
+        //gtk_container_add (GTK_CONTAINER (w), int_table);
     }
 
     g_object_set_data (G_OBJECT (spw), "blocked", GUINT_TO_POINTER (FALSE));
@@ -385,8 +386,7 @@ int_attributes=int_labels;
 
 
 
-static void
-sp_item_widget_sensitivity_toggled (GtkWidget *widget, SPWidget *spw)
+static void sp_item_widget_sensitivity_toggled (GtkWidget *widget, SPWidget *spw)
 {
     if (g_object_get_data(G_OBJECT (spw), "blocked"))
         return;
@@ -404,8 +404,7 @@ sp_item_widget_sensitivity_toggled (GtkWidget *widget, SPWidget *spw)
     g_object_set_data (G_OBJECT (spw), "blocked", GUINT_TO_POINTER (FALSE));
 }
 
-void
-sp_item_widget_hidden_toggled(GtkWidget *widget, SPWidget *spw)
+void sp_item_widget_hidden_toggled(GtkWidget *widget, SPWidget *spw)
 {
     if (g_object_get_data(G_OBJECT (spw), "blocked"))
         return;
@@ -423,8 +422,7 @@ sp_item_widget_hidden_toggled(GtkWidget *widget, SPWidget *spw)
     g_object_set_data (G_OBJECT (spw), "blocked", GUINT_TO_POINTER (FALSE));
 }
 
-static void
-sp_item_widget_label_changed( GtkWidget */*widget*/, SPWidget *spw )
+static void sp_item_widget_label_changed( GtkWidget */*widget*/, SPWidget *spw )
 {
     if (g_object_get_data(G_OBJECT (spw), "blocked"))
         return;
@@ -502,8 +500,9 @@ void sp_item_dialog(void)
         gchar title[500];
         sp_ui_dialog_title_string (Inkscape::Verb::get(SP_VERB_DIALOG_ITEM), title);
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-
-        dlg = sp_window_new (title, TRUE);
+        
+        Gtk::Window* window = Inkscape::UI::window_new (title, true);
+        dlg = (GtkWidget*)window->gobj();
         if (x == -1000 || y == -1000) {
             x = prefs->getInt(prefs_path + "x", -1000);
             y = prefs->getInt(prefs_path + "y", -1000);
@@ -512,9 +511,6 @@ void sp_item_dialog(void)
             w = prefs->getInt(prefs_path + "w", 0);
             h = prefs->getInt(prefs_path + "h", 0);
         }
-
-//        if (x<0) x=0;
-//        if (y<0) y=0;
 
         if (w && h) {
             gtk_window_resize ((GtkWindow *) dlg, w, h);
@@ -525,24 +521,22 @@ void sp_item_dialog(void)
             gtk_window_set_position(GTK_WINDOW(dlg), GTK_WIN_POS_CENTER);
         }
 
-
         sp_transientize (dlg);
         wd.win = dlg;
         wd.stop = 0;
 
-        g_signal_connect   ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd);
+        g_signal_connect ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd);
         g_signal_connect ( G_OBJECT (dlg), "event", G_CALLBACK (sp_dialog_event_handler), dlg);
         g_signal_connect ( G_OBJECT (dlg), "destroy", G_CALLBACK (sp_item_dialog_destroy), dlg);
         g_signal_connect ( G_OBJECT (dlg), "delete_event", G_CALLBACK (sp_item_dialog_delete), dlg);
-        g_signal_connect   ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (sp_item_dialog_delete), dlg);
-        g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg);
-        g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg);
+        g_signal_connect ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (sp_item_dialog_delete), dlg);
+        g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg);
+        g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg);
 
         // Dialog-specific stuff
         GtkWidget *itemw = sp_item_widget_new ();
         gtk_widget_show (itemw);
         gtk_container_add (GTK_CONTAINER (dlg), itemw);
-
     }
 
     gtk_window_present ((GtkWindow *) dlg);
