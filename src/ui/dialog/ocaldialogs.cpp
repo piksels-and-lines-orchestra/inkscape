@@ -636,8 +636,10 @@ void ImportDialog::on_list_results_selection_changed()
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     
-    printf("%s", "on_list_results_selection_changed\n");
-    
+    // If nothing is selected, then return
+    if (((int) pathlist.size()) < 1) {
+        return;
+    }
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
     
@@ -653,8 +655,10 @@ void ImportDialog::on_button_import_clicked() {
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     
-    printf("%s", "on_button_import_clicked\n");
-    
+    // If nothing is selected, then return
+    if (((int) pathlist.size()) < 1) {
+        return;
+    }
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
@@ -674,8 +678,10 @@ void ImportDialog::on_list_results_cursor_changed()
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     
-    printf("%s", "on_list_results_cursor_changed\n");
-    
+    // If nothing is selected, then return
+    if (((int) pathlist.size()) < 1) {
+        return;
+    }
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
