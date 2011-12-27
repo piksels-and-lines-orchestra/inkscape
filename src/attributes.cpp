@@ -18,7 +18,6 @@
 #endif
 
 #include <glib.h> // g_assert()
-#include <glib/ghash.h>
 #include "attributes.h"
 
 typedef struct {
@@ -93,22 +92,25 @@ static SPStyleProp const props[] = {
     {SP_ATTR_INKSCAPE_WINDOW_MAXIMIZED, "inkscape:window-maximized"},
     {SP_ATTR_INKSCAPE_SNAP_GLOBAL, "inkscape:snap-global"},
     {SP_ATTR_INKSCAPE_SNAP_BBOX, "inkscape:snap-bbox"},
-    {SP_ATTR_INKSCAPE_SNAP_NODES, "inkscape:snap-nodes"},
-    {SP_ATTR_INKSCAPE_SNAP_FROM_GUIDE, "inkscape:snap-from-guide"},
-    {SP_ATTR_INKSCAPE_SNAP_CENTER, "inkscape:snap-center"},
-    {SP_ATTR_INKSCAPE_SNAP_GRIDS, "inkscape:snap-grids"},
-    {SP_ATTR_INKSCAPE_SNAP_TO_GUIDES, "inkscape:snap-to-guides"},
-    {SP_ATTR_INKSCAPE_SNAP_SMOOTH_NODES, "inkscape:snap-smooth-nodes"},
-    {SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINTS, "inkscape:snap-midpoints"},
-    {SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINTS, "inkscape:snap-object-midpoints"},
-    {SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINTS, "inkscape:snap-bbox-edge-midpoints"},
-    {SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINTS, "inkscape:snap-bbox-midpoints"},
-    {SP_ATTR_INKSCAPE_SNAP_INTERS_PATHS, "inkscape:snap-intersection-paths"},
-    {SP_ATTR_INKSCAPE_OBJECT_PATHS, "inkscape:object-paths"},
-    {SP_ATTR_INKSCAPE_OBJECT_NODES, "inkscape:object-nodes"},
-    {SP_ATTR_INKSCAPE_BBOX_PATHS, "inkscape:bbox-paths"},
-    {SP_ATTR_INKSCAPE_BBOX_NODES, "inkscape:bbox-nodes"},
-    {SP_ATTR_INKSCAPE_SNAP_PAGE, "inkscape:snap-page"},
+    {SP_ATTR_INKSCAPE_SNAP_NODE, "inkscape:snap-nodes"},
+    {SP_ATTR_INKSCAPE_SNAP_OTHERS, "inkscape:snap-others"},
+    {SP_ATTR_INKSCAPE_SNAP_ROTATION_CENTER, "inkscape:snap-center"},
+    {SP_ATTR_INKSCAPE_SNAP_GRID, "inkscape:snap-grids"},
+    {SP_ATTR_INKSCAPE_SNAP_GUIDE, "inkscape:snap-to-guides"},
+    {SP_ATTR_INKSCAPE_SNAP_NODE_SMOOTH, "inkscape:snap-smooth-nodes"},
+    {SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINT, "inkscape:snap-midpoints"},
+    {SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINT, "inkscape:snap-object-midpoints"},
+    {SP_ATTR_INKSCAPE_SNAP_TEXT_BASELINE, "inkscape:snap-text-baseline"},
+    {SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINT, "inkscape:snap-bbox-edge-midpoints"},
+    {SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINT, "inkscape:snap-bbox-midpoints"},
+    {SP_ATTR_INKSCAPE_SNAP_PATH_INTERSECTION, "inkscape:snap-intersection-paths"},
+    {SP_ATTR_INKSCAPE_SNAP_PATH, "inkscape:object-paths"},
+    {SP_ATTR_INKSCAPE_SNAP_PATH_CLIP, "inkscape:snap-path-clip"},
+    {SP_ATTR_INKSCAPE_SNAP_PATH_MASK, "inkscape:snap-path-mask"},
+    {SP_ATTR_INKSCAPE_SNAP_NODE_CUSP, "inkscape:object-nodes"},
+    {SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE, "inkscape:bbox-paths"},
+    {SP_ATTR_INKSCAPE_SNAP_BBOX_CORNER, "inkscape:bbox-nodes"},
+    {SP_ATTR_INKSCAPE_SNAP_PAGE_BORDER, "inkscape:snap-page"},
     {SP_ATTR_INKSCAPE_CURRENT_LAYER, "inkscape:current-layer"},
     {SP_ATTR_INKSCAPE_DOCUMENT_UNITS, "inkscape:document-units"},
     {SP_ATTR_UNITS, "units"},
@@ -495,6 +497,7 @@ sp_attribute_lookup(gchar const *key)
         propdict = g_hash_table_new(g_str_hash, g_str_equal);
         for (i = 1; i < n_attrs; i++) {
             g_assert(props[i].code == static_cast< gint >(i) );
+            // If this g_assert fails, then the sort order of SPAttributeEnum does not match the order in props[]!
             g_hash_table_insert(propdict,
                                 const_cast<void *>(static_cast<void const *>(props[i].name)),
                                 GINT_TO_POINTER(props[i].code));

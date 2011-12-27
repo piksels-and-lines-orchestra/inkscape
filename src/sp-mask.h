@@ -13,6 +13,11 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <2geom/rect.h>
+#include "sp-object-group.h"
+#include "uri-references.h"
+#include "xml/node.h"
+
 #define SP_TYPE_MASK (sp_mask_get_type ())
 #define SP_MASK(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_MASK, SPMask))
 #define SP_MASK_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), SP_TYPE_MASK, SPMaskClass))
@@ -23,11 +28,13 @@ class SPMask;
 class SPMaskClass;
 class SPMaskView;
 
-#include "display/nr-arena-forward.h"
-#include "libnr/nr-forward.h"
-#include "sp-object-group.h"
-#include "uri-references.h"
-#include "xml/node.h"
+namespace Inkscape {
+
+class Drawing;
+class DrawingItem;
+
+} // namespace Inkscape
+
 
 struct SPMask : public SPObjectGroup {
 	unsigned int maskUnits_set : 1;
@@ -90,10 +97,10 @@ protected:
 	}
 };
 
-NRArenaItem *sp_mask_show (SPMask *mask, NRArena *arena, unsigned int key);
+Inkscape::DrawingItem *sp_mask_show (SPMask *mask, Inkscape::Drawing &drawing, unsigned int key);
 void sp_mask_hide (SPMask *mask, unsigned int key);
 
-void sp_mask_set_bbox (SPMask *mask, unsigned int key, NRRect *bbox);
+void sp_mask_set_bbox (SPMask *mask, unsigned int key, Geom::OptRect const &bbox);
 
 const gchar *sp_mask_create (GSList *reprs, SPDocument *document, Geom::Affine const* applyTransform);
 

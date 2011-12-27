@@ -1,7 +1,6 @@
-
 #include <cstring>
 #include <string>
-#include <glib/gstrfuncs.h>
+#include <glib.h>
 
 #include "xml/croco-node-iface.h"
 #include "xml/node.h"
@@ -46,7 +45,7 @@ static gboolean is_element_node(CRXMLNodePtr n) { return static_cast<Node const 
 }
 
 /**
- * @brief Interface for XML nodes used by libcroco
+ * Interface for XML nodes used by libcroco.
  *
  * This structure defines operations on Inkscape::XML::Node used by the libcroco
  * CSS parsing library.

@@ -9,12 +9,10 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include "display/cairo-utils.h"
 #include "display/nr-filter-offset.h"
 #include "display/nr-filter-slot.h"
 #include "display/nr-filter-units.h"
-#include "libnr/nr-blit.h"
-#include "libnr/nr-pixblock.h"
-#include "libnr/nr-rect-l.h"
 
 namespace Inkscape {
 namespace Filters {
@@ -33,37 +31,29 @@ FilterPrimitive * FilterOffset::create() {
 FilterOffset::~FilterOffset()
 {}
 
-int FilterOffset::render(FilterSlot &slot, FilterUnits const &units) {
-    NRPixBlock *in = slot.get(_input);
-    // Bail out if source image is missing
-    if (!in) {
-        g_warning("Missing source image for feOffset (in=%d)", _input);
-        return 1;
-    }
+void FilterOffset::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *in = slot.getcairo(_input);
+    cairo_surface_t *out = ink_cairo_surface_create_identical(in);
+    cairo_t *ct = cairo_create(out);
 
-    NRPixBlock *out = new NRPixBlock;
-
-    Geom::Affine trans = units.get_matrix_primitiveunits2pb();
+    Geom::Affine trans = slot.get_units().get_matrix_primitiveunits2pb();
     Geom::Point offset(dx, dy);
     offset *= trans;
     offset[X] -= trans[4];
     offset[Y] -= trans[5];
 
-    nr_pixblock_setup_fast(out, in->mode,
-                           in->area.x0, in->area.y0, in->area.x1, in->area.y1,
-                           true);
-    nr_blit_pixblock_pixblock(out, in);
+    cairo_set_source_surface(ct, in, offset[X], offset[Y]);
+    cairo_paint(ct);
+    cairo_destroy(ct);
 
-    out->area.x0 += static_cast<NR::ICoord>(offset[X]);
-    out->area.y0 += static_cast<NR::ICoord>(offset[Y]);
-    out->area.x1 += static_cast<NR::ICoord>(offset[X]);
-    out->area.y1 += static_cast<NR::ICoord>(offset[Y]);
-    out->visible_area = out->area;
-
-    out->empty = FALSE;
     slot.set(_output, out);
+    cairo_surface_destroy(out);
+}
 
-    return 0;
+bool FilterOffset::can_handle_affine(Geom::Affine const &)
+{
+    return true;
 }
 
 void FilterOffset::set_dx(double amount) {
@@ -74,24 +64,35 @@ void FilterOffset::set_dy(double amount) {
     dy = amount;
 }
 
-void FilterOffset::area_enlarge(NRRectL &area, Geom::Affine const &trans)
+void FilterOffset::area_enlarge(Geom::IntRect &area, Geom::Affine const &trans)
 {
     Geom::Point offset(dx, dy);
     offset *= trans;
     offset[X] -= trans[4];
     offset[Y] -= trans[5];
+    double x0, y0, x1, y1;
+    x0 = area.left();
+    y0 = area.top();
+    x1 = area.right();
+    y1 = area.bottom();
 
     if (offset[X] > 0) {
-        area.x0 -= static_cast<NR::ICoord>(offset[X]);
+        x0 -= ceil(offset[X]);
     } else {
-        area.x1 -= static_cast<NR::ICoord>(offset[X]);
+        x1 -= floor(offset[X]);
     }
 
     if (offset[Y] > 0) {
-        area.y0 -= static_cast<NR::ICoord>(offset[Y]);
+        y0 -= ceil(offset[Y]);
     } else {
-        area.y1 -= static_cast<NR::ICoord>(offset[Y]);
+        y1 -= floor(offset[Y]);
     }
+    area = Geom::IntRect(x0, y0, x1, y1);
+}
+
+double FilterOffset::complexity(Geom::Affine const &)
+{
+    return 1.02;
 }
 
 } /* namespace Filters */

@@ -25,9 +25,6 @@
 #include <gtkmm/table.h>
 #include <gtkmm/buttonbox.h>
 #include <gtkmm/label.h>
-#include "libnr/nr-dim2.h"
-#include "libnr/nr-rect.h"
-
 
 #include "ui/widget/panel.h"
 #include "ui/widget/notebook-page.h"
@@ -121,7 +118,7 @@ struct BBoxSort
     SPItem *item;
     float anchor;
     Geom::Rect bbox;
-    BBoxSort(SPItem *pItem, Geom::Rect bounds, Geom::Dim2 orientation, double kBegin, double kEnd);
+    BBoxSort(SPItem *pItem, Geom::Rect const &bounds, Geom::Dim2 orientation, double kBegin, double kEnd);
     BBoxSort(const BBoxSort &rhs);
 };
 bool operator< (const BBoxSort &a, const BBoxSort &b);

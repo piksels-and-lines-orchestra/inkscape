@@ -24,7 +24,7 @@
 
 #include "canvas-grid.h"
 
-struct SPDesktop;
+class  SPDesktop;
 struct SPNamedView;
 
 namespace Inkscape {
@@ -78,8 +78,8 @@ public:
 
 private:
     LineList _getSnapLines(Geom::Point const &p) const;
-    void _addSnappedLine(SnappedConstraints &sc, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, Geom::Point const normal_to_line, const Geom::Point point_on_line) const;
-    void _addSnappedPoint(SnappedConstraints &sc, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const;
+    void _addSnappedLine(IntermSnapResults &isr, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, Geom::Point const normal_to_line, const Geom::Point point_on_line) const;
+    void _addSnappedPoint(IntermSnapResults &isr, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const;
 
     CanvasAxonomGrid *grid;
 };

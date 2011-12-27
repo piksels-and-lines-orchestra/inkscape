@@ -1,4 +1,4 @@
-/** \file
+/*
  * Provides a class that can contain active TemporaryItem's on a desktop
  * When the object is deleted, it also deletes the canvasitem it contains!
  * This object should be created/managed by a TemporaryItemList.
@@ -16,7 +16,7 @@
 
 #include "display/canvas-temporary-item.h"
 
-#include <gtk/gtkobject.h>
+#include <gtk/gtk.h>
 
 namespace Inkscape {
 namespace Display {

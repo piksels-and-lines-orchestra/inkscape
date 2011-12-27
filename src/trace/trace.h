@@ -1,7 +1,4 @@
-/**
- * A generic interface for plugging different
- *  autotracers into Inkscape.
- *
+/*
  * Authors:
  *   Bob Jamison <rjamison@titan.com>
  *
@@ -9,8 +6,8 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
-#ifndef __TRACE_H__
-#define __TRACE_H__
+#ifndef SEEN_TRACE_H
+#define SEEN_TRACE_H
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -30,7 +27,7 @@
 #include <sp-shape.h>
 
 struct SPImage;
-struct SPItem;
+class  SPItem;
 
 namespace Inkscape {
 
@@ -110,7 +107,8 @@ private:
 
 
 /**
- *
+ * A generic interface for plugging different
+ *  autotracers into Inkscape.
  */
 class TracingEngine
 {
@@ -209,7 +207,7 @@ public:
     void abort();
 
     /**
-     *  Whether we want to enable SIOX subimage selection
+     *  Whether we want to enable SIOX subimage selection.
      */
     void enableSiox(bool enable);
 
@@ -218,6 +216,7 @@ private:
 
     /**
      * This is the single path code that is called by its counterpart above.
+     * Threaded method that does single bitmap--->path conversion.
      */
     void traceThread();
 
@@ -233,14 +232,21 @@ private:
      */
     TracingEngine *engine;
 
+    /**
+     * Get the selected image.  Also check for any SPItems over it, in
+     * case the user wants SIOX pre-processing.
+     */
     SPImage *getSelectedSPImage();
 
     std::vector<SPShape *> sioxShapes;
 
     bool sioxEnabled;
 
-    Glib::RefPtr<Gdk::Pixbuf> sioxProcessImage(
-           SPImage *img, Glib::RefPtr<Gdk::Pixbuf> origPixbuf);
+    /**
+     * Process a GdkPixbuf, according to which areas have been
+     * obscured in the GUI.
+     */
+    Glib::RefPtr<Gdk::Pixbuf> sioxProcessImage(SPImage *img, Glib::RefPtr<Gdk::Pixbuf> origPixbuf);
 
     Glib::RefPtr<Gdk::Pixbuf> lastSioxPixbuf;
     Glib::RefPtr<Gdk::Pixbuf> lastOrigPixbuf;
@@ -256,7 +262,7 @@ private:
 
 
 
-#endif //__TRACE_H__
+#endif // SEEN_TRACE_H
 
 //#########################################################################
 //# E N D   O F   F I L E

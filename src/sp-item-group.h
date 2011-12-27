@@ -26,6 +26,13 @@
 
 class CGroup;
 
+namespace Inkscape {
+
+class Drawing;
+class DrawingItem;
+
+} // namespace Inkscape
+
 struct SPGroup : public SPLPEItem {
     enum LayerMode { GROUP, LAYER, MASK_HELPER };
 
@@ -69,17 +76,17 @@ public:
     virtual void onChildRemoved(Inkscape::XML::Node *child);
     virtual void onUpdate(SPCtx *ctx, unsigned int flags);
     virtual void onModified(guint flags);
-    virtual void calculateBBox(NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+    virtual Geom::OptRect bounds(SPItem::BBoxType type, Geom::Affine const &transform);
     virtual void onPrint(SPPrintContext *ctx);
     virtual void onOrderChanged(Inkscape::XML::Node *child, Inkscape::XML::Node *old_ref, Inkscape::XML::Node *new_ref);
     virtual gchar *getDescription();
-    virtual NRArenaItem *show (NRArena *arena, unsigned int key, unsigned int flags);
+    virtual Inkscape::DrawingItem *show (Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
     virtual void hide (unsigned int key);
 
     gint getItemCount();
 
 protected:
-    virtual void _showChildren (NRArena *arena, NRArenaItem *ai, unsigned int key, unsigned int flags);
+    virtual void _showChildren (Inkscape::Drawing &drawing, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags);
 
     SPGroup *_group;
 };

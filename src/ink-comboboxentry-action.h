@@ -22,8 +22,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <gtk/gtkaction.h>
-#include <gtk/gtktreemodel.h>
+#include <gtk/gtk.h>
 
 
 #define INK_COMBOBOXENTRY_TYPE_ACTION           (ink_comboboxentry_action_get_type())
@@ -49,9 +48,7 @@ struct _Ink_ComboBoxEntry_Action {
   GtkComboBoxEntry   *combobox;
   GtkEntry           *entry;
   GtkEntryCompletion *entry_completion;
-#if !GTK_CHECK_VERSION(2,16,0)
   GtkWidget          *indicator;
-#endif
 
   gpointer            cell_data_func; // drop-down menu format
 

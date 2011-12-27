@@ -1,4 +1,4 @@
-/**
+/*
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -467,7 +467,7 @@ int XPathParser::lexicalScan()
                 {
                 long op = (long)entry->ival;
                 //according to the disambiguating rule for * in the spec
-                if (op == MULTIPLY && lexicalTokens.size() > 0)
+                if (op == MULTIPLY && !lexicalTokens.empty())
                     {
                     int ltyp = lexTokType(lexicalTokens.size()-1);
                     if (ltyp != AMPR   && ltyp != DOUBLE_COLON &&

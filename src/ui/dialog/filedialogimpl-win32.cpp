@@ -1,5 +1,6 @@
-/** @file
- * @brief Implementation of native file dialogs for Win32
+/**
+ * @file
+ * Implementation of native file dialogs for Win32.
  */
 /* Authors:
  *   Joel Holdsworth
@@ -29,20 +30,19 @@
 
 //Inkscape includes
 #include "inkscape.h"
-#include <dialogs/dialog-events.h>
-#include <extension/input.h>
-#include <extension/output.h>
-#include <extension/db.h>
+#include "dialogs/dialog-events.h"
+#include "extension/input.h"
+#include "extension/output.h"
+#include "extension/db.h"
 
-#include <libnr/nr-pixops.h>
-#include <libnr/nr-translate-scale-ops.h>
-#include <display/nr-arena-item.h>
-#include <display/nr-arena.h>
+//#include "display/drawing-item.h"
+//#include "display/drawing.h"
 #include "sp-item.h"
 #include "display/canvas-arena.h"
 
 #include "filedialog.h"
 #include "filedialogimpl-win32.h"
+#include "sp-root.h"
 
 #include <zlib.h>
 #include <cairomm/win32_surface.h>
@@ -227,7 +227,7 @@ void FileOpenDialogImplWin32::createFilterMenu()
         int filter_count = 5;       // 5 - one for each filter type
 
         for (Inkscape::Extension::DB::InputList::iterator current_item = extension_list.begin();
-             current_item != extension_list.end(); current_item++)
+             current_item != extension_list.end(); ++current_item)
         {
             Filter filter;
 
@@ -383,7 +383,7 @@ void FileOpenDialogImplWin32::createFilterMenu()
     wchar_t *filterptr = _filter;
 
     for(list<Filter>::iterator filter_iterator = filter_list.begin();
-        filter_iterator != filter_list.end(); filter_iterator++)
+        filter_iterator != filter_list.end(); ++filter_iterator)
     {
         const Filter &filter = *filter_iterator;
 
@@ -409,7 +409,7 @@ void FileOpenDialogImplWin32::createFilterMenu()
     *(filterptr++) = L'\0';
 
     _filter_count = extension_index;
-    _filter_index = 2;	// Select the 2nd filter in the list - 2 is NOT the 3rd
+    _filter_index = 2;  // Select the 2nd filter in the list - 2 is NOT the 3rd
 }
 
 void FileOpenDialogImplWin32::GetOpenFileName_thread()
@@ -421,7 +421,7 @@ void FileOpenDialogImplWin32::GetOpenFileName_thread()
 
     WCHAR* current_directory_string = (WCHAR*)g_utf8_to_utf16(
         _current_directory.data(), _current_directory.length(),
-		NULL, NULL, NULL);
+        NULL, NULL, NULL);
 
     memset(&ofn, 0, sizeof(ofn));
 
@@ -954,6 +954,10 @@ void FileOpenDialogImplWin32::free_preview()
 
 bool FileOpenDialogImplWin32::set_svg_preview()
 {
+    return false;
+    // NOTE: it's not worth the effort to fix this to use Cairo.
+    // Native file dialogs are unmaintainable and should be removed anyway.
+    #if 0
     const int PreviewSize = 512;
 
     gchar *utf8string = g_utf16_to_utf8((const gunichar2*)_path_string,
@@ -962,8 +966,10 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     g_free(utf8string);
 
     // Check the document loaded properly
-    if(svgDoc == NULL) return false;
-    if(svgDoc->root == NULL)
+    if (svgDoc == NULL) {
+        return false;
+    }
+    if (svgDoc->getRoot() == NULL)
     {
         svgDoc->doUnref();
         return false;
@@ -987,16 +993,14 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     NRRectL bbox = {0, 0, scaledSvgWidth, scaledSvgHeight};
 
     // write object bbox to area
-    Geom::OptRect maybeArea(area);
     svgDoc->ensureUpToDate();
-    static_cast<SPItem *>(svgDoc->root)->invoke_bbox( maybeArea,
-        static_cast<SPItem *>(svgDoc->root)->i2d_affine(), TRUE);
+    Geom::OptRect maybeArea = area | svgDoc->getRoot()->desktopVisualBounds();
 
     NRArena *const arena = NRArena::create();
 
     unsigned const key = SPItem::display_key_new(1);
 
-    NRArenaItem *root = static_cast<SPItem*>(svgDoc->root)->invoke_show(
+    NRArenaItem *root = svgDoc->getRoot()->invoke_show(
         arena, key, SP_ITEM_SHOW_DISPLAY);
 
     NRGC gc(NULL);
@@ -1033,7 +1037,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
 
     // Tidy up
     svgDoc->doUnref();
-    static_cast<SPItem*>(svgDoc->root)->invoke_hide(key);
+    svgDoc->getRoot()->invoke_hide(key);
     nr_object_unref((NRObject *) arena);
 
     // Create the GDK pixbuf
@@ -1052,6 +1056,7 @@ bool FileOpenDialogImplWin32::set_svg_preview()
     _mutex->unlock();
 
     return true;
+    #endif
 }
 
 void FileOpenDialogImplWin32::destroy_svg_rendering(const guint8 *buffer)
@@ -1577,6 +1582,19 @@ FileSaveDialogImplWin32::FileSaveDialogImplWin32(Gtk::Window &parent,
 {
     FileSaveDialog::myDocTitle = docTitle;
     createFilterMenu();
+
+    /* The code below sets the default file name */
+        myFilename = "";
+        if (dir.size() > 0) {
+            Glib::ustring udir(dir);
+            Glib::ustring::size_type len = udir.length();
+            // leaving a trailing backslash on the directory name leads to the infamous
+            // double-directory bug on win32
+            if (len != 0 && udir[len - 1] == '\\') udir.erase(len - 1);
+            myFilename = udir.substr(0, udir.find_last_of( '.' ) ); // this removes the extension, or actually, removes everything past the last dot (hopefully this is what most people want)
+            if (1 + myFilename.find("\\\\",2))                      // remove one slash if double
+                myFilename.replace(myFilename.find("\\\\",2), 1, "");
+        }
 }
 
 FileSaveDialogImplWin32::~FileSaveDialogImplWin32()
@@ -1598,7 +1616,7 @@ void FileSaveDialogImplWin32::createFilterMenu()
     int filter_length = 1;
 
     for (Inkscape::Extension::DB::OutputList::iterator current_item = extension_list.begin();
-         current_item != extension_list.end(); current_item++)
+         current_item != extension_list.end(); ++current_item)
     {
         Inkscape::Extension::Output *omod = *current_item;
         if (omod->deactivated()) continue;
@@ -1632,7 +1650,7 @@ void FileSaveDialogImplWin32::createFilterMenu()
     wchar_t *filterptr = _filter;
 
     for(list<Filter>::iterator filter_iterator = filter_list.begin();
-        filter_iterator != filter_list.end(); filter_iterator++)
+        filter_iterator != filter_list.end(); ++filter_iterator)
     {
         const Filter &filter = *filter_iterator;
 
@@ -1655,7 +1673,7 @@ void FileSaveDialogImplWin32::createFilterMenu()
     *(filterptr++) = 0;
 
     _filter_count = extension_index;
-    _filter_index = 1;	// A value of 1 selects the 1st filter - NOT the 2nd
+    _filter_index = 1;  // A value of 1 selects the 1st filter - NOT the 2nd
 }
 
 void FileSaveDialogImplWin32::GetSaveFileName_thread()
@@ -1667,7 +1685,7 @@ void FileSaveDialogImplWin32::GetSaveFileName_thread()
 
     WCHAR* current_directory_string = (WCHAR*)g_utf8_to_utf16(
         _current_directory.data(), _current_directory.length(),
-		NULL, NULL, NULL);
+        NULL, NULL, NULL);
 
     // Copy the selected file name, converting from UTF-8 to UTF-16
     memset(_path_string, 0, sizeof(_path_string));
@@ -1719,14 +1737,14 @@ FileSaveDialogImplWin32::show()
     _result = false;
     _main_loop = g_main_loop_new(g_main_context_default(), FALSE);
 
-	if(_main_loop != NULL)
-	{
-	    if(Glib::Thread::create(sigc::mem_fun(*this, &FileSaveDialogImplWin32::GetSaveFileName_thread), true))
-	        g_main_loop_run(_main_loop);
+    if(_main_loop != NULL)
+    {
+        if(Glib::Thread::create(sigc::mem_fun(*this, &FileSaveDialogImplWin32::GetSaveFileName_thread), true))
+            g_main_loop_run(_main_loop);
 
-	    if(_result)
-	        appendExtension(myFilename, (Inkscape::Extension::Output*)_extension);
-	}
+        if(_result)
+            appendExtension(myFilename, (Inkscape::Extension::Output*)_extension);
+    }
 
     return _result;
 }

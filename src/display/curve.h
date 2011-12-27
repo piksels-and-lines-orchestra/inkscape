@@ -1,9 +1,7 @@
 #ifndef SEEN_DISPLAY_CURVE_H
 #define SEEN_DISPLAY_CURVE_H
 
-/** \file
- * Wrapper around a Geom::PathVector objects.
- *
+/*
  * Author:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *
@@ -15,13 +13,15 @@
  * Released under GNU GPL
  */
 
-#include <glib/gtypes.h>
-#include <glib/gslist.h>
+#include <glib.h>
 
 #include <2geom/forward.h>
 
 #include <boost/optional.hpp>
 
+/**
+ * Wrapper around a Geom::PathVector objects.
+ */
 class SPCurve {
 public:
     /* Constructors */

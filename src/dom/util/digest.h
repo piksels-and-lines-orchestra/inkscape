@@ -1,8 +1,6 @@
-#ifndef __DIGEST_H__
-#define __DIGEST_H__
-/**
- * Secure Hashing Tool
- *
+#ifndef SEEN_DIGEST_H
+#define SEEN_DIGEST_H
+/*
  *
  * Author:
  *   Bob Jamison
@@ -25,7 +23,7 @@
  */
 
 /**
- *
+ * @file
  *  This base class and its subclasses provide an easy API for providing
  *  several different types of secure hashing functions for whatever use
  *  a developer might need.  This is not intended as a high-performance
@@ -148,8 +146,8 @@ public:
     /**
      *  Append a byte vector to the hash
      */
-    virtual void append(const std::vector<unsigned char> buf)
-        {
+    virtual void append(const std::vector<unsigned char> &buf)
+        { //NOTE: function seems to be unused
         for (unsigned int i=0 ; i<buf.size() ; i++)
             update(buf[i]);
         }

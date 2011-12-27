@@ -1,5 +1,5 @@
-/** \file
- * Functions and callbacks for generic SVG view and widget
+/*
+ * Functions and callbacks for generic SVG view and widget.
  *
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -14,7 +14,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gtk/gtkscrolledwindow.h>
+#include <gtk/gtk.h>
 #include "display/sp-canvas.h"
 #include "display/sp-canvas-group.h"
 #include "display/canvas-arena.h"
@@ -33,9 +33,6 @@ static void sp_svg_view_widget_view_resized (SPViewWidget *vw, Inkscape::UI::Vie
 
 static SPViewWidgetClass *widget_parent_class;
 
-/**
- * Registers SPSVGSPViewWidget class with Gtk and returns its type number.
- */
 GType sp_svg_view_widget_get_type(void)
 {
     static GType type = 0;
@@ -60,18 +57,13 @@ GType sp_svg_view_widget_get_type(void)
 /**
  * Callback to initialize SPSVGSPViewWidget vtable.
  */
-static void
-sp_svg_view_widget_class_init (SPSVGSPViewWidgetClass *klass)
+static void sp_svg_view_widget_class_init(SPSVGSPViewWidgetClass *klass)
 {
-	GtkObjectClass *object_class;
-	GtkWidgetClass *widget_class;
-	SPViewWidgetClass *vw_class;
+	GtkObjectClass *object_class = GTK_OBJECT_CLASS (klass);
+	GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+	SPViewWidgetClass *vw_class = SP_VIEW_WIDGET_CLASS (klass);
 
-	object_class = GTK_OBJECT_CLASS (klass);
-	widget_class = GTK_WIDGET_CLASS (klass);
-	vw_class = SP_VIEW_WIDGET_CLASS (klass);
-
-	widget_parent_class = (SPViewWidgetClass*)gtk_type_class (SP_TYPE_VIEW_WIDGET);
+	widget_parent_class = (SPViewWidgetClass *)g_type_class_peek_parent (klass);
 
 	object_class->destroy = sp_svg_view_widget_destroy;
 
@@ -84,8 +76,7 @@ sp_svg_view_widget_class_init (SPSVGSPViewWidgetClass *klass)
 /**
  * Callback to initialize SPSVGSPViewWidget object.
  */
-static void
-sp_svg_view_widget_init (SPSVGSPViewWidget *vw)
+static void sp_svg_view_widget_init(SPSVGSPViewWidget *vw)
 {
 	GtkStyle *style;
 	SPCanvasItem *parent;
@@ -103,11 +94,9 @@ sp_svg_view_widget_init (SPSVGSPViewWidget *vw)
 	gtk_widget_show (vw->sw);
 
 	/* Canvas */
-	gtk_widget_push_visual (gdk_rgb_get_visual ());
 	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
 	vw->canvas = sp_canvas_new_aa ();
 	gtk_widget_pop_colormap ();
-	gtk_widget_pop_visual ();
 	style = gtk_style_copy (vw->canvas->style);
 	style->bg[GTK_STATE_NORMAL] = style->white;
 	gtk_widget_set_style (vw->canvas, style);
@@ -130,21 +119,22 @@ sp_svg_view_widget_destroy (GtkObject *object)
 
 	vw->canvas = NULL;
 
-	if (((GtkObjectClass *) (widget_parent_class))->destroy)
+	if (((GtkObjectClass *) (widget_parent_class))->destroy) {
 		(* ((GtkObjectClass *) (widget_parent_class))->destroy) (object);
+        }
 }
 
 /**
  * Callback connected with size_request signal.
  */
-static void
-sp_svg_view_widget_size_request (GtkWidget *widget, GtkRequisition *req)
+static void sp_svg_view_widget_size_request(GtkWidget *widget, GtkRequisition *req)
 {
 	SPSVGSPViewWidget *vw = SP_SVG_VIEW_WIDGET (widget);
 	Inkscape::UI::View::View *v = SP_VIEW_WIDGET_VIEW (widget);
 
-	if (((GtkWidgetClass *) (widget_parent_class))->size_request)
+	if (((GtkWidgetClass *) (widget_parent_class))->size_request) {
 		(* ((GtkWidgetClass *) (widget_parent_class))->size_request) (widget, req);
+        }
 
 	if (v->doc()) {
 		SPSVGView *svgv;
@@ -176,13 +166,13 @@ sp_svg_view_widget_size_request (GtkWidget *widget, GtkRequisition *req)
 /**
  * Callback connected with size_allocate signal.
  */
-static void
-sp_svg_view_widget_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
+static void sp_svg_view_widget_size_allocate(GtkWidget *widget, GtkAllocation *allocation)
 {
 	SPSVGSPViewWidget *svgvw = SP_SVG_VIEW_WIDGET (widget);
 
-	if (((GtkWidgetClass *) (widget_parent_class))->size_allocate)
+	if (((GtkWidgetClass *) (widget_parent_class))->size_allocate) {
 		(* ((GtkWidgetClass *) (widget_parent_class))->size_allocate) (widget, allocation);
+        }
 
 	if (!svgvw->resize) {
 		static_cast<SPSVGView*>(SP_VIEW_WIDGET_VIEW (svgvw))->setRescale (TRUE, TRUE,
@@ -193,8 +183,7 @@ sp_svg_view_widget_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 /**
  * Callback connected with view_resized signal.
  */
-static void
-sp_svg_view_widget_view_resized (SPViewWidget *vw, Inkscape::UI::View::View */*view*/, gdouble width, gdouble height)
+static void sp_svg_view_widget_view_resized(SPViewWidget *vw, Inkscape::UI::View::View */*view*/, gdouble width, gdouble height)
 {
 	SPSVGSPViewWidget *svgvw = SP_SVG_VIEW_WIDGET (vw);
 
@@ -204,26 +193,19 @@ sp_svg_view_widget_view_resized (SPViewWidget *vw, Inkscape::UI::View::View */*v
 	}
 }
 
-/**
- * Constructs new SPSVGSPViewWidget object and returns pointer to it.
- */
-GtkWidget *
-sp_svg_view_widget_new (SPDocument *doc)
+GtkWidget *sp_svg_view_widget_new(SPDocument *doc)
 {
 	GtkWidget *widget;
 
 	g_return_val_if_fail (doc != NULL, NULL);
 
-	widget = (GtkWidget*)gtk_type_new (SP_TYPE_SVG_VIEW_WIDGET);
+	widget = (GtkWidget*)g_object_new (SP_TYPE_SVG_VIEW_WIDGET, NULL);
 
 	reinterpret_cast<SPSVGView*>(SP_VIEW_WIDGET_VIEW (widget))->setDocument (doc);
 
 	return widget;
 }
 
-/**
- * Flags the SPSVGSPViewWidget to have its size renegotiated with Gtk.
- */
 void SPSVGSPViewWidget::setResize(bool resize, gdouble width, gdouble height)
 {
     g_return_if_fail( !resize || (width > 0.0) );

@@ -17,8 +17,6 @@
 # include "config.h"
 #endif
 
-
-#include "libnr/nr-matrix-fns.h"
 #include "svg/svg.h"
 #include "svg/path-string.h"
 #include "xml/repr.h"
@@ -142,19 +140,18 @@ sp_genericellipse_update(SPObject *object, SPCtx *ctx, guint flags)
     if (flags & (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_STYLE_MODIFIED_FLAG | SP_OBJECT_VIEWPORT_MODIFIED_FLAG)) {
         SPGenericEllipse *ellipse = (SPGenericEllipse *) object;
         SPStyle const *style = object->style;
-        Geom::OptRect viewbox = ((SPItemCtx const *) ctx)->vp;
-        if (viewbox) {
-            double const dx = viewbox->width();
-            double const dy = viewbox->height();
-            double const dr = sqrt(dx*dx + dy*dy)/sqrt(2);
-            double const em = style->font_size.computed;
-            double const ex = em * 0.5; // fixme: get from pango or libnrtype
-            ellipse->cx.update(em, ex, dx);
-            ellipse->cy.update(em, ex, dy);
-            ellipse->rx.update(em, ex, dr);
-            ellipse->ry.update(em, ex, dr);
-            static_cast<SPShape *>(object)->setShape();
-        }
+        Geom::Rect const &viewbox = ((SPItemCtx const *) ctx)->viewport;
+
+        double const dx = viewbox.width();
+        double const dy = viewbox.height();
+        double const dr = sqrt(dx*dx + dy*dy)/sqrt(2);
+        double const em = style->font_size.computed;
+        double const ex = em * 0.5; // fixme: get from pango or libnrtype
+        ellipse->cx.update(em, ex, dx);
+        ellipse->cy.update(em, ex, dy);
+        ellipse->rx.update(em, ex, dr);
+        ellipse->ry.update(em, ex, dr);
+        static_cast<SPShape *>(object)->setShape();
     }
 
     if (((SPObjectClass *) ge_parent_class)->update)
@@ -256,9 +253,11 @@ static void sp_genericellipse_set_shape(SPShape *shape)
     Geom::Affine aff = Geom::Scale(rx, ry) * Geom::Translate(ellipse->cx.computed, ellipse->cy.computed);
     curve->transform(aff);
 
-    /* Reset the shape'scurve to the "original_curve"
+    /* Reset the shape's curve to the "original_curve"
      * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
     shape->setCurveInsync( curve, TRUE);
+    shape->setCurveBeforeLPE(curve);
+
     if (sp_lpe_item_has_path_effect(SP_LPE_ITEM(shape)) && sp_lpe_item_path_effects_enabled(SP_LPE_ITEM(shape))) {
         SPCurve *c_lpe = curve->copy();
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM (shape), c_lpe);
@@ -275,14 +274,9 @@ static void sp_genericellipse_snappoints(SPItem const *item, std::vector<Inkscap
     g_assert(item != NULL);
     g_assert(SP_IS_GENERICELLIPSE(item));
 
-    // Help enforcing strict snapping, i.e. only return nodes when we're snapping nodes to nodes or a guide to nodes
-    if (!(snapprefs->getSnapModeNode() || snapprefs->getSnapModeGuide())) {
-        return;
-    }
-
     SPGenericEllipse *ellipse = SP_GENERICELLIPSE(item);
     sp_genericellipse_normalize(ellipse);
-    Geom::Affine const i2d = item->i2d_affine();
+    Geom::Affine const i2dt = item->i2dt_affine();
 
     // figure out if we have a slice, while guarding against rounding errors
     bool slice = false;
@@ -304,32 +298,39 @@ static void sp_genericellipse_snappoints(SPItem const *item, std::vector<Inkscap
 
     // Snap to the 4 quadrant points of the ellipse, but only if the arc
     // spans far enough to include them
-    if (snapprefs->getSnapToItemNode()) { //TODO: Make a separate snap option toggle for this?
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_ELLIPSE_QUADRANT_POINT)) {
         double angle = 0;
         for (angle = 0; angle < SP_2PI; angle += M_PI_2) {
             if (angle >= ellipse->start && angle <= ellipse->end) {
-                pt = Geom::Point(cx + cos(angle)*rx, cy + sin(angle)*ry) * i2d;
+                pt = Geom::Point(cx + cos(angle)*rx, cy + sin(angle)*ry) * i2dt;
                 p.push_back(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_ELLIPSE_QUADRANT_POINT, Inkscape::SNAPTARGET_ELLIPSE_QUADRANT_POINT));
             }
         }
     }
 
     // Add the centre, if we have a closed slice or when explicitly asked for
-    if ((snapprefs->getSnapToItemNode() && slice && ellipse->closed) || snapprefs->getSnapObjectMidpoints()) {
-        pt = Geom::Point(cx, cy) * i2d;
-        p.push_back(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_CENTER, Inkscape::SNAPTARGET_CENTER));
+    bool c1 = snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_NODE_CUSP) && slice && ellipse->closed;
+    bool c2 = snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_OBJECT_MIDPOINT);
+    if (c1 || c2) {
+        pt = Geom::Point(cx, cy) * i2dt;
+        if (c1) {
+            p.push_back(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_NODE_CUSP, Inkscape::SNAPTARGET_NODE_CUSP));
+        }
+        if (c2) {
+            p.push_back(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
+        }
     }
 
     // And if we have a slice, also snap to the endpoints
-    if (snapprefs->getSnapToItemNode() && slice) {
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_NODE_CUSP) && slice) {
         // Add the start point, if it's not coincident with a quadrant point
         if (fmod(ellipse->start, M_PI_2) != 0.0 ) {
-            pt = Geom::Point(cx + cos(ellipse->start)*rx, cy + sin(ellipse->start)*ry) * i2d;
+            pt = Geom::Point(cx + cos(ellipse->start)*rx, cy + sin(ellipse->start)*ry) * i2dt;
             p.push_back(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_NODE_CUSP, Inkscape::SNAPTARGET_NODE_CUSP));
         }
         // Add the end point, if it's not coincident with a quadrant point
         if (fmod(ellipse->end, M_PI_2) != 0.0 ) {
-            pt = Geom::Point(cx + cos(ellipse->end)*rx, cy + sin(ellipse->end)*ry) * i2d;
+            pt = Geom::Point(cx + cos(ellipse->end)*rx, cy + sin(ellipse->end)*ry) * i2dt;
             p.push_back(Inkscape::SnapCandidatePoint(pt, Inkscape::SNAPSOURCE_NODE_CUSP, Inkscape::SNAPTARGET_NODE_CUSP));
         }
     }

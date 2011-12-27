@@ -20,6 +20,7 @@
 #include <glibmm/i18n.h>
 #include <cstring>
 #include <string>
+#include <2geom/bezier-curve.h>
 
 #include "desktop-handles.h"
 #include "selection.h"
@@ -32,7 +33,6 @@
 #include "xml/repr.h"
 #include "svg/css-ostringstream.h"
 #include "svg/svg.h"
-#include "libnr/nr-point-fns.h"
 #include "preferences.h"
 #include "sp-item.h"
 #include "style.h"
@@ -95,8 +95,7 @@ gr_drag_sel_changed(Inkscape::Selection */*selection*/, gpointer data)
     drag->updateLevels ();
 }
 
-static void
-gr_drag_sel_modified (Inkscape::Selection */*selection*/, guint /*flags*/, gpointer data)
+static void gr_drag_sel_modified(Inkscape::Selection */*selection*/, guint /*flags*/, gpointer data)
 {
     GrDrag *drag = (GrDrag *) data;
     if (drag->local_change) {
@@ -109,12 +108,11 @@ gr_drag_sel_modified (Inkscape::Selection */*selection*/, guint /*flags*/, gpoin
 }
 
 /**
-When a _query_style_signal is received, check that \a property requests fill/stroke/opacity (otherwise
-skip), and fill the \a style with the averaged color of all draggables of the selected dragger, if
-any.
-*/
-int
-gr_drag_style_query (SPStyle *style, int property, gpointer data)
+ * When a _query_style_signal is received, check that \a property requests fill/stroke/opacity (otherwise
+ * skip), and fill the \a style with the averaged color of all draggables of the selected dragger, if
+ * any.
+ */
+int gr_drag_style_query(SPStyle *style, int property, gpointer data)
 {
     GrDrag *drag = (GrDrag *) data;
 
@@ -336,10 +334,9 @@ guint32 GrDrag::getColor()
     return SP_RGBA32_F_COMPOSE(cf[0], cf[1], cf[2], cf[3]);
 }
 
-SPStop *
-GrDrag::addStopNearPoint (SPItem *item, Geom::Point mouse_p, double tolerance)
+SPStop *GrDrag::addStopNearPoint(SPItem *item, Geom::Point mouse_p, double tolerance)
 {
-    gfloat offset; // type of SPStop.offset = gfloat
+    gfloat offset = 0; // type of SPStop.offset = gfloat
     SPGradient *gradient;
     bool fill_or_stroke = true;
     bool r1_knot = false;
@@ -350,32 +347,34 @@ GrDrag::addStopNearPoint (SPItem *item, Geom::Point mouse_p, double tolerance)
         if (SP_IS_LINEARGRADIENT(gradient)) {
             Geom::Point begin   = sp_item_gradient_get_coords(item, POINT_LG_BEGIN, 0, fill_or_stroke);
             Geom::Point end     = sp_item_gradient_get_coords(item, POINT_LG_END, 0, fill_or_stroke);
-
-            Geom::Point nearest = snap_vector_midpoint (mouse_p, begin, end, 0);
-            double dist_screen = Geom::L2 (mouse_p - nearest);
+            Geom::LineSegment ls(begin, end);
+            double offset = ls.nearestPoint(mouse_p);
+            Geom::Point nearest = ls.pointAt(offset);
+            double dist_screen = Geom::distance(mouse_p, nearest);
             if ( dist_screen < tolerance ) {
                 // add the knot
-                offset = get_offset_between_points(nearest, begin, end);
                 addknot = true;
                 break; // break out of the while loop: add only one knot
             }
         } else if (SP_IS_RADIALGRADIENT(gradient)) {
             Geom::Point begin = sp_item_gradient_get_coords(item, POINT_RG_CENTER, 0, fill_or_stroke);
             Geom::Point end   = sp_item_gradient_get_coords(item, POINT_RG_R1, 0, fill_or_stroke);
-            Geom::Point nearest = snap_vector_midpoint (mouse_p, begin, end, 0);
-            double dist_screen = Geom::L2 (mouse_p - nearest);
+            Geom::LineSegment ls(begin, end);
+            double offset = ls.nearestPoint(mouse_p);
+            Geom::Point nearest = ls.pointAt(offset);
+            double dist_screen = Geom::distance(mouse_p, nearest);
             if ( dist_screen < tolerance ) {
-                offset = get_offset_between_points(nearest, begin, end);
                 addknot = true;
                 r1_knot = true;
                 break; // break out of the while loop: add only one knot
             }
 
             end    = sp_item_gradient_get_coords(item, POINT_RG_R2, 0, fill_or_stroke);
-            nearest = snap_vector_midpoint (mouse_p, begin, end, 0);
-            dist_screen = Geom::L2 (mouse_p - nearest);
+            ls = Geom::LineSegment(begin, end);
+            offset = ls.nearestPoint(mouse_p);
+            nearest = ls.pointAt(offset);
+            dist_screen = Geom::distance(mouse_p, nearest);
             if ( dist_screen < tolerance ) {
-                offset = get_offset_between_points(nearest, begin, end);
                 addknot = true;
                 r1_knot = false;
                 break; // break out of the while loop: add only one knot
@@ -411,8 +410,7 @@ GrDrag::addStopNearPoint (SPItem *item, Geom::Point mouse_p, double tolerance)
 }
 
 
-bool
-GrDrag::dropColor(SPItem */*item*/, gchar const *c, Geom::Point p)
+bool GrDrag::dropColor(SPItem */*item*/, gchar const *c, Geom::Point p)
 {
     // Note: not sure if a null pointer can come in for the style, but handle that just in case
     bool stopIsNull = false;
@@ -442,7 +440,8 @@ GrDrag::dropColor(SPItem */*item*/, gchar const *c, Geom::Point p)
     if (lines) {
         for (GSList *l = lines; (l != NULL) && (!over_line); l = l->next) {
             line = (SPCtrlLine*) l->data;
-            Geom::Point nearest = snap_vector_midpoint (p, line->s, line->e, 0);
+            Geom::LineSegment ls(line->s, line->e);
+            Geom::Point nearest = ls.pointAt(ls.nearestPoint(p));
             double dist_screen = Geom::L2 (p - nearest) * desktop->current_zoom();
             if (line->item && dist_screen < 5) {
                 SPStop *stop = addStopNearPoint (line->item, p, 5/desktop->current_zoom());
@@ -540,7 +539,7 @@ GrDrag::~GrDrag()
     this->lines = NULL;
 }
 
-GrDraggable::GrDraggable (SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
+GrDraggable::GrDraggable(SPItem *item, guint point_type, guint point_i, bool fill_or_stroke)
 {
     this->item = item;
     this->point_type = point_type;
@@ -550,7 +549,7 @@ GrDraggable::GrDraggable (SPItem *item, guint point_type, guint point_i, bool fi
     g_object_ref (G_OBJECT (this->item));
 }
 
-GrDraggable::~GrDraggable ()
+GrDraggable::~GrDraggable()
 {
     g_object_unref (G_OBJECT (this->item));
 }
@@ -572,8 +571,7 @@ SPObject *GrDraggable::getServer()
     return server;
 }
 
-static void
-gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gpointer data)
+static void gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gpointer data)
 {
     GrDragger *dragger = (GrDragger *) data;
     GrDrag *drag = dragger->parent;
@@ -642,7 +640,7 @@ gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gp
             sp_knot_moveto (knot, p);
         }
     } else if (state & GDK_CONTROL_MASK) {
-        SnappedConstraints sc;
+        IntermSnapResults isr;
         Inkscape::SnapCandidatePoint scp = Inkscape::SnapCandidatePoint(p, Inkscape::SNAPSOURCE_OTHER_HANDLE);
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         unsigned snaps = abs(prefs->getInt("/options/rotationsnapsperpi/value", 12));
@@ -701,24 +699,24 @@ gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gp
                     sp = m.constrainedAngularSnap(scp, boost::optional<Geom::Point>(), dr_snap, snaps);
                 }
                 m.unSetup();
-                sc.points.push_back(sp);
+                isr.points.push_back(sp);
             }
         }
 
         m.setup(desktop, false); // turn of the snap indicator temporarily
-        Inkscape::SnappedPoint bsp = m.findBestSnap(scp, sc, true);
+        Inkscape::SnappedPoint bsp = m.findBestSnap(scp, isr, true);
         m.unSetup();
         if (!bsp.getSnapped()) {
             // If we didn't truly snap to an object or to a grid, then we will still have to look for the
             // closest projection onto one of the constraints. findBestSnap() will not do this for us
-            for (std::list<Inkscape::SnappedPoint>::const_iterator i = sc.points.begin(); i != sc.points.end(); i++) {
-                if (i == sc.points.begin() || (Geom::L2((*i).getPoint() - p) < Geom::L2(bsp.getPoint() - p))) {
+            for (std::list<Inkscape::SnappedPoint>::const_iterator i = isr.points.begin(); i != isr.points.end(); i++) {
+                if (i == isr.points.begin() || (Geom::L2((*i).getPoint() - p) < Geom::L2(bsp.getPoint() - p))) {
                     bsp.setPoint((*i).getPoint());
                     bsp.setTarget(Inkscape::SNAPTARGET_CONSTRAINED_ANGLE);
                 }
             }
         }
-        //p = sc.points.front().getPoint();
+        //p = isr.points.front().getPoint();
         p = bsp.getPoint();
         sp_knot_moveto (knot, p);
     }
@@ -738,8 +736,7 @@ gr_knot_moved_handler(SPKnot *knot, Geom::Point const &ppointer, guint state, gp
 }
 
 
-static void
-gr_midpoint_limits(GrDragger *dragger, SPObject *server, Geom::Point *begin, Geom::Point *end, Geom::Point *low_lim, Geom::Point *high_lim, GSList **moving)
+static void gr_midpoint_limits(GrDragger *dragger, SPObject *server, Geom::Point *begin, Geom::Point *end, Geom::Point *low_lim, Geom::Point *high_lim, GSList **moving)
 {
 
     GrDrag *drag = dragger->parent;
@@ -824,10 +821,9 @@ gr_midpoint_limits(GrDragger *dragger, SPObject *server, Geom::Point *begin, Geo
 
 
 /**
-Called when a midpoint knot is dragged.
-*/
-static void
-gr_knot_moved_midpoint_handler(SPKnot */*knot*/, Geom::Point const &ppointer, guint state, gpointer data)
+ * Called when a midpoint knot is dragged.
+ */
+static void gr_knot_moved_midpoint_handler(SPKnot */*knot*/, Geom::Point const &ppointer, guint state, gpointer data)
 {
     GrDragger *dragger = (GrDragger *) data;
     GrDrag *drag = dragger->parent;
@@ -847,9 +843,11 @@ gr_knot_moved_midpoint_handler(SPKnot */*knot*/, Geom::Point const &ppointer, gu
     gr_midpoint_limits(dragger, server, &begin, &end, &low_lim, &high_lim, &moving);
 
     if (state & GDK_CONTROL_MASK) {
-        p = snap_vector_midpoint (p, low_lim, high_lim, snap_fraction);
+        Geom::LineSegment ls(low_lim, high_lim);
+        p = ls.pointAt(round(ls.nearestPoint(p) / snap_fraction) * snap_fraction);
     } else {
-        p = snap_vector_midpoint (p, low_lim, high_lim, 0);
+        Geom::LineSegment ls(low_lim, high_lim);
+        p = ls.pointAt(ls.nearestPoint(p));
         if (!(state & GDK_SHIFT_MASK)) {
             Inkscape::Snapper::SnapConstraint cl(low_lim, high_lim - low_lim);
             SPDesktop *desktop = dragger->parent->desktop;
@@ -889,8 +887,7 @@ gr_knot_moved_midpoint_handler(SPKnot */*knot*/, Geom::Point const &ppointer, gu
 
 
 
-static void
-gr_knot_grabbed_handler (SPKnot */*knot*/, unsigned int /*state*/, gpointer data)
+static void gr_knot_grabbed_handler(SPKnot */*knot*/, unsigned int /*state*/, gpointer data)
 {
     GrDragger *dragger = (GrDragger *) data;
 
@@ -898,10 +895,9 @@ gr_knot_grabbed_handler (SPKnot */*knot*/, unsigned int /*state*/, gpointer data
 }
 
 /**
-Called when the mouse releases a dragger knot; changes gradient writing to repr, updates other draggers if needed
-*/
-static void
-gr_knot_ungrabbed_handler (SPKnot *knot, unsigned int state, gpointer data)
+ * Called when the mouse releases a dragger knot; changes gradient writing to repr, updates other draggers if needed.
+ */
+static void gr_knot_ungrabbed_handler(SPKnot *knot, unsigned int state, gpointer data)
 {
     GrDragger *dragger = (GrDragger *) data;
 
@@ -936,11 +932,10 @@ gr_knot_ungrabbed_handler (SPKnot *knot, unsigned int state, gpointer data)
 }
 
 /**
-Called when a dragger knot is clicked; selects the dragger or deletes it depending on the
-state of the keyboard keys
-*/
-static void
-gr_knot_clicked_handler(SPKnot */*knot*/, guint state, gpointer data)
+ * Called when a dragger knot is clicked; selects the dragger or deletes it depending on the
+ * state of the keyboard keys.
+ */
+static void gr_knot_clicked_handler(SPKnot */*knot*/, guint state, gpointer data)
 {
     GrDragger *dragger = (GrDragger *) data;
     GrDraggable *draggable = (GrDraggable *) dragger->draggables->data;
@@ -1000,10 +995,9 @@ gr_knot_clicked_handler(SPKnot */*knot*/, guint state, gpointer data)
 }
 
 /**
-Called when a dragger knot is doubleclicked; opens gradient editor with the stop from the first draggable
-*/
-static void
-gr_knot_doubleclicked_handler (SPKnot */*knot*/, guint /*state*/, gpointer data)
+ * Called when a dragger knot is doubleclicked; opens gradient editor with the stop from the first draggable.
+ */
+static void gr_knot_doubleclicked_handler(SPKnot */*knot*/, guint /*state*/, gpointer data)
 {
     GrDragger *dragger = (GrDragger *) data;
 
@@ -1017,10 +1011,9 @@ gr_knot_doubleclicked_handler (SPKnot */*knot*/, guint /*state*/, gpointer data)
 }
 
 /**
-Act upon all draggables of the dragger, setting them to the dragger's point
-*/
-void
-GrDragger::fireDraggables (bool write_repr, bool scale_radial, bool merging_focus)
+ * Act upon all draggables of the dragger, setting them to the dragger's point.
+ */
+void GrDragger::fireDraggables(bool write_repr, bool scale_radial, bool merging_focus)
 {
     for (GSList const* i = this->draggables; i != NULL; i = i->next) {
         GrDraggable *draggable = (GrDraggable *) i->data;
@@ -1039,10 +1032,9 @@ GrDragger::fireDraggables (bool write_repr, bool scale_radial, bool merging_focu
 }
 
 /**
-Checks if the dragger has a draggable with this point_type
+ * Checks if the dragger has a draggable with this point_type.
  */
-bool
-GrDragger::isA (gint point_type)
+bool GrDragger::isA(gint point_type)
 {
     for (GSList const* i = this->draggables; i != NULL; i = i->next) {
         GrDraggable *draggable = (GrDraggable *) i->data;
@@ -1054,10 +1046,9 @@ GrDragger::isA (gint point_type)
 }
 
 /**
-Checks if the dragger has a draggable with this item, point_type + point_i (number), fill_or_stroke
+ * Checks if the dragger has a draggable with this item, point_type + point_i (number), fill_or_stroke.
  */
-bool
-GrDragger::isA (SPItem *item, gint point_type, gint point_i, bool fill_or_stroke)
+bool GrDragger::isA(SPItem *item, gint point_type, gint point_i, bool fill_or_stroke)
 {
     for (GSList const* i = this->draggables; i != NULL; i = i->next) {
         GrDraggable *draggable = (GrDraggable *) i->data;
@@ -1069,10 +1060,9 @@ GrDragger::isA (SPItem *item, gint point_type, gint point_i, bool fill_or_stroke
 }
 
 /**
-Checks if the dragger has a draggable with this item, point_type, fill_or_stroke
+ * Checks if the dragger has a draggable with this item, point_type, fill_or_stroke.
  */
-bool
-GrDragger::isA (SPItem *item, gint point_type, bool fill_or_stroke)
+bool GrDragger::isA(SPItem *item, gint point_type, bool fill_or_stroke)
 {
     for (GSList const* i = this->draggables; i != NULL; i = i->next) {
         GrDraggable *draggable = (GrDraggable *) i->data;
@@ -1083,8 +1073,7 @@ GrDragger::isA (SPItem *item, gint point_type, bool fill_or_stroke)
     return false;
 }
 
-bool
-GrDraggable::mayMerge (GrDraggable *da2)
+bool GrDraggable::mayMerge(GrDraggable *da2)
 {
     if ((this->item == da2->item) && (this->fill_or_stroke == da2->fill_or_stroke)) {
         // we must not merge the points of the same gradient!
@@ -1103,8 +1092,7 @@ GrDraggable::mayMerge (GrDraggable *da2)
     return true;
 }
 
-bool
-GrDragger::mayMerge (GrDragger *other)
+bool GrDragger::mayMerge(GrDragger *other)
 {
     if (this == other)
         return false;
@@ -1120,8 +1108,7 @@ GrDragger::mayMerge (GrDragger *other)
     return true;
 }
 
-bool
-GrDragger::mayMerge (GrDraggable *da2)
+bool GrDragger::mayMerge(GrDraggable *da2)
 {
     for (GSList const* i = this->draggables; i != NULL; i = i->next) { // for all draggables of this
         GrDraggable *da1 = (GrDraggable *) i->data;
@@ -1132,10 +1119,9 @@ GrDragger::mayMerge (GrDraggable *da2)
 }
 
 /**
-Updates the statusbar tip of the dragger knot, based on its draggables
+ * Updates the statusbar tip of the dragger knot, based on its draggables.
  */
-void
-GrDragger::updateTip ()
+void GrDragger::updateTip()
 {
     if (this->knot && this->knot->tip) {
         g_free (this->knot->tip);
@@ -1176,10 +1162,9 @@ GrDragger::updateTip ()
 }
 
 /**
-Adds a draggable to the dragger
+ * Adds a draggable to the dragger.
  */
-void
-GrDragger::updateKnotShape ()
+void GrDragger::updateKnotShape()
 {
     if (!draggables)
         return;
@@ -1188,10 +1173,9 @@ GrDragger::updateKnotShape ()
 }
 
 /**
-Adds a draggable to the dragger
+ * Adds a draggable to the dragger.
  */
-void
-GrDragger::addDraggable (GrDraggable *draggable)
+void GrDragger::addDraggable(GrDraggable *draggable)
 {
     this->draggables = g_slist_prepend (this->draggables, draggable);
 
@@ -1200,10 +1184,9 @@ GrDragger::addDraggable (GrDraggable *draggable)
 
 
 /**
-Moves this dragger to the point of the given draggable, acting upon all other draggables
+ * Moves this dragger to the point of the given draggable, acting upon all other draggables.
  */
-void
-GrDragger::moveThisToDraggable (SPItem *item, gint point_type, gint point_i, bool fill_or_stroke, bool write_repr)
+void GrDragger::moveThisToDraggable(SPItem *item, gint point_type, gint point_i, bool fill_or_stroke, bool write_repr)
 {
     GrDraggable *dr_first = (GrDraggable *) this->draggables->data;
     if (!dr_first) return;
@@ -1228,10 +1211,10 @@ GrDragger::moveThisToDraggable (SPItem *item, gint point_type, gint point_i, boo
 
 
 /**
-Moves all midstop draggables that depend on this one
+ * Moves all midstop draggables that depend on this one.
  */
-void
-GrDragger::updateMidstopDependencies (GrDraggable *draggable, bool write_repr) {
+void GrDragger::updateMidstopDependencies(GrDraggable *draggable, bool write_repr)
+{
     SPObject *server = draggable->getServer();
     if (!server)
         return;
@@ -1252,10 +1235,9 @@ GrDragger::updateMidstopDependencies (GrDraggable *draggable, bool write_repr) {
 
 
 /**
-Moves all draggables that depend on this one
+ * Moves all draggables that depend on this one.
  */
-void
-GrDragger::updateDependencies (bool write_repr)
+void GrDragger::updateDependencies(bool write_repr)
 {
     for (GSList const* i = this->draggables; i != NULL; i = i->next) {
         GrDraggable *draggable = (GrDraggable *) i->data;
@@ -1312,7 +1294,7 @@ GrDragger::updateDependencies (bool write_repr)
 
 
 
-GrDragger::GrDragger (GrDrag *parent, Geom::Point p, GrDraggable *draggable)
+GrDragger::GrDragger(GrDrag *parent, Geom::Point p, GrDraggable *draggable)
   : point(p),
     point_original(p)
 {
@@ -1353,7 +1335,7 @@ GrDragger::GrDragger (GrDrag *parent, Geom::Point p, GrDraggable *draggable)
     updateKnotShape();
 }
 
-GrDragger::~GrDragger ()
+GrDragger::~GrDragger()
 {
     // unselect if it was selected
     this->parent->setDeselected(this);
@@ -1377,10 +1359,9 @@ GrDragger::~GrDragger ()
 }
 
 /**
-Select the dragger which has the given draggable.
-*/
-GrDragger *
-GrDrag::getDraggerFor (SPItem *item, gint point_type, gint point_i, bool fill_or_stroke)
+ * Select the dragger which has the given draggable.
+ */
+GrDragger *GrDrag::getDraggerFor(SPItem *item, gint point_type, gint point_i, bool fill_or_stroke)
 {
     for (GList const* i = this->draggers; i != NULL; i = i->next) {
         GrDragger *dragger = (GrDragger *) i->data;
@@ -1398,8 +1379,7 @@ GrDrag::getDraggerFor (SPItem *item, gint point_type, gint point_i, bool fill_or
 }
 
 
-void
-GrDragger::moveOtherToDraggable (SPItem *item, gint point_type, gint point_i, bool fill_or_stroke, bool write_repr)
+void GrDragger::moveOtherToDraggable(SPItem *item, gint point_type, gint point_i, bool fill_or_stroke, bool write_repr)
 {
     GrDragger *d = this->parent->getDraggerFor (item, point_type, point_i, fill_or_stroke);
     if (d && d !=  this) {
@@ -1409,20 +1389,18 @@ GrDragger::moveOtherToDraggable (SPItem *item, gint point_type, gint point_i, bo
 
 
 /**
-  Draw this dragger as selected
-*/
-void
-GrDragger::select()
+ * Draw this dragger as selected.
+ */
+void GrDragger::select()
 {
     this->knot->fill [SP_KNOT_STATE_NORMAL] = GR_KNOT_COLOR_SELECTED;
     g_object_set (G_OBJECT (this->knot->item), "fill_color", GR_KNOT_COLOR_SELECTED, NULL);
 }
 
 /**
-  Draw this dragger as normal (deselected)
-*/
-void
-GrDragger::deselect()
+ * Draw this dragger as normal (deselected).
+ */
+void GrDragger::deselect()
 {
     this->knot->fill [SP_KNOT_STATE_NORMAL] = GR_KNOT_COLOR_NORMAL;
     g_object_set (G_OBJECT (this->knot->item), "fill_color", GR_KNOT_COLOR_NORMAL, NULL);
@@ -1435,10 +1413,9 @@ GrDragger::isSelected()
 }
 
 /**
-\brief Deselect all stops/draggers (private)
-*/
-void
-GrDrag::deselect_all()
+ * Deselect all stops/draggers (private).
+ */
+void GrDrag::deselect_all()
 {
     while (selected) {
         ( (GrDragger*) selected->data)->deselect();
@@ -1447,20 +1424,18 @@ GrDrag::deselect_all()
 }
 
 /**
-\brief Deselect all stops/draggers (public; emits signal)
-*/
-void
-GrDrag::deselectAll()
+ * Deselect all stops/draggers (public; emits signal).
+ */
+void GrDrag::deselectAll()
 {
     deselect_all();
     this->desktop->emitToolSubselectionChanged(NULL);
 }
 
 /**
-\brief Select all stops/draggers
-*/
-void
-GrDrag::selectAll()
+ * Select all stops/draggers.
+ */
+void GrDrag::selectAll()
 {
     for (GList *l = this->draggers; l != NULL; l = l->next) {
         GrDragger *d = ((GrDragger *) l->data);
@@ -1469,10 +1444,9 @@ GrDrag::selectAll()
 }
 
 /**
-\brief Select all stops/draggers that match the coords
-*/
-void
-GrDrag::selectByCoords(std::vector<Geom::Point> coords)
+ * Select all stops/draggers that match the coords.
+ */
+void GrDrag::selectByCoords(std::vector<Geom::Point> coords)
 {
     for (GList *l = this->draggers; l != NULL; l = l->next) {
         GrDragger *d = ((GrDragger *) l->data);
@@ -1486,10 +1460,9 @@ GrDrag::selectByCoords(std::vector<Geom::Point> coords)
 
 
 /**
-\brief Select all stops/draggers that fall within the rect
-*/
-void
-GrDrag::selectRect(Geom::Rect const &r)
+ * Select all stops/draggers that fall within the rect.
+ */
+void GrDrag::selectRect(Geom::Rect const &r)
 {
     for (GList *l = this->draggers; l != NULL; l = l->next) {
         GrDragger *d = ((GrDragger *) l->data);
@@ -1500,13 +1473,12 @@ GrDrag::selectRect(Geom::Rect const &r)
 }
 
 /**
-\brief Select a dragger
-\param dragger       The dragger to select
-\param add_to_selection   If true, add to selection, otherwise deselect others
-\param override      If true, always select this node, otherwise toggle selected status
+ * Select a dragger.
+ * @param dragger       The dragger to select.
+ * @param add_to_selection   If true, add to selection, otherwise deselect others.
+ * @param override      If true, always select this node, otherwise toggle selected status.
 */
-void
-GrDrag::setSelected (GrDragger *dragger, bool add_to_selection, bool override)
+void GrDrag::setSelected(GrDragger *dragger, bool add_to_selection, bool override)
 {
     GrDragger *seldragger = NULL;
 
@@ -1545,11 +1517,10 @@ GrDrag::setSelected (GrDragger *dragger, bool add_to_selection, bool override)
 }
 
 /**
-\brief Deselect a dragger
-\param dragger       The dragger to deselect
-*/
-void
-GrDrag::setDeselected (GrDragger *dragger)
+ * Deselect a dragger.
+ * @param dragger       The dragger to deselect.
+ */
+void GrDrag::setDeselected(GrDragger *dragger)
 {
     if (g_list_find(selected, dragger)) {
         selected = g_list_remove(selected, dragger);
@@ -1561,10 +1532,9 @@ GrDrag::setDeselected (GrDragger *dragger)
 
 
 /**
-Create a line from p1 to p2 and add it to the lines list
+ * Create a line from p1 to p2 and add it to the lines list.
  */
-void
-GrDrag::addLine (SPItem *item, Geom::Point p1, Geom::Point p2, guint32 rgba)
+void GrDrag::addLine(SPItem *item, Geom::Point p1, Geom::Point p2, guint32 rgba)
 {
     SPCanvasItem *line = sp_canvas_item_new(sp_desktop_controls(this->desktop),
                                                             SP_TYPE_CTRLLINE, NULL);
@@ -1578,11 +1548,10 @@ GrDrag::addLine (SPItem *item, Geom::Point p1, Geom::Point p2, guint32 rgba)
 }
 
 /**
-If there already exists a dragger within MERGE_DIST of p, add the draggable to it; otherwise create
-new dragger and add it to draggers list
+ * If there already exists a dragger within MERGE_DIST of p, add the draggable to it; otherwise create
+ * new dragger and add it to draggers list.
  */
-void
-GrDrag::addDragger (GrDraggable *draggable)
+void GrDrag::addDragger(GrDraggable *draggable)
 {
     Geom::Point p = sp_item_gradient_get_coords (draggable->item, draggable->point_type, draggable->point_i, draggable->fill_or_stroke);
 
@@ -1602,10 +1571,9 @@ GrDrag::addDragger (GrDraggable *draggable)
 }
 
 /**
-Add draggers for the radial gradient rg on item
-*/
-void
-GrDrag::addDraggersRadial (SPRadialGradient *rg, SPItem *item, bool fill_or_stroke)
+ * Add draggers for the radial gradient rg on item.
+ */
+void GrDrag::addDraggersRadial(SPRadialGradient *rg, SPItem *item, bool fill_or_stroke)
 {
     addDragger (new GrDraggable (item, POINT_RG_CENTER, 0, fill_or_stroke));
     guint num = rg->vector.stops.size();
@@ -1625,10 +1593,9 @@ GrDrag::addDraggersRadial (SPRadialGradient *rg, SPItem *item, bool fill_or_stro
 }
 
 /**
-Add draggers for the linear gradient lg on item
-*/
-void
-GrDrag::addDraggersLinear (SPLinearGradient *lg, SPItem *item, bool fill_or_stroke)
+ * Add draggers for the linear gradient lg on item.
+ */
+void GrDrag::addDraggersLinear(SPLinearGradient *lg, SPItem *item, bool fill_or_stroke)
 {
     addDragger (new GrDraggable (item, POINT_LG_BEGIN, 0, fill_or_stroke));
     guint num = lg->vector.stops.size();
@@ -1641,10 +1608,9 @@ GrDrag::addDraggersLinear (SPLinearGradient *lg, SPItem *item, bool fill_or_stro
 }
 
 /**
-Artificially grab the knot of this dragger; used by the gradient context
-*/
-void
-GrDrag::grabKnot (GrDragger *dragger, gint x, gint y, guint32 etime)
+ * Artificially grab the knot of this dragger; used by the gradient context.
+ */
+void GrDrag::grabKnot(GrDragger *dragger, gint x, gint y, guint32 etime)
 {
     if (dragger) {
         sp_knot_start_dragging (dragger->knot, dragger->point, x, y, etime);
@@ -1652,10 +1618,9 @@ GrDrag::grabKnot (GrDragger *dragger, gint x, gint y, guint32 etime)
 }
 
 /**
-Artificially grab the knot of the dragger with this draggable; used by the gradient context
-*/
-void
-GrDrag::grabKnot (SPItem *item, gint point_type, gint point_i, bool fill_or_stroke, gint x, gint y, guint32 etime)
+ * Artificially grab the knot of the dragger with this draggable; used by the gradient context.
+ */
+void GrDrag::grabKnot(SPItem *item, gint point_type, gint point_i, bool fill_or_stroke, gint x, gint y, guint32 etime)
 {
     GrDragger *dragger = getDraggerFor (item, point_type, point_i, fill_or_stroke);
     if (dragger) {
@@ -1664,10 +1629,10 @@ GrDrag::grabKnot (SPItem *item, gint point_type, gint point_i, bool fill_or_stro
 }
 
 /**
-Regenerates the draggers list from the current selection; is called when selection is changed or
-modified, also when a radial dragger needs to update positions of other draggers in the gradient
-*/
-void GrDrag::updateDraggers ()
+ * Regenerates the draggers list from the current selection; is called when selection is changed or
+ * modified, also when a radial dragger needs to update positions of other draggers in the gradient.
+ */
+void GrDrag::updateDraggers()
 {
     while (selected) {
         selected = g_list_remove(selected, selected->data);
@@ -1711,11 +1676,9 @@ void GrDrag::updateDraggers ()
 
 
 /**
- * \brief Returns true if at least one of the draggers' knots has the mouse hovering above it
+ * Returns true if at least one of the draggers' knots has the mouse hovering above it.
  */
-
-bool
-GrDrag::mouseOver()
+bool GrDrag::mouseOver()
 {
     for (GList const* i = this->draggers; i != NULL; i = i->next) {
         GrDragger *d = (GrDragger *) i->data;
@@ -1725,12 +1688,12 @@ GrDrag::mouseOver()
     }
     return false;
 }
+
 /**
-Regenerates the lines list from the current selection; is called on each move of a dragger, so that
-lines are always in sync with the actual gradient
-*/
-void
-GrDrag::updateLines ()
+ * Regenerates the lines list from the current selection; is called on each move of a dragger, so that
+ * lines are always in sync with the actual gradient.
+ */
+void GrDrag::updateLines()
 {
     // delete old lines
     for (GSList const *i = this->lines; i != NULL; i = i->next) {
@@ -1776,10 +1739,9 @@ GrDrag::updateLines ()
 }
 
 /**
-Regenerates the levels list from the current selection
-*/
-void
-GrDrag::updateLevels ()
+ * Regenerates the levels list from the current selection.
+ */
+void GrDrag::updateLevels()
 {
     hor_levels.clear();
     vert_levels.clear();
@@ -1788,21 +1750,20 @@ GrDrag::updateLevels ()
 
     for (GSList const* i = this->selection->itemList(); i != NULL; i = i->next) {
         SPItem *item = SP_ITEM(i->data);
-        Geom::OptRect rect = item->getBboxDesktop ();
+        Geom::OptRect rect = item->desktopVisualBounds();
         if (rect) {
             // Remember the edges of the bbox and the center axis
             hor_levels.push_back(rect->min()[Geom::Y]);
             hor_levels.push_back(rect->max()[Geom::Y]);
-            hor_levels.push_back(0.5 * (rect->min()[Geom::Y] + rect->max()[Geom::Y]));
+            hor_levels.push_back(rect->midpoint()[Geom::Y]);
             vert_levels.push_back(rect->min()[Geom::X]);
             vert_levels.push_back(rect->max()[Geom::X]);
-            vert_levels.push_back(0.5 * (rect->min()[Geom::X] + rect->max()[Geom::X]));
+            vert_levels.push_back(rect->midpoint()[Geom::X]);
         }
     }
 }
 
-void
-GrDrag::selected_reverse_vector ()
+void GrDrag::selected_reverse_vector()
 {
     if (selected == NULL)
         return;
@@ -1814,14 +1775,12 @@ GrDrag::selected_reverse_vector ()
     }
 }
 
-void
-GrDrag::selected_move_nowrite (double x, double y, bool scale_radial)
+void GrDrag::selected_move_nowrite(double x, double y, bool scale_radial)
 {
     selected_move (x, y, false, scale_radial);
 }
 
-void
-GrDrag::selected_move (double x, double y, bool write_repr, bool scale_radial)
+void GrDrag::selected_move(double x, double y, bool write_repr, bool scale_radial)
 {
     if (selected == NULL)
         return;
@@ -1885,8 +1844,8 @@ GrDrag::selected_move (double x, double y, bool write_repr, bool scale_radial)
         GSList *moving = NULL;
         gr_midpoint_limits(dragger, server, &begin, &end, &low_lim, &high_lim, &moving);
 
-        Geom::Point p(x, y);
-        p = snap_vector_midpoint (dragger->point + p, low_lim, high_lim, 0);
+        Geom::LineSegment ls(low_lim, high_lim);
+        Geom::Point p = ls.pointAt(ls.nearestPoint(dragger->point + p));
         Geom::Point displacement = p - dragger->point;
 
         for (GSList const* i = moving; i != NULL; i = i->next) {
@@ -1909,8 +1868,7 @@ GrDrag::selected_move (double x, double y, bool write_repr, bool scale_radial)
     }
 }
 
-void
-GrDrag::selected_move_screen (double x, double y)
+void GrDrag::selected_move_screen(double x, double y)
 {
     gdouble zoom = desktop->current_zoom();
     gdouble zx = x / zoom;
@@ -1920,10 +1878,9 @@ GrDrag::selected_move_screen (double x, double y)
 }
 
 /**
-Select the knot next to the last selected one and deselect all other selected.
-*/
-GrDragger *
-GrDrag::select_next ()
+ * Select the knot next to the last selected one and deselect all other selected.
+ */
+GrDragger *GrDrag::select_next()
 {
     GrDragger *d = NULL;
     if (selected == NULL || g_list_find(draggers, selected->data)->next == NULL) {
@@ -1938,10 +1895,9 @@ GrDrag::select_next ()
 }
 
 /**
-Select the knot previous from the last selected one and deselect all other selected.
-*/
-GrDragger *
-GrDrag::select_prev ()
+ * Select the knot previous from the last selected one and deselect all other selected.
+ */
+GrDragger *GrDrag::select_prev()
 {
     GrDragger *d = NULL;
     if (selected == NULL || g_list_find(draggers, selected->data)->prev == NULL) {
@@ -1957,12 +1913,11 @@ GrDrag::select_prev ()
 
 
 // FIXME: i.m.o. an ugly function that I just made to work, but... aargh! (Johan)
-void
-GrDrag::deleteSelected (bool just_one)
+void GrDrag::deleteSelected(bool just_one)
 {
     if (!selected) return;
 
-    SPDocument *document = false;
+    SPDocument *document = NULL;
 
     struct StructStopInfo {
         SPStop * spstop;

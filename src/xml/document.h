@@ -15,7 +15,6 @@
 #ifndef SEEN_INKSCAPE_XML_SP_REPR_DOC_H
 #define SEEN_INKSCAPE_XML_SP_REPR_DOC_H
 
-#include "xml/xml-forward.h"
 #include "xml/node.h"
 
 namespace Inkscape {
@@ -92,6 +91,7 @@ public:
      */
     virtual Node *createElement(char const *name)=0;
     virtual Node *createTextNode(char const *content)=0;
+    virtual Node *createTextNode(char const *content, bool is_CData)=0;
     virtual Node *createComment(char const *content)=0;
     virtual Node *createPI(char const *target, char const *content)=0;
     /*@}*/

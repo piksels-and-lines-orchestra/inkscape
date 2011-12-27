@@ -1,5 +1,6 @@
-/** @file
- * @brief  PNG export dialog
+/**
+ * @file
+ * PNG export dialog.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -54,6 +55,7 @@
 #include "preferences.h"
 #include "verbs.h"
 #include "interface.h"
+#include "sp-root.h"
 
 #include "extension/output.h"
 #include "extension/db.h"
@@ -188,36 +190,34 @@ sp_export_dialog_delete ( GtkObject */*object*/, GdkEvent */*event*/, gpointer /
 } // end of sp_export_dialog_delete()
 
 /**
-    \brief  Creates a new spin button for the export dialog
-    \param  key  The name of the spin button
-    \param  val  A default value for the spin button
-    \param  min  Minimum value for the spin button
-    \param  max  Maximum value for the spin button
-    \param  step The step size for the spin button
-    \param  page Size of the page increment
-    \param  us   Unit selector that effects this spin button
-    \param  t    Table to put the spin button in
-    \param  x    X location in the table \c t to start with
-    \param  y    Y location in the table \c t to start with
-    \param  ll   Text to put on the left side of the spin button (optional)
-    \param  lr   Text to put on the right side of the spin button (optional)
-    \param  digits  Number of digits to display after the decimal
-    \param  sensitive  Whether the spin button is sensitive or not
-    \param  cb   Callback for when this spin button is changed (optional)
-    \param  dlg  Export dialog the spin button is being placed in
-
-*/
-static void
-sp_export_spinbutton_new ( gchar const *key, float val, float min, float max,
-                           float step, float page, GtkWidget *us,
-                           GtkWidget *t, int x, int y,
-                           const gchar *ll, const gchar *lr,
-                           int digits, unsigned int sensitive,
-                           GCallback cb, GtkWidget *dlg )
+ * Creates a new spin button for the export dialog.
+ * @param  key  The name of the spin button
+ * @param  val  A default value for the spin button
+ * @param  min  Minimum value for the spin button
+ * @param  max  Maximum value for the spin button
+ * @param  step The step size for the spin button
+ * @param  page Size of the page increment
+ * @param  us   Unit selector that effects this spin button
+ * @param  t    Table to put the spin button in
+ * @param  x    X location in the table \c t to start with
+ * @param  y    Y location in the table \c t to start with
+ * @param  ll   Text to put on the left side of the spin button (optional)
+ * @param  lr   Text to put on the right side of the spin button (optional)
+ * @param  digits  Number of digits to display after the decimal
+ * @param  sensitive  Whether the spin button is sensitive or not
+ * @param  cb   Callback for when this spin button is changed (optional)
+ * @param  dlg  Export dialog the spin button is being placed in
+ */
+static void sp_export_spinbutton_new( gchar const *key, float val, float min, float max,
+                                      float step, float page, GtkWidget *us,
+                                      GtkWidget *t, int x, int y,
+                                      const gchar *ll, const gchar *lr,
+                                      int digits, unsigned int sensitive,
+                                      GCallback cb, GtkWidget *dlg )
 {
     GtkObject *adj = gtk_adjustment_new( val, min, max, step, page, 0 );
-    gtk_object_set_data( adj, "key", const_cast<gchar *>(key) );
-    gtk_object_set_data( GTK_OBJECT (dlg), (const gchar *)key, adj );
+    g_object_set_data( G_OBJECT (adj), "key", const_cast<gchar *>(key) );
+    g_object_set_data( G_OBJECT (dlg), (const gchar *)key, adj );
 
     if (us) {
         sp_unit_selector_add_adjustment ( SP_UNIT_SELECTOR (us),
@@ -261,7 +261,7 @@ sp_export_spinbutton_new ( gchar const *key, float val, float min, float max,
     }
 
     if (cb)
-        gtk_signal_connect (adj, "value_changed", cb, dlg);
+        g_signal_connect (adj, "value_changed", cb, dlg);
 
     return;
 } // end of sp_export_spinbutton_new()
@@ -288,7 +288,7 @@ sp_export_dialog_area_box (GtkWidget * dlg)
     unitbox->pack_end(*us, false, false, 0);
     Gtk::Label* l = new Gtk::Label(_("Units:"));
     unitbox->pack_end(*l, false, false, 3);
-    gtk_object_set_data (GTK_OBJECT (dlg), "units", us->gobj());
+    g_object_set_data (G_OBJECT (dlg), "units", us->gobj());
 
     Gtk::HBox* togglebox = new Gtk::HBox(true, 0);
 
@@ -296,10 +296,10 @@ sp_export_dialog_area_box (GtkWidget * dlg)
     for (int i = 0; i < SELECTION_NUMBER_OF; i++) {
         b = new Gtk::ToggleButton(_(selection_labels[i]), true);
         b->set_data("key", GINT_TO_POINTER(i));
-        gtk_object_set_data (GTK_OBJECT (dlg), selection_names[i], b->gobj());
+        g_object_set_data (G_OBJECT (dlg), selection_names[i], b->gobj());
         togglebox->pack_start(*b, false, true, 0);
-        gtk_signal_connect ( GTK_OBJECT (b->gobj()), "clicked",
-                             GTK_SIGNAL_FUNC (sp_export_area_toggled), dlg );
+        g_signal_connect ( G_OBJECT (b->gobj()), "clicked",
+                             G_CALLBACK (sp_export_area_toggled), dlg );
     }
 
     g_signal_connect ( G_OBJECT (INKSCAPE), "change_selection",
@@ -357,18 +357,18 @@ gchar* create_filepath_from_id (const gchar *id, const gchar *file_entry_text) {
     if (id == NULL) /* This should never happen */
         id = "bitmap";
 
-    gchar * directory = NULL;
+    gchar *directory = NULL;
 
     if (directory == NULL && file_entry_text != NULL && file_entry_text[0] != '\0') {
         // std::cout << "Directory from dialog" << std::endl;
-        directory = g_dirname(file_entry_text);
+        directory = g_path_get_dirname(file_entry_text);
     }
 
     if (directory == NULL) {
         /* Grab document directory */
         if ( SP_ACTIVE_DOCUMENT->getURI() ) {
             // std::cout << "Directory from document" << std::endl;
-            directory = g_dirname( SP_ACTIVE_DOCUMENT->getURI() );
+            directory = g_path_get_dirname( SP_ACTIVE_DOCUMENT->getURI() );
         }
     }
 
@@ -387,7 +387,7 @@ gchar* create_filepath_from_id (const gchar *id, const gchar *file_entry_text) {
 static void
 batch_export_clicked (GtkWidget *widget, GtkObject *base)
 {
-    Gtk::Widget *vb_singleexport = (Gtk::Widget *)gtk_object_get_data(base, "vb_singleexport");
+    Gtk::Widget *vb_singleexport = (Gtk::Widget *)g_object_get_data(G_OBJECT(base), "vb_singleexport");
     if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(widget))) {
         vb_singleexport->set_sensitive(false);
     } else {
@@ -431,13 +431,13 @@ sp_export_dialog (void)
         g_signal_connect   ( G_OBJECT (INKSCAPE), "activate_desktop",
                              G_CALLBACK (sp_transientize_callback), &wd);
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "event",
-                             GTK_SIGNAL_FUNC (sp_dialog_event_handler), dlg);
+        g_signal_connect ( G_OBJECT (dlg), "event",
+                             G_CALLBACK (sp_dialog_event_handler), dlg);
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "destroy",
+        g_signal_connect ( G_OBJECT (dlg), "destroy",
                              G_CALLBACK (sp_export_dialog_destroy), dlg);
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "delete_event",
+        g_signal_connect ( G_OBJECT (dlg), "delete_event",
                              G_CALLBACK (sp_export_dialog_delete), dlg);
 
         g_signal_connect   ( G_OBJECT (INKSCAPE), "shut_down",
@@ -449,8 +449,6 @@ sp_export_dialog (void)
         g_signal_connect   ( G_OBJECT (INKSCAPE), "dialogs_unhide",
                              G_CALLBACK (sp_dialog_unhide), dlg);
 
-        GtkTooltips *tt = gtk_tooltips_new();
-
         Gtk::VBox *vb = new Gtk::VBox(false, 3);
         vb->set_border_width(3);
         gtk_container_add (GTK_CONTAINER (dlg), GTK_WIDGET(vb->gobj()));
@@ -458,7 +456,7 @@ sp_export_dialog (void)
         Gtk::VBox *vb_singleexport = new Gtk::VBox(false, 0);
         vb_singleexport->set_border_width(0);
         vb->pack_start(*vb_singleexport);
-        gtk_object_set_data(GTK_OBJECT(dlg), "vb_singleexport", vb_singleexport);
+        g_object_set_data(G_OBJECT(dlg), "vb_singleexport", vb_singleexport);
 
         /* Export area frame */
         {
@@ -603,8 +601,8 @@ sp_export_dialog (void)
 
             hb->pack_start (*fe, true, true, 0);
             file_box->add(*hb);
-            gtk_object_set_data (GTK_OBJECT (dlg), "filename", fe->gobj());
-            gtk_object_set_data (GTK_OBJECT (dlg), "filename-modified", (gpointer)FALSE);
+            g_object_set_data (G_OBJECT (dlg), "filename", fe->gobj());
+            g_object_set_data (G_OBJECT (dlg), "filename-modified", (gpointer)FALSE);
             original_name = g_strdup(fe->get_text().c_str());
             // pressing enter in the filename field is the same as clicking export:
             g_signal_connect ( G_OBJECT (fe->gobj()), "activate",
@@ -622,9 +620,9 @@ sp_export_dialog (void)
             Gtk::HBox* batch_box = new Gtk::HBox(FALSE, 5);
             GtkWidget *be = gtk_check_button_new_with_mnemonic(_("B_atch export all selected objects"));
             gtk_widget_set_sensitive(GTK_WIDGET(be), TRUE);
-            gtk_object_set_data(GTK_OBJECT(dlg), "batch_checkbox", be);
+            g_object_set_data(G_OBJECT(dlg), "batch_checkbox", be);
             batch_box->pack_start(*Glib::wrap(be), false, false);
-            gtk_tooltips_set_tip(tt, be, _("Export each selected object into its own PNG file, using export hints if any (caution, overwrites without asking!)"), NULL);
+            gtk_widget_set_tooltip_text(be, _("Export each selected object into its own PNG file, using export hints if any (caution, overwrites without asking!)"));
             batch_box->show_all();
             g_signal_connect(G_OBJECT(be), "toggled", GTK_SIGNAL_FUNC(batch_export_clicked), dlg);
             vb->pack_start(*batch_box);
@@ -634,9 +632,9 @@ sp_export_dialog (void)
             Gtk::HBox* hide_box = new Gtk::HBox(FALSE, 5);
             GtkWidget *he = gtk_check_button_new_with_mnemonic(_("Hide a_ll except selected"));
             gtk_widget_set_sensitive(GTK_WIDGET(he), TRUE);
-            gtk_object_set_data(GTK_OBJECT(dlg), "hide_checkbox", he);
+            g_object_set_data(G_OBJECT(dlg), "hide_checkbox", he);
             hide_box->pack_start(*Glib::wrap(he), false, false);
-            gtk_tooltips_set_tip(tt, he, _("In the exported image, hide all objects except those that are selected"), NULL);
+            gtk_widget_set_tooltip_text(he, _("In the exported image, hide all objects except those that are selected"));
             hide_box->show_all();
             vb->pack_start(*hide_box);
         }
@@ -657,9 +655,9 @@ sp_export_dialog (void)
             image_label->pack_start(*l);
 
             b->add(*image_label);
-            gtk_tooltips_set_tip (tt, GTK_WIDGET(b->gobj()), _("Export the bitmap file with these settings"), NULL);
-            gtk_signal_connect ( GTK_OBJECT (b->gobj()), "clicked",
-                                 GTK_SIGNAL_FUNC (sp_export_export_clicked), dlg );
+            gtk_widget_set_tooltip_text (GTK_WIDGET(b->gobj()), _("Export the bitmap file with these settings"));
+            g_signal_connect ( G_OBJECT (b->gobj()), "clicked",
+                                 G_CALLBACK (sp_export_export_clicked), dlg );
             bb->pack_end(*b, false, false, 0);
         }
 
@@ -679,8 +677,8 @@ static void
 sp_export_update_checkbuttons (GtkObject *base)
 {
     gint num = g_slist_length((GSList *) sp_desktop_selection(SP_ACTIVE_DESKTOP)->itemList());
-    GtkWidget *be = (GtkWidget *)gtk_object_get_data(base, "batch_checkbox");
-    GtkWidget *he = (GtkWidget *)gtk_object_get_data(base, "hide_checkbox");
+    GtkWidget *be = (GtkWidget *)g_object_get_data(G_OBJECT(base), "batch_checkbox");
+    GtkWidget *he = (GtkWidget *)g_object_get_data(G_OBJECT(base), "hide_checkbox");
     if (num >= 2) {
         gtk_widget_set_sensitive (be, true);
         gtk_button_set_label (GTK_BUTTON(be), g_strdup_printf (ngettext("B_atch export %d selected object","B_atch export %d selected objects",num), num));
@@ -735,35 +733,33 @@ sp_export_find_default_selection(GtkWidget * dlg)
 
 
 /**
- * \brief  If selection changed or a different document activated, we must
- * recalculate any chosen areas
- *
+ * If selection changed or a different document activated, we must
+ * recalculate any chosen areas.
  */
-static void
-sp_export_selection_changed ( Inkscape::Application *inkscape,
-                              Inkscape::Selection *selection,
-                              GtkObject *base )
+static void sp_export_selection_changed( Inkscape::Application *inkscape,
+                                         Inkscape::Selection *selection,
+                                         GtkObject *base )
 {
     selection_type current_key;
-    current_key = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")));
+    current_key = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")));
 
     if ((current_key == SELECTION_DRAWING || current_key == SELECTION_PAGE) &&
             (sp_desktop_selection(SP_ACTIVE_DESKTOP))->isEmpty() == false &&
             was_empty) {
         gtk_toggle_button_set_active
-            ( GTK_TOGGLE_BUTTON ( gtk_object_get_data (base, selection_names[SELECTION_SELECTION])),
+            ( GTK_TOGGLE_BUTTON ( g_object_get_data (G_OBJECT(base), selection_names[SELECTION_SELECTION])),
               TRUE );
     }
     was_empty = (sp_desktop_selection(SP_ACTIVE_DESKTOP))->isEmpty();
 
-    current_key = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")));
+    current_key = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")));
 
     if (inkscape &&
             SP_IS_INKSCAPE (inkscape) &&
             selection &&
             SELECTION_CUSTOM != current_key) {
         GtkToggleButton * button;
-        button = (GtkToggleButton *)gtk_object_get_data(base, selection_names[current_key]);
+        button = (GtkToggleButton *)g_object_get_data(G_OBJECT(base), selection_names[current_key]);
         sp_export_area_toggled(button, base);
     }
 
@@ -777,27 +773,29 @@ sp_export_selection_modified ( Inkscape::Application */*inkscape*/,
                                GtkObject *base )
 {
     selection_type current_key;
-    current_key = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")));
+    current_key = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")));
 
     switch (current_key) {
         case SELECTION_DRAWING:
             if ( SP_ACTIVE_DESKTOP ) {
                 SPDocument *doc;
                 doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
-                Geom::OptRect bbox = SP_ITEM(doc->root)->getBboxDesktop(SPItem::RENDERING_BBOX);
+                Geom::OptRect bbox = doc->getRoot()->desktopVisualBounds();
                 if (bbox) {
-                    sp_export_set_area (base, bbox->min()[Geom::X],
-                                              bbox->min()[Geom::Y],
-                                              bbox->max()[Geom::X],
-                                              bbox->max()[Geom::Y]);
+                    sp_export_set_area (base, bbox->left(),
+                                              bbox->top(),
+                                              bbox->right(),
+                                              bbox->bottom());
                 }
             }
             break;
         case SELECTION_SELECTION:
             if ((sp_desktop_selection(SP_ACTIVE_DESKTOP))->isEmpty() == false) {
-                NRRect bbox;
-                (sp_desktop_selection (SP_ACTIVE_DESKTOP))->bounds(&bbox, SPItem::RENDERING_BBOX);
-                sp_export_set_area (base, bbox.x0, bbox.y0, bbox.x1, bbox.y1);
+                Geom::OptRect bbox = (sp_desktop_selection (SP_ACTIVE_DESKTOP))->visualBounds();
+                sp_export_set_area (base, bbox->left(),
+                                          bbox->top(),
+                                          bbox->right(),
+                                          bbox->bottom());
             }
             break;
         default:
@@ -812,12 +810,12 @@ sp_export_selection_modified ( Inkscape::Application */*inkscape*/,
 static void
 sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
 {
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
     selection_type key, old_key;
-    key = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data (GTK_OBJECT (tb), "key")));
-    old_key = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")));
+    key = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT (tb), "key")));
+    old_key = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")));
 
     /* Ignore all "turned off" events unless we're the only active button */
     if (!gtk_toggle_button_get_active (tb) ) {
@@ -832,11 +830,11 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
     }
 
     /* Turn off the currently active button unless it's us */
-    gtk_object_set_data(GTK_OBJECT(base), "selection-type", (gpointer)key);
+    g_object_set_data(G_OBJECT(base), "selection-type", (gpointer)key);
 
     if (old_key != key) {
         gtk_toggle_button_set_active
-            ( GTK_TOGGLE_BUTTON ( gtk_object_get_data (base, selection_names[old_key])),
+            ( GTK_TOGGLE_BUTTON ( g_object_get_data (G_OBJECT(base), selection_names[old_key])),
               FALSE );
     }
 
@@ -853,7 +851,7 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
             case SELECTION_SELECTION:
                 if ((sp_desktop_selection(SP_ACTIVE_DESKTOP))->isEmpty() == false)
                 {
-                    bbox = sp_desktop_selection (SP_ACTIVE_DESKTOP)->bounds(SPItem::RENDERING_BBOX);
+                    bbox = sp_desktop_selection (SP_ACTIVE_DESKTOP)->visualBounds();
                     /* Only if there is a selection that we can set
                        do we break, otherwise we fall through to the
                        drawing */
@@ -865,7 +863,7 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
                 /** \todo
                  * This returns wrong values if the document has a viewBox.
                  */
-                bbox = SP_ITEM(doc->root)->getBboxDesktop(SPItem::RENDERING_BBOX);
+                bbox = doc->getRoot()->desktopVisualBounds();
                 /* If the drawing is valid, then we'll use it and break
                    otherwise we drop through to the page settings */
                 if (bbox) {
@@ -899,12 +897,12 @@ sp_export_area_toggled (GtkToggleButton *tb, GtkObject *base)
     } // end of if ( SP_ACTIVE_DESKTOP )
 
 
-    if (SP_ACTIVE_DESKTOP && !gtk_object_get_data(GTK_OBJECT(base), "filename-modified")) {
+    if (SP_ACTIVE_DESKTOP && !g_object_get_data(G_OBJECT(base), "filename-modified")) {
         GtkWidget * file_entry;
         const gchar * filename = NULL;
         float xdpi = 0.0, ydpi = 0.0;
 
-        file_entry = (GtkWidget *)gtk_object_get_data (base, "filename");
+        file_entry = (GtkWidget *)g_object_get_data (G_OBJECT(base), "filename");
 
         switch (key) {
             case SELECTION_PAGE:
@@ -1054,7 +1052,7 @@ filename_add_extension (const gchar *filename, const gchar *extension)
       return g_strconcat (filename, extension, NULL);
     else
     {
-      if (g_strcasecmp (dot + 1, extension) == 0)
+      if (g_ascii_strcasecmp (dot + 1, extension) == 0)
         return g_strdup (filename);
       else
       {
@@ -1090,8 +1088,8 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
     SPNamedView *nv = sp_desktop_namedview(SP_ACTIVE_DESKTOP);
     SPDocument *doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
 
-    GtkWidget *be = (GtkWidget *)gtk_object_get_data(base, "batch_checkbox");
-    GtkWidget *he = (GtkWidget *)gtk_object_get_data(base, "hide_checkbox");
+    GtkWidget *be = (GtkWidget *)g_object_get_data(G_OBJECT(base), "batch_checkbox");
+    GtkWidget *he = (GtkWidget *)g_object_get_data(G_OBJECT(base), "hide_checkbox");
     bool hide = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (he));
     if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (be))) {
         // Batch export of selected objects
@@ -1130,8 +1128,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
                 dpi = DPI_BASE;
             }
 
-            Geom::OptRect area;
-            item->invoke_bbox( area, item->i2d_affine(), TRUE );
+            Geom::OptRect area = item->desktopVisualBounds();
             if (area) {
                 gint width = (gint) (area->width() * dpi / PX_PER_IN + 0.5);
                 gint height = (gint) (area->height() * dpi / PX_PER_IN + 0.5);
@@ -1163,7 +1160,7 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
 
     } else {
 
-    GtkWidget *fe = (GtkWidget *)gtk_object_get_data(base, "filename");
+    GtkWidget *fe = (GtkWidget *)g_object_get_data(G_OBJECT(base), "filename");
     gchar const *filename = gtk_entry_get_text(GTK_ENTRY(fe));
 
     float const x0 = sp_export_value_get_px(base, "x0");
@@ -1233,13 +1230,13 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
        selections and all that */
     g_free(original_name);
     original_name = g_strdup(filename_ext);
-    gtk_object_set_data (GTK_OBJECT (base), "filename-modified", (gpointer)FALSE);
+    g_object_set_data (G_OBJECT (base), "filename-modified", (gpointer)FALSE);
 
     gtk_widget_destroy (prog_dlg);
     g_object_set_data (G_OBJECT (base), "cancel", (gpointer) 0);
 
     /* Setup the values in the document */
-    switch ((selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")))) {
+    switch ((selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")))) {
         case SELECTION_PAGE:
         case SELECTION_DRAWING: {
             SPDocument * doc = SP_ACTIVE_DOCUMENT;
@@ -1283,11 +1280,13 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
             for(; reprlst != NULL; reprlst = reprlst->next) {
                 Inkscape::XML::Node * repr = (Inkscape::XML::Node *)reprlst->data;
                 const gchar * temp_string;
+                gchar *dir = g_path_get_dirname(filename);
+                gchar *docdir = g_path_get_dirname(SP_ACTIVE_DOCUMENT->getURI());
 
                 if (repr->attribute("id") == NULL ||
                         !(g_strrstr(filename_ext, repr->attribute("id")) != NULL &&
                           ( !SP_ACTIVE_DOCUMENT->getURI() ||
-                            strcmp(g_dirname(filename), g_dirname(SP_ACTIVE_DOCUMENT->getURI())) == 0))) {
+                            strcmp(dir, docdir) == 0))) {
                     temp_string = repr->attribute("inkscape:export-filename");
                     if (temp_string == NULL || strcmp(temp_string, filename_ext)) {
                         repr->setAttribute("inkscape:export-filename", filename_ext);
@@ -1304,6 +1303,8 @@ sp_export_export_clicked (GtkButton */*button*/, GtkObject *base)
                     sp_repr_set_svg_double(repr, "inkscape:export-ydpi", ydpi);
                     modified = true;
                 }
+                g_free(dir);
+                g_free(docdir);
             }
             DocumentUndo::setUndoSensitive(doc, saved);
 
@@ -1441,34 +1442,34 @@ sp_export_bbox_equal(Geom::Rect const &one, Geom::Rect const &two)
 }
 
 /**
-    \brief  This function is used to detect the current selection setting
-            based on the values in the x0, y0, x1 and y0 fields.
-    \param  base  The export dialog itself
-
-    One of the most confusing parts of this function is why the array
-    is built at the beginning.  What needs to happen here is that we
-    should always check the current selection to see if it is the valid
-    one.  While this is a performance improvement it is also a usability
-    one during the cases where things like selections and drawings match
-    size.  This way buttons change less 'randomly' (atleast in the eyes
-    of the user).  To do this an array is built where the current selection
-    type is placed first, and then the others in an order from smallest
-    to largest (this can be configured by reshuffling \c test_order).
-
-    All of the values in this function are rounded to two decimal places
-    because that is what is shown to the user.  While everything is kept
-    more accurate than that, the user can't control more acurrate than
-    that, so for this to work for them - it needs to check on that level
-    of accuracy.
-
-    \todo finish writing this up
-*/
-static void
-sp_export_detect_size(GtkObject * base) {
+ *This function is used to detect the current selection setting
+ * based on the values in the x0, y0, x1 and y0 fields.
+ *
+ * One of the most confusing parts of this function is why the array
+ * is built at the beginning.  What needs to happen here is that we
+ * should always check the current selection to see if it is the valid
+ * one.  While this is a performance improvement it is also a usability
+ * one during the cases where things like selections and drawings match
+ * size.  This way buttons change less 'randomly' (atleast in the eyes
+ * of the user).  To do this an array is built where the current selection
+ * type is placed first, and then the others in an order from smallest
+ * to largest (this can be configured by reshuffling \c test_order).
+ *
+ * All of the values in this function are rounded to two decimal places
+ * because that is what is shown to the user.  While everything is kept
+ * more accurate than that, the user can't control more acurrate than
+ * that, so for this to work for them - it needs to check on that level
+ * of accuracy.
+ *
+ * @param  base  The export dialog itself.
+ *
+ * @todo finish writing this up.
+ */
+static void sp_export_detect_size(GtkObject * base) {
     static const selection_type test_order[SELECTION_NUMBER_OF] = {SELECTION_SELECTION, SELECTION_DRAWING, SELECTION_PAGE, SELECTION_CUSTOM};
     selection_type this_test[SELECTION_NUMBER_OF + 1];
     selection_type key = SELECTION_NUMBER_OF;
-
+    
     Geom::Point x(sp_export_value_get_px (base, "x0"),
                   sp_export_value_get_px (base, "y0"));
     Geom::Point y(sp_export_value_get_px (base, "x1"),
@@ -1476,7 +1477,7 @@ sp_export_detect_size(GtkObject * base) {
     Geom::Rect current_bbox(x, y);
     //std::cout << "Current " << current_bbox;
 
-    this_test[0] = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")));
+    this_test[0] = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")));
     for (int i = 0; i < SELECTION_NUMBER_OF; i++) {
         this_test[i + 1] = test_order[i];
     }
@@ -1490,7 +1491,7 @@ sp_export_detect_size(GtkObject * base) {
         switch (this_test[i]) {
             case SELECTION_SELECTION:
                 if ((sp_desktop_selection(SP_ACTIVE_DESKTOP))->isEmpty() == false) {
-                    Geom::OptRect bbox = (sp_desktop_selection (SP_ACTIVE_DESKTOP))->bounds(SPItem::RENDERING_BBOX);
+                    Geom::OptRect bbox = (sp_desktop_selection (SP_ACTIVE_DESKTOP))->bounds(SPItem::VISUAL_BBOX);
 
                     //std::cout << "Selection " << bbox;
                     if ( bbox && sp_export_bbox_equal(*bbox,current_bbox)) {
@@ -1501,7 +1502,7 @@ sp_export_detect_size(GtkObject * base) {
             case SELECTION_DRAWING: {
                 SPDocument *doc = sp_desktop_document (SP_ACTIVE_DESKTOP);
 
-                Geom::OptRect bbox = SP_ITEM(doc->root)->getBboxDesktop(SPItem::RENDERING_BBOX);
+                Geom::OptRect bbox = doc->getRoot()->desktopVisualBounds();
 
                 // std::cout << "Drawing " << bbox2;
                 if ( bbox && sp_export_bbox_equal(*bbox,current_bbox) ) {
@@ -1539,10 +1540,10 @@ sp_export_detect_size(GtkObject * base) {
 
     /* We're now using a custom size, not a fixed one */
     /* printf("Detecting state: %s\n", selection_names[key]); */
-    selection_type old = (selection_type)(GPOINTER_TO_INT(gtk_object_get_data(GTK_OBJECT(base), "selection-type")));
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(gtk_object_get_data(base, selection_names[old])), FALSE);
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(gtk_object_get_data(base, selection_names[key])), TRUE);
-    gtk_object_set_data(GTK_OBJECT(base), "selection-type", (gpointer)key);
+    selection_type old = (selection_type)(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(base), "selection-type")));
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(g_object_get_data(G_OBJECT(base), selection_names[old])), FALSE);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(g_object_get_data(G_OBJECT(base), selection_names[key])), TRUE);
+    g_object_set_data(G_OBJECT(base), "selection-type", (gpointer)key);
 
     return;
 } /* sp_export_detect_size */
@@ -1553,16 +1554,16 @@ sp_export_area_x_value_changed (GtkAdjustment *adj, GtkObject *base)
 {
     float x0, x1, xdpi, width;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-            (base, "units")))
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+            (G_OBJECT(base), "units")))
     {
         return;
     }
 
-    gtk_object_set_data ( base, "update", GUINT_TO_POINTER (TRUE) );
+    g_object_set_data ( G_OBJECT(base), "update", GUINT_TO_POINTER (TRUE) );
 
     x0 = sp_export_value_get_px (base, "x0");
     x1 = sp_export_value_get_px (base, "x1");
@@ -1573,7 +1574,7 @@ sp_export_area_x_value_changed (GtkAdjustment *adj, GtkObject *base)
     if (width < SP_EXPORT_MIN_SIZE) {
         const gchar *key;
         width = SP_EXPORT_MIN_SIZE;
-        key = (const gchar *)gtk_object_get_data (GTK_OBJECT (adj), "key");
+        key = (const gchar *)g_object_get_data(G_OBJECT (adj), "key");
 
         if (!strcmp (key, "x0")) {
             x1 = x0 + width * DPI_BASE / xdpi;
@@ -1589,7 +1590,7 @@ sp_export_area_x_value_changed (GtkAdjustment *adj, GtkObject *base)
 
     sp_export_detect_size(base);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data ( G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_area_x_value_changed()
@@ -1600,16 +1601,16 @@ sp_export_area_y_value_changed (GtkAdjustment *adj, GtkObject *base)
 {
     float y0, y1, ydpi, height;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-           (base, "units")))
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+           (G_OBJECT(base), "units")))
     {
         return;
     }
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (TRUE));
+    g_object_set_data ( G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE));
 
     y0 = sp_export_value_get_px (base, "y0");
     y1 = sp_export_value_get_px (base, "y1");
@@ -1620,7 +1621,7 @@ sp_export_area_y_value_changed (GtkAdjustment *adj, GtkObject *base)
     if (height < SP_EXPORT_MIN_SIZE) {
         const gchar *key;
         height = SP_EXPORT_MIN_SIZE;
-        key = (const gchar *)gtk_object_get_data (GTK_OBJECT (adj), "key");
+        key = (const gchar *)g_object_get_data(G_OBJECT (adj), "key");
         if (!strcmp (key, "y0")) {
             y1 = y0 + height * DPI_BASE / ydpi;
             sp_export_value_set_px (base, "y1", y1);
@@ -1635,7 +1636,7 @@ sp_export_area_y_value_changed (GtkAdjustment *adj, GtkObject *base)
 
     sp_export_detect_size(base);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data ( G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_area_y_value_changed()
@@ -1646,15 +1647,15 @@ sp_export_area_width_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 {
     float x0, x1, xdpi, width, bmwidth;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-           (base, "units"))) {
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+           (G_OBJECT(base), "units"))) {
         return;
     }
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (TRUE));
+    g_object_set_data ( G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE));
 
     x0 = sp_export_value_get_px (base, "x0");
     x1 = sp_export_value_get_px (base, "x1");
@@ -1672,7 +1673,7 @@ sp_export_area_width_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
     sp_export_value_set_px (base, "x1", x0 + width);
     sp_export_value_set (base, "bmwidth", bmwidth);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_area_width_value_changed()
@@ -1684,15 +1685,15 @@ sp_export_area_height_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 
     float y0, y1, ydpi, height, bmheight;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-           (base, "units"))) {
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+           (G_OBJECT(base), "units"))) {
         return;
     }
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (TRUE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE));
 
     y0 = sp_export_value_get_px (base, "y0");
     y1 = sp_export_value_get_px (base, "y1");
@@ -1709,21 +1710,20 @@ sp_export_area_height_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
     sp_export_value_set_px (base, "y1", y0 + height);
     sp_export_value_set (base, "bmheight", bmheight);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_area_height_value_changed()
 
 /**
-    \brief  A function to set the ydpi
-    \param  base  The export dialog
-
-    This function grabs all of the y values and then figures out the
-    new bitmap size based on the changing dpi value.  The dpi value is
-    gotten from the xdpi setting as these can not currently be independent.
-*/
-static void
-sp_export_set_image_y (GtkObject *base)
+ * A function to set the ydpi.
+ * @param base The export dialog.
+ *
+ * This function grabs all of the y values and then figures out the
+ * new bitmap size based on the changing dpi value.  The dpi value is
+ * gotten from the xdpi setting as these can not currently be independent.
+ */
+static void sp_export_set_image_y(GtkObject *base)
 {
     float y0, y1, xdpi;
 
@@ -1738,15 +1738,15 @@ sp_export_set_image_y (GtkObject *base)
 } // end of sp_export_set_image_y()
 
 /**
-    \brief  A function to set the xdpi
-    \param  base  The export dialog
-
-    This function grabs all of the x values and then figures out the
-    new bitmap size based on the changing dpi value.  The dpi value is
-    gotten from the xdpi setting as these can not currently be independent.
-*/
-static void
-sp_export_set_image_x (GtkObject *base)
+ * A function to set the xdpi.
+ *
+ * This function grabs all of the x values and then figures out the
+ * new bitmap size based on the changing dpi value.  The dpi value is
+ * gotten from the xdpi setting as these can not currently be independent.
+ *
+ * @param  base  The export dialog.
+ */
+static void sp_export_set_image_x(GtkObject *base)
 {
     float x0, x1, xdpi;
 
@@ -1766,15 +1766,15 @@ sp_export_bitmap_width_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 {
     float x0, x1, bmwidth, xdpi;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-           (base, "units"))) {
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+           (G_OBJECT(base), "units"))) {
        return;
     }
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (TRUE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE));
 
     x0 = sp_export_value_get_px (base, "x0");
     x1 = sp_export_value_get_px (base, "x1");
@@ -1790,7 +1790,7 @@ sp_export_bitmap_width_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 
     sp_export_set_image_y (base);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_bitmap_width_value_changed()
@@ -1801,15 +1801,15 @@ sp_export_bitmap_height_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 {
     float y0, y1, bmheight, xdpi;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-           (base, "units"))) {
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+           (G_OBJECT(base), "units"))) {
        return;
     }
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (TRUE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE));
 
     y0 = sp_export_value_get_px (base, "y0");
     y1 = sp_export_value_get_px (base, "y1");
@@ -1825,53 +1825,53 @@ sp_export_bitmap_height_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 
     sp_export_set_image_x (base);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_bitmap_width_value_changed()
 
 /**
-    \brief  A function to adjust the bitmap width when the xdpi value changes
-    \param  adj  The adjustment that was changed
-    \param  base The export dialog itself
-
-    The first thing this function checks is to see if we are doing an
-    update.  If we are, this function just returns because there is another
-    instance of it that will handle everything for us.  If there is a
-    units change, we also assume that everyone is being updated appropriately
-    and there is nothing for us to do.
-
-    If we're the highest level function, we set the update flag, and
-    continue on our way.
-
-    All of the values are grabbed using the \c sp_export_value_get functions
-    (call to the _pt ones for x0 and x1 but just standard for xdpi).  The
-    xdpi value is saved in the preferences for the next time the dialog
-    is opened.  (does the selection dpi need to be set here?)
-
-    A check is done to to ensure that we aren't outputing an invalid width,
-    this is set by SP_EXPORT_MIN_SIZE.  If that is the case the dpi is
-    changed to make it valid.
-
-    After all of this the bitmap width is changed.
-
-    We also change the ydpi.  This is a temporary hack as these can not
-    currently be independent.  This is likely to change in the future.
-*/
-void
-sp_export_xdpi_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
+ * A function to adjust the bitmap width when the xdpi value changes.
+ *
+ * The first thing this function checks is to see if we are doing an
+ * update.  If we are, this function just returns because there is another
+ * instance of it that will handle everything for us.  If there is a
+ * units change, we also assume that everyone is being updated appropriately
+ * and there is nothing for us to do.
+ *
+ * If we're the highest level function, we set the update flag, and
+ * continue on our way.
+ *
+ * All of the values are grabbed using the \c sp_export_value_get functions
+ * (call to the _pt ones for x0 and x1 but just standard for xdpi).  The
+ * xdpi value is saved in the preferences for the next time the dialog
+ * is opened.  (does the selection dpi need to be set here?)
+ *
+ * A check is done to to ensure that we aren't outputing an invalid width,
+ * this is set by SP_EXPORT_MIN_SIZE.  If that is the case the dpi is
+ * changed to make it valid.
+ *
+ * After all of this the bitmap width is changed.
+ *
+ * We also change the ydpi.  This is a temporary hack as these can not
+ * currently be independent.  This is likely to change in the future.
+ *
+ * @param  adj  The adjustment that was changed.
+ * @param  base The export dialog itself.
+ */
+void sp_export_xdpi_value_changed(GtkAdjustment */*adj*/, GtkObject *base)
 {
     float x0, x1, xdpi, bmwidth;
 
-    if (gtk_object_get_data (base, "update"))
+    if (g_object_get_data (G_OBJECT(base), "update"))
         return;
 
-    if (sp_unit_selector_update_test ((SPUnitSelector *)gtk_object_get_data
-           (base, "units"))) {
+    if (sp_unit_selector_update_test ((SPUnitSelector *)g_object_get_data
+           (G_OBJECT(base), "units"))) {
        return;
     }
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (TRUE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE));
 
     x0 = sp_export_value_get_px (base, "x0");
     x1 = sp_export_value_get_px (base, "x1");
@@ -1896,82 +1896,80 @@ sp_export_xdpi_value_changed (GtkAdjustment */*adj*/, GtkObject *base)
 
     sp_export_set_image_y (base);
 
-    gtk_object_set_data (base, "update", GUINT_TO_POINTER (FALSE));
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE));
 
     return;
 } // end of sp_export_xdpi_value_changed()
 
 
 /**
-    \brief  A function to change the area that is used for the exported
-            bitmap.
-    \param  base  This is the export dialog
-    \param  x0    Horizontal upper left hand corner of the picture in points
-    \param  y0    Vertical upper left hand corner of the picture in points
-    \param  x1    Horizontal lower right hand corner of the picture in points
-    \param  y1    Vertical lower right hand corner of the picture in points
-
-    This function just calls \c sp_export_value_set_px for each of the
-    parameters that is passed in.  This allows for setting them all in
-    one convient area.
-
-    Update is set to suspend all of the other test running while all the
-    values are being set up.  This allows for a performance increase, but
-    it also means that the wrong type won't be detected with only some of
-    the values set.  After all the values are set everyone is told that
-    there has been an update.
-*/
-static void
-sp_export_set_area ( GtkObject *base, double x0, double y0, double x1, double y1 )
+ * A function to change the area that is used for the exported.
+ * bitmap.
+ *
+ * This function just calls \c sp_export_value_set_px for each of the
+ * parameters that is passed in.  This allows for setting them all in
+ * one convient area.
+ *
+ * Update is set to suspend all of the other test running while all the
+ * values are being set up.  This allows for a performance increase, but
+ * it also means that the wrong type won't be detected with only some of
+ * the values set.  After all the values are set everyone is told that
+ * there has been an update.
+ *
+ * @param  base  This is the export dialog.
+ * @param  x0    Horizontal upper left hand corner of the picture in points.
+ * @param  y0    Vertical upper left hand corner of the picture in points.
+ * @param  x1    Horizontal lower right hand corner of the picture in points.
+ * @param  y1    Vertical lower right hand corner of the picture in points.
+ */
+static void sp_export_set_area( GtkObject *base, double x0, double y0, double x1, double y1 )
 {
-    gtk_object_set_data ( base, "update", GUINT_TO_POINTER (TRUE) );
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (TRUE) );
     sp_export_value_set_px (base, "x1", x1);
     sp_export_value_set_px (base, "y1", y1);
     sp_export_value_set_px (base, "x0", x0);
     sp_export_value_set_px (base, "y0", y0);
-    gtk_object_set_data ( base, "update", GUINT_TO_POINTER (FALSE) );
+    g_object_set_data (G_OBJECT (base), "update", GUINT_TO_POINTER (FALSE) );
 
-    sp_export_area_x_value_changed ((GtkAdjustment *)gtk_object_get_data (base, "x1"), base);
-    sp_export_area_y_value_changed ((GtkAdjustment *)gtk_object_get_data (base, "y1"), base);
+    sp_export_area_x_value_changed ((GtkAdjustment *)g_object_get_data (G_OBJECT(base), "x1"), base);
+    sp_export_area_y_value_changed ((GtkAdjustment *)g_object_get_data (G_OBJECT(base), "y1"), base);
 
     return;
 }
 
 /**
-    \brief  Sets the value of an adjustment
-    \param  base  The export dialog
-    \param  key   Which adjustment to set
-    \param  val   What value to set it to
-
-    This function finds the adjustment using the data stored in the
-    export dialog.  After finding the adjustment it then sets
-    the value of it.
-*/
-static void
-sp_export_value_set ( GtkObject *base, const gchar *key, double val )
+ * Sets the value of an adjustment.
+ *
+ * This function finds the adjustment using the data stored in the
+ * export dialog.  After finding the adjustment it then sets
+ * the value of it.
+ *
+ * @param  base  The export dialog.
+ * @param  key   Which adjustment to set.
+ * @param  val   What value to set it to.
+ */
+static void sp_export_value_set( GtkObject *base, const gchar *key, double val )
 {
-    GtkAdjustment *adj;
-
-    adj = (GtkAdjustment *)gtk_object_get_data (base, key);
+    GtkAdjustment *adj = (GtkAdjustment *)g_object_get_data (G_OBJECT(base), key);
 
     gtk_adjustment_set_value (adj, val);
 }
 
 /**
-    \brief  A function to set a value using the units points
-    \param  base  The export dialog
-    \param  key   Which value should be set
-    \param  val   What the value should be in points
-
-    This function first gets the adjustment for the key that is passed
-    in.  It then figures out what units are currently being used in the
-    dialog.  After doing all of that, it then converts the incoming
-    value and sets the adjustment.
-*/
-static void
-sp_export_value_set_px (GtkObject *base, const gchar *key, double val)
+ * A function to set a value using the units points.
+ *
+ * This function first gets the adjustment for the key that is passed
+ * in.  It then figures out what units are currently being used in the
+ * dialog.  After doing all of that, it then converts the incoming
+ *value and sets the adjustment.
+ *
+ * @param  base  The export dialog.
+ * @param  key   Which value should be set.
+ * @param  val   What the value should be in points.
+ */
+static void sp_export_value_set_px(GtkObject *base, const gchar *key, double val)
 {
-    const SPUnit *unit = sp_unit_selector_get_unit ((SPUnitSelector *)gtk_object_get_data (base, "units") );
+    const SPUnit *unit = sp_unit_selector_get_unit ((SPUnitSelector *)g_object_get_data (G_OBJECT(base), "units") );
 
     sp_export_value_set (base, key, sp_pixels_get_units (val, *unit));
 
@@ -1979,69 +1977,68 @@ sp_export_value_set_px (GtkObject *base, const gchar *key, double val)
 }
 
 /**
-    \brief  Get the value of an adjustment in the export dialog
-    \param  base  The export dialog
-    \param  key   Which adjustment is being looked for
-    \return The value in the specified adjustment
-
-    This function gets the adjustment from the data field in the export
-    dialog.  It then grabs the value from the adjustment.
-*/
-static float
-sp_export_value_get ( GtkObject *base, const gchar *key )
+ * Get the value of an adjustment in the export dialog.
+ *
+ * This function gets the adjustment from the data field in the export
+ * dialog.  It then grabs the value from the adjustment.
+ *
+ * @param  base  The export dialog.
+ * @param  key   Which adjustment is being looked for.
+ * @return The value in the specified adjustment.
+ */
+static float sp_export_value_get( GtkObject *base, const gchar *key )
 {
     GtkAdjustment *adj;
 
-    adj = (GtkAdjustment *)gtk_object_get_data (base, key);
+    adj = (GtkAdjustment *)g_object_get_data (G_OBJECT(base), key);
 
     return adj->value;
 }
 
 /**
-    \brief  Grabs a value in the export dialog and converts the unit
-            to points
-    \param  base  The export dialog
-    \param  key   Which value should be returned
-    \return The value in the adjustment in points
-
-    This function, at its most basic, is a call to \c sp_export_value_get
-    to get the value of the adjustment.  It then finds the units that
-    are being used by looking at the "units" attribute of the export
-    dialog.  Using that it converts the returned value into points.
-*/
-static float
-sp_export_value_get_px ( GtkObject *base, const gchar *key )
+ * Grabs a value in the export dialog and converts the unit
+ * to points.
+ *
+ * This function, at its most basic, is a call to \c sp_export_value_get
+ * to get the value of the adjustment.  It then finds the units that
+ * are being used by looking at the "units" attribute of the export
+ * dialog.  Using that it converts the returned value into points.
+ *
+ * @param  base  The export dialog.
+ * @param  key   Which value should be returned.
+ * @return The value in the adjustment in points.
+ */
+static float sp_export_value_get_px( GtkObject *base, const gchar *key )
 {
     float value = sp_export_value_get(base, key);
-    const SPUnit *unit = sp_unit_selector_get_unit ((SPUnitSelector *)gtk_object_get_data (base, "units"));
+    const SPUnit *unit = sp_unit_selector_get_unit ((SPUnitSelector *)g_object_get_data (G_OBJECT(base), "units"));
 
     return sp_units_get_pixels (value, *unit);
 } // end of sp_export_value_get_px()
 
 /**
-    \brief  This function is called when the filename is changed by
-            anyone.  It resets the virgin bit.
-    \param  object  Text entry box
-    \param  data    The export dialog
-    \return None
-
-    This function gets called when the text area is modified.  It is
-    looking for the case where the text area is modified from its
-    original value.  In that case it sets the "filename-modified" bit
-    to TRUE.  If the text dialog returns back to the original text, the
-    bit gets reset.  This should stop simple mistakes.
-*/
-static void
-sp_export_filename_modified (GtkObject * object, gpointer data)
+ * This function is called when the filename is changed by
+ * anyone.  It resets the virgin bit.
+ *
+ * This function gets called when the text area is modified.  It is
+ * looking for the case where the text area is modified from its
+ * original value.  In that case it sets the "filename-modified" bit
+ * to TRUE.  If the text dialog returns back to the original text, the
+ * bit gets reset.  This should stop simple mistakes.
+ *
+ * @param  object  Text entry box.
+ * @param  data    The export dialog.
+ */
+static void sp_export_filename_modified(GtkObject * object, gpointer data)
 {
     GtkWidget * text_entry = (GtkWidget *)object;
     GtkWidget * export_dialog = (GtkWidget *)data;
 
     if (!strcmp(original_name, gtk_entry_get_text(GTK_ENTRY(text_entry)))) {
-        gtk_object_set_data (GTK_OBJECT (export_dialog), "filename-modified", (gpointer)FALSE);
+        g_object_set_data (G_OBJECT (export_dialog), "filename-modified", (gpointer)FALSE);
 //        printf("Modified: FALSE\n");
     } else {
-        gtk_object_set_data (GTK_OBJECT (export_dialog), "filename-modified", (gpointer)TRUE);
+        g_object_set_data (G_OBJECT (export_dialog), "filename-modified", (gpointer)TRUE);
 //        printf("Modified: TRUE\n");
     }
 

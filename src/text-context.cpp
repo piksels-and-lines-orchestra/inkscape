@@ -18,11 +18,10 @@
 #endif
 
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include <display/sp-ctrlline.h>
 #include <display/sodipodi-ctrlrect.h>
 #include <display/sp-ctrlquadr.h>
-#include <gtk/gtkimmulticontext.h>
 #include <gtkmm/clipboard.h>
 
 #include "macros.h"
@@ -216,7 +215,7 @@ sp_text_context_setup(SPEventContext *ec)
     SP_CTRLRECT(tc->frame)->setColor(0x0000ff7f, false, 0);
     sp_canvas_item_hide(tc->frame);
 
-    tc->timeout = gtk_timeout_add(timeout, (GtkFunction) sp_text_context_timeout, ec);
+    tc->timeout = g_timeout_add(timeout, (GSourceFunc) sp_text_context_timeout, ec);
 
     tc->imc = gtk_im_multicontext_new();
     if (tc->imc) {
@@ -235,7 +234,7 @@ sp_text_context_setup(SPEventContext *ec)
         g_signal_connect(G_OBJECT(canvas), "focus_out_event", G_CALLBACK(sptc_focus_out), tc);
         g_signal_connect(G_OBJECT(tc->imc), "commit", G_CALLBACK(sptc_commit), tc);
 
-        if (GTK_WIDGET_HAS_FOCUS(canvas)) {
+        if (gtk_widget_has_focus(canvas)) {
             sptc_focus_in(canvas, NULL, tc);
         }
     }
@@ -298,7 +297,7 @@ sp_text_context_finish(SPEventContext *ec)
     }
 
     if (tc->timeout) {
-        gtk_timeout_remove(tc->timeout);
+        g_source_remove(tc->timeout);
         tc->timeout = 0;
     }
 
@@ -433,7 +432,7 @@ sp_text_context_item_handler(SPEventContext *event_context, SPItem *item, GdkEve
                 } else {
                     SP_CTRLRECT(tc->indicator)->setColor(0x0000ff7f, false, 0);
                 }
-                Geom::OptRect ibbox = item_ungrouped->getBboxDesktop();
+                Geom::OptRect ibbox = item_ungrouped->desktopVisualBounds();
                 if (ibbox) {
                     SP_CTRLRECT(tc->indicator)->setRectangle(*ibbox);
                 }
@@ -676,7 +675,7 @@ sp_text_context_root_handler(SPEventContext *const event_context, GdkEvent *cons
 
                 Geom::Point const motion_w(event->motion.x, event->motion.y);
                 Geom::Point motion_dt(desktop->w2d(motion_w));
-                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_OTHER_HANDLE));
                 m.unSetup();
             }
             break;
@@ -1594,8 +1593,8 @@ sp_text_context_update_cursor(SPTextContext *tc,  bool scroll_to_see)
     if (tc->text) {
         Geom::Point p0, p1;
         sp_te_get_cursor_coords(tc->text, tc->text_sel_end, p0, p1);
-        Geom::Point const d0 = p0 * SP_ITEM(tc->text)->i2d_affine();
-        Geom::Point const d1 = p1 * SP_ITEM(tc->text)->i2d_affine();
+        Geom::Point const d0 = p0 * tc->text->i2dt_affine();
+        Geom::Point const d1 = p1 * tc->text->i2dt_affine();
 
         // scroll to show cursor
         if (scroll_to_see) {
@@ -1636,7 +1635,7 @@ sp_text_context_update_cursor(SPTextContext *tc,  bool scroll_to_see)
                     SP_CTRLRECT(tc->frame)->setColor(0x0000ff7f, false, 0);
                 }
                 sp_canvas_item_show(tc->frame);
-                Geom::OptRect frame_bbox = frame->getBboxDesktop();
+                Geom::OptRect frame_bbox = frame->desktopVisualBounds();
                 if (frame_bbox) {
                     SP_CTRLRECT(tc->frame)->setRectangle(*frame_bbox);
                 }
@@ -1676,7 +1675,7 @@ static void sp_text_context_update_text_selection(SPTextContext *tc)
 
     std::vector<Geom::Point> quads;
     if (tc->text != NULL)
-        quads = sp_te_create_selection_quads(tc->text, tc->text_sel_start, tc->text_sel_end, (tc->text)->i2d_affine());
+        quads = sp_te_create_selection_quads(tc->text, tc->text_sel_start, tc->text_sel_end, (tc->text)->i2dt_affine());
     for (unsigned i = 0 ; i < quads.size() ; i += 4) {
         SPCanvasItem *quad_canvasitem;
         quad_canvasitem = sp_canvas_item_new(sp_desktop_controls(tc->desktop), SP_TYPE_CTRLQUADR, NULL);

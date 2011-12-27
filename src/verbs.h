@@ -1,9 +1,6 @@
 #ifndef SEEN_SP_VERBS_H
 #define SEEN_SP_VERBS_H
-
-/** \file
- * \brief Frontend to actions
- *
+/*
  * Author:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Ted Gould <ted@gould.cx>
@@ -21,13 +18,24 @@
 #include <string.h>
 #include "config.h"
 #include "require-config.h"   /* HAVE_GTK_WINDOW_FULLSCREEN */
-#include "helper/helper-forward.h"
-#include "forward.h"
 #include <glibmm/ustring.h>
 
-/** \brief This anonymous enum is used to provide a list of the Verbs
-           which are defined staticly in the verb files.  There may be
-           other verbs which are defined dynamically also. */
+struct SPAction;
+class SPDocument;
+
+namespace Inkscape {
+namespace UI {
+namespace View {
+class View;
+} // namespace View
+} // namespace UI
+} // namespace Inkscape
+
+/**
+ * This anonymous enum is used to provide a list of the Verbs
+ * which are defined staticly in the verb files.  There may be
+ * other verbs which are defined dynamically also.
+ */
 enum {
     /* Header */
     SP_VERB_INVALID,               /**< A dummy verb to represent doing something wrong. */
@@ -41,7 +49,6 @@ enum {
     SP_VERB_FILE_SAVE_A_COPY,      /**< Save a copy of the current file */
     SP_VERB_FILE_PRINT,
     SP_VERB_FILE_VACUUM,
-    SP_VERB_FILE_PRINT_PREVIEW,
     SP_VERB_FILE_IMPORT,
     SP_VERB_FILE_EXPORT,
     SP_VERB_FILE_IMPORT_FROM_OCAL, /**< Import the file from Open Clip Art Library */
@@ -85,6 +92,7 @@ enum {
     SP_VERB_EDIT_SELECT_NEXT,
     SP_VERB_EDIT_SELECT_PREV,
     SP_VERB_EDIT_DESELECT,
+    SP_VERB_EDIT_DELETE_ALL_GUIDES,
     SP_VERB_EDIT_GUIDES_AROUND_PAGE,
     SP_VERB_EDIT_NEXT_PATHEFFECT_PARAMETER,
     /* Selection */
@@ -165,6 +173,7 @@ enum {
     SP_VERB_CONTEXT_TEXT,
     SP_VERB_CONTEXT_GRADIENT,
     SP_VERB_CONTEXT_ZOOM,
+    SP_VERB_CONTEXT_MEASURE,
     SP_VERB_CONTEXT_DROPPER,
     SP_VERB_CONTEXT_CONNECTOR,
     SP_VERB_CONTEXT_PAINTBUCKET,
@@ -187,6 +196,7 @@ enum {
     SP_VERB_CONTEXT_TEXT_PREFS,
     SP_VERB_CONTEXT_GRADIENT_PREFS,
     SP_VERB_CONTEXT_ZOOM_PREFS,
+    SP_VERB_CONTEXT_MEASURE_PREFS,
     SP_VERB_CONTEXT_DROPPER_PREFS,
     SP_VERB_CONTEXT_CONNECTOR_PREFS,
     SP_VERB_CONTEXT_PAINTBUCKET_PREFS,
@@ -287,7 +297,10 @@ enum {
     SP_VERB_EDIT_REMOVE_COLOR_PROFILE,
     /*Scripting*/
     SP_VERB_EDIT_ADD_EXTERNAL_SCRIPT,
+    SP_VERB_EDIT_ADD_EMBEDDED_SCRIPT,
+    SP_VERB_EDIT_EMBEDDED_SCRIPT,
     SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT,
+    SP_VERB_EDIT_REMOVE_EMBEDDED_SCRIPT,
     /* Footer */
     SP_VERB_LAST
 };
@@ -298,19 +311,20 @@ gchar *sp_action_get_title (const SPAction *action);
 
 namespace Inkscape {
 
-/** \brief A class to represent things the user can do.  In many ways
-           these are 'action factories' as they are used to create
-           individual actions that are based on a given view.
-*/
+/**
+ * A class to represent things the user can do.  In many ways
+ * these are 'action factories' as they are used to create
+ * individual actions that are based on a given view.
+ */
 class Verb {
 private:
-    /** \brief An easy to use defition of the table of verbs by code. */
+    /** An easy to use defition of the table of verbs by code. */
     typedef std::map<unsigned int, Inkscape::Verb *> VerbTable;
 
-    /** \brief A table of all the dynamically created verbs. */
+    /** A table of all the dynamically created verbs. */
     static VerbTable _verbs;
 
-    /** \brief The table of statically created verbs which are mostly
+    /** The table of statically created verbs which are mostly
                'base verbs'. */
     static Verb * _base_verbs[SP_VERB_LAST + 1];
     /* Plus one because there is an entry for SP_VERB_LAST */
@@ -329,98 +343,113 @@ private:
         }
     };
 
-    /** \brief An easy to use definition of the table of verbs by ID. */
+    /** An easy to use definition of the table of verbs by ID. */
     typedef std::map<gchar const *, Verb *, ltstr> VerbIDTable;
 
-    /** \brief Quick lookup of verbs by ID */
+    /** Quick lookup of verbs by ID */
     static VerbIDTable _verb_ids;
 
-    /** \brief A simple typedef to make using the action table easier. */
+    /** A simple typedef to make using the action table easier. */
     typedef std::map<Inkscape::UI::View::View *, SPAction *> ActionTable;
-    /** \brief A list of all the actions that have been created for this
+    /** A list of all the actions that have been created for this
                verb.  It is referenced by the view that they are created for. */
     ActionTable * _actions;
 
-    /** \brief A unique textual ID for the verb. */
+    /** A unique textual ID for the verb. */
     gchar const * _id;
 
-    /** \brief The full name of the verb.  (shown on menu entries) */
+    /** The full name of the verb.  (shown on menu entries) */
     gchar const * _name;
 
-    /** \brief Tooltip for the verb. */
+    /** Tooltip for the verb. */
     gchar const * _tip;
 
     gchar * _full_tip; // includes shortcut
 
     unsigned int _shortcut;
 
-    /** \brief Name of the image that represents the verb. */
+    /** Name of the image that represents the verb. */
     gchar const * _image;
 
-    /** \brief Unique numerical representation of the verb.  In most cases
-               it is a value from the anonymous enum at the top of this
-               file. */
+    /**
+     * Unique numerical representation of the verb.  In most cases
+     * it is a value from the anonymous enum at the top of this
+     * file.
+     */
     unsigned int  _code;
 
-    /** \brief Whether this verb is set to default to sensitive or
-               insensitive when new actions are created. */
+    /**
+     * Whether this verb is set to default to sensitive or
+     * insensitive when new actions are created.
+     */
     bool _default_sensitive;
 
 protected:
-    /** \brief Allows for preliminary setting of the \c _default_sensitive
-               value without effecting existing actions
-        \param in_val New value
 
-        This function is mostly used at initialization where there are
-        not actions to effect.  I can't think of another case where it
-        should be used.
-    */
+    /**
+     * Allows for preliminary setting of the \c _default_sensitive
+     * value without effecting existing actions.
+     * This function is mostly used at initialization where there are
+     * not actions to effect.  I can't think of another case where it
+     * should be used.
+     *
+     * @param in_val New value.
+     */
     bool set_default_sensitive (bool in_val) { return _default_sensitive = in_val; }
+
 public:
-    /** \brief Accessor to get the \c _default_sensitive value */
+
+    /** Accessor to get the \c _default_sensitive value. */
     bool get_default_sensitive (void) { return _default_sensitive; }
 
-public:
-    /** \brief Accessor to get the internal variable. */
+    /** Accessor to get the internal variable. */
     unsigned int get_code (void) { return _code; }
-    /** \brief Accessor to get the internal variable. */
+
+    /** Accessor to get the internal variable. */
     gchar const * get_id (void) { return _id; }
-    /** \brief Accessor to get the internal variable. */
+
+    /** Accessor to get the internal variable. */
     gchar const * get_name (void) { return _name; }
-    /** \brief Accessor to get the internal variable. */
+
+    /** Accessor to get the internal variable. */
     gchar const * get_tip (void) ;
-    /** \brief Accessor to get the internal variable. */
+
+    /** Accessor to get the internal variable. */
     gchar const * get_image (void) { return _image; }
 
-    /** \brief Set the name after initialization. */
+    /** Set the name after initialization. */
     gchar const * set_name (gchar const * name) { _name = name; return _name; }
-    /** \brief Set the tooltip after initialization. */
+
+    /** Set the tooltip after initialization. */
     gchar const * set_tip (gchar const * tip) { _tip = tip; return _tip; }
 
 protected:
-    SPAction * make_action_helper (Inkscape::UI::View::View * view, SPActionEventVector * vector, void * in_pntr = NULL);
-    virtual SPAction * make_action (Inkscape::UI::View::View * view);
+    SPAction *make_action_helper (Inkscape::UI::View::View *view, void (*perform_fun)(SPAction *, void *), void *in_pntr = NULL);
+    virtual SPAction *make_action (Inkscape::UI::View::View *view);
 
 public:
-    /** \brief Inititalizes the Verb with the parameters
-        \param code  Goes to \c _code
-        \param id    Goes to \c _id
-        \param name  Goes to \c _name
-        \param tip   Goes to \c _tip
-        \param image Goes to \c _image
 
-        This function also sets \c _actions to NULL.
-
-        \warning NO DATA IS COPIED BY CALLING THIS FUNCTION.
-
-        In many respects this is very bad object oriented design, but it
-        is done for a reason.  All verbs today are of two types: 1) static
-        or 2) created for extension.  In the static case all of the
-        strings are constants in the code, and thus don't really need to
-        be copied.  In the extensions case the strings are identical to
-        the ones already created in the extension object, copying them
-        would be a waste of memory.
-    */
+    /**
+     * Inititalizes the Verb with the parameters.
+     *
+     * This function also sets \c _actions to NULL.
+     *
+     * @warning NO DATA IS COPIED BY CALLING THIS FUNCTION.
+     *
+     * In many respects this is very bad object oriented design, but it
+     * is done for a reason.  All verbs today are of two types: 1) static
+     * or 2) created for extension.  In the static case all of the
+     * strings are constants in the code, and thus don't really need to
+     * be copied.  In the extensions case the strings are identical to
+     * the ones already created in the extension object, copying them
+     * would be a waste of memory.
+     *
+     * @param code  Goes to \c _code.
+     * @param id    Goes to \c _id.
+     * @param name  Goes to \c _name.
+     * @param tip   Goes to \c _tip.
+     * @param image Goes to \c _image.
+     */
     Verb(const unsigned int code,
          gchar const * id,
          gchar const * name,
@@ -447,16 +476,19 @@ public:
 private:
     static Verb * get_search (unsigned int code);
 public:
-    /** \brief A function to turn a code into a verb.
-        \param  code  The code to be translated
-        \return A pointer to a verb object or a NULL if not found.
 
-        This is an inline function to translate the codes which are
-        static quickly.  This should optimize into very quick code
-        everywhere which hard coded \c codes are used.  In the case
-        where the \c code is not static the \c get_search function
-        is used.
-    */
+    /**
+     * A function to turn a code into a verb.
+     *
+     * This is an inline function to translate the codes which are
+     * static quickly.  This should optimize into very quick code
+     * everywhere which hard coded \c codes are used.  In the case
+     * where the \c code is not static the \c get_search function
+     * is used.
+     *
+     * @param  code  The code to be translated
+     * @return A pointer to a verb object or a NULL if not found.
+     */
     static Verb * get (unsigned int code) {
         if (code <= SP_VERB_LAST) {
             return _base_verbs[code];
@@ -474,13 +506,16 @@ public:
 
 // Yes, multiple public, protected and private sections are bad. We'll clean that up later
 protected:
-    /** \brief Returns the size of the internal base verb array.
-        \return The size in elements of the internal base array.
 
-        This is an inline function intended for testing. This should normally not be used.
-        For testing, a subclass that returns this value can be created to verify that the
-        length matches the enum values, etc.
-    */
+    /**
+     * Returns the size of the internal base verb array.
+     *
+     * This is an inline function intended for testing. This should normally not be used.
+     * For testing, a subclass that returns this value can be created to verify that the
+     * length matches the enum values, etc.
+     *
+     * @return The size in elements of the internal base array.
+     */
     static int _getBaseListSize(void) {return G_N_ELEMENTS(_base_verbs);}
 
 public:

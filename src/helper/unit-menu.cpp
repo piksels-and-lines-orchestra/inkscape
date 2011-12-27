@@ -17,10 +17,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <gtk/gtksignal.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkmenuitem.h>
+#include <gtk/gtk.h>
 #include "helper/sp-marshal.h"
 #include "helper/units.h"
 #include "helper/unit-menu.h"
@@ -82,13 +79,8 @@ GType sp_unit_selector_get_type(void)
 static void
 sp_unit_selector_class_init(SPUnitSelectorClass *klass)
 {
-    GObjectClass *object_class;
-    GtkWidgetClass *widget_class;
-
-    object_class = G_OBJECT_CLASS(klass);
-    widget_class = GTK_WIDGET_CLASS(klass);
-
-    unit_selector_parent_class = (GtkHBoxClass*)gtk_type_class(GTK_TYPE_HBOX);
+    GObjectClass *object_class = G_OBJECT_CLASS(klass);
+    unit_selector_parent_class = (GtkHBoxClass*)g_type_class_peek_parent(klass);
 
     signals[SET_UNIT] = g_signal_new("set_unit",
                                      G_TYPE_FROM_CLASS(klass),
@@ -141,7 +133,7 @@ sp_unit_selector_finalize(GObject *object)
 GtkWidget *
 sp_unit_selector_new(guint bases)
 {
-    SPUnitSelector *us = (SPUnitSelector*)gtk_type_new(SP_TYPE_UNIT_SELECTOR);
+    SPUnitSelector *us = (SPUnitSelector*)g_object_new(SP_TYPE_UNIT_SELECTOR, NULL);
 
     sp_unit_selector_set_bases(us, bases);
 
@@ -166,7 +158,7 @@ sp_unit_selector_get_unit(SPUnitSelector const *us)
 static void
 spus_unit_activate(GtkWidget *widget, SPUnitSelector *us)
 {
-    SPUnit const *unit = (SPUnit const *) gtk_object_get_data(GTK_OBJECT(widget), "unit");
+    SPUnit const *unit = (SPUnit const *) g_object_get_data(G_OBJECT(widget), "unit");
     g_return_if_fail(unit != NULL);
 
 #ifdef UNIT_SELECTOR_VERBOSE
@@ -208,7 +200,7 @@ spus_unit_activate(GtkWidget *widget, SPUnitSelector *us)
         /* when the base changes, signal all the adjustments to get them
          * to recalculate */
         for (GSList *l = us->adjustments; l != NULL; l = g_slist_next(l)) {
-            gtk_signal_emit_by_name(GTK_OBJECT(l->data), "value_changed");
+            g_signal_emit_by_name(G_OBJECT(l->data), "value_changed");
         }
     }
 
@@ -235,8 +227,8 @@ spus_rebuild_menu(SPUnitSelector *us)
         //        i = gtk_menu_item_new_with_label((us->abbr) ? (us->plural) ? u->abbr_plural : u->abbr : (us->plural) ? u->plural : u->name);
         GtkWidget *i = gtk_menu_item_new_with_label( u->abbr );
 
-        gtk_object_set_data(GTK_OBJECT(i), "unit", (gpointer) u);
-        gtk_signal_connect(GTK_OBJECT(i), "activate", GTK_SIGNAL_FUNC(spus_unit_activate), us);
+        g_object_set_data(G_OBJECT(i), "unit", (gpointer) u);
+        g_signal_connect(G_OBJECT(i), "activate", G_CALLBACK(spus_unit_activate), us);
 
         sp_set_font_size_smaller (i);
 

@@ -1,5 +1,6 @@
-/** @file
- * @brief  Fill style widget
+/**
+ * @file
+ * Fill style widget.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -23,7 +24,7 @@
 
 #include <glibmm/i18n.h>
 #include <gtkmm/box.h>
-#include <gtk/gtkvbox.h>
+#include <gtk/gtk.h>
 
 #include "desktop.h"
 #include "selection.h"

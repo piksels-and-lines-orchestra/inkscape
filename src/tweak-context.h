@@ -13,13 +13,13 @@
  */
 
 #include "event-context.h"
-#include <libnr/nr-point.h>
+#include <2geom/point.h>
 
 #define SP_TYPE_TWEAK_CONTEXT (sp_tweak_context_get_type())
-#define SP_TWEAK_CONTEXT(o) (GTK_CHECK_CAST((o), SP_TYPE_TWEAK_CONTEXT, SPTweakContext))
-#define SP_TWEAK_CONTEXT_CLASS(k) (GTK_CHECK_CLASS_CAST((k), SP_TYPE_TWEAK_CONTEXT, SPTweakContextClass))
-#define SP_IS_TWEAK_CONTEXT(o) (GTK_CHECK_TYPE((o), SP_TYPE_TWEAK_CONTEXT))
-#define SP_IS_TWEAK_CONTEXT_CLASS(k) (GTK_CHECK_CLASS_TYPE((k), SP_TYPE_TWEAK_CONTEXT))
+#define SP_TWEAK_CONTEXT(o) (G_TYPE_CHECK_INSTANCE_CAST((o), SP_TYPE_TWEAK_CONTEXT, SPTweakContext))
+#define SP_TWEAK_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_CAST((k), SP_TYPE_TWEAK_CONTEXT, SPTweakContextClass))
+#define SP_IS_TWEAK_CONTEXT(o) (G_TYPE_CHECK_INSTANCE_TYPE((o), SP_TYPE_TWEAK_CONTEXT))
+#define SP_IS_TWEAK_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE((k), SP_TYPE_TWEAK_CONTEXT))
 
 class SPTweakContext;
 class SPTweakContextClass;
@@ -86,7 +86,7 @@ struct SPTweakContextClass
     SPEventContextClass parent_class;
 };
 
-GtkType sp_tweak_context_get_type(void);
+GType sp_tweak_context_get_type(void);
 
 #endif
 

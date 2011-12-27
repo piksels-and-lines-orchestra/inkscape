@@ -1,5 +1,6 @@
-/** @file
- * @brief Garbage collected XML document implementation
+/**
+ * @file
+ * Garbage collected XML document implementation.
  */
 /* Copyright 2004-2005 MenTaLguY <mental@rydia.net>
  *
@@ -56,6 +57,10 @@ Node *SimpleDocument::createElement(char const *name) {
 
 Node *SimpleDocument::createTextNode(char const *content) {
     return new TextNode(Util::share_string(content), this);
+}
+
+Node *SimpleDocument::createTextNode(char const *content, bool const is_CData) {
+    return new TextNode(Util::share_string(content), this, is_CData);
 }
 
 Node *SimpleDocument::createComment(char const *content) {

@@ -1,8 +1,7 @@
-/* Copyright (C) 2001-2007 Peter Selinger.
+/* Copyright (C) 2001-2011 Peter Selinger.
    This file is part of Potrace. It is free software and it is covered
    by the GNU General Public License. See the file COPYING for details. */
 
-/* $Id$ */
 
 #ifndef _PS_LISTS_H
 #define _PS_LISTS_H

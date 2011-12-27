@@ -27,8 +27,7 @@
 #include "extension/print.h"
 #include "extension/db.h"
 #include "extension/output.h"
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing.h"
 
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
@@ -43,10 +42,9 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
-bool
-CairoRendererOutput::check (Inkscape::Extension::Extension * module)
+bool CairoRendererOutput::check(Inkscape::Extension::Extension * /*module*/)
 {
-	return TRUE;
+    return true;
 }
 
 static bool
@@ -58,11 +56,11 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
     doc->ensureUpToDate();
 
 /* Start */
-    /* Create new arena */
-    SPItem *base = SP_ITEM(doc->getRoot());
-    NRArena *arena = NRArena::create();
+
+    SPItem *base = doc->getRoot();
+    Inkscape::Drawing drawing;
     unsigned dkey = SPItem::display_key_new(1);
-    NRArenaItem *root = base->invoke_show(arena, dkey, SP_ITEM_SHOW_DISPLAY);
+    base->invoke_show(drawing, dkey, SP_ITEM_SHOW_DISPLAY);
     
     /* Create renderer and context */
     renderer = new CairoRenderer();
@@ -77,9 +75,7 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
     }
     renderer->destroyContext(ctx);
 
-    /* Release arena */
     base->invoke_hide(dkey);
-    nr_object_unref((NRObject *) arena);
 /* end */
     delete renderer;
 
@@ -93,13 +89,11 @@ png_render_document_to_file(SPDocument *doc, gchar const *filename)
 	\param  doc   Document to be saved
     \param  uri   Filename to save to (probably will end in .png)
 */
-void
-CairoRendererOutput::save(Inkscape::Extension::Output *mod, SPDocument *doc, gchar const *filename)
+void CairoRendererOutput::save(Inkscape::Extension::Output * /*mod*/, SPDocument *doc, gchar const *filename)
 {
-    if (!png_render_document_to_file(doc, filename))
+    if (!png_render_document_to_file(doc, filename)) {
         throw Inkscape::Extension::Output::save_failed();
-
-	return;
+    }
 }
 
 /**

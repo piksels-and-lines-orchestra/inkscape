@@ -1,4 +1,4 @@
-/**
+/*
  * OpenDocument <drawing> input and output
  *
  * This is an an entry in the extensions mechanism to begin to enable
@@ -573,7 +573,7 @@ void SingularValueDecomposition::calculate()
       //double eps = pow(2.0,-52.0);
       //double tiny = pow(2.0,-966.0);
       //let's just calculate these now
-      //a double can be e ± 308.25, so this is safe
+      //a double can be e Â± 308.25, so this is safe
       double eps = 2.22e-16;
       double tiny = 1.6e-291;
       while (p > 0) {
@@ -946,10 +946,10 @@ static Glib::ustring formatTransform(Geom::Affine &tf)
 static Geom::Affine getODFTransform(const SPItem *item)
 {
     //### Get SVG-to-ODF transform
-    Geom::Affine tf (item->i2d_affine());
+    Geom::Affine tf (item->i2dt_affine());
     //Flip Y into document coordinates
     double doc_height    = SP_ACTIVE_DOCUMENT->getHeight();
-    Geom::Affine doc2dt_tf = Geom::Affine(Geom::Scale(1.0, -1.0));
+    Geom::Affine doc2dt_tf = Geom::Affine(Geom::Scale(1.0, -1.0));                    /// @fixme hardcoded desktop transform
     doc2dt_tf            = doc2dt_tf * Geom::Affine(Geom::Translate(0, doc_height));
     tf                   = tf * doc2dt_tf;
     tf                   = tf * Geom::Affine(Geom::Scale(pxToCm));
@@ -965,15 +965,10 @@ static Geom::Affine getODFTransform(const SPItem *item)
  */
 static Geom::OptRect getODFBoundingBox(const SPItem *item)
 {
-    Geom::OptRect bbox_temp = ((SPItem *)item)->getBboxDesktop();
-    Geom::OptRect bbox;
-    if (bbox_temp) {
-        bbox = *bbox_temp;
-        double doc_height    = SP_ACTIVE_DOCUMENT->getHeight();
-        Geom::Affine doc2dt_tf = Geom::Affine(Geom::Scale(1.0, -1.0));
-        doc2dt_tf            = doc2dt_tf * Geom::Affine(Geom::Translate(0, doc_height));
-        bbox                 = *bbox * doc2dt_tf;
-        bbox                 = *bbox * Geom::Affine(Geom::Scale(pxToCm));
+    // TODO: geometric or visual?
+    Geom::OptRect bbox = ((SPItem *)item)->documentVisualBounds();
+    if (bbox) {
+        *bbox *= Geom::Affine(Geom::Scale(pxToCm));
     }
     return bbox;
 }
@@ -986,7 +981,7 @@ static Geom::OptRect getODFBoundingBox(const SPItem *item)
  */
 static Geom::Affine getODFItemTransform(const SPItem *item)
 {
-    Geom::Affine itemTransform (Geom::Scale(1, -1));
+    Geom::Affine itemTransform (Geom::Scale(1, -1));  /// @fixme hardcoded doc2dt transform?
     itemTransform = itemTransform * (Geom::Affine)item->transform;
     itemTransform = itemTransform * Geom::Scale(1, -1);
     return itemTransform;
@@ -1166,7 +1161,7 @@ bool OdfOutput::writeManifest(ZipFile &zf)
     outs.printf("    <manifest:file-entry manifest:media-type=\"text/xml\" manifest:full-path=\"meta.xml\"/>\n");
     outs.printf("    <!--List our images here-->\n");
     std::map<Glib::ustring, Glib::ustring>::iterator iter;
-    for (iter = imageTable.begin() ; iter!=imageTable.end() ; iter++)
+    for (iter = imageTable.begin() ; iter!=imageTable.end() ; ++iter)
         {
         Glib::ustring oldName = iter->first;
         Glib::ustring newName = iter->second;
@@ -1246,7 +1241,7 @@ bool OdfOutput::writeMeta(ZipFile &zf)
     outs.printf("    <meta:initial-creator>%#s</meta:initial-creator>\n",
                                   creator.c_str());
     outs.printf("    <meta:creation-date>%#s</meta:creation-date>\n", date.c_str());
-    for (iter = metadata.begin() ; iter != metadata.end() ; iter++)
+    for (iter = metadata.begin() ; iter != metadata.end() ; ++iter)
         {
         Glib::ustring name  = iter->first;
         Glib::ustring value = iter->second;
@@ -1308,7 +1303,7 @@ bool OdfOutput::writeStyle(ZipFile &zf)
     */
     outs.printf("<!-- ####### Styles from Inkscape document ####### -->\n");
     std::vector<StyleInfo>::iterator iter;
-    for (iter = styleTable.begin() ; iter != styleTable.end() ; iter++)
+    for (iter = styleTable.begin() ; iter != styleTable.end() ; ++iter)
         {
         outs.printf("<style:style style:name=\"%s\"", iter->name.c_str());
         StyleInfo s(*iter);
@@ -1336,7 +1331,7 @@ bool OdfOutput::writeStyle(ZipFile &zf)
     outs.printf("\n");
     outs.printf("<!-- ####### Gradients from Inkscape document ####### -->\n");
     std::vector<GradientInfo>::iterator giter;
-    for (giter = gradientTable.begin() ; giter != gradientTable.end() ; giter++)
+    for (giter = gradientTable.begin() ; giter != gradientTable.end() ; ++giter)
         {
         GradientInfo gi(*giter);
         if (gi.style == "linear")
@@ -1588,7 +1583,7 @@ bool OdfOutput::processStyle(Writer &outs, SPItem *item,
     //Look for existing identical style;
     bool styleMatch = false;
     std::vector<StyleInfo>::iterator iter;
-    for (iter=styleTable.begin() ; iter!=styleTable.end() ; iter++)
+    for (iter=styleTable.begin() ; iter!=styleTable.end() ; ++iter)
         {
         if (si.equals(*iter))
             {
@@ -1706,7 +1701,7 @@ bool OdfOutput::processGradient(Writer &outs, SPItem *item,
     //Look for existing identical style;
     bool gradientMatch = false;
     std::vector<GradientInfo>::iterator iter;
-    for (iter=gradientTable.begin() ; iter!=gradientTable.end() ; iter++)
+    for (iter=gradientTable.begin() ; iter!=gradientTable.end() ; ++iter)
         {
         if (gi.equals(*iter))
             {

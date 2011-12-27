@@ -1,9 +1,7 @@
-#ifndef __EXTENSION_INTERNAL_PDFINPUT_H__
-#define __EXTENSION_INTERNAL_PDFINPUT_H__
+#ifndef SEEN_EXTENSION_INTERNAL_PDFINPUT_H
+#define SEEN_EXTENSION_INTERNAL_PDFINPUT_H
 
- /** \file
- * PDF import using libpoppler.
- *
+/*
  * Authors:
  *   miklos erdelyi
  *
@@ -24,7 +22,6 @@
 #include <gtkmm/button.h>
 #include <gtkmm/buttonbox.h>
 #include <gtkmm/label.h>
-#include <gtkmm/spinbutton.h>
 #include <gtkmm/box.h>
 #include <gtkmm/checkbutton.h>
 #include <gtkmm/comboboxtext.h>
@@ -41,9 +38,19 @@
 #endif
 
 namespace Inkscape {
+
+namespace UI {
+namespace Widget {
+  class SpinButton;
+}
+}
+
 namespace Extension {
 namespace Internal {
 
+/**
+ * PDF import using libpoppler.
+ */
 class PdfImportDialog : public Gtk::Dialog
 {
 public:
@@ -66,7 +73,7 @@ private:
     class Gtk::Button * cancelbutton;
     class Gtk::Button * okbutton;
     class Gtk::Label * _labelSelect;
-    class Gtk::SpinButton * _pageNumberSpin;
+    class Inkscape::UI::Widget::SpinButton * _pageNumberSpin;
     class Gtk::Label * _labelTotalPages;
     class Gtk::HBox * hbox2;
     class Gtk::CheckButton * _cropCheck;
@@ -119,11 +126,13 @@ public:
 
 };
 
-} } }  /* namespace Inkscape, Extension, Implementation */
+} // namespace Implementation
+} // namespace Extension
+} // namespace Inkscape
 
-#endif /* HAVE_POPPLER */
+#endif // HAVE_POPPLER
 
-#endif /* __EXTENSION_INTERNAL_PDFINPUT_H__ */
+#endif // SEEN_EXTENSION_INTERNAL_PDFINPUT_H
 
 /*
   Local Variables:

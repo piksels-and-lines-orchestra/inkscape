@@ -1,5 +1,6 @@
-/** @file
- * @brief Ellipse drawing context
+/**
+ * @file
+ * Ellipse drawing context.
  */
 /* Authors:
  *   Mitsuru Oka
@@ -13,8 +14,6 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
-
-#define __SP_ARC_CONTEXT_C__
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -63,7 +62,7 @@ static void sp_arc_cancel(SPArcContext *ec);
 
 static SPEventContextClass *parent_class;
 
-GtkType sp_arc_context_get_type()
+GType sp_arc_context_get_type()
 {
     static GType type = 0;
     if (!type) {
@@ -155,9 +154,9 @@ static void sp_arc_context_dispose(GObject *object)
 }
 
 /**
-\brief  Callback that processes the "changed" signal on the selection;
-destroys old and creates new knotholder.
-*/
+ * Callback that processes the "changed" signal on the selection;
+ * destroys old and creates new knotholder.
+ */
 void sp_arc_context_selection_changed(Inkscape::Selection * selection, gpointer data)
 {
     SPArcContext *ac = SP_ARC_CONTEXT(data);
@@ -447,7 +446,7 @@ static void sp_arc_drag(SPArcContext *ac, Geom::Point pt, guint state)
         Geom::Point c = r.midpoint();
         if (!ctrl_save) {
             if (fabs(dir[Geom::X]) > 1E-6 && fabs(dir[Geom::Y]) > 1E-6) {
-                Geom::Affine const i2d ((ac->item)->i2d_affine ());
+                Geom::Affine const i2d ( (ac->item)->i2dt_affine() );
                 Geom::Point new_dir = pt * i2d - c;
                 new_dir[Geom::X] *= dir[Geom::Y] / dir[Geom::X];
                 double lambda = new_dir.length() / dir[Geom::Y];

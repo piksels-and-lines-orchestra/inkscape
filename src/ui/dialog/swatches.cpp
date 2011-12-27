@@ -1,6 +1,6 @@
-
-/** @file
- * @brief Color swatches dialog
+/**
+ * @file
+ * Color swatches dialog.
  */
 /* Authors:
  *   Jon A. Cruz
@@ -17,12 +17,9 @@
 #include <map>
 #include <algorithm>
 
-#include <gtk/gtkdialog.h> //for GTK_RESPONSE* types
-#include <gtk/gtkdnd.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtkseparatormenuitem.h>
+#include <gtk/gtk.h> //for GTK_RESPONSE* types
 #include <glibmm/i18n.h>
+#include <glibmm/main.h>
 #include <gdkmm/pixbuf.h>
 
 #include "color-item.h"
@@ -49,7 +46,7 @@
 #include "widgets/desktop-widget.h"
 #include "widgets/gradient-vector.h"
 #include "widgets/eek-preview.h"
-#include "display/nr-plain-stuff.h"
+#include "display/cairo-utils.h"
 #include "sp-gradient-reference.h"
 #include "dialog-manager.h"
 
@@ -62,8 +59,6 @@ namespace Dialogs {
 
 void _loadPaletteFile( gchar const *filename );
 
-
-class DocTrack;
 
 std::vector<SwatchPage*> possible;
 static std::map<SPDocument*, SwatchPage*> docPalettes;
@@ -625,7 +620,7 @@ SwatchesPanel::SwatchesPanel(gchar const* prefsPath) :
 
         int i = 0;
         std::vector<SwatchPage*> swatchSets = _getSwatchSets();
-        for ( std::vector<SwatchPage*>::iterator it = swatchSets.begin(); it != swatchSets.end(); it++ ) {
+        for ( std::vector<SwatchPage*>::iterator it = swatchSets.begin(); it != swatchSets.end(); ++it) {
             SwatchPage* curr = *it;
             Gtk::RadioMenuItem* single = manage(new Gtk::RadioMenuItem(groupOne, curr->_name));
             if ( curr == first ) {
@@ -715,14 +710,31 @@ class DocTrack
 public:
     DocTrack(SPDocument *doc, sigc::connection &gradientRsrcChanged, sigc::connection &defsChanged, sigc::connection &defsModified) :
         doc(doc),
+        updatePending(false),
+        lastGradientUpdate(0.0),
         gradientRsrcChanged(gradientRsrcChanged),
         defsChanged(defsChanged),
         defsModified(defsModified)
     {
+        if ( !timer ) {
+            timer = new Glib::Timer();
+            refreshTimer = Glib::signal_timeout().connect( sigc::ptr_fun(handleTimerCB), 33 );
+        }
+        timerRefCount++;
     }
 
     ~DocTrack()
     {
+        timerRefCount--;
+        if ( timerRefCount <= 0 ) {
+            refreshTimer.disconnect();
+            timerRefCount = 0;
+            if ( timer ) {
+                timer->stop();
+                delete timer;
+                timer = 0;
+            }
+        }
         if (doc) {
             gradientRsrcChanged.disconnect();
             defsChanged.disconnect();
@@ -730,7 +742,22 @@ public:
         }
     }
 
+    static bool handleTimerCB();
+
+    /**
+     * Checks if update should be queued or executed immediately.
+     *
+     * @return true if the update was queued and should not be immediately executed.
+     */
+    static bool queueUpdateIfNeeded(SPDocument *doc);
+
+    static Glib::Timer *timer;
+    static int timerRefCount;
+    static sigc::connection refreshTimer;
+
     SPDocument *doc;
+    bool updatePending;
+    double lastGradientUpdate;
     sigc::connection gradientRsrcChanged;
     sigc::connection defsChanged;
     sigc::connection defsModified;
@@ -739,6 +766,58 @@ private:
     DocTrack(DocTrack const &); // no copy
     DocTrack &operator=(DocTrack const &); // no assign
 };
+
+Glib::Timer *DocTrack::timer = 0;
+int DocTrack::timerRefCount = 0;
+sigc::connection DocTrack::refreshTimer;
+
+static const double DOC_UPDATE_THREASHOLD  = 0.090;
+
+bool DocTrack::handleTimerCB()
+{
+    double now = timer->elapsed();
+
+    std::vector<DocTrack *> needCallback;
+    for (std::vector<DocTrack *>::iterator it = docTrackings.begin(); it != docTrackings.end(); ++it) {
+        DocTrack *track = *it;
+        if ( track->updatePending && ( (now - track->lastGradientUpdate) >= DOC_UPDATE_THREASHOLD) ) {
+            needCallback.push_back(track);
+        }
+    }
+
+    for (std::vector<DocTrack *>::iterator it = needCallback.begin(); it != needCallback.end(); ++it) {
+        DocTrack *track = *it;
+        if ( std::find(docTrackings.begin(), docTrackings.end(), track) != docTrackings.end() ) { // Just in case one gets deleted while we are looping
+            // Note: calling handleDefsModified will call queueUpdateIfNeeded and thus update the time and flag.
+            SwatchesPanel::handleDefsModified(track->doc);
+        }
+    }
+
+    return true;
+}
+
+bool DocTrack::queueUpdateIfNeeded( SPDocument *doc )
+{
+    bool deferProcessing = false;
+    for (std::vector<DocTrack*>::iterator it = docTrackings.begin(); it != docTrackings.end(); ++it) {
+        DocTrack *track = *it;
+        if ( track->doc == doc ) {
+            double now = timer->elapsed();
+            double elapsed = now - track->lastGradientUpdate;
+
+            if ( elapsed < DOC_UPDATE_THREASHOLD ) {
+                deferProcessing = true;
+                track->updatePending = true;
+            } else {
+                track->lastGradientUpdate = now;
+                track->updatePending = false;
+            }
+
+            break;
+        }
+    }
+    return deferProcessing;
+}
 
 void SwatchesPanel::_trackDocument( SwatchesPanel *panel, SPDocument *document )
 {
@@ -775,8 +854,8 @@ void SwatchesPanel::_trackDocument( SwatchesPanel *panel, SPDocument *document )
             docPerPanel[panel] = document;
             if (!found) {
                 sigc::connection conn1 = document->connectResourcesChanged( "gradient", sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleGradientsChange), document) );
-                sigc::connection conn2 = SP_DOCUMENT_DEFS(document)->connectRelease( sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document)) );
-                sigc::connection conn3 = SP_DOCUMENT_DEFS(document)->connectModified( sigc::hide(sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document))) );
+                sigc::connection conn2 = document->getDefs()->connectRelease( sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document)) );
+                sigc::connection conn3 = document->getDefs()->connectModified( sigc::hide(sigc::hide(sigc::bind(sigc::ptr_fun(&SwatchesPanel::handleDefsModified), document))) );
 
                 DocTrack *dt = new DocTrack(document, conn1, conn2, conn3);
                 docTrackings.push_back(dt);
@@ -806,8 +885,8 @@ void SwatchesPanel::_setDocument( SPDocument *document )
 }
 
 static void recalcSwatchContents(SPDocument* doc,
-                std::vector<ColorItem*> &tmpColors,
-                std::map<ColorItem*, guchar*> &previewMappings,
+                boost::ptr_vector<ColorItem> &tmpColors,
+                std::map<ColorItem*, cairo_pattern_t*> &previewMappings,
                 std::map<ColorItem*, SPGradient*> &gradMappings)
 {
     std::vector<SPGradient*> newList;
@@ -825,30 +904,29 @@ static void recalcSwatchContents(SPDocument* doc,
         for ( std::vector<SPGradient*>::iterator it = newList.begin(); it != newList.end(); ++it )
         {
             SPGradient* grad = *it;
-            grad->ensureVector();
-            SPGradientStop first = grad->vector.stops[0];
-            SPColor color = first.color;
-            guint32 together = color.toRGBA32(first.opacity);
 
-            SPGradientStop second = (*it)->vector.stops[1];
-            SPColor color2 = second.color;
+            cairo_surface_t *preview = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+                PREVIEW_PIXBUF_WIDTH, VBLOCK);
+            cairo_t *ct = cairo_create(preview);
 
             Glib::ustring name( grad->getId() );
-            unsigned int r = SP_RGBA32_R_U(together);
-            unsigned int g = SP_RGBA32_G_U(together);
-            unsigned int b = SP_RGBA32_B_U(together);
-            ColorItem* item = new ColorItem( r, g, b, name );
+            ColorItem* item = new ColorItem( 0, 0, 0, name );
 
-            gint width = PREVIEW_PIXBUF_WIDTH;
-            gint height = VBLOCK;
-            guchar* px = g_new( guchar, 3 * height * width );
-            nr_render_checkerboard_rgb( px, width, height, 3 * width, 0, 0 );
+            cairo_pattern_t *check = ink_cairo_pattern_create_checkerboard();
+            cairo_pattern_t *gradient = sp_gradient_create_preview_pattern(grad, PREVIEW_PIXBUF_WIDTH);
+            cairo_set_source(ct, check);
+            cairo_paint(ct);
+            cairo_set_source(ct, gradient);
+            cairo_paint(ct);
 
-            sp_gradient_render_vector_block_rgb( grad,
-                                                 px, width, height, 3 * width,
-                                                 0, width, TRUE );
+            cairo_destroy(ct);
+            cairo_pattern_destroy(gradient);
+            cairo_pattern_destroy(check);
 
-            previewMappings[item] = px;
+            cairo_pattern_t *prevpat = cairo_pattern_create_for_surface(preview);
+            cairo_surface_destroy(preview);
+
+            previewMappings[item] = prevpat;
 
             tmpColors.push_back(item);
             gradMappings[item] = grad;
@@ -860,13 +938,14 @@ void SwatchesPanel::handleGradientsChange(SPDocument *document)
 {
     SwatchPage *docPalette = (docPalettes.find(document) != docPalettes.end()) ? docPalettes[document] : 0;
     if (docPalette) {
-        std::vector<ColorItem*> tmpColors;
-        std::map<ColorItem*, guchar*> tmpPrevs;
+        boost::ptr_vector<ColorItem> tmpColors;
+        std::map<ColorItem*, cairo_pattern_t*> tmpPrevs;
         std::map<ColorItem*, SPGradient*> tmpGrads;
         recalcSwatchContents(document, tmpColors, tmpPrevs, tmpGrads);
 
-        for (std::map<ColorItem*, guchar*>::iterator it = tmpPrevs.begin(); it != tmpPrevs.end(); ++it) {
-            it->first->setPixData(it->second, PREVIEW_PIXBUF_WIDTH, VBLOCK);
+        for (std::map<ColorItem*, cairo_pattern_t*>::iterator it = tmpPrevs.begin(); it != tmpPrevs.end(); ++it) {
+            it->first->setPattern(it->second);
+            cairo_pattern_destroy(it->second);
         }
 
         for (std::map<ColorItem*, SPGradient*>::iterator it = tmpGrads.begin(); it != tmpGrads.end(); ++it) {
@@ -874,10 +953,6 @@ void SwatchesPanel::handleGradientsChange(SPDocument *document)
         }
 
         docPalette->_colors.swap(tmpColors);
-        for (std::vector<ColorItem*>::iterator it = tmpColors.begin(); it != tmpColors.end(); ++it) {
-            delete *it;
-        }
-
 
         // Figure out which SwatchesPanel instances are affected and update them.
 
@@ -897,9 +972,9 @@ void SwatchesPanel::handleGradientsChange(SPDocument *document)
 void SwatchesPanel::handleDefsModified(SPDocument *document)
 {
     SwatchPage *docPalette = (docPalettes.find(document) != docPalettes.end()) ? docPalettes[document] : 0;
-    if (docPalette) {
-        std::vector<ColorItem*> tmpColors;
-        std::map<ColorItem*, guchar*> tmpPrevs;
+    if (docPalette && !DocTrack::queueUpdateIfNeeded(document) ) {
+        boost::ptr_vector<ColorItem> tmpColors;
+        std::map<ColorItem*, cairo_pattern_t*> tmpPrevs;
         std::map<ColorItem*, SPGradient*> tmpGrads;
         recalcSwatchContents(document, tmpColors, tmpPrevs, tmpGrads);
 
@@ -908,8 +983,8 @@ void SwatchesPanel::handleDefsModified(SPDocument *document)
         } else {
             int cap = std::min(docPalette->_colors.size(), tmpColors.size());
             for (int i = 0; i < cap; i++) {
-                ColorItem* newColor = tmpColors[i];
-                ColorItem* oldColor = docPalette->_colors[i];
+                ColorItem *newColor = &tmpColors[i];
+                ColorItem *oldColor = &docPalette->_colors[i];
                 if ( (newColor->def.getType() != oldColor->def.getType()) ||
                      (newColor->def.getR() != oldColor->def.getR()) ||
                      (newColor->def.getG() != oldColor->def.getG()) ||
@@ -920,9 +995,13 @@ void SwatchesPanel::handleDefsModified(SPDocument *document)
                     oldColor->setGradient(tmpGrads[newColor]);
                 }
                 if ( tmpPrevs.find(newColor) != tmpPrevs.end() ) {
-                    oldColor->setPixData(tmpPrevs[newColor], PREVIEW_PIXBUF_WIDTH, VBLOCK);
+                    oldColor->setPattern(tmpPrevs[newColor]);
                 }
             }
+        }
+
+        for (std::map<ColorItem*, cairo_pattern_t*>::iterator it = tmpPrevs.begin(); it != tmpPrevs.end(); ++it) {
+            cairo_pattern_destroy(it->second);
         }
     }
 }
@@ -1013,8 +1092,8 @@ void SwatchesPanel::_updateFromSelection()
         }
         sp_style_unref(tmpStyle);
 
-        for ( std::vector<ColorItem*>::iterator it = docPalette->_colors.begin(); it != docPalette->_colors.end(); ++it ) {
-            ColorItem* item = *it;
+        for ( boost::ptr_vector<ColorItem>::iterator it = docPalette->_colors.begin(); it != docPalette->_colors.end(); ++it ) {
+            ColorItem* item = &*it;
             bool isFill = (fillId == item->def.descr);
             bool isStroke = (strokeId == item->def.descr);
             item->setState( isFill, isStroke );
@@ -1055,8 +1134,8 @@ void SwatchesPanel::_rebuild()
     _holder->freezeUpdates();
     // TODO restore once 'clear' works _holder->addPreview(_clear);
     _holder->addPreview(_remove);
-    for ( std::vector<ColorItem*>::iterator it = curr->_colors.begin(); it != curr->_colors.end(); it++ ) {
-        _holder->addPreview(*it);
+    for ( boost::ptr_vector<ColorItem>::iterator it = curr->_colors.begin(); it != curr->_colors.end(); ++it) {
+        _holder->addPreview(&*it);
     }
     _holder->thawUpdates();
 }

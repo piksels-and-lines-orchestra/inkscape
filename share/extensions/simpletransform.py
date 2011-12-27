@@ -89,6 +89,14 @@ def composeTransform(M1,M2):
     v2 = M1[1][0]*M2[0][2] + M1[1][1]*M2[1][2] + M1[1][2]
     return [[a11,a12,v1],[a21,a22,v2]]
 
+def composeParents(node, mat):
+    trans = node.get('transform')
+    if trans:
+        mat = composeTransform(parseTransform(trans), mat)
+    if node.getparent().tag == inkex.addNS('g','svg'):
+        mat = composeParents(node.getparent(), mat)
+    return mat
+
 def applyTransformToNode(mat,node):
     m=parseTransform(node.get("transform"))
     newtransf=formatTransform(composeTransform(mat,m))
@@ -192,7 +200,7 @@ def computeBBox(aList,mat=[[1,0,0],[0,1,0]]):
             d = node.get('d')
         elif node.get('points'):
             d = 'M' + node.get('points')
-        elif node.tag in [ inkex.addNS('rect','svg'), 'rect' ]:
+        elif node.tag in [ inkex.addNS('rect','svg'), 'rect', inkex.addNS('image','svg'), 'image' ]:
             d = 'M' + node.get('x', '0') + ',' + node.get('y', '0') + \
                 'h' + node.get('width') + 'v' + node.get('height') + \
                 'h-' + node.get('width')

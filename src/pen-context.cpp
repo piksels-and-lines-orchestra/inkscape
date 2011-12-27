@@ -38,7 +38,6 @@
 #include "display/sp-ctrlline.h"
 #include "display/sodipodi-ctrl.h"
 #include <glibmm/i18n.h>
-#include "libnr/nr-point-ops.h"
 #include "helper/units.h"
 #include "macros.h"
 #include "context-fns.h"
@@ -312,7 +311,8 @@ spdc_endpoint_snap(SPPenContext const *const pc, Geom::Point &p, guint const sta
             pen_set_to_nearest_horiz_vert(pc, p, state, true);
         } else {
             // snap freely
-            spdc_endpoint_snap_free(pc, p, state);
+            boost::optional<Geom::Point> origin = pc->npoints > 0 ? pc->p[0] : boost::optional<Geom::Point>();
+            spdc_endpoint_snap_free(pc, p, origin, state); // pass the origin, to allow for perpendicular / tangential snapping
         }
     }
 }
@@ -330,7 +330,8 @@ spdc_endpoint_snap_handle(SPPenContext const *const pc, Geom::Point &p, guint co
         spdc_endpoint_snap_rotation(pc, p, pc->p[pc->npoints - 2], state);
     } else {
         if (!(state & GDK_SHIFT_MASK)) { //SHIFT disables all snapping, except the angular snapping above
-            spdc_endpoint_snap_free(pc, p, state);
+            boost::optional<Geom::Point> origin = pc->p[pc->npoints - 2];
+            spdc_endpoint_snap_free(pc, p, origin, state);
         }
     }
 }
@@ -913,7 +914,7 @@ pen_redraw_all (SPPenContext *const pc)
     if (last_seg) {
         Geom::CubicBezier const * cubic = dynamic_cast<Geom::CubicBezier const *>( last_seg );
         if ( cubic &&
-             (*cubic)[2] != to_2geom(pc->p[0]) )
+             (*cubic)[2] != pc->p[0] )
         {
             Geom::Point p2 = (*cubic)[2];
             SP_CTRL(pc->c0)->moveto(p2);
@@ -989,7 +990,7 @@ pen_handle_key_press(SPPenContext *const pc, GdkEvent *event)
 
     gint ret = FALSE;
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    gdouble const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000); // in px
+    gdouble const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000, "px"); // in px
 
     switch (get_group0_keyval (&event->key)) {
 

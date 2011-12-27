@@ -1,5 +1,5 @@
 /** @file
- * @brief  RDF manipulation functions
+ * RDF manipulation functions.
  *
  * @todo move these to xml/ instead of dialogs/
  */
@@ -18,6 +18,7 @@
 #include "rdf.h"
 #include "sp-item-group.h"
 #include "inkscape.h"
+#include "sp-root.h"
 
 /*
    Example RDF XML from various places...
@@ -323,10 +324,11 @@ public:
     static void setDefaults( SPDocument * doc );
 
     /**
-     *  \brief   Pull the text out of an RDF entity, depends on how it's stored
-     *  \return  A pointer to the entity's static contents as a string
-     *  \param   repr    The XML element to extract from
-     *  \param   entity  The desired RDF/Work entity
+     *  Pull the text out of an RDF entity, depends on how it's stored.
+     *
+     *  @return  A pointer to the entity's static contents as a string
+     *  @param   repr    The XML element to extract from
+     *  @param   entity  The desired RDF/Work entity
      *  
      */
     static const gchar *getReprText( Inkscape::XML::Node const * repr, struct rdf_work_entity_t const & entity );
@@ -341,13 +343,13 @@ public:
 };
 
 /**
- *  \brief   Retrieves a known RDF/Work entity by name
- *  \return  A pointer to an RDF/Work entity
- *  \param   name  The desired RDF/Work entity
+ *  Retrieves a known RDF/Work entity by name.
+ *
+ *  @return  A pointer to an RDF/Work entity
+ *  @param   name  The desired RDF/Work entity
  *  
  */
-struct rdf_work_entity_t *
-rdf_find_entity(gchar const * name)
+struct rdf_work_entity_t *rdf_find_entity(gchar const * name)
 {
     struct rdf_work_entity_t *entity;
     for (entity=rdf_work_entities; entity->name; entity++) {
@@ -566,7 +568,9 @@ unsigned int RDFImpl::setReprText( Inkscape::XML::Node * repr,
     // set document's title element to the RDF title
     if (!strcmp(entity.name, "title")) {
         SPDocument *doc = SP_ACTIVE_DOCUMENT;
-        if(doc && doc->root) doc->root->setTitle(text);
+        if (doc && doc->getRoot()) {
+            doc->getRoot()->setTitle(text);
+        }
     }
 
     switch (entity.datatype) {
@@ -1104,7 +1108,7 @@ void RDFImpl::setDefaults( SPDocument * doc )
     g_assert( doc != NULL );
 
     // Create metadata node if it doesn't already exist
-    if (!sp_item_group_get_child_by_name((SPGroup *) doc->root, NULL,
+    if (!sp_item_group_get_child_by_name( doc->getRoot(), NULL,
                                           XML_TAG_NAME_METADATA)) {
         if ( !doc->getReprDoc()) {
             g_critical("XML doc is null.");

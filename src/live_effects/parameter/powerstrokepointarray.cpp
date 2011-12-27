@@ -70,10 +70,45 @@ PowerStrokePointArrayParam::param_newWidget(Gtk::Tooltips * /*tooltips*/)
 }
 
 
-void
-PowerStrokePointArrayParam::param_transform_multiply(Geom::Affine const& postmul, bool /*set*/)
+void PowerStrokePointArrayParam::param_transform_multiply(Geom::Affine const& /*postmul*/, bool /*set*/)
 {
 //    param_set_and_write_new_value( (*this) * postmul );
+}
+
+
+/** call this method to recalculate the controlpoints such that they stay at the same location relative to the new path. Useful after adding/deleting nodes to the path.*/
+void
+PowerStrokePointArrayParam::recalculate_controlpoints_for_new_pwd2(Geom::Piecewise<Geom::D2<Geom::SBasis> > const & pwd2_in)
+{
+    if (!last_pwd2.empty()) {
+        if (last_pwd2.size() > pwd2_in.size()) {
+            // Path has become shorter: rescale offsets
+            double factor = (double)pwd2_in.size() / (double)last_pwd2.size();
+            for (unsigned int i = 0; i < _vector.size(); ++i) {
+                _vector[i][Geom::X] *= factor;
+            }
+        } else if (last_pwd2.size() < pwd2_in.size()) {
+            // Path has become longer: probably node added, maintain position of knots
+            Geom::Piecewise<Geom::D2<Geom::SBasis> > normal = rot90(unitVector(derivative(pwd2_in)));
+            for (unsigned int i = 0; i < _vector.size(); ++i) {
+                Geom::Point pt = _vector[i];
+                Geom::Point position = last_pwd2.valueAt(pt[Geom::X]) + pt[Geom::Y] * last_pwd2_normal.valueAt(pt[Geom::X]);
+                
+                double t = nearest_point(position, pwd2_in);
+                double offset = dot(position - pwd2_in.valueAt(t), normal.valueAt(t));
+                _vector[i] = Geom::Point(t, offset);
+            }
+        }
+
+        write_to_SVG();
+    }
+}
+
+void
+PowerStrokePointArrayParam::set_pwd2(Geom::Piecewise<Geom::D2<Geom::SBasis> > const & pwd2_in, Geom::Piecewise<Geom::D2<Geom::SBasis> > const & pwd2_normal_in)
+{
+    last_pwd2 = pwd2_in;
+    last_pwd2_normal = pwd2_normal_in;
 }
 
 
@@ -94,6 +129,11 @@ public:
     virtual Geom::Point knot_get();
     virtual void knot_click(guint state);
 
+    /** Checks whether the index falls within the size of the parameter's vector */
+    bool valid_index(unsigned int index) {
+        return (_pparam->_vector.size() > index);
+    };
+
 private:
     PowerStrokePointArrayParam *_pparam;
     unsigned int _index;
@@ -108,8 +148,13 @@ PowerStrokePointArrayParamKnotHolderEntity::PowerStrokePointArrayParamKnotHolder
 void
 PowerStrokePointArrayParamKnotHolderEntity::knot_set(Geom::Point const &p, Geom::Point const &/*origin*/, guint /*state*/)
 {
-/// @todo how about item transforms???
     using namespace Geom;
+
+    if (!valid_index(_index)) {
+        return;
+    }
+
+    /// @todo how about item transforms???
     Piecewise<D2<SBasis> > const & pwd2 = _pparam->get_pwd2();
     Piecewise<D2<SBasis> > const & n = _pparam->get_pwd2_normal();
 
@@ -124,6 +169,11 @@ Geom::Point
 PowerStrokePointArrayParamKnotHolderEntity::knot_get()
 {
     using namespace Geom;
+
+    if (!valid_index(_index)) {
+        return Geom::Point(infinity(), infinity());
+    }
+
     Piecewise<D2<SBasis> > const & pwd2 = _pparam->get_pwd2();
     Piecewise<D2<SBasis> > const & n = _pparam->get_pwd2_normal();
 
@@ -136,15 +186,22 @@ PowerStrokePointArrayParamKnotHolderEntity::knot_get()
 void
 PowerStrokePointArrayParamKnotHolderEntity::knot_click(guint state)
 {
-    g_print ("This is the %d handle associated to parameter '%s'\n", _index, _pparam->param_key.c_str());
+//g_print ("This is the %d handle associated to parameter '%s'\n", _index, _pparam->param_key.c_str());
 
     if (state & GDK_CONTROL_MASK) {
-        std::vector<Geom::Point> & vec = _pparam->_vector;
-        vec.insert(vec.begin() + _index, 1, vec.at(_index));
-        _pparam->param_set_and_write_new_value(vec);
-        g_print ("Added handle %d associated to parameter '%s'\n", _index, _pparam->param_key.c_str());
-        /// @todo  this BUGS ! the knot stuff should be reloaded when adding a new node!
-    }
+        if (state & GDK_MOD1_MASK) {
+            // delete the clicked knot
+            std::vector<Geom::Point> & vec = _pparam->_vector;
+            vec.erase(vec.begin() + _index);
+            _pparam->param_set_and_write_new_value(vec);
+        } else {
+            // add a knot
+            std::vector<Geom::Point> & vec = _pparam->_vector;
+            vec.insert(vec.begin() + _index, 1, vec.at(_index));
+            _pparam->param_set_and_write_new_value(vec);
+        }
+    } 
+
 }
 
 void

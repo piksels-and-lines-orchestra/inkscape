@@ -16,6 +16,8 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <2geom/transforms.h>
+#include <2geom/bezier-curve.h>
 
 #include "style.h"
 #include "document-private.h"
@@ -30,11 +32,6 @@
 
 #include "sp-text.h"
 #include "sp-tspan.h"
-#include <libnr/nr-matrix-fns.h>
-#include <libnr/nr-point-fns.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-rotate-ops.h>
-#include <2geom/transforms.h>
 #include "xml/repr.h"
 #include "svg/svg.h"
 #include "svg/svg-color.h"
@@ -106,7 +103,7 @@ static SPGradient *sp_gradient_get_private_normalized(SPDocument *document, SPGr
     g_return_val_if_fail(SP_IS_GRADIENT(vector), NULL);
     g_return_val_if_fail(vector->hasStops(), NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
     // create a new private gradient of the requested type
@@ -208,7 +205,7 @@ SPGradient *sp_gradient_fork_private_if_necessary(SPGradient *gr, SPGradient *ve
     }
 
     SPDocument *doc = gr->document;
-    SPObject *defs = SP_DOCUMENT_DEFS(doc);
+    SPObject *defs = doc->getDefs();
 
     if ((gr->hasStops()) ||
         (gr->state != SP_GRADIENT_STATE_UNKNOWN) ||
@@ -259,7 +256,7 @@ SPGradient *sp_gradient_fork_vector_if_necessary(SPGradient *gr)
         Inkscape::XML::Document *xml_doc = doc->getReprDoc();
 
         Inkscape::XML::Node *repr = gr->getRepr()->duplicate(xml_doc);
-        SP_DOCUMENT_DEFS(doc)->getRepr()->addChild(repr, NULL);
+        doc->getDefs()->getRepr()->addChild(repr, NULL);
         SPGradient *gr_new = (SPGradient *) doc->getObjectByRepr(repr);
         gr_new = sp_gradient_ensure_vector_normalized (gr_new);
         Inkscape::GC::release(repr);
@@ -299,7 +296,7 @@ SPGradient *sp_gradient_reset_to_userspace(SPGradient *gr, SPItem *item)
 
     // calculate the bbox of the item
     item->document->ensureUpToDate();
-    Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
+    Geom::OptRect bbox = item->visualBounds(); // we need "true" bbox without item_i2d_affine
 
     if (!bbox)
         return gr;
@@ -366,7 +363,7 @@ SPGradient *sp_gradient_convert_to_userspace(SPGradient *gr, SPItem *item, gchar
         // calculate the bbox of the item
         item->document->ensureUpToDate();
         Geom::Affine bbox2user;
-        Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
+        Geom::OptRect bbox = item->visualBounds(); // we need "true" bbox without item_i2d_affine
         if ( bbox ) {
             bbox2user = Geom::Affine(bbox->dimensions()[Geom::X], 0,
                                    0, bbox->dimensions()[Geom::Y],
@@ -792,7 +789,7 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
 
     gradient = sp_gradient_convert_to_userspace (gradient, item, fill_or_stroke? "fill" : "stroke");
 
-    Geom::Affine i2d (item->i2d_affine ());
+    Geom::Affine i2d (item->i2dt_affine ());
     Geom::Point p = p_w * i2d.inverse();
     p *= (gradient->gradientTransform).inverse();
     // now p is in gradient's original coordinates
@@ -841,7 +838,9 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
             case POINT_LG_MID:
             {
                 // using X-coordinates only to determine the offset, assuming p has been snapped to the vector from begin to end.
-                double offset = get_offset_between_points (p, Geom::Point(lg->x1.computed, lg->y1.computed), Geom::Point(lg->x2.computed, lg->y2.computed));
+                Geom::Point begin(lg->x1.computed, lg->y1.computed);
+                Geom::Point end(lg->x2.computed, lg->y2.computed);
+                double offset = Geom::LineSegment(begin, end).nearestPoint(p);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (lg, false);
                 lg->ensureVector();
                 lg->vector.stops.at(point_i).offset = offset;
@@ -934,8 +933,8 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
         case POINT_RG_MID1:
             {
                 Geom::Point start = Geom::Point (rg->cx.computed, rg->cy.computed);
-                 Geom::Point end   = Geom::Point (rg->cx.computed + rg->r.computed, rg->cy.computed);
-                double offset = get_offset_between_points (p, start, end);
+                Geom::Point end   = Geom::Point (rg->cx.computed + rg->r.computed, rg->cy.computed);
+                double offset = Geom::LineSegment(start, end).nearestPoint(p);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary (rg, false);
                 rg->ensureVector();
                 rg->vector.stops.at(point_i).offset = offset;
@@ -951,7 +950,7 @@ void sp_item_gradient_set_coords(SPItem *item, guint point_type, guint point_i, 
         case POINT_RG_MID2:
                 Geom::Point start = Geom::Point (rg->cx.computed, rg->cy.computed);
                 Geom::Point end   = Geom::Point (rg->cx.computed, rg->cy.computed - rg->r.computed);
-                double offset = get_offset_between_points (p, start, end);
+                double offset = Geom::LineSegment(start, end).nearestPoint(p);
                 SPGradient *vector = sp_gradient_get_forked_vector_if_necessary(rg, false);
                 rg->ensureVector();
                 rg->vector.stops.at(point_i).offset = offset;
@@ -1016,7 +1015,7 @@ Geom::Point sp_item_gradient_get_coords(SPItem *item, guint point_type, guint po
     Geom::Point p (0, 0);
 
     if (!gradient)
-        return from_2geom(p);
+        return p;
 
     if (SP_IS_LINEARGRADIENT(gradient)) {
         SPLinearGradient *lg = SP_LINEARGRADIENT(gradient);
@@ -1066,15 +1065,15 @@ Geom::Point sp_item_gradient_get_coords(SPItem *item, guint point_type, guint po
 
     if (SP_GRADIENT(gradient)->getUnits() == SP_GRADIENT_UNITS_OBJECTBOUNDINGBOX) {
         item->document->ensureUpToDate();
-        Geom::OptRect bbox = item->getBounds(Geom::identity()); // we need "true" bbox without item_i2d_affine
+        Geom::OptRect bbox = item->visualBounds(); // we need "true" bbox without item_i2d_affine
         if (bbox) {
             p *= Geom::Affine(bbox->dimensions()[Geom::X], 0,
                             0, bbox->dimensions()[Geom::Y],
                             bbox->min()[Geom::X], bbox->min()[Geom::Y]);
         }
     }
-    p *= Geom::Affine(gradient->gradientTransform) * (Geom::Affine)item->i2d_affine();
-    return from_2geom(p);
+    p *= Geom::Affine(gradient->gradientTransform) * (Geom::Affine)item->i2dt_affine();
+    return p;
 }
 
 
@@ -1198,7 +1197,7 @@ static void addStop( Inkscape::XML::Node *parent, Glib::ustring const &color, gi
  */
 SPGradient *sp_document_default_gradient_vector( SPDocument *document, SPColor const &color, bool singleStop )
 {
-    SPDefs *defs = static_cast<SPDefs *>(SP_DOCUMENT_DEFS(document));
+    SPDefs *defs = document->getDefs();
     Inkscape::XML::Document *xml_doc = document->rdoc;
 
     Inkscape::XML::Node *repr = xml_doc->createElement("svg:linearGradient");

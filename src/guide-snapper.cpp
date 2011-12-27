@@ -1,6 +1,5 @@
-/**
- *  \file guide-snapper.cpp
- *  \brief Snapping things to guides.
+/*
+ *  Snapping things to guides.
  *
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -65,26 +64,26 @@ bool Inkscape::GuideSnapper::ThisSnapperMightSnap() const
         return false;
     }
 
-    return (_snap_enabled && _snapmanager->snapprefs.getSnapToGuides() && _snapmanager->getNamedView()->showguides);
+    return (_snap_enabled && _snapmanager->snapprefs.isTargetSnappable(Inkscape::SNAPTARGET_GUIDE) && _snapmanager->getNamedView()->showguides);
 }
 
-void Inkscape::GuideSnapper::_addSnappedLine(SnappedConstraints &sc, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, Geom::Point const normal_to_line, Geom::Point const point_on_line) const
+void Inkscape::GuideSnapper::_addSnappedLine(IntermSnapResults &isr, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, Geom::Point const normal_to_line, Geom::Point const point_on_line) const
 {
     SnappedLine dummy = SnappedLine(snapped_point, snapped_distance, source, source_num, Inkscape::SNAPTARGET_GUIDE, getSnapperTolerance(), getSnapperAlwaysSnap(), normal_to_line, point_on_line);
-    sc.guide_lines.push_back(dummy);
+    isr.guide_lines.push_back(dummy);
 }
 
-void Inkscape::GuideSnapper::_addSnappedLinesOrigin(SnappedConstraints &sc, Geom::Point const origin, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const
+void Inkscape::GuideSnapper::_addSnappedLinesOrigin(IntermSnapResults &isr, Geom::Point const origin, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const
 {
     SnappedPoint dummy = SnappedPoint(origin, source, source_num, Inkscape::SNAPTARGET_GUIDE_ORIGIN, snapped_distance, getSnapperTolerance(), getSnapperAlwaysSnap(), constrained_snap, true);
-    sc.points.push_back(dummy);
+    isr.points.push_back(dummy);
 }
 
 
-void Inkscape::GuideSnapper::_addSnappedPoint(SnappedConstraints &sc, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const
+void Inkscape::GuideSnapper::_addSnappedPoint(IntermSnapResults &isr, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const
 {
     SnappedPoint dummy = SnappedPoint(snapped_point, source, source_num, Inkscape::SNAPTARGET_GUIDE, snapped_distance, getSnapperTolerance(), getSnapperAlwaysSnap(), constrained_snap, true);
-    sc.points.push_back(dummy);
+    isr.points.push_back(dummy);
 }
 
 /*

@@ -24,8 +24,7 @@
 #include "live_effects/lpeobject-reference.h"
 #include "sp-lpe-item.h"
 
-#include <display/curve.h>
-#include <libnr/nr-matrix-fns.h>
+#include "display/curve.h"
 #include <2geom/pathvector.h>
 #include <2geom/bezier-curve.h>
 #include <2geom/hvlinesegment.h>
@@ -170,7 +169,7 @@ sp_path_convert_to_guides(SPItem *item)
 
     std::list<std::pair<Geom::Point, Geom::Point> > pts;
 
-    Geom::Affine const i2d (SP_ITEM(path)->i2d_affine());
+    Geom::Affine const i2dt(path->i2dt_affine());
 
     Geom::PathVector const & pv = curve->get_pathvector();
     for(Geom::PathVector::const_iterator pit = pv.begin(); pit != pv.end(); ++pit) {
@@ -178,12 +177,12 @@ sp_path_convert_to_guides(SPItem *item)
             // only add curves for straight line segments
             if( is_straight_curve(*cit) )
             {
-                pts.push_back(std::make_pair(cit->initialPoint() * i2d, cit->finalPoint() * i2d));
+                pts.push_back(std::make_pair(cit->initialPoint() * i2dt, cit->finalPoint() * i2dt));
             }
         }
     }
 
-    sp_guide_pt_pairs_to_guides(inkscape_active_desktop(), pts);
+    sp_guide_pt_pairs_to_guides(item->document, pts);
 }
 
 /**
@@ -425,6 +424,7 @@ g_message("sp_path_update_patheffect");
         /* if a path does not have an lpeitem applied, then reset the curve to the original_curve.
          * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
         shape->setCurveInsync(curve, TRUE);
+        shape->setCurveBeforeLPE(path->original_curve);
 
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM(shape), curve);
         if (success && write) {

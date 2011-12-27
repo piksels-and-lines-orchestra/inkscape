@@ -15,7 +15,7 @@
 
 #include <glibmm/i18n.h>
 #include <gtkmm/dialog.h>
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include "verbs.h"
 
 #include "prefdialog.h"
@@ -24,11 +24,7 @@
 struct SPDocument;
 
 namespace Inkscape {
-namespace UI {
-namespace View {
-typedef View View;
-};
-};
+
 
 namespace Extension {
 
@@ -53,9 +49,7 @@ class Effect : public Extension {
                 back to the effect that created it.  */
     class EffectVerb : public Inkscape::Verb {
         private:
-            static void perform (SPAction * action, void * mydata, void * otherdata);
-            /** \brief  Function to call for specific actions */
-            static SPActionEventVector vector;
+            static void perform (SPAction * action, void * mydata);
 
             /** \brief  The effect that this verb represents. */
             Effect * _effect;

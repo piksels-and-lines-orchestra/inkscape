@@ -1,6 +1,4 @@
-/**
- * \brief Rendering Options Widget - A container for selecting rendering options
- *
+/*
  * Author:
  *   Kees Cook <kees@outflux.net>
  *
@@ -20,9 +18,16 @@ namespace Inkscape {
 namespace UI {
 namespace Widget {
 
+/**
+ * A container for selecting rendering options.
+ */
 class RenderingOptions : public Gtk::VBox
 {
 public:
+
+    /**
+     * Construct a Rendering Options widget.
+     */
     RenderingOptions();
 
     bool as_bitmap();   // should we render as a bitmap?

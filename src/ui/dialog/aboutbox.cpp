@@ -1,5 +1,6 @@
-/** @file
- * @brief Inkscape About box - implementation
+/**
+ * @file
+ * Inkscape About box - implementation.
  */
 /* Authors:
  *   Derek P. Moore <derekm@hackunix.org>
@@ -458,6 +459,7 @@ void AboutBox::initStrings() {
 "Francisco Xosé Vázquez Grandal <fxvazquez@arrakis.es>, 2001.\n"
 "Frederic Rodrigo <f.rodrigo free.fr>, 2004-2005.\n"
 "Ge'ez Frontier Foundation <locales@geez.org>, 2002.\n"
+"George Boukeas <boukeas@gmail.com>, 2011.\n"
 "Hleb Valoshka <375gnu@gmail.com>, 2008-2009.\n"
 "Hizkuntza Politikarako Sailburuordetza <hizkpol@ej-gv.es>, 2005.\n"
 "Ilia Penev <lichopicho@gmail.com>, 2006.\n"
@@ -514,8 +516,8 @@ void AboutBox::initStrings() {
 "Serdar Soytetir <sendirom@gmail.com>, 2005.\n"
 "shivaken <shivaken@owls-nest.net>, 2004.\n"
 "Shyam Krishna Bal <shyamkrishna_bal@yahoo.com>, 2006.\n"
-"Simos Xenitellis <simos@hellug.gr>, 2001.\n"
-"Spyros Blanas <cid_e@users.sourceforge.net>, 2006.\n"
+"Simos Xenitellis <simos@hellug.gr>, 2001, 2011.\n"
+"Spyros Blanas <cid_e@users.sourceforge.net>, 2006, 2011.\n"
 "Stefan Graubner <pflaumenmus92@gmx.net>, 2005.\n"
 "Supranee Thirawatthanasuk <supranee@opentle.org>, 2006.\n"
 "Takeshi Aihana <aihana@muc.biglobe.ne.jp>, 2000, 2001.\n"

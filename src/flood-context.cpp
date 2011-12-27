@@ -1,5 +1,6 @@
-/** @file
- * @brief Bucket fill drawing context, works by bitmap filling an area on a rendered version
+/**
+ * @file
+ * Bucket fill drawing context, works by bitmap filling an area on a rendered version
  * of the current display and then tracing the result using potrace.
  */
 /* Author:
@@ -20,59 +21,52 @@
 #include "config.h"
 #endif
 
+#include <2geom/pathvector.h>
 #include <gdk/gdkkeysyms.h>
 #include <queue>
 #include <deque>
+#include <glibmm/i18n.h>
 
-#include "macros.h"
+#include "color.h"
+#include "context-fns.h"
+#include "desktop.h"
+#include "desktop-handles.h"
+#include "desktop-style.h"
+#include "display/cairo-utils.h"
+#include "display/drawing-context.h"
+#include "display/drawing-image.h"
+#include "display/drawing-item.h"
+#include "display/drawing.h"
 #include "display/sp-canvas.h"
 #include "document.h"
-#include "sp-namedview.h"
-#include "sp-object.h"
-#include "sp-rect.h"
-#include "selection.h"
-#include "desktop-handles.h"
-#include "desktop.h"
-#include "desktop-style.h"
-#include "message-stack.h"
-#include "message-context.h"
-#include "pixmaps/cursor-paintbucket.xpm"
 #include "flood-context.h"
-#include "sp-metrics.h"
-#include <glibmm/i18n.h>
-#include "object-edit.h"
-#include "xml/repr.h"
-#include "xml/node-event-vector.h"
-#include "preferences.h"
-#include "context-fns.h"
-#include "rubberband.h"
-#include "shape-editor.h"
-
-#include "display/nr-arena-item.h"
-#include "display/nr-arena.h"
-#include "display/nr-arena-image.h"
-#include "display/canvas-arena.h"
-#include "libnr/nr-pixops.h"
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-ops.h"
-#include "libnr/nr-scale-translate-ops.h"
-#include "libnr/nr-translate-matrix-ops.h"
-#include "libnr/nr-translate-scale-ops.h"
-#include "libnr/nr-matrix-ops.h"
-#include <2geom/pathvector.h>
-#include "sp-item.h"
-#include "sp-root.h"
-#include "sp-defs.h"
-#include "sp-path.h"
-#include "splivarot.h"
 #include "livarot/Path.h"
 #include "livarot/Shape.h"
+#include "macros.h"
+#include "message-context.h"
+#include "message-stack.h"
+#include "object-edit.h"
+#include "preferences.h"
+#include "rubberband.h"
+#include "selection.h"
+#include "shape-editor.h"
+#include "sp-defs.h"
+#include "sp-item.h"
+#include "splivarot.h"
+#include "sp-metrics.h"
+#include "sp-namedview.h"
+#include "sp-object.h"
+#include "sp-path.h"
+#include "sp-rect.h"
+#include "sp-root.h"
 #include "svg/svg.h"
-#include "color.h"
-
-#include "trace/trace.h"
 #include "trace/imagemap.h"
 #include "trace/potrace/inkscape-potrace.h"
+#include "trace/trace.h"
+#include "xml/node-event-vector.h"
+#include "xml/repr.h"
+
+#include "pixmaps/cursor-paintbucket.xpm"
 
 using Inkscape::DocumentUndo;
 
@@ -90,7 +84,7 @@ static void sp_flood_finish(SPFloodContext *rc);
 static SPEventContextClass *parent_class;
 
 
-GtkType sp_flood_context_get_type()
+GType sp_flood_context_get_type()
 {
     static GType type = 0;
     if (!type) {
@@ -165,9 +159,9 @@ static void sp_flood_context_dispose(GObject *object)
 }
 
 /**
-\brief  Callback that processes the "changed" signal on the selection;
-destroys old and creates new knotholder
-*/
+ * Callback that processes the "changed" signal on the selection;
+ * destroys old and creates new knotholder.
+ */
 void sp_flood_context_selection_changed(Inkscape::Selection *selection, gpointer data)
 {
     SPFloodContext *rc = SP_FLOOD_CONTEXT(data);
@@ -206,33 +200,31 @@ static void sp_flood_context_setup(SPEventContext *ec)
     }
 }
 
-/**
- * \brief Merge a pixel with the background color.
- * \param orig The pixel to merge with the background.
- * \param bg The background color.
- * \param base The pixel to merge the original and background into.
- */
-inline static void
-merge_pixel_with_background (unsigned char *orig, unsigned char *bg,
-           unsigned char *base)
+inline static guint32
+compose_onto (guint32 px, guint32 bg)
 {
-    int precalc_bg_alpha = (255 * (255 - bg[3])) / 255;
-    
-    for (int i = 0; i < 3; i++) {
-        base[i] = precalc_bg_alpha + (bg[i] * bg[3]) / 255;
-        base[i] = (base[i] * (255 - orig[3])) / 255 + (orig[i] * orig[3]) / 255;
-    }
+    EXTRACT_ARGB32(px, ap,rp,gp,bp)
+    EXTRACT_ARGB32(bg, ab,rb,gb,bb)
+    guint32 ao,ro,bo,go;
+
+    ao = 255*255 - (255-ap)*(255-bp);  ao = (ao + 127) / 255;
+    ro = (255-ap)*rb + rp;             ro = (ro + 127) / 255;
+    go = (255-ap)*gb + gp;             go = (go + 127) / 255;
+    bo = (255-ap)*bb + bp;             bo = (bo + 127) / 255;
+
+    ASSEMBLE_ARGB32(pxout, ao,ro,go,bo)
+    return pxout;
 }
 
 /**
- * \brief Get the pointer to a pixel in a pixel buffer.
- * \param px The pixel buffer.
- * \param x The X coordinate.
- * \param y The Y coordinate.
- * \param width The width of the pixel buffer.
+ * Get the pointer to a pixel in a pixel buffer.
+ * @param px The pixel buffer.
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
+ * @param stride The rowstride of the pixel buffer.
  */
-inline unsigned char * get_pixel(guchar *px, int x, int y, int width) {
-    return px + (x + y * width) * 4;
+inline guint32 get_pixel(guchar *px, int x, int y, int stride) {
+    return *reinterpret_cast<guint32*>(px + y * stride + x * 4);
 }
 
 inline unsigned char * get_trace_pixel(guchar *trace_px, int x, int y, int width) {
@@ -240,7 +232,7 @@ inline unsigned char * get_trace_pixel(guchar *trace_px, int x, int y, int width
 }
 
 /**
- * \brief Generate the list of trace channel selection entries.
+ * Generate the list of trace channel selection entries.
  */
 GList * flood_channels_dropdown_items_list() {
     GList *glist = NULL;
@@ -258,7 +250,7 @@ GList * flood_channels_dropdown_items_list() {
 }
 
 /**
- * \brief Generate the list of autogap selection entries.
+ * Generate the list of autogap selection entries.
  */
 GList * flood_autogap_dropdown_items_list() {
     GList *glist = NULL;
@@ -272,42 +264,52 @@ GList * flood_autogap_dropdown_items_list() {
 }
 
 /**
- * \brief Compare a pixel in a pixel buffer with another pixel to determine if a point should be included in the fill operation.
- * \param check The pixel in the pixel buffer to check.
- * \param orig The original selected pixel to use as the fill target color.
- * \param merged_orig_pixel The original pixel merged with the background.
- * \param dtc The desktop background color.
- * \param threshold The fill threshold.
- * \param method The fill method to use as defined in PaintBucketChannels.
+ * Compare a pixel in a pixel buffer with another pixel to determine if a point should be included in the fill operation.
+ * @param check The pixel in the pixel buffer to check.
+ * @param orig The original selected pixel to use as the fill target color.
+ * @param merged_orig_pixel The original pixel merged with the background.
+ * @param dtc The desktop background color.
+ * @param threshold The fill threshold.
+ * @param method The fill method to use as defined in PaintBucketChannels.
  */
-static bool compare_pixels(unsigned char *check, unsigned char *orig, unsigned char *merged_orig_pixel, unsigned char *dtc, int threshold, PaintBucketChannels method) {
+static bool compare_pixels(guint32 check, guint32 orig, guint32 merged_orig_pixel, guint32 dtc, int threshold, PaintBucketChannels method)
+{
     int diff = 0;
-    float hsl_check[3], hsl_orig[3];
-    
+    float hsl_check[3] = {0,0,0}, hsl_orig[3] = {0,0,0};
+
+    EXTRACT_ARGB32(check, ac,rc,gc,bc)
+    EXTRACT_ARGB32(orig, ao,ro,go,bo)
+    EXTRACT_ARGB32(dtc, ad,rd,gd,bd)
+    EXTRACT_ARGB32(merged_orig_pixel, amop,rmop,gmop,bmop)
+
     if ((method == FLOOD_CHANNELS_H) ||
         (method == FLOOD_CHANNELS_S) ||
         (method == FLOOD_CHANNELS_L)) {
-        sp_color_rgb_to_hsl_floatv(hsl_check, check[0] / 255.0, check[1] / 255.0, check[2] / 255.0);
-        sp_color_rgb_to_hsl_floatv(hsl_orig, orig[0] / 255.0, orig[1] / 255.0, orig[2] / 255.0);
+        double dac = ac;
+        double dao = ao;
+        sp_color_rgb_to_hsl_floatv(hsl_check, rc / dac, gc / dac, bc / dac);
+        sp_color_rgb_to_hsl_floatv(hsl_orig, ro / dao, go / dao, bo / dao);
     }
     
     switch (method) {
         case FLOOD_CHANNELS_ALPHA:
-            return ((int)abs(check[3] - orig[3]) <= threshold);
+            return abs(static_cast<int>(ac) - ao) <= threshold;
         case FLOOD_CHANNELS_R:
-            return ((int)abs(check[0] - orig[0]) <= threshold);
+            return abs(static_cast<int>(ac ? unpremul_alpha(rc, ac) : 0) - (ao ? unpremul_alpha(ro, ao) : 0)) <= threshold;
         case FLOOD_CHANNELS_G:
-            return ((int)abs(check[1] - orig[1]) <= threshold);
+            return abs(static_cast<int>(ac ? unpremul_alpha(gc, ac) : 0) - (ao ? unpremul_alpha(go, ao) : 0)) <= threshold;
         case FLOOD_CHANNELS_B:
-            return ((int)abs(check[2] - orig[2]) <= threshold);
+            return abs(static_cast<int>(ac ? unpremul_alpha(bc, ac) : 0) - (ao ? unpremul_alpha(bo, ao) : 0)) <= threshold;
         case FLOOD_CHANNELS_RGB:
-            unsigned char merged_check[3];
-            
-            merge_pixel_with_background(check, dtc, merged_check);
-            
-            for (int i = 0; i < 3; i++) {
-              diff += (int)abs(merged_check[i] - merged_orig_pixel[i]);
-            }
+            guint32 amc, rmc, bmc, gmc;
+            amc = 255*255 - (255-ac)*(255-ad); amc = (amc + 127) / 255;
+            rmc = (255-ac)*rd + rc; rmc = (rmc + 127) / 255;
+            gmc = (255-ac)*gd + gc; gmc = (gmc + 127) / 255;
+            bmc = (255-ac)*bd + bc; bmc = (bmc + 127) / 255;
+
+            diff += abs(static_cast<int>(amc ? unpremul_alpha(rmc, amc) : 0) - (amop ? unpremul_alpha(rmop, amop) : 0));
+            diff += abs(static_cast<int>(amc ? unpremul_alpha(gmc, amc) : 0) - (amop ? unpremul_alpha(gmop, amop) : 0));
+            diff += abs(static_cast<int>(amc ? unpremul_alpha(bmc, amc) : 0) - (amop ? unpremul_alpha(bmop, amop) : 0));
             return ((diff / 3) <= ((threshold * 3) / 4));
         
         case FLOOD_CHANNELS_H:
@@ -353,11 +355,12 @@ struct bitmap_coords_info {
     int y_limit;
     unsigned int width;
     unsigned int height;
+    unsigned int stride;
     unsigned int threshold;
     unsigned int radius;
     PaintBucketChannels method;
-    unsigned char *dtc;
-    unsigned char *merged_orig_pixel;
+    guint32 dtc;
+    guint32 merged_orig_pixel;
     Geom::Rect bbox;
     Geom::Rect screen;
     unsigned int max_queue_size;
@@ -365,20 +368,20 @@ struct bitmap_coords_info {
 };
 
 /**
- * \brief Check if a pixel can be included in the fill.
- * \param px The rendered pixel buffer to check.
- * \param trace_t The pixel in the trace pixel buffer to check or mark.
- * \param x The X coordinate.
- * \param y The y coordinate.
- * \param orig_color The original selected pixel to use as the fill target color.
- * \param bci The bitmap_coords_info structure.
+ * Check if a pixel can be included in the fill.
+ * @param px The rendered pixel buffer to check.
+ * @param trace_t The pixel in the trace pixel buffer to check or mark.
+ * @param x The X coordinate.
+ * @param y The y coordinate.
+ * @param orig_color The original selected pixel to use as the fill target color.
+ * @param bci The bitmap_coords_info structure.
  */
-inline static bool check_if_pixel_is_paintable(guchar *px, unsigned char *trace_t, int x, int y, unsigned char *orig_color, bitmap_coords_info bci) {
+inline static bool check_if_pixel_is_paintable(guchar *px, unsigned char *trace_t, int x, int y, guint32 orig_color, bitmap_coords_info bci) {
     if (is_pixel_paintability_checked(trace_t)) {
         return is_pixel_paintable(trace_t);
     } else {
-        unsigned char *t = get_pixel(px, x, y, bci.width);
-        if (compare_pixels(t, orig_color, bci.merged_orig_pixel, bci.dtc, bci.threshold, bci.method)) {
+        guint32 pixel = get_pixel(px, x, y, bci.stride);
+        if (compare_pixels(pixel, orig_color, bci.merged_orig_pixel, bci.dtc, bci.threshold, bci.method)) {
             mark_pixel_paintable(trace_t);
             return true;
         } else {
@@ -389,11 +392,11 @@ inline static bool check_if_pixel_is_paintable(guchar *px, unsigned char *trace_
 }
 
 /**
- * \brief Perform the bitmap-to-vector tracing and place the traced path onto the document.
- * \param px The trace pixel buffer to trace to SVG.
- * \param desktop The desktop on which to place the final SVG path.
- * \param transform The transform to apply to the final SVG path.
- * \param union_with_selection If true, merge the final SVG path with the current selection.
+ * Perform the bitmap-to-vector tracing and place the traced path onto the document.
+ * @param px The trace pixel buffer to trace to SVG.
+ * @param desktop The desktop on which to place the final SVG path.
+ * @param transform The transform to apply to the final SVG path.
+ * @param union_with_selection If true, merge the final SVG path with the current selection.
  */
 static void do_trace(bitmap_coords_info bci, guchar *trace_px, SPDesktop *desktop, Geom::Affine transform, unsigned int min_x, unsigned int max_x, unsigned int min_y, unsigned int max_y, bool union_with_selection) {
     SPDocument *document = sp_desktop_document(desktop);
@@ -524,7 +527,7 @@ static void do_trace(bitmap_coords_info bci, guchar *trace_px, SPDesktop *deskto
 }
 
 /**
- * \brief The possible return states of perform_bitmap_scanline_check()
+ * The possible return states of perform_bitmap_scanline_check().
  */
 enum ScanlineCheckResult {
     SCANLINE_CHECK_OK,
@@ -533,10 +536,10 @@ enum ScanlineCheckResult {
 };
 
 /**
- * \brief Determine if the provided coordinates are within the pixel buffer limits.
- * \param x The X coordinate.
- * \param y The Y coordinate.
- * \param bci The bitmap_coords_info structure.
+ * Determine if the provided coordinates are within the pixel buffer limits.
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
+ * @param bci The bitmap_coords_info structure.
  */
 inline static bool coords_in_range(unsigned int x, unsigned int y, bitmap_coords_info bci) {
     return (x < bci.width) &&
@@ -550,14 +553,14 @@ inline static bool coords_in_range(unsigned int x, unsigned int y, bitmap_coords
 #define PAINT_DIRECTION_ALL 15
 
 /**
- * \brief Paint a pixel or a square (if autogap is enabled) on the trace pixel buffer
- * \param px The rendered pixel buffer to check.
- * \param trace_px The trace pixel buffer.
- * \param orig_color The original selected pixel to use as the fill target color.
- * \param bci The bitmap_coords_info structure.
- * \param original_point_trace_t The original pixel in the trace pixel buffer to check.
+ * Paint a pixel or a square (if autogap is enabled) on the trace pixel buffer.
+ * @param px The rendered pixel buffer to check.
+ * @param trace_px The trace pixel buffer.
+ * @param orig_color The original selected pixel to use as the fill target color.
+ * @param bci The bitmap_coords_info structure.
+ * @param original_point_trace_t The original pixel in the trace pixel buffer to check.
  */
-inline static unsigned int paint_pixel(guchar *px, guchar *trace_px, unsigned char *orig_color, bitmap_coords_info bci, unsigned char *original_point_trace_t) {
+inline static unsigned int paint_pixel(guchar *px, guchar *trace_px, guint32 orig_color, bitmap_coords_info bci, unsigned char *original_point_trace_t) {
     if (bci.radius == 0) {
         mark_pixel_colored(original_point_trace_t); 
         return PAINT_DIRECTION_ALL;
@@ -598,12 +601,12 @@ inline static unsigned int paint_pixel(guchar *px, guchar *trace_px, unsigned ch
 }
 
 /**
- * \brief Push a point to be checked onto the bottom of the rendered pixel buffer check queue.
- * \param fill_queue The fill queue to add the point to.
- * \param max_queue_size The maximum size of the fill queue.
- * \param trace_t The trace pixel buffer pixel.
- * \param x The X coordinate.
- * \param y The Y coordinate.
+ * Push a point to be checked onto the bottom of the rendered pixel buffer check queue.
+ * @param fill_queue The fill queue to add the point to.
+ * @param max_queue_size The maximum size of the fill queue.
+ * @param trace_t The trace pixel buffer pixel.
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
  */
 static void push_point_onto_queue(std::deque<Geom::Point> *fill_queue, unsigned int max_queue_size, unsigned char *trace_t, unsigned int x, unsigned int y) {
     if (!is_pixel_queued(trace_t)) {
@@ -615,12 +618,12 @@ static void push_point_onto_queue(std::deque<Geom::Point> *fill_queue, unsigned 
 }
 
 /**
- * \brief Shift a point to be checked onto the top of the rendered pixel buffer check queue.
- * \param fill_queue The fill queue to add the point to.
- * \param max_queue_size The maximum size of the fill queue.
- * \param trace_t The trace pixel buffer pixel.
- * \param x The X coordinate.
- * \param y The Y coordinate.
+ * Shift a point to be checked onto the top of the rendered pixel buffer check queue.
+ * @param fill_queue The fill queue to add the point to.
+ * @param max_queue_size The maximum size of the fill queue.
+ * @param trace_t The trace pixel buffer pixel.
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
  */
 static void shift_point_onto_queue(std::deque<Geom::Point> *fill_queue, unsigned int max_queue_size, unsigned char *trace_t, unsigned int x, unsigned int y) {
     if (!is_pixel_queued(trace_t)) {
@@ -632,14 +635,14 @@ static void shift_point_onto_queue(std::deque<Geom::Point> *fill_queue, unsigned
 }
 
 /**
- * \brief Scan a row in the rendered pixel buffer and add points to the fill queue as necessary.
- * \param fill_queue The fill queue to add the point to.
- * \param px The rendered pixel buffer.
- * \param trace_px The trace pixel buffer.
- * \param orig_color The original selected pixel to use as the fill target color.
- * \param bci The bitmap_coords_info structure.
+ * Scan a row in the rendered pixel buffer and add points to the fill queue as necessary.
+ * @param fill_queue The fill queue to add the point to.
+ * @param px The rendered pixel buffer.
+ * @param trace_px The trace pixel buffer.
+ * @param orig_color The original selected pixel to use as the fill target color.
+ * @param bci The bitmap_coords_info structure.
  */
-static ScanlineCheckResult perform_bitmap_scanline_check(std::deque<Geom::Point> *fill_queue, guchar *px, guchar *trace_px, unsigned char *orig_color, bitmap_coords_info bci, unsigned int *min_x, unsigned int *max_x) {
+static ScanlineCheckResult perform_bitmap_scanline_check(std::deque<Geom::Point> *fill_queue, guchar *px, guchar *trace_px, guint32 orig_color, bitmap_coords_info bci, unsigned int *min_x, unsigned int *max_x) {
     bool aborted = false;
     bool reached_screen_boundary = false;
     bool ok;
@@ -749,39 +752,34 @@ static ScanlineCheckResult perform_bitmap_scanline_check(std::deque<Geom::Point>
 }
 
 /**
- * \brief Sort the rendered pixel buffer check queue vertically.
+ * Sort the rendered pixel buffer check queue vertically.
  */
 static bool sort_fill_queue_vertical(Geom::Point a, Geom::Point b) {
     return a[Geom::Y] > b[Geom::Y];
 }
 
 /**
- * \brief Sort the rendered pixel buffer check queue horizontally.
+ * Sort the rendered pixel buffer check queue horizontally.
  */
 static bool sort_fill_queue_horizontal(Geom::Point a, Geom::Point b) {
     return a[Geom::X] > b[Geom::X];
 }
 
 /**
- * \brief Perform a flood fill operation.
- * \param event_context The event context for this tool.
- * \param event The details of this event.
- * \param union_with_selection If true, union the new fill with the current selection.
- * \param is_point_fill If false, use the Rubberband "touch selection" to get the initial points for the fill.
- * \param is_touch_fill If true, use only the initial contact point in the Rubberband "touch selection" as the fill target color.
+ * Perform a flood fill operation.
+ * @param event_context The event context for this tool.
+ * @param event The details of this event.
+ * @param union_with_selection If true, union the new fill with the current selection.
+ * @param is_point_fill If false, use the Rubberband "touch selection" to get the initial points for the fill.
+ * @param is_touch_fill If true, use only the initial contact point in the Rubberband "touch selection" as the fill target color.
  */
 static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *event, bool union_with_selection, bool is_point_fill, bool is_touch_fill) {
     SPDesktop *desktop = event_context->desktop;
     SPDocument *document = sp_desktop_document(desktop);
 
-    /* Create new arena */
-    NRArena *arena = NRArena::create();
-    unsigned dkey = SPItem::display_key_new(1);
-
     document->ensureUpToDate();
     
-    SPItem *document_root = SP_ITEM(document->getRoot());
-    Geom::OptRect bbox = document_root->getBounds(Geom::identity());
+    Geom::OptRect bbox = document->getRoot()->visualBounds();
 
     if (!bbox) {
         desktop->messageStack()->flash(Inkscape::WARNING_MESSAGE, _("<b>Area is not bounded</b>, cannot fill."));
@@ -802,60 +800,51 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     Geom::Point origin(screen.min()[Geom::X],
                        document->getHeight() - screen.height() - screen.min()[Geom::Y]);
                     
-    origin[Geom::X] = origin[Geom::X] + (screen.width() * ((1 - padding) / 2));
-    origin[Geom::Y] = origin[Geom::Y] + (screen.height() * ((1 - padding) / 2));
+    origin[Geom::X] += (screen.width() * ((1 - padding) / 2));
+    origin[Geom::Y] += (screen.height() * ((1 - padding) / 2));
     
     Geom::Scale scale(zoom_scale, zoom_scale);
     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
-    
-    /* Create ArenaItems and set transform */
-    NRArenaItem *root = SP_ITEM(document->getRoot())->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
-    nr_arena_item_set_transform(NR_ARENA_ITEM(root), affine);
 
-    NRGC gc(NULL);
-    gc.transform.setIdentity();
-    
-    NRRectL final_bbox;
-    final_bbox.x0 = 0;
-    final_bbox.y0 = 0; //row;
-    final_bbox.x1 = width;
-    final_bbox.y1 = height; //row + num_rows;
-    
-    nr_arena_item_invoke_update(root, &final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
+    int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+    guchar *px = g_new(guchar, stride * height);
+    guint32 bgcolor, dtc;
 
-    guchar *px = g_new(guchar, 4 * width * height);
-    
-    NRPixBlock B;
-    nr_pixblock_setup_extern( &B, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                              final_bbox.x0, final_bbox.y0, final_bbox.x1, final_bbox.y1,
-                              px, 4 * width, FALSE, FALSE );
-    
-    SPNamedView *nv = sp_desktop_namedview(desktop);
-    unsigned long bgcolor = nv->pagecolor;
-    
-    unsigned char dtc[4];
-    dtc[0] = NR_RGBA32_R(bgcolor);
-    dtc[1] = NR_RGBA32_G(bgcolor);
-    dtc[2] = NR_RGBA32_B(bgcolor);
-    dtc[3] = NR_RGBA32_A(bgcolor);
-    
-    for (unsigned int fy = 0; fy < height; fy++) {
-        guchar *p = NR_PIXBLOCK_PX(&B) + fy * B.rs;
-        for (unsigned int fx = 0; fx < width; fx++) {
-            for (int i = 0; i < 4; i++) { 
-                *p++ = dtc[i];
-            }
-        }
+    { // this block limits the lifetime of Drawing and DrawingContext
+        /* Create DrawingItems and set transform */
+        unsigned dkey = SPItem::display_key_new(1);
+        Inkscape::Drawing drawing;
+        Inkscape::DrawingItem *root = document->getRoot()->invoke_show( drawing, dkey, SP_ITEM_SHOW_DISPLAY);
+        root->setTransform(affine);
+        drawing.setRoot(root);
+
+        Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
+        drawing.update(final_bbox);
+
+        cairo_surface_t *s = cairo_image_surface_create_for_data(
+            px, CAIRO_FORMAT_ARGB32, width, height, stride);
+        Inkscape::DrawingContext ct(s, Geom::Point(0,0));
+        // cairo_translate not necessary here - surface origin is at 0,0
+
+        SPNamedView *nv = sp_desktop_namedview(desktop);
+        bgcolor = nv->pagecolor;
+        // bgcolor is 0xrrggbbaa, we need 0xaarrggbb
+        dtc = (bgcolor >> 8) | (bgcolor << 24);
+
+        ct.setSource(bgcolor);
+        ct.setOperator(CAIRO_OPERATOR_SOURCE);
+        ct.paint();
+        ct.setOperator(CAIRO_OPERATOR_OVER);
+
+        drawing.render(ct, final_bbox);
+
+        cairo_surface_flush(s);
+        cairo_surface_destroy(s);
+        
+        // Hide items
+        document->getRoot()->invoke_hide(dkey);
     }
 
-    nr_arena_item_invoke_render(NULL, root, &final_bbox, &B, NR_ARENA_ITEM_RENDER_NO_CACHE );
-    nr_pixblock_release(&B);
-    
-    // Hide items
-    SP_ITEM(document->getRoot())->invoke_hide(dkey);
-    
-    nr_object_unref((NRObject *) arena);
-    
     guchar *trace_px = g_new(guchar, width * height);
     memset(trace_px, 0x00, width * height);
     
@@ -890,6 +879,7 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
     bci.y_limit = y_limit;
     bci.width = width;
     bci.height = height;
+    bci.stride = stride;
     bci.threshold = threshold;
     bci.method = method;
     bci.bbox = *bbox;
@@ -942,15 +932,8 @@ static void sp_flood_do_flood_fill(SPEventContext *event_context, GdkEvent *even
         int cx = (int)color_point[Geom::X];
         int cy = (int)color_point[Geom::Y];
 
-        unsigned char *orig_px = get_pixel(px, cx, cy, width);
-        unsigned char orig_color[4];
-        for (int i = 0; i < 4; i++) { orig_color[i] = orig_px[i]; }
-
-        unsigned char merged_orig[3];
-
-        merge_pixel_with_background(orig_color, dtc, merged_orig);
-
-        bci.merged_orig_pixel = merged_orig;
+        guint32 orig_color = get_pixel(px, cx, cy, stride);
+        bci.merged_orig_pixel = compose_onto(orig_color, dtc);
 
         unsigned char *trace_t = get_trace_pixel(trace_px, cx, cy, width);
         if (!is_pixel_checked(trace_t) && !is_pixel_colored(trace_t)) {

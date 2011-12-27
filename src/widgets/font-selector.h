@@ -1,5 +1,5 @@
-#ifndef __SP_FONT_SELECTOR_H__
-#define __SP_FONT_SELECTOR_H__
+#ifndef SP_FONT_SELECTOR_H
+#define SP_FONT_SELECTOR_H
 
 /*
  * Font selection widgets
@@ -17,22 +17,18 @@
 #include <glib.h>
 
 struct SPFontSelector;
-struct SPFontPreview;
 
 #define SP_TYPE_FONT_SELECTOR (sp_font_selector_get_type ())
 #define SP_FONT_SELECTOR(o) (GTK_CHECK_CAST ((o), SP_TYPE_FONT_SELECTOR, SPFontSelector))
 #define SP_IS_FONT_SELECTOR(o) (GTK_CHECK_TYPE ((o), SP_TYPE_FONT_SELECTOR))
 
-#define SP_TYPE_FONT_PREVIEW (sp_font_preview_get_type ())
-#define SP_FONT_PREVIEW(o) (GTK_CHECK_CAST ((o), SP_TYPE_FONT_PREVIEW, SPFontPreview))
-#define SP_IS_FONT_PREVIEW(o) (GTK_CHECK_TYPE ((o), SP_TYPE_FONT_PREVIEW))
-
-#include <libnrtype/nrtype-forward.h>
 #include <gtk/gtkwidget.h>
+
+class font_instance;
 
 /* SPFontSelector */
 
-GtkType sp_font_selector_get_type (void);
+GType sp_font_selector_get_type (void);
 
 GtkWidget *sp_font_selector_new (void);
 
@@ -41,19 +37,9 @@ void sp_font_selector_set_font (SPFontSelector *fsel, font_instance *font, doubl
 font_instance *sp_font_selector_get_font (SPFontSelector *fsel);
 double  sp_font_selector_get_size (SPFontSelector *fsel);
 
-/* SPFontPreview */
-
-GtkType sp_font_preview_get_type (void);
-
-GtkWidget *sp_font_preview_new (void);
-
-void sp_font_preview_set_font (SPFontPreview *fprev, font_instance *font, SPFontSelector *fsel);
-void sp_font_preview_set_rgba32 (SPFontPreview *fprev, guint32 rgba);
-void sp_font_preview_set_phrase (SPFontPreview *fprev, const gchar *phrase);
 
 
-
-#endif
+#endif // SP_FONT_SELECTOR_H
 
 /*
   Local Variables:

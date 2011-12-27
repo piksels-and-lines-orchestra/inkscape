@@ -11,7 +11,7 @@
 #include <2geom/transforms.h>
 #include "sp-canvas-util.h"
 #include "sodipodi-ctrl.h"
-#include "libnr/nr-pixops.h"
+#include "display/cairo-utils.h"
 
 enum {
     ARG_0,
@@ -40,10 +40,10 @@ static double sp_ctrl_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **a
 
 static SPCanvasItemClass *parent_class;
 
-GtkType
+GType
 sp_ctrl_get_type (void)
 {
-    static GtkType ctrl_type = 0;
+    static GType ctrl_type = 0;
     if (!ctrl_type) {
         static GTypeInfo const ctrl_info = {
             sizeof (SPCtrlClass),
@@ -71,17 +71,17 @@ sp_ctrl_class_init (SPCtrlClass *klass)
     object_class = (GtkObjectClass *) klass;
     item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass *)gtk_type_class (sp_canvas_item_get_type ());
+    parent_class = (SPCanvasItemClass *)g_type_class_peek_parent (klass);
 
-    gtk_object_add_arg_type ("SPCtrl::shape", GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_SHAPE);
-    gtk_object_add_arg_type ("SPCtrl::mode", GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_MODE);
-    gtk_object_add_arg_type ("SPCtrl::anchor", GTK_TYPE_ANCHOR_TYPE, GTK_ARG_READWRITE, ARG_ANCHOR);
-    gtk_object_add_arg_type ("SPCtrl::size", GTK_TYPE_DOUBLE, GTK_ARG_READWRITE, ARG_SIZE);
-    gtk_object_add_arg_type ("SPCtrl::pixbuf", GTK_TYPE_POINTER, GTK_ARG_READWRITE, ARG_PIXBUF);
-    gtk_object_add_arg_type ("SPCtrl::filled", GTK_TYPE_BOOL, GTK_ARG_READWRITE, ARG_FILLED);
-    gtk_object_add_arg_type ("SPCtrl::fill_color", GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_FILL_COLOR);
-    gtk_object_add_arg_type ("SPCtrl::stroked", GTK_TYPE_BOOL, GTK_ARG_READWRITE, ARG_STROKED);
-    gtk_object_add_arg_type ("SPCtrl::stroke_color", GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_STROKE_COLOR);
+    gtk_object_add_arg_type ("SPCtrl::shape", G_TYPE_INT, G_PARAM_READWRITE, ARG_SHAPE);
+    gtk_object_add_arg_type ("SPCtrl::mode", G_TYPE_INT, G_PARAM_READWRITE, ARG_MODE);
+    gtk_object_add_arg_type ("SPCtrl::anchor", GTK_TYPE_ANCHOR_TYPE, G_PARAM_READWRITE, ARG_ANCHOR);
+    gtk_object_add_arg_type ("SPCtrl::size", G_TYPE_DOUBLE, G_PARAM_READWRITE, ARG_SIZE);
+    gtk_object_add_arg_type ("SPCtrl::pixbuf", G_TYPE_POINTER, G_PARAM_READWRITE, ARG_PIXBUF);
+    gtk_object_add_arg_type ("SPCtrl::filled", G_TYPE_BOOLEAN, G_PARAM_READWRITE, ARG_FILLED);
+    gtk_object_add_arg_type ("SPCtrl::fill_color", G_TYPE_INT, G_PARAM_READWRITE, ARG_FILL_COLOR);
+    gtk_object_add_arg_type ("SPCtrl::stroked", G_TYPE_BOOLEAN, G_PARAM_READWRITE, ARG_STROKED);
+    gtk_object_add_arg_type ("SPCtrl::stroke_color", G_TYPE_INT, G_PARAM_READWRITE, ARG_STROKE_COLOR);
 
     object_class->destroy = sp_ctrl_destroy;
     object_class->set_arg = sp_ctrl_set_arg;
@@ -105,9 +105,14 @@ sp_ctrl_init (SPCtrl *ctrl)
     ctrl->stroked = 0;
     ctrl->fill_color = 0x000000ff;
     ctrl->stroke_color = 0x000000ff;
-    ctrl->_moved = false;
 
-    ctrl->box.x0 = ctrl->box.y0 = ctrl->box.x1 = ctrl->box.y1 = 0;
+    // This way we make sure that the first sp_ctrl_update() call finishes properly;
+    // in subsequent calls it will not update anything it the control hasn't moved
+    // Consider for example the case in which a snap indicator is drawn at (0, 0);
+    // If moveto() is called then it will not set _moved to true because we're initially already at (0, 0)
+    ctrl->_moved = true; // Is this flag ever going to be set back to false? I can't find where that is supposed to happen
+
+    new (&ctrl->box) Geom::IntRect(0,0,0,0);
     ctrl->cache = NULL;
     ctrl->pixbuf = NULL;
 
@@ -125,7 +130,7 @@ sp_ctrl_destroy (GtkObject *object)
     ctrl = SP_CTRL (object);
 
     if (ctrl->cache) {
-        g_free(ctrl->cache);
+        delete[] ctrl->cache;
         ctrl->cache = NULL;
     }
 
@@ -175,11 +180,12 @@ sp_ctrl_set_arg (GtkObject *object, GtkArg *arg, guint arg_id)
             sp_canvas_item_request_update (item);
             break;
 
-        case ARG_FILL_COLOR:
-            ctrl->fill_color = GTK_VALUE_INT (*arg);
+        case ARG_FILL_COLOR: {
+            guint32 fill = GTK_VALUE_INT (*arg);
+            ctrl->fill_color = fill;
             ctrl->build = FALSE;
             sp_canvas_item_request_update (item);
-            break;
+            } break;
 
         case ARG_STROKED:
             ctrl->stroked = GTK_VALUE_BOOL (*arg);
@@ -187,11 +193,12 @@ sp_ctrl_set_arg (GtkObject *object, GtkArg *arg, guint arg_id)
             sp_canvas_item_request_update (item);
             break;
 
-        case ARG_STROKE_COLOR:
-            ctrl->stroke_color = GTK_VALUE_INT (*arg);
+        case ARG_STROKE_COLOR: {
+            guint32 stroke = GTK_VALUE_INT (*arg);
+            ctrl->stroke_color = stroke;
             ctrl->build = FALSE;
             sp_canvas_item_request_update (item);
-            break;
+            } break;
 
         case ARG_PIXBUF:
             pixbuf  = (GdkPixbuf*)(GTK_VALUE_POINTER (*arg));
@@ -225,7 +232,7 @@ sp_ctrl_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int fla
     if (!ctrl->_moved) return;
 
     if (ctrl->shown) {
-        sp_canvas_request_redraw (item->canvas, ctrl->box.x0, ctrl->box.y0, ctrl->box.x1 + 1, ctrl->box.y1 + 1);
+        sp_canvas_request_redraw (item->canvas, ctrl->box.left(), ctrl->box.top(), ctrl->box.right() + 1, ctrl->box.bottom() + 1);
     }
 
     if (!ctrl->defined) return;
@@ -271,12 +278,8 @@ sp_ctrl_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int fla
             break;
     }
 
-    ctrl->box.x0 = x;
-    ctrl->box.y0 = y;
-    ctrl->box.x1 = ctrl->box.x0 + 2 * ctrl->span;
-    ctrl->box.y1 = ctrl->box.y0 + 2 * ctrl->span;
-
-    sp_canvas_update_bbox (item, ctrl->box.x0, ctrl->box.y0, ctrl->box.x1 + 1, ctrl->box.y1 + 1);
+    ctrl->box = Geom::IntRect::from_xywh(x, y, 2*ctrl->span, 2*ctrl->span);
+    sp_canvas_update_bbox (item, ctrl->box.left(), ctrl->box.top(), ctrl->box.right() + 1, ctrl->box.bottom() + 1);
 }
 
 static double
@@ -286,63 +289,63 @@ sp_ctrl_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_item)
 
     *actual_item = item;
 
-    double const x = p[Geom::X];
-    double const y = p[Geom::Y];
-
-    if ((x >= ctrl->box.x0) && (x <= ctrl->box.x1) && (y >= ctrl->box.y0) && (y <= ctrl->box.y1)) return 0.0;
-
+    if (ctrl->box.contains(p.floor())) return 0.0;
     return 1e18;
 }
 
 static void
 sp_ctrl_build_cache (SPCtrl *ctrl)
 {
-    guchar * p, *q;
+    guint32 *p, *q;
     gint size, x, y, z, s, a, side, c;
-    guint8 fr, fg, fb, fa, sr, sg, sb, sa;
+    guint32 stroke_color, fill_color;
 
     if (ctrl->filled) {
-        fr = (ctrl->fill_color >> 24) & 0xff;
-        fg = (ctrl->fill_color >> 16) & 0xff;
-        fb = (ctrl->fill_color >> 8) & 0xff;
-        fa = (ctrl->fill_color) & 0xff;
+        if (ctrl->mode == SP_CTRL_MODE_XOR) {
+            fill_color = ctrl->fill_color;
+        } else {
+            fill_color = argb32_from_rgba(ctrl->fill_color);
+        }
     } else {
-        fr = 0x00; fg = 0x00; fb = 0x00; fa = 0x00;
+        fill_color = 0;
     }
     if (ctrl->stroked) {
-        sr = (ctrl->stroke_color >> 24) & 0xff;
-        sg = (ctrl->stroke_color >> 16) & 0xff;
-        sb = (ctrl->stroke_color >> 8) & 0xff;
-        sa = (ctrl->stroke_color) & 0xff;
+        if (ctrl->mode == SP_CTRL_MODE_XOR) {
+            stroke_color = ctrl->stroke_color;
+        } else {
+            stroke_color = argb32_from_rgba(ctrl->stroke_color);
+        }
     } else {
-        sr = fr; sg = fg; sb = fb; sa = fa;
+        stroke_color = fill_color;
     }
 
 
     side = (ctrl->span * 2 +1);
-    c = ctrl->span ;
-    size = (side) * (side) * 4;
+    c = ctrl->span;
+    size = side * side;
     if (side < 2) return;
 
-    if (ctrl->cache)
-        g_free (ctrl->cache);
-    ctrl->cache = (guchar*)g_malloc (size);
+    if (ctrl->cache) delete[] ctrl->cache;
+    ctrl->cache = new guint32[size];
 
     switch (ctrl->shape) {
         case SP_CTRL_SHAPE_SQUARE:
             p = ctrl->cache;
+            // top edge
             for (x=0; x < side; x++) {
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
+                *p++ = stroke_color;
             }
+            // middle
             for (y = 2; y < side; y++) {
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
+                *p++ = stroke_color; // stroke at first and last pixel
                 for (x=2; x < side; x++) {
-                    *p++ = fr; *p++ = fg; *p++ = fb; *p++ = fa;
+                    *p++ = fill_color; // fill in the middle
                 }
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
+                *p++ = stroke_color;
             }
+            // bottom edge
             for (x=0; x < side; x++) {
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
+                *p++ = stroke_color;
             }
             ctrl->build = TRUE;
             break;
@@ -352,19 +355,20 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
             for (y = 0; y < side; y++) {
                 z = abs (c - y);
                 for (x = 0; x < z; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
+                    *p++ = 0;
                 }
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
+                *p++ = stroke_color; x++;
                 for (; x < side - z -1; x++) {
-                    *p++ = fr; *p++ = fg; *p++ = fb; *p++ = fa;
+                    *p++ = fill_color;
                 }
                 if (z != c) {
-                    *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
+                    *p++ = stroke_color; x++;
                 }
                 for (; x < side; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
+                    *p++ = 0;
                 }
             }
+            ctrl->build = TRUE;
             break;
 
         case SP_CTRL_SHAPE_CIRCLE:
@@ -376,28 +380,28 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
                 z = (gint)(0.0 + sqrt ((c+.4)*(c+.4) - a*a));
                 x = 0;
                 while (x < c-z) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                    *q-- = 0x00; *q-- = 0x00; *q-- = 0x00; *q-- = 0x00;
+                    *p++ = 0;
+                    *q-- = 0;
                     x++;
                 }
                 do {
-                    *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa;
-                    *q-- = sa; *q-- = sb; *q-- = sg; *q-- = sr;
+                    *p++ = stroke_color;
+                    *q-- = stroke_color;
                     x++;
                 } while (x < c-s);
                 while (x < MIN(c+s+1, c+z)) {
-                    *p++ = fr;   *p++ = fg;   *p++ = fb;   *p++ = fa;
-                    *q-- = fa;   *q-- = fb;   *q-- = fg;   *q-- = fr;
+                    *p++ = fill_color;
+                    *q-- = fill_color;
                     x++;
                 }
                 do {
-                    *p++ = sr;   *p++ = sg;   *p++ = sb;   *p++ = sa;
-                    *q-- = sa; *q-- = sb; *q-- = sg; *q-- = sr;
+                    *p++ = stroke_color;
+                    *q-- = stroke_color;
                     x++;
                 } while (x <= c+z);
                 while (x < side) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
-                    *q-- = 0x00; *q-- = 0x00; *q-- = 0x00; *q-- = 0x00;
+                    *p++ = 0;
+                    *q-- = 0;
                     x++;
                 }
                 s = z;
@@ -410,17 +414,17 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
             for (y = 0; y < side; y++) {
                 z = abs (c - y);
                 for (x = 0; x < c-z; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
+                    *p++ = 0;
                 }
-                *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
+                *p++ = stroke_color; x++;
                 for (; x < c + z; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
+                    *p++ = 0;
                 }
                 if (z != 0) {
-                    *p++ = sr; *p++ = sg; *p++ = sb; *p++ = sa; x++;
+                    *p++ = stroke_color; x++;
                 }
                 for (; x < side; x++) {
-                    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x00;
+                    *p++ = 0;
                 }
             }
             ctrl->build = TRUE;
@@ -433,28 +437,19 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
                 px = gdk_pixbuf_get_pixels (ctrl->pixbuf);
                 rs = gdk_pixbuf_get_rowstride (ctrl->pixbuf);
                 for (y = 0; y < side; y++){
-                    unsigned char *s, *d;
+                    guint32 *d;
+                    unsigned char *s;
                     s = px + y * rs;
-                    d = ctrl->cache + 4 * side * y;
+                    d = ctrl->cache + side * y;
                     for (x = 0; x < side; x++) {
                         if (s[3] < 0x80) {
-                            d[0] = 0x00;
-                            d[1] = 0x00;
-                            d[2] = 0x00;
-                            d[3] = 0x00;
+                            *d++ = 0;
                         } else if (s[0] < 0x80) {
-                            d[0] = sr;
-                            d[1] = sg;
-                            d[2] = sb;
-                            d[3] = sa;
+                            *d++ = stroke_color;
                         } else {
-                            d[0] = fr;
-                            d[1] = fg;
-                            d[2] = fb;
-                            d[3] = fa;
+                            *d++ = fill_color;
                         }
                         s += 4;
-                        d += 4;
                     }
                 }
             } else {
@@ -466,16 +461,13 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
         case SP_CTRL_SHAPE_IMAGE:
             if (ctrl->pixbuf) {
                 guint r = gdk_pixbuf_get_rowstride (ctrl->pixbuf);
-                guchar * pix;
-                q = gdk_pixbuf_get_pixels (ctrl->pixbuf);
+                guint32 *px;
+                guchar *data = gdk_pixbuf_get_pixels (ctrl->pixbuf);
                 p = ctrl->cache;
                 for (y = 0; y < side; y++){
-                    pix = q + (y * r);
+                    px = reinterpret_cast<guint32*>(data + y * r);
                     for (x = 0; x < side; x++) {
-                        *p++ = *pix++;
-                        *p++ = *pix++;
-                        *p++ = *pix++;
-                        *p++ = *pix++;
+                        *p++ = *px++;
                     }
                 }
             } else {
@@ -487,65 +479,84 @@ sp_ctrl_build_cache (SPCtrl *ctrl)
         default:
             break;
     }
-
 }
 
-// composite background, foreground, alpha for xor mode
-#define COMPOSE_X(b,f,a) ( FAST_DIVIDE<255>( ((guchar) b) * ((guchar) (0xff - a)) + ((guchar) ((b ^ ~f) + b/4 - (b>127? 63 : 0))) * ((guchar) a) ) )
-// composite background, foreground, alpha for color mode
-#define COMPOSE_N(b,f,a) ( FAST_DIVIDE<255>( ((guchar) b) * ((guchar) (0xff - a)) + ((guchar) f) * ((guchar) a) ) )
+static inline guint32 compose_xor(guint32 bg, guint32 fg, guint32 a)
+{
+    guint32 c = bg * (255-a) + (((bg ^ ~fg) + (bg >> 2) - (bg > 127 ? 63 : 0)) & 255) * a;
+    return (c + 127) / 255;
+}
 
 static void
 sp_ctrl_render (SPCanvasItem *item, SPCanvasBuf *buf)
 {
-    gint y0, y1, y, x0,x1,x;
-    guchar *p, *q, a;
+    //gint y0, y1, y, x0,x1,x;
+    //guchar *p, *q, a;
 
     SPCtrl *ctrl = SP_CTRL (item);
 
     if (!ctrl->defined) return;
     if ((!ctrl->filled) && (!ctrl->stroked)) return;
 
-    sp_canvas_prepare_buffer (buf);
-
     // the control-image is rendered into ctrl->cache
     if (!ctrl->build) {
         sp_ctrl_build_cache (ctrl);
     }
 
-    // then we render from ctrl->cache
-    y0 = MAX (ctrl->box.y0, buf->rect.y0);
-    y1 = MIN (ctrl->box.y1, buf->rect.y1 - 1);
-    x0 = MAX (ctrl->box.x0, buf->rect.x0);
-    x1 = MIN (ctrl->box.x1, buf->rect.x1 - 1);
+    int w, h;
+    w = h = (ctrl->span * 2 +1);
 
-    bool colormode;
+    // The code below works even when the target is not an image surface
+    if (ctrl->mode == SP_CTRL_MODE_XOR) {
+        // 1. Copy the affected part of output to a temporary surface
+        cairo_surface_t *work = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+        cairo_t *cr = cairo_create(work);
+        cairo_translate(cr, -ctrl->box.left(), -ctrl->box.top());
+        cairo_set_source_surface(cr, cairo_get_target(buf->ct), buf->rect.left(), buf->rect.top());
+        cairo_paint(cr);
+        cairo_destroy(cr);
 
-    for (y = y0; y <= y1; y++) {
-        p = buf->buf + (y - buf->rect.y0) * buf->buf_rowstride + (x0 - buf->rect.x0) * 4;
-        q = ctrl->cache + ((y - ctrl->box.y0) * (ctrl->span*2+1) + (x0 - ctrl->box.x0)) * 4;
-        for (x = x0; x <= x1; x++) {
-            a = *(q + 3);
-            // 00000000 is the only way to get invisible; all other colors with alpha 00 are treated as mode_color with alpha ff
-            colormode = false;
-            if (a == 0x00 && !(q[0] == 0x00 && q[1] == 0x00 && q[2] == 0x00)) {
-                a = 0xff;
-                colormode = true;
-            }
-            if (ctrl->mode == SP_CTRL_MODE_COLOR || colormode) {
-                p[0] = COMPOSE_N (p[0], q[0], a);
-                p[1] = COMPOSE_N (p[1], q[1], a);
-                p[2] = COMPOSE_N (p[2], q[2], a);
-                q += 4;
-                p += 4;
-            } else if (ctrl->mode == SP_CTRL_MODE_XOR) {
-                p[0] = COMPOSE_X (p[0], q[0], a);
-                p[1] = COMPOSE_X (p[1], q[1], a);
-                p[2] = COMPOSE_X (p[2], q[2], a);
-                q += 4;
-                p += 4;
+        // 2. Composite the control on a temporary surface
+        cairo_surface_flush(work);
+        int strideb = cairo_image_surface_get_stride(work);
+        unsigned char *pxb = cairo_image_surface_get_data(work);
+        guint32 *p = ctrl->cache;
+        for (int i=0; i<h; ++i) {
+            guint32 *pb = reinterpret_cast<guint32*>(pxb + i*strideb);
+            for (int j=0; j<w; ++j) {
+                guint32 cc = *p++;
+                guint32 ac = cc & 0xff;
+                if (ac == 0 && cc != 0) {
+                    *pb++ = argb32_from_rgba(cc | 0x000000ff);
+                } else {
+                    EXTRACT_ARGB32(*pb, ab,rb,gb,bb)
+                    guint32 ro = compose_xor(rb, (cc & 0xff000000) >> 24, ac);
+                    guint32 go = compose_xor(gb, (cc & 0x00ff0000) >> 16, ac);
+                    guint32 bo = compose_xor(bb, (cc & 0x0000ff00) >>  8, ac);
+                    ASSEMBLE_ARGB32(px, ab,ro,go,bo)
+                    *pb++ = px;
+                }
             }
         }
+        cairo_surface_mark_dirty(work);
+
+        // 3. Replace the affected part of output with contents of temporary surface
+        cairo_save(buf->ct);
+        cairo_set_source_surface(buf->ct, work,
+            ctrl->box.left() - buf->rect.left(), ctrl->box.top() - buf->rect.top());
+        cairo_rectangle(buf->ct, ctrl->box.left() - buf->rect.left(), ctrl->box.top() - buf->rect.top(), w, h);
+        cairo_clip(buf->ct);
+        cairo_set_operator(buf->ct, CAIRO_OPERATOR_SOURCE);
+        cairo_paint(buf->ct);
+        cairo_restore(buf->ct);
+        cairo_surface_destroy(work);
+    } else {
+        cairo_surface_t *cache = cairo_image_surface_create_for_data(
+            reinterpret_cast<unsigned char*>(ctrl->cache), CAIRO_FORMAT_ARGB32, w, h, w*4);
+        cairo_set_source_surface(buf->ct, cache,
+            ctrl->box.left() - buf->rect.left(), ctrl->box.top() - buf->rect.top());
+        cairo_paint(buf->ct);
+        cairo_surface_destroy(cache);
     }
     ctrl->shown = TRUE;
 }

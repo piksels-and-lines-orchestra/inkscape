@@ -1,5 +1,6 @@
-/** @file
- * @brief Document properties dialog, Gtkmm-style
+/**
+ * @file
+ * Document properties dialog, Gtkmm-style.
  */
 /* Authors:
  *   bulia byak <buliabyak@users.sf.net>
@@ -43,8 +44,6 @@
 #include "xml/repr.h"
 
 #if ENABLE_LCMS
-#include <lcms.h>
-//#include "color-profile-fns.h"
 #include "color-profile.h"
 #endif // ENABLE_LCMS
 
@@ -75,8 +74,7 @@ static Inkscape::XML::NodeEventVector const _repr_events = {
 };
 
 
-DocumentProperties &
-DocumentProperties::getInstance()
+DocumentProperties& DocumentProperties::getInstance()
 {
     DocumentProperties &instance = *new DocumentProperties();
     instance.init();
@@ -86,8 +84,13 @@ DocumentProperties::getInstance()
 
 DocumentProperties::DocumentProperties()
     : UI::Widget::Panel ("", "/dialogs/documentoptions", SP_VERB_DIALOG_NAMEDVIEW),
-      _page_page(1, 1, true, true), _page_guides(1, 1),
-      _page_snap(1, 1), _page_cms(1, 1), _page_scripting(1, 1),
+      _page_page(1, 1, true, true),
+      _page_guides(1, 1),
+      _page_snap(1, 1),
+      _page_cms(1, 1),
+      _page_scripting(1, 1),
+      _page_external_scripts(1, 1),
+      _page_embedded_scripts(1, 1),
     //---------------------------------------------------------------
       _rcb_canb(_("Show page _border"), _("If set, rectangular page border is shown"), "showborder", _wr, false),
       _rcb_bord(_("Border on _top of drawing"), _("If set, border is always on top of the drawing"), "borderlayer", _wr, false),
@@ -99,16 +102,31 @@ DocumentProperties::DocumentProperties()
     //---------------------------------------------------------------
       //General snap options
       _rcb_sgui(_("Show _guides"), _("Show or hide guides"), "showguides", _wr),
-      _rcbsng(_("_Snap guides while dragging"), _("While dragging a guide, snap to object nodes or bounding box corners ('Snap to nodes' or 'snap to bounding box corners' must be enabled; only a small part of the guide near the cursor will snap)"),
-                  "inkscape:snap-from-guide", _wr),
       _rcp_gui(_("Guide co_lor:"), _("Guideline color"), _("Color of guidelines"), "guidecolor", "guideopacity", _wr),
       _rcp_hgui(_("_Highlight color:"), _("Highlighted guideline color"), _("Color of a guideline when it is under mouse"), "guidehicolor", "guidehiopacity", _wr),
+    //---------------------------------------------------------------
+    _rsu_sno(_("Snap _distance"), _("Snap only when _closer than:"), _("Always snap"),
+                  _("Snapping distance, in screen pixels, for snapping to objects"), _("Always snap to objects, regardless of their distance"),
+                  _("If set, objects only snap to another object when it's within the range specified below"),
+                  "objecttolerance", _wr),
+    //Options for snapping to grids
+    _rsu_sn(_("Snap d_istance"), _("Snap only when c_loser than:"), _("Always snap"),
+                  _("Snapping distance, in screen pixels, for snapping to grid"), _("Always snap to grids, regardless of the distance"),
+                  _("If set, objects only snap to a grid line when it's within the range specified below"),
+                  "gridtolerance", _wr),
+    //Options for snapping to guides
+    _rsu_gusn(_("Snap dist_ance"), _("Snap only when close_r than:"), _("Always snap"),
+                _("Snapping distance, in screen pixels, for snapping to guides"), _("Always snap to guides, regardless of the distance"),
+                _("If set, objects only snap to a guide when it's within the range specified below"),
+                "guidetolerance", _wr),
+    //---------------------------------------------------------------
+      _rcb_snclp(_("Snap to clip paths"), _("When snapping to paths, then also try snapping to clip paths"), "inkscape:snap-path-clip", _wr),
+      _rcb_snmsk(_("Snap to mask paths"), _("When snapping to paths, then also try snapping to mask paths"), "inkscape:snap-path-mask", _wr),
     //---------------------------------------------------------------
       _grids_label_crea("", Gtk::ALIGN_LEFT),
       _grids_button_new(C_("Grid", "_New"), _("Create new grid.")),
       _grids_button_remove(C_("Grid", "_Remove"), _("Remove selected grid.")),
       _grids_label_def("", Gtk::ALIGN_LEFT)
-    //---------------------------------------------------------------
 {
     _tt.enable();
     _getContents()->set_spacing (4);
@@ -138,14 +156,13 @@ DocumentProperties::DocumentProperties()
     signalDeactiveDesktop().connect(sigc::mem_fun(*this, &DocumentProperties::_handleDeactivateDesktop));
 }
 
-void
-DocumentProperties::init()
+void DocumentProperties::init()
 {
     update();
 
     Inkscape::XML::Node *repr = sp_desktop_namedview(getDesktop())->getRepr();
     repr->addListener (&_repr_events, this);
-    Inkscape::XML::Node *root = sp_desktop_document(getDesktop())->root->getRepr();
+    Inkscape::XML::Node *root = sp_desktop_document(getDesktop())->getRoot()->getRepr();
     root->addListener (&_repr_events, this);
 
     show_all_children();
@@ -156,7 +173,7 @@ DocumentProperties::~DocumentProperties()
 {
     Inkscape::XML::Node *repr = sp_desktop_namedview(getDesktop())->getRepr();
     repr->removeListenerByData (this);
-    Inkscape::XML::Node *root = sp_desktop_document(getDesktop())->root->getRepr();
+    Inkscape::XML::Node *root = sp_desktop_document(getDesktop())->getRoot()->getRepr();
     root->removeListenerByData (this);
 }
 
@@ -168,9 +185,8 @@ DocumentProperties::~DocumentProperties()
  * possible cases: (0,0) means insert space in first column; (0, non-0) means
  * widget in columns 2-3; (non-0, 0) means label in columns 1-3; and
  * (non-0, non-0) means two widgets in columns 2 and 3.
-**/
-inline void
-attach_all(Gtk::Table &table, Gtk::Widget *const arr[], unsigned const n, int start = 0)
+ */
+inline void attach_all(Gtk::Table &table, Gtk::Widget *const arr[], unsigned const n, int start = 0)
 {
     for (unsigned i = 0, r = start; i < n; i += 2)
     {
@@ -211,8 +227,7 @@ attach_all(Gtk::Table &table, Gtk::Widget *const arr[], unsigned const n, int st
     }
 }
 
-void
-DocumentProperties::build_page()
+void DocumentProperties::build_page()
 {
     _page_page.show();
 
@@ -243,8 +258,7 @@ DocumentProperties::build_page()
     attach_all(_page_page.table(), widget_array, G_N_ELEMENTS(widget_array));
 }
 
-void
-DocumentProperties::build_guides()
+void DocumentProperties::build_guides()
 {
     _page_guides.show();
 
@@ -256,34 +270,15 @@ DocumentProperties::build_guides()
         label_gui,        0,
         0,                &_rcb_sgui,
         _rcp_gui._label,  &_rcp_gui,
-        _rcp_hgui._label, &_rcp_hgui,
-        0,                &_rcbsng,
+        _rcp_hgui._label, &_rcp_hgui
     };
 
     attach_all(_page_guides.table(), widget_array, G_N_ELEMENTS(widget_array));
 }
 
-void
-DocumentProperties::build_snap()
+void DocumentProperties::build_snap()
 {
     _page_snap.show();
-
-    _rsu_sno.init (_("Snap _distance"), _("Snap only when _closer than:"), _("Always snap"),
-                  _("Snapping distance, in screen pixels, for snapping to objects"), _("Always snap to objects, regardless of their distance"),
-                  _("If set, objects only snap to another object when it's within the range specified below"),
-                  "objecttolerance", _wr);
-
-    //Options for snapping to grids
-    _rsu_sn.init (_("Snap d_istance"), _("Snap only when c_loser than:"), _("Always snap"),
-                  _("Snapping distance, in screen pixels, for snapping to grid"), _("Always snap to grids, regardless of the distance"),
-                  _("If set, objects only snap to a grid line when it's within the range specified below"),
-                  "gridtolerance", _wr);
-
-    //Options for snapping to guides
-    _rsu_gusn.init (_("Snap dist_ance"), _("Snap only when close_r than:"), _("Always snap"),
-                _("Snapping distance, in screen pixels, for snapping to guides"), _("Always snap to guides, regardless of the distance"),
-                _("If set, objects only snap to a guide when it's within the range specified below"),
-                "guidetolerance", _wr);
 
     Gtk::Label *label_o = manage (new Gtk::Label);
     label_o->set_markup (_("<b>Snap to objects</b>"));
@@ -296,6 +291,8 @@ DocumentProperties::build_snap()
     {
         label_o,            0,
         0,                  _rsu_sno._vbox,
+        0,                  &_rcb_snclp,
+        0,                  &_rcb_snmsk,
         0,                  0,
         label_gr,           0,
         0,                  _rsu_sn._vbox,
@@ -308,53 +305,29 @@ DocumentProperties::build_snap()
  }
 
 #if ENABLE_LCMS
-static void
-lcms_profile_get_name (cmsHPROFILE   profile, const gchar **name)
-{
-  if (profile)
-    {
-      *name = cmsTakeProductDesc (profile);
-
-      if (! *name)
-        *name = cmsTakeProductName (profile);
-
-      if (*name && ! g_utf8_validate (*name, -1, NULL))
-        *name = _("(invalid UTF-8 string)");
-    }
-  else
-    {
-      *name = _("None");
-    }
-}
-
-void
-DocumentProperties::populate_available_profiles(){
+void DocumentProperties::populate_available_profiles(){
     Glib::ListHandle<Gtk::Widget*> children = _menu.get_children();
     for ( Glib::ListHandle<Gtk::Widget*>::iterator it2 = children.begin(); it2 != children.end(); ++it2 ) {
         _menu.remove(**it2);
         delete(*it2);
     }
 
-    std::list<Glib::ustring> files = ColorProfile::getProfileFiles();
-    for ( std::list<Glib::ustring>::const_iterator it = files.begin(); it != files.end(); ++it ) {
-        cmsHPROFILE hProfile = cmsOpenProfileFromFile(it->c_str(), "r");
-        if ( hProfile ){
-            const gchar* name = 0;
-            lcms_profile_get_name(hProfile, &name);
-            Gtk::MenuItem* mi = manage(new Gtk::MenuItem());
-            mi->set_data("filepath", g_strdup(it->c_str()));
-            mi->set_data("name", g_strdup(name));
-            Gtk::HBox *hbox = manage(new Gtk::HBox());
-            hbox->show();
-            Gtk::Label* lbl = manage(new Gtk::Label(name));
-            lbl->show();
-            hbox->pack_start(*lbl, true, true, 0);
-            mi->add(*hbox);
-            mi->show_all();
-            _menu.append(*mi);
-//            g_free((void*)name);
-            cmsCloseProfile(hProfile);
-        }
+    std::vector<std::pair<Glib::ustring, Glib::ustring> > pairs = ColorProfile::getProfileFilesWithNames();
+    for ( std::vector<std::pair<Glib::ustring, Glib::ustring> >::const_iterator it = pairs.begin(); it != pairs.end(); ++it ) {
+        Glib::ustring file = it->first;
+        Glib::ustring name = it->second;
+
+        Gtk::MenuItem* mi = manage(new Gtk::MenuItem());
+        mi->set_data("filepath", g_strdup(file.c_str()));
+        mi->set_data("name", g_strdup(name.c_str()));
+        Gtk::HBox *hbox = manage(new Gtk::HBox());
+        hbox->show();
+        Gtk::Label* lbl = manage(new Gtk::Label(name));
+        lbl->show();
+        hbox->pack_start(*lbl, true, true, 0);
+        mi->add(*hbox);
+        mi->show_all();
+        _menu.append(*mi);
     }
 
     _menu.show_all();
@@ -393,8 +366,7 @@ static void sanitizeName( Glib::ustring& str )
     }
 }
 
-void
-DocumentProperties::linkSelectedProfile()
+void DocumentProperties::linkSelectedProfile()
 {
 //store this profile in the SVG document (create <color-profile> element in the XML)
     // TODO remove use of 'active' desktop
@@ -421,7 +393,7 @@ DocumentProperties::linkSelectedProfile()
             xml_doc->root()->addChild(defsRepr, NULL);
         }
 
-        g_assert(SP_ROOT(desktop->doc()->root)->defs);
+        g_assert(desktop->doc()->getDefs());
         defsRepr->addChild(cprofRepr, NULL);
 
         // TODO check if this next line was sometimes needed. It being there caused an assertion.
@@ -434,8 +406,7 @@ DocumentProperties::linkSelectedProfile()
     }
 }
 
-void
-DocumentProperties::populate_linked_profiles_box()
+void DocumentProperties::populate_linked_profiles_box()
 {
     _LinkedProfilesListStore->clear();
     const GSList *current = SP_ACTIVE_DOCUMENT->getResourceList( "iccprofile" );
@@ -459,6 +430,13 @@ void DocumentProperties::external_scripts_list_button_release(GdkEventButton* ev
     }
 }
 
+void DocumentProperties::embedded_scripts_list_button_release(GdkEventButton* event)
+{
+    if((event->type == GDK_BUTTON_RELEASE) && (event->button == 3)) {
+        _EmbeddedScriptsContextMenu.popup(event->button, event->time);
+    }
+}
+
 void DocumentProperties::linked_profiles_list_button_release(GdkEventButton* event)
 {
     if((event->type == GDK_BUTTON_RELEASE) && (event->button == 3)) {
@@ -476,13 +454,22 @@ void DocumentProperties::cms_create_popup_menu(Gtk::Widget& parent, sigc::slot<v
 }
 
 
-void DocumentProperties::scripting_create_popup_menu(Gtk::Widget& parent, sigc::slot<void> rem)
+void DocumentProperties::external_create_popup_menu(Gtk::Widget& parent, sigc::slot<void> rem)
 {
     Gtk::MenuItem* mi = Gtk::manage(new Gtk::ImageMenuItem(Gtk::Stock::REMOVE));
     _ExternalScriptsContextMenu.append(*mi);
     mi->signal_activate().connect(rem);
     mi->show();
     _ExternalScriptsContextMenu.accelerate(parent);
+}
+
+void DocumentProperties::embedded_create_popup_menu(Gtk::Widget& parent, sigc::slot<void> rem)
+{
+    Gtk::MenuItem* mi = Gtk::manage(new Gtk::ImageMenuItem(Gtk::Stock::REMOVE));
+    _EmbeddedScriptsContextMenu.append(*mi);
+    mi->signal_activate().connect(rem);
+    mi->show();
+    _EmbeddedScriptsContextMenu.accelerate(parent);
 }
 
 void DocumentProperties::removeSelectedProfile(){
@@ -513,8 +500,7 @@ void DocumentProperties::removeSelectedProfile(){
     populate_linked_profiles_box();
 }
 
-void
-DocumentProperties::build_cms()
+void DocumentProperties::build_cms()
 {
     _page_cms.show();
 
@@ -579,32 +565,40 @@ DocumentProperties::build_cms()
 }
 #endif // ENABLE_LCMS
 
-void
-DocumentProperties::build_scripting()
+void DocumentProperties::build_scripting()
 {
     _page_scripting.show();
 
-    Gtk::Label *label_script= manage (new Gtk::Label("", Gtk::ALIGN_LEFT));
-    label_script->set_markup (_("<b>External script files:</b>"));
+    _page_scripting.set_spacing (4);
+    _page_scripting.pack_start(_scripting_notebook, true, true);
+
+    _scripting_notebook.append_page(_page_external_scripts, _("External scripts"));
+    _scripting_notebook.append_page(_page_embedded_scripts, _("Embedded scripts"));
+
+    //# External scripts tab
+    _page_external_scripts.show();
+    
+    Gtk::Label *label_external= manage (new Gtk::Label("", Gtk::ALIGN_LEFT));
+    label_external->set_markup (_("<b>External script files:</b>"));
 
     _add_btn.set_label(_("Add"));
 
-    _page_scripting.set_spacing(4);
+    _page_external_scripts.set_spacing(4);
     gint row = 0;
 
-    label_script->set_alignment(0.0);
-    _page_scripting.table().attach(*label_script, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    label_external->set_alignment(0.0);
+    _page_external_scripts.table().attach(*label_external, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
     row++;
-    _page_scripting.table().attach(_ExternalScriptsListScroller, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
-    row++;
-
-    Gtk::HBox* spacer = Gtk::manage(new Gtk::HBox());
-    spacer->set_size_request(SPACE_SIZE_X, SPACE_SIZE_Y);
-    _page_scripting.table().attach(*spacer, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    _page_external_scripts.table().attach(_ExternalScriptsListScroller, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
     row++;
 
-    _page_scripting.table().attach(_script_entry, 0, 2, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
-    _page_scripting.table().attach(_add_btn, 2, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    Gtk::HBox* spacer_external = Gtk::manage(new Gtk::HBox());
+    spacer_external->set_size_request(SPACE_SIZE_X, SPACE_SIZE_Y);
+    _page_external_scripts.table().attach(*spacer_external, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    row++;
+
+    _page_external_scripts.table().attach(_script_entry, 0, 2, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    _page_external_scripts.table().attach(_add_btn, 2, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
     row++;
 
     //# Set up the External Scripts box
@@ -614,7 +608,58 @@ DocumentProperties::build_scripting()
     _ExternalScriptsList.set_headers_visible(true);
 // TODO restore?    _ExternalScriptsList.set_fixed_height_mode(true);
 
-    populate_external_scripts_box();
+
+    //# Embedded scripts tab
+    _page_embedded_scripts.show();
+
+    Gtk::Label *label_embedded= manage (new Gtk::Label("", Gtk::ALIGN_LEFT));
+    label_embedded->set_markup (_("<b>Embedded script files:</b>"));
+
+    _new_btn.set_label(_("New"));
+
+    _page_embedded_scripts.set_spacing(4);
+    row = 0;
+
+    label_embedded->set_alignment(0.0);
+    _page_embedded_scripts.table().attach(*label_embedded, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    row++;
+    _page_embedded_scripts.table().attach(_EmbeddedScriptsListScroller, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    row++;
+
+    Gtk::HBox* spacer_embedded = Gtk::manage(new Gtk::HBox());
+    spacer_embedded->set_size_request(SPACE_SIZE_X, SPACE_SIZE_Y);
+    _page_embedded_scripts.table().attach(*spacer_embedded, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    row++;
+
+    _page_embedded_scripts.table().attach(_new_btn, 2, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    row++;
+
+    //# Set up the Embedded Scripts box
+    _EmbeddedScriptsListStore = Gtk::ListStore::create(_EmbeddedScriptsListColumns);
+    _EmbeddedScriptsList.set_model(_EmbeddedScriptsListStore);
+    _EmbeddedScriptsList.append_column(_("Script id"), _EmbeddedScriptsListColumns.idColumn);
+    _EmbeddedScriptsList.set_headers_visible(true);
+// TODO restore?    _EmbeddedScriptsList.set_fixed_height_mode(true);
+
+    //# Set up the Embedded Scripts content box
+    Gtk::Label *label_embedded_content= manage (new Gtk::Label("", Gtk::ALIGN_LEFT));
+    label_embedded_content->set_markup (_("<b>Content:</b>"));
+
+    label_embedded_content->set_alignment(0.0);
+    _page_embedded_scripts.table().attach(*label_embedded_content, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+    row++;
+
+    _page_embedded_scripts.table().attach(_EmbeddedContentScroller, 0, 3, row, row + 1, Gtk::FILL|Gtk::EXPAND, (Gtk::AttachOptions)0, 0, 0);
+
+    _EmbeddedContentScroller.add(_EmbeddedContent);
+    _EmbeddedContentScroller.set_shadow_type(Gtk::SHADOW_IN);
+    _EmbeddedContentScroller.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    _EmbeddedContentScroller.set_size_request(-1, -1);
+
+    _EmbeddedScriptsList.signal_cursor_changed().connect(sigc::mem_fun(*this, &DocumentProperties::changeEmbeddedScript));
+    _EmbeddedContent.get_buffer()->signal_changed().connect(sigc::mem_fun(*this, &DocumentProperties::editEmbeddedScript));
+
+    populate_script_lists();
 
     _ExternalScriptsListScroller.add(_ExternalScriptsList);
     _ExternalScriptsListScroller.set_shadow_type(Gtk::SHADOW_IN);
@@ -623,17 +668,28 @@ DocumentProperties::build_scripting()
 
     _add_btn.signal_clicked().connect(sigc::mem_fun(*this, &DocumentProperties::addExternalScript));
 
+    _EmbeddedScriptsListScroller.add(_EmbeddedScriptsList);
+    _EmbeddedScriptsListScroller.set_shadow_type(Gtk::SHADOW_IN);
+    _EmbeddedScriptsListScroller.set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_ALWAYS);
+    _EmbeddedScriptsListScroller.set_size_request(-1, 90);
+
+    _new_btn.signal_clicked().connect(sigc::mem_fun(*this, &DocumentProperties::addEmbeddedScript));
+
+
 #if ENABLE_LCMS
     _ExternalScriptsList.signal_button_release_event().connect_notify(sigc::mem_fun(*this, &DocumentProperties::external_scripts_list_button_release));
-    scripting_create_popup_menu(_ExternalScriptsList, sigc::mem_fun(*this, &DocumentProperties::removeExternalScript));
+    external_create_popup_menu(_ExternalScriptsList, sigc::mem_fun(*this, &DocumentProperties::removeExternalScript));
+
+    _EmbeddedScriptsList.signal_button_release_event().connect_notify(sigc::mem_fun(*this, &DocumentProperties::embedded_scripts_list_button_release));
+    embedded_create_popup_menu(_EmbeddedScriptsList, sigc::mem_fun(*this, &DocumentProperties::removeEmbeddedScript));
 #endif // ENABLE_LCMS
 
 //TODO: review this observers code:
     const GSList *current = SP_ACTIVE_DOCUMENT->getResourceList( "script" );
     if (current) {
-        _ext_scripts_observer.set(SP_OBJECT(current->data)->parent);
+        _scripts_observer.set(SP_OBJECT(current->data)->parent);
     }
-    _ext_scripts_observer.signal_changed().connect(sigc::mem_fun(*this, &DocumentProperties::populate_external_scripts_box));
+    _scripts_observer.signal_changed().connect(sigc::mem_fun(*this, &DocumentProperties::populate_script_lists));
 }
 
 
@@ -652,7 +708,24 @@ void DocumentProperties::addExternalScript(){
         // inform the document, so we can undo
         DocumentUndo::done(desktop->doc(), SP_VERB_EDIT_ADD_EXTERNAL_SCRIPT, _("Add external script..."));
 
-        populate_external_scripts_box();
+        populate_script_lists();
+    }
+}
+
+void DocumentProperties::addEmbeddedScript(){
+    SPDesktop *desktop = SP_ACTIVE_DESKTOP;
+    if (!desktop){
+        g_warning("No active desktop");
+    } else {
+        Inkscape::XML::Document *xml_doc = desktop->doc()->getReprDoc();
+        Inkscape::XML::Node *scriptRepr = xml_doc->createElement("svg:script");
+
+        xml_doc->root()->addChild(scriptRepr, NULL);
+
+        // inform the document, so we can undo
+        DocumentUndo::done(desktop->doc(), SP_VERB_EDIT_ADD_EMBEDDED_SCRIPT, _("Add embedded script..."));
+
+        populate_script_lists();
     }
 }
 
@@ -675,20 +748,138 @@ void DocumentProperties::removeExternalScript(){
         if (name == script->xlinkhref){
 
             //XML Tree being used directly here while it shouldn't be.
-            sp_repr_unparent(obj->getRepr());
-            DocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT, _("Remove external script"));
+            Inkscape::XML::Node *repr = obj->getRepr();
+            if (repr){
+                sp_repr_unparent(repr);
+
+                // inform the document, so we can undo
+                DocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EXTERNAL_SCRIPT, _("Remove external script"));
+            }
         }
         current = g_slist_next(current);
     }
 
-    populate_external_scripts_box();
-
+    populate_script_lists();
 }
 
-void DocumentProperties::populate_external_scripts_box(){
-    _ExternalScriptsListStore->clear();
+void DocumentProperties::removeEmbeddedScript(){
+    Glib::ustring id;
+    if(_EmbeddedScriptsList.get_selection()) {
+        Gtk::TreeModel::iterator i = _EmbeddedScriptsList.get_selection()->get_selected();
+
+        if(i){
+            id = (*i)[_EmbeddedScriptsListColumns.idColumn];
+        } else {
+            return;
+        }
+    }
+
     const GSList *current = SP_ACTIVE_DOCUMENT->getResourceList( "script" );
-    if (current) _ext_scripts_observer.set(SP_OBJECT(current->data)->parent);
+    while ( current ) {
+        SPObject* obj = SP_OBJECT(current->data);
+        if (id == obj->getId()){
+
+            //XML Tree being used directly here while it shouldn't be.
+            Inkscape::XML::Node *repr = obj->getRepr();
+            if (repr){
+                sp_repr_unparent(repr);
+
+                // inform the document, so we can undo
+                DocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_REMOVE_EMBEDDED_SCRIPT, _("Remove embedded script"));
+            }
+        }
+        current = g_slist_next(current);
+    }
+
+    populate_script_lists();
+}
+
+void DocumentProperties::changeEmbeddedScript(){
+    Glib::ustring id;
+    if(_EmbeddedScriptsList.get_selection()) {
+        Gtk::TreeModel::iterator i = _EmbeddedScriptsList.get_selection()->get_selected();
+
+        if(i){
+            id = (*i)[_EmbeddedScriptsListColumns.idColumn];
+        } else {
+            return;
+        }
+    }
+
+    bool voidscript=true;
+    const GSList *current = SP_ACTIVE_DOCUMENT->getResourceList( "script" );
+    while ( current ) {
+        SPObject* obj = SP_OBJECT(current->data);
+        if (id == obj->getId()){
+
+            int count=0;
+            for ( SPObject *child = obj->children ; child; child = child->next )
+            {
+                count++;
+            }
+
+            if (count>1)
+                g_warning("TODO: Found a script element with multiple (%d) child nodes! We must implement support for that!", count);
+
+            //XML Tree being used directly here while it shouldn't be.
+            SPObject* child = obj->firstChild();
+            //TODO: shouldnt we get all children instead of simply the first child?
+
+            if (child && child->getRepr()){
+                const gchar* content = child->getRepr()->content();
+                if (content){
+                    voidscript=false;
+                    _EmbeddedContent.get_buffer()->set_text(content);
+                }
+            }
+        }
+        current = g_slist_next(current);
+    }
+
+    if (voidscript)
+        _EmbeddedContent.get_buffer()->set_text("");
+}
+
+void DocumentProperties::editEmbeddedScript(){
+    Glib::ustring id;
+    if(_EmbeddedScriptsList.get_selection()) {
+        Gtk::TreeModel::iterator i = _EmbeddedScriptsList.get_selection()->get_selected();
+
+        if(i){
+            id = (*i)[_EmbeddedScriptsListColumns.idColumn];
+        } else {
+            return;
+        }
+    }
+
+    Inkscape::XML::Document *xml_doc = SP_ACTIVE_DOCUMENT->getReprDoc();
+    const GSList *current = SP_ACTIVE_DOCUMENT->getResourceList( "script" );
+    while ( current ) {
+        SPObject* obj = SP_OBJECT(current->data);
+        if (id == obj->getId()){
+
+            //XML Tree being used directly here while it shouldn't be.
+            Inkscape::XML::Node *repr = obj->getRepr();
+            if (repr){
+                SPObject *child;
+                while (NULL != (child = obj->firstChild())) child->deleteObject();
+                obj->appendChildRepr(xml_doc->createTextNode(_EmbeddedContent.get_buffer()->get_text().c_str()));
+
+                //TODO repr->set_content(_EmbeddedContent.get_buffer()->get_text());
+
+                // inform the document, so we can undo
+                DocumentUndo::done(SP_ACTIVE_DOCUMENT, SP_VERB_EDIT_EMBEDDED_SCRIPT, _("Edit embedded script"));
+            }
+        }
+        current = g_slist_next(current);
+    }
+}
+
+void DocumentProperties::populate_script_lists(){
+    _ExternalScriptsListStore->clear();
+    _EmbeddedScriptsListStore->clear();
+    const GSList *current = SP_ACTIVE_DOCUMENT->getResourceList( "script" );
+    if (current) _scripts_observer.set(SP_OBJECT(current->data)->parent);
     while ( current ) {
         SPObject* obj = SP_OBJECT(current->data);
         SPScript* script = (SPScript*) obj;
@@ -696,6 +887,11 @@ void DocumentProperties::populate_external_scripts_box(){
         {
             Gtk::TreeModel::Row row = *(_ExternalScriptsListStore->append());
             row[_ExternalScriptsListColumns.filenameColumn] = script->xlinkhref;
+        }
+        else // Embedded scripts
+        {
+            Gtk::TreeModel::Row row = *(_EmbeddedScriptsListStore->append());
+            row[_EmbeddedScriptsListColumns.idColumn] = obj->getId();
         }
 
         current = g_slist_next(current);
@@ -705,8 +901,7 @@ void DocumentProperties::populate_external_scripts_box(){
 /**
 * Called for _updating_ the dialog (e.g. when a new grid was manually added in XML)
 */
-void
-DocumentProperties::update_gridspage()
+void DocumentProperties::update_gridspage()
 {
     SPDesktop *dt = getDesktop();
     SPNamedView *nv = sp_desktop_namedview(dt);
@@ -747,8 +942,7 @@ DocumentProperties::update_gridspage()
 /**
  * Build grid page of dialog.
  */
-void
-DocumentProperties::build_gridspage()
+void DocumentProperties::build_gridspage()
 {
     /// \todo FIXME: gray out snapping when grid is off.
     /// Dissenting view: you want snapping without grid.
@@ -785,8 +979,7 @@ DocumentProperties::build_gridspage()
 /**
  * Update dialog widgets from desktop. Also call updateWidget routines of the grids.
  */
-void
-DocumentProperties::update()
+void DocumentProperties::update()
 {
     if (_wr.isUpdating()) return;
 
@@ -816,14 +1009,14 @@ DocumentProperties::update()
     _rcb_sgui.setActive (nv->showguides);
     _rcp_gui.setRgba32 (nv->guidecolor);
     _rcp_hgui.setRgba32 (nv->guidehicolor);
-    _rcbsng.setActive(nv->snap_manager.snapprefs.getSnapModeGuide());
 
     //-----------------------------------------------------------snap page
 
     _rsu_sno.setValue (nv->snap_manager.snapprefs.getObjectTolerance());
     _rsu_sn.setValue (nv->snap_manager.snapprefs.getGridTolerance());
     _rsu_gusn.setValue (nv->snap_manager.snapprefs.getGuideTolerance());
-
+    _rcb_snclp.setActive (nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH_CLIP));
+    _rcb_snmsk.setActive (nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH_MASK));
 
     //-----------------------------------------------------------grids page
 
@@ -857,8 +1050,7 @@ DocumentProperties::_createPageTabLabel(const Glib::ustring& label, const char *
 
 //--------------------------------------------------------------------
 
-void
-DocumentProperties::on_response (int id)
+void DocumentProperties::on_response (int id)
 {
     if (id == Gtk::RESPONSE_DELETE_EVENT || id == Gtk::RESPONSE_CLOSE)
     {
@@ -872,44 +1064,39 @@ DocumentProperties::on_response (int id)
         hide();
 }
 
-void
-DocumentProperties::_handleDocumentReplaced(SPDesktop* desktop, SPDocument *document)
+void DocumentProperties::_handleDocumentReplaced(SPDesktop* desktop, SPDocument *document)
 {
     Inkscape::XML::Node *repr = sp_desktop_namedview(desktop)->getRepr();
     repr->addListener(&_repr_events, this);
-    Inkscape::XML::Node *root = document->root->getRepr();
+    Inkscape::XML::Node *root = document->getRoot()->getRepr();
     root->addListener(&_repr_events, this);
     update();
 }
 
-void
-DocumentProperties::_handleActivateDesktop(Inkscape::Application *, SPDesktop *desktop)
+void DocumentProperties::_handleActivateDesktop(Inkscape::Application *, SPDesktop *desktop)
 {
     Inkscape::XML::Node *repr = sp_desktop_namedview(desktop)->getRepr();
     repr->addListener(&_repr_events, this);
-    Inkscape::XML::Node *root = sp_desktop_document(desktop)->root->getRepr();
+    Inkscape::XML::Node *root = sp_desktop_document(desktop)->getRoot()->getRepr();
     root->addListener(&_repr_events, this);
     update();
 }
 
-void
-DocumentProperties::_handleDeactivateDesktop(Inkscape::Application *, SPDesktop *desktop)
+void DocumentProperties::_handleDeactivateDesktop(Inkscape::Application *, SPDesktop *desktop)
 {
     Inkscape::XML::Node *repr = sp_desktop_namedview(desktop)->getRepr();
     repr->removeListenerByData(this);
-    Inkscape::XML::Node *root = sp_desktop_document(desktop)->root->getRepr();
+    Inkscape::XML::Node *root = sp_desktop_document(desktop)->getRoot()->getRepr();
     root->removeListenerByData(this);
 }
 
-static void
-on_child_added(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node */*child*/, Inkscape::XML::Node */*ref*/, void *data)
+static void on_child_added(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node */*child*/, Inkscape::XML::Node */*ref*/, void *data)
 {
     if (DocumentProperties *dialog = static_cast<DocumentProperties *>(data))
         dialog->update_gridspage();
 }
 
-static void
-on_child_removed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node */*child*/, Inkscape::XML::Node */*ref*/, void *data)
+static void on_child_removed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node */*child*/, Inkscape::XML::Node */*ref*/, void *data)
 {
     if (DocumentProperties *dialog = static_cast<DocumentProperties *>(data))
         dialog->update_gridspage();
@@ -920,8 +1107,7 @@ on_child_removed(Inkscape::XML::Node */*repr*/, Inkscape::XML::Node */*child*/, 
 /**
  * Called when XML node attribute changed; updates dialog widgets.
  */
-static void
-on_repr_attr_changed (Inkscape::XML::Node *, gchar const *, gchar const *, gchar const *, bool, gpointer data)
+static void on_repr_attr_changed(Inkscape::XML::Node *, gchar const *, gchar const *, gchar const *, bool, gpointer data)
 {
     if (DocumentProperties *dialog = static_cast<DocumentProperties *>(data))
         dialog->update();
@@ -932,8 +1118,7 @@ on_repr_attr_changed (Inkscape::XML::Node *, gchar const *, gchar const *, gchar
 # BUTTON CLICK HANDLERS    (callbacks)
 ########################################################################*/
 
-void
-DocumentProperties::onNewGrid()
+void DocumentProperties::onNewGrid()
 {
     SPDesktop *dt = getDesktop();
     Inkscape::XML::Node *repr = sp_desktop_namedview(dt)->getRepr();
@@ -947,8 +1132,7 @@ DocumentProperties::onNewGrid()
 }
 
 
-void
-DocumentProperties::onRemoveGrid()
+void DocumentProperties::onRemoveGrid()
 {
     gint pagenum = _grids_notebook.get_current_page();
     if (pagenum == -1) // no pages

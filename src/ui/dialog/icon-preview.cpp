@@ -1,5 +1,6 @@
-/** @file
- * @brief A simple dialog for previewing icon representation.
+/**
+ * @file
+ * A simple dialog for previewing icon representation.
  */
 /* Authors:
  *   Jon A. Cruz
@@ -16,8 +17,9 @@
 # include <config.h>
 #endif
 
+#include <boost/scoped_ptr.hpp>
 #include <gtk/gtk.h>
-#include <glib/gmem.h>
+#include <glib.h>
 #include <glibmm/i18n.h>
 #include <gtkmm/alignment.h>
 #include <gtkmm/buttonbox.h>
@@ -25,7 +27,7 @@
 
 #include "desktop.h"
 #include "desktop-handles.h"
-#include "display/nr-arena.h"
+#include "display/drawing.h"
 #include "document.h"
 #include "inkscape.h"
 #include "preferences.h"
@@ -36,10 +38,11 @@
 #include "icon-preview.h"
 
 extern "C" {
-// takes doc, root, icon, and icon name to produce pixels
+// takes doc, drawing, icon, and icon name to produce pixels
+// this is defined in widgets/icon.cpp
 guchar *
-sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
-                  const gchar *name, unsigned int psize );
+sp_icon_doc_icon( SPDocument *doc, Inkscape::Drawing &drawing,
+                  const gchar *name, unsigned int psize, unsigned &stride);
 }
 
 #define noICON_VERBOSE 1
@@ -167,10 +170,11 @@ IconPreviewPanel::IconPreviewPanel() :
     int previous = 0;
     int avail = 0;
     for ( int i = numEntries - 1; i >= 0; --i ) {
-        pixMem[i] = new guchar[4 * sizes[i] * sizes[i]];
-        memset( pixMem[i], 0x00, 4 *  sizes[i] * sizes[i] );
+        int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, sizes[i]);
+        pixMem[i] = new guchar[sizes[i] * stride];
+        memset( pixMem[i], 0x00, sizes[i] * stride );
 
-        GdkPixbuf *pb = gdk_pixbuf_new_from_data( pixMem[i], GDK_COLORSPACE_RGB, TRUE, 8, sizes[i], sizes[i], sizes[i] * 4, /*(GdkPixbufDestroyNotify)g_free*/NULL, NULL );
+        GdkPixbuf *pb = gdk_pixbuf_new_from_data( pixMem[i], GDK_COLORSPACE_RGB, TRUE, 8, sizes[i], sizes[i], stride, /*(GdkPixbufDestroyNotify)g_free*/NULL, NULL );
         GtkImage* img = GTK_IMAGE( gtk_image_new_from_pixbuf( pb ) );
         images[i] = Glib::wrap(img);
         Glib::ustring label(*labels[i]);
@@ -355,11 +359,10 @@ void IconPreviewPanel::refreshPreview()
                     GSList const *items = sel->itemList();
                     while ( items && !target ) {
                         SPItem* item = SP_ITEM( items->data );
-                        SPObject * obj = item;
-                        gchar const *id = obj->getId();
+                        gchar const *id = item->getId();
                         if ( id ) {
                             targetId = id;
-                            target = obj;
+                            target = item;
                         }
 
                         items = g_slist_next(items);
@@ -438,32 +441,29 @@ void IconPreviewPanel::renderPreview( SPObject* obj )
     g_message("%s setting up to render '%s' as the icon", getTimestr().c_str(), id );
 #endif // ICON_VERBOSE
 
-    NRArenaItem *root = NULL;
+    Inkscape::Drawing drawing;
 
-    /* Create new arena */
-    NRArena *arena = NRArena::create();
-
-    /* Create ArenaItem and set transform */
+    /* Create drawing items and set transform */
     unsigned int visionkey = SPItem::display_key_new(1);
-
-    root = SP_ITEM( doc->getRoot() )->invoke_show( arena, visionkey, SP_ITEM_SHOW_DISPLAY );
+    drawing.setRoot(doc->getRoot()->invoke_show( drawing, visionkey, SP_ITEM_SHOW_DISPLAY ));
 
     for ( int i = 0; i < numEntries; i++ ) {
-        guchar * px = sp_icon_doc_icon( doc, root, id, sizes[i] );
+        unsigned unused;
+        int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, sizes[i]);
+        guchar * px = sp_icon_doc_icon( doc, drawing, id, sizes[i], unused);
 //         g_message( " size %d %s", sizes[i], (px ? "worked" : "failed") );
         if ( px ) {
-            memcpy( pixMem[i], px, sizes[i] * sizes[i] * 4 );
+            memcpy( pixMem[i], px, sizes[i] * stride );
             g_free( px );
             px = 0;
         } else {
-            memset( pixMem[i], 0, sizes[i] * sizes[i] * 4 );
+            memset( pixMem[i], 0, sizes[i] * stride );
         }
         images[i]->queue_draw();
     }
     updateMagnify();
 
-    SP_ITEM(doc->getRoot())->invoke_hide(visionkey);
-    nr_object_unref((NRObject *) arena);
+    doc->getRoot()->invoke_hide(visionkey);
     renderTimer->stop();
     minDelay = std::max( 0.1, renderTimer->elapsed() * 3.0 );
 #if ICON_VERBOSE

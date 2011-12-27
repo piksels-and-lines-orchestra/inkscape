@@ -1,5 +1,5 @@
-#ifndef __SELTRANS_H__
-#define __SELTRANS_H__
+#ifndef SEEN_SELTRANS_H
+#define SEEN_SELTRANS_H
 
 /*
  * Helper object for transforming selected items
@@ -21,16 +21,15 @@
 #include <2geom/affine.h>
 #include <2geom/rect.h>
 #include "knot.h"
-#include "forward.h"
 #include "selcue.h"
 #include "message-context.h"
 #include <vector>
 #include "sp-item.h"
 
 struct SPKnot;
-class SPDesktop;
-class SPCanvasItem;
-class SPSelTransHandle;
+class  SPDesktop;
+struct SPCanvasItem;
+class  SPSelTransHandle;
 
 namespace Inkscape
 {
@@ -90,9 +89,11 @@ public:
     bool isGrabbed() {
         return _grabbed;
     }
-	bool centerIsVisible() {
-		return ( _chandle && SP_KNOT_IS_VISIBLE (_chandle) );
-	}
+    bool centerIsVisible() {
+        return ( _chandle && SP_KNOT_IS_VISIBLE (_chandle) );
+    }
+
+    void getNextClosestPoint(bool reverse);
 
 private:
     void _updateHandles();
@@ -104,7 +105,7 @@ private:
     Geom::Point _getGeomHandlePos(Geom::Point const &visual_handle_pos);
     Geom::Point _calcAbsAffineDefault(Geom::Scale const default_scale);
     Geom::Point _calcAbsAffineGeom(Geom::Scale const geom_scale);
-    void _display_snapsource();
+    void _keepClosestPointOnly(Geom::Point const &p);
 
     enum State {
         STATE_SCALE, //scale or stretch
@@ -119,9 +120,9 @@ private:
     std::vector<Geom::Point> _items_centers;
 
     std::vector<Inkscape::SnapCandidatePoint> _snap_points;
-    std::vector<Inkscape::SnapCandidatePoint> _bbox_points; // the bbox point of the selection as a whole, i.e. max. 4 corners plus optionally some midpoints
-    std::vector<Inkscape::SnapCandidatePoint> _bbox_points_for_translating; // the bbox points of each selected item, only to be used for translating
-
+    std::vector<Inkscape::SnapCandidatePoint> _bbox_points;
+    std::vector<Inkscape::SnapCandidatePoint> _all_snap_sources_sorted;
+    std::vector<Inkscape::SnapCandidatePoint>::iterator _all_snap_sources_iter;
     Inkscape::SelCue _selcue;
 
     Inkscape::Selection *_selection;
@@ -136,7 +137,7 @@ private:
     SPItem::BBoxType _snap_bbox_type;
 
     Geom::OptRect _bbox;
-    Geom::OptRect _approximate_bbox;
+    Geom::OptRect _visual_bbox;
     Geom::OptRect _geometric_bbox;
     gdouble _strokewidth;
 
@@ -181,7 +182,7 @@ private:
 
 }
 
-#endif
+#endif // SEEN_SELTRANS_H
 
 
 /*

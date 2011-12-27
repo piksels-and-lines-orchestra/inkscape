@@ -38,7 +38,7 @@
 #include "helper/geom.h"
 #include "helper/geom-curves.h"
 #include <io/sys.h>
-
+#include "sp-root.h"
 
 #include <string>
 #include <stdio.h>
@@ -311,7 +311,7 @@ bool JavaFXOutput::doGradient(SPGradient *grad, const String &id)
         out("    function %s(): LinearGradient {\n",  jfxid.c_str());
         out("        LinearGradient {\n");
         std::vector<SPGradientStop> stops = g->vector.stops;
-        if (stops.size() > 0)
+        if (!stops.empty())
             {
             out("            stops:\n");
             out("                [\n");
@@ -341,7 +341,7 @@ bool JavaFXOutput::doGradient(SPGradient *grad, const String &id)
         out("            focusY: %s\n",  DSTR(g->fy.value));
         out("            radius: %s\n",  DSTR(g->r.value ));
         std::vector<SPGradientStop> stops = g->vector.stops;
-        if (stops.size() > 0)
+        if (!stops.empty())
             {
             out("            stops:\n");
             out("            [\n");
@@ -492,8 +492,8 @@ bool JavaFXOutput::doCurve(SPItem *item, const String &id)
     }
 
     // convert the path to only lineto's and cubic curveto's:
-    Geom::Scale yflip(1.0, -1.0);
-    Geom::Affine tf = item->i2d_affine() * yflip;
+    Geom::Scale yflip(1.0, -1.0); /// @fixme  hardcoded desktop transform!
+    Geom::Affine tf = item->i2dt_affine() * yflip;
     Geom::PathVector pathv = pathv_to_linear_and_cubic_beziers( curve->get_pathvector() * tf );
 
     //Count the NR_CURVETOs/LINETOs (including closing line segment)
@@ -634,8 +634,8 @@ bool JavaFXOutput::doCurve(SPItem *item, const String &id)
     }
 
     // convert the path to only lineto's and cubic curveto's:
-    Geom::Scale yflip(1.0, -1.0);
-    Geom::Affine tf = item->i2d_affine() * yflip;
+    Geom::Scale yflip(1.0, -1.0); /// @fixme hardcoded desktop transform
+    Geom::Affine tf = item->i2dt_affine() * yflip;
     Geom::PathVector pathv = pathv_to_linear_and_cubic_beziers( curve->get_pathvector() * tf );
 
     //Count the NR_CURVETOs/LINETOs (including closing line segment)
@@ -758,7 +758,7 @@ bool JavaFXOutput::doTree(SPDocument *doc)
     miny  =  bignum;
     maxy  = -bignum;
 
-    if (!doTreeRecursive(doc, doc->root)) {
+    if (!doTreeRecursive(doc, doc->getRoot())) {
         return false;
     }
 
@@ -875,7 +875,7 @@ bool JavaFXOutput::saveDocument(SPDocument *doc, gchar const *filename_utf8)
     out("           content: [\n");
     idindex    = 0;
 
-    doBody(doc, doc->root);
+    doBody(doc, doc->getRoot());
 
     if (!doTail()) {
         return false;
@@ -891,7 +891,7 @@ bool JavaFXOutput::saveDocument(SPDocument *doc, gchar const *filename_utf8)
         return false;
         }
 
-    for (String::iterator iter = outbuf.begin() ; iter!=outbuf.end(); iter++)
+    for (String::iterator iter = outbuf.begin() ; iter!=outbuf.end(); ++iter)
         {
         fputc(*iter, f);
         }

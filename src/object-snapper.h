@@ -1,15 +1,11 @@
 #ifndef SEEN_OBJECT_SNAPPER_H
 #define SEEN_OBJECT_SNAPPER_H
-
-/**
- *  \file object-snapper.h
- *  \brief Snapping things to objects.
- *
+/*
  * Authors:
  *   Carl Hetherington <inkscape@carlh.net>
  *   Diederik van Lierop <mail@diedenrezi.nl>
  *
- * Copyright (C) 2005 - 2008 Authors
+ * Copyright (C) 2005 - 2011 Authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -20,12 +16,15 @@
 #include "snap-candidate.h"
 
 struct SPNamedView;
-struct SPItem;
-struct SPObject;
+class  SPItem;
+class  SPObject;
 
 namespace Inkscape
 {
 
+/**
+ * Snapping things to objects.
+ */
 class ObjectSnapper : public Snapper
 {
 
@@ -33,27 +32,25 @@ public:
     ObjectSnapper(SnapManager *sm, Geom::Coord const d);
     ~ObjectSnapper();
 
-    void guideFreeSnap(SnappedConstraints &sc,
-                   Geom::Point const &p,
-                   Geom::Point const &guide_normal) const;
-
-    void guideConstrainedSnap(SnappedConstraints &sc,
-                       Geom::Point const &p,
-                       Geom::Point const &guide_normal,
-                       SnapConstraint const &c) const;
-
+    /**
+     * @return true if this Snapper will snap at least one kind of point.
+     */
     bool ThisSnapperMightSnap() const;
 
+    /**
+     * @return Snap tolerance (desktop coordinates); depends on current zoom so that it's always the same in screen pixels.
+     */
     Geom::Coord getSnapperTolerance() const; //returns the tolerance of the snapper in screen pixels (i.e. independent of zoom)
+
     bool getSnapperAlwaysSnap() const; //if true, then the snapper will always snap, regardless of its tolerance
 
-    void freeSnap(SnappedConstraints &sc,
+    void freeSnap(IntermSnapResults &isr,
                   Inkscape::SnapCandidatePoint const &p,
                   Geom::OptRect const &bbox_to_snap,
                   std::vector<SPItem const *> const *it,
                   std::vector<SnapCandidatePoint> *unselected_nodes) const;
 
-    void constrainedSnap(SnappedConstraints &sc,
+    void constrainedSnap(IntermSnapResults &isr,
                   Inkscape::SnapCandidatePoint const &p,
                   Geom::OptRect const &bbox_to_snap,
                   SnapConstraint const &c,
@@ -66,6 +63,13 @@ private:
     std::vector<SnapCandidatePoint> *_points_to_snap_to;
     std::vector<SnapCandidatePath > *_paths_to_snap_to;
 
+    /**
+     * Find all items within snapping range.
+     * @param parent Pointer to the document's root, or to a clipped path or mask object.
+     * @param it List of items to ignore.
+     * @param bbox_to_snap Bounding box hulling the whole bunch of points, all from the same selection and having the same transformation.
+     * @param clip_or_mask The parent object being passed is either a clip or mask.
+     */
     void _findCandidates(SPObject* parent,
                        std::vector<SPItem const *> const *it,
                        bool const &first_point,
@@ -73,31 +77,34 @@ private:
                        bool const _clip_or_mask,
                        Geom::Affine const additional_affine) const;
 
-    void _snapNodes(SnappedConstraints &sc,
+    void _snapNodes(IntermSnapResults &isr,
                       Inkscape::SnapCandidatePoint const &p, // in desktop coordinates
                       std::vector<SnapCandidatePoint> *unselected_nodes,
                       SnapConstraint const &c = SnapConstraint(),
                       Geom::Point const &p_proj_on_constraint = Geom::Point()) const;
 
-    void _snapTranslatingGuide(SnappedConstraints &sc,
+    void _snapTranslatingGuide(IntermSnapResults &isr,
                      Geom::Point const &p,
                      Geom::Point const &guide_normal) const;
 
     void _collectNodes(Inkscape::SnapSourceType const &t,
                   bool const &first_point) const;
 
-    void _snapPaths(SnappedConstraints &sc,
+    void _snapPaths(IntermSnapResults &isr,
                       Inkscape::SnapCandidatePoint const &p, // in desktop coordinates
                       std::vector<Inkscape::SnapCandidatePoint> *unselected_nodes, // in desktop coordinates
                       SPPath const *selected_path) const;
 
-    void _snapPathsConstrained(SnappedConstraints &sc,
+    void _snapPathsConstrained(IntermSnapResults &isr,
                  Inkscape::SnapCandidatePoint const &p, // in desktop coordinates
                  SnapConstraint const &c,
                  Geom::Point const &p_proj_on_constraint) const;
 
     bool isUnselectedNode(Geom::Point const &point, std::vector<Inkscape::SnapCandidatePoint> const *unselected_nodes) const;
 
+    /**
+     * Returns index of first NR_END bpath in array.
+     */
     void _collectPaths(Geom::Point p,
                       Inkscape::SnapSourceType const source_type,
                       bool const &first_point) const;
@@ -106,6 +113,7 @@ private:
     Geom::PathVector* _getBorderPathv() const;
     Geom::PathVector* _getPathvFromRect(Geom::Rect const rect) const;
     void _getBorderNodes(std::vector<SnapCandidatePoint> *points) const;
+    bool _allowSourceToSnapToTarget(SnapSourceType source, SnapTargetType target, bool strict_snapping) const;
 
 }; // end of ObjectSnapper class
 

@@ -1,9 +1,11 @@
-#ifndef __INKSCAPE_IO_URISTREAM_H__
-#define __INKSCAPE_IO_URISTREAM_H__
+#ifndef SEEN_INKSCAPE_IO_URISTREAM_H
+#define SEEN_INKSCAPE_IO_URISTREAM_H
 /**
+ * @file
  * This should be the only way that we provide sources/sinks
  * to any input/output stream.
- *
+ */
+/*
  * Authors:
  *   Bob Jamison <rjamison@titan.com>
  *
@@ -48,17 +50,14 @@ public:
     virtual int get() throw(StreamException);
 
 private:
-
-    bool closed;
-
+    Inkscape::URI &uri;
     FILE *inf;           //for file: uris
     unsigned char *data; //for data: uris
     int dataPos;         //  current read position in data field
     int dataLen;         //  length of data buffer
-
-    Inkscape::URI &uri;
-
+    bool closed;
     int scheme;
+
 
 }; // class UriInputStream
 
@@ -170,4 +169,4 @@ private:
 } // namespace Inkscape
 
 
-#endif /* __INKSCAPE_IO_URISTREAM_H__ */
+#endif // SEEN_INKSCAPE_IO_URISTREAM_H

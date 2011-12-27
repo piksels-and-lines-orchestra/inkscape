@@ -1,9 +1,11 @@
 #ifndef SEEN_SP_CANVAS_ITEM_H
 #define SEEN_SP_CANVAS_ITEM_H
 
-/** \file
+/**
+ * @file
  * SPCanvasItem.
- *
+ */
+/*
  * Authors:
  *   Federico Mena <federico@nuclecu.unam.mx>
  *   Raph Levien <raph@gimp.org>
@@ -22,10 +24,9 @@
 #endif
 
 #include <glib-object.h>
-#include <gtk/gtkobject.h>
-#include <gdk/gdkevents.h>
-
-#include "2geom/rect.h"
+#include <gtk/gtk.h>
+#include <gdk/gdk.h>
+#include <2geom/rect.h>
 
 G_BEGIN_DECLS
 
@@ -36,9 +37,9 @@ struct SPCanvasGroup;
 typedef struct _SPCanvasItemClass SPCanvasItemClass;
 
 #define SP_TYPE_CANVAS_ITEM (sp_canvas_item_get_type())
-#define SP_CANVAS_ITEM(obj) (GTK_CHECK_CAST((obj), SP_TYPE_CANVAS_ITEM, SPCanvasItem))
-#define SP_IS_CANVAS_ITEM(obj) (GTK_CHECK_TYPE((obj), SP_TYPE_CANVAS_ITEM))
-#define SP_CANVAS_ITEM_GET_CLASS(o) (GTK_CHECK_GET_CLASS((o), SP_TYPE_CANVAS_ITEM, SPCanvasItemClass))
+#define SP_CANVAS_ITEM(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), SP_TYPE_CANVAS_ITEM, SPCanvasItem))
+#define SP_IS_CANVAS_ITEM(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), SP_TYPE_CANVAS_ITEM))
+#define SP_CANVAS_ITEM_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS((o), SP_TYPE_CANVAS_ITEM, SPCanvasItemClass))
 
 GType sp_canvas_item_get_type();
 
@@ -65,14 +66,15 @@ struct _SPCanvasItemClass : public GtkObjectClass {
     double (* point) (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_item);
 
     int (* event) (SPCanvasItem *item, GdkEvent *event);
+    void (* viewbox_changed) (SPCanvasItem *item, Geom::IntRect const &new_area);
 };
 
-SPCanvasItem *sp_canvas_item_new(SPCanvasGroup *parent, GtkType type, const gchar *first_arg_name, ...);
+SPCanvasItem *sp_canvas_item_new(SPCanvasGroup *parent, GType type, const gchar *first_arg_name, ...);
 
 G_END_DECLS
 
 
-#define sp_canvas_item_set gtk_object_set
+#define sp_canvas_item_set g_object_set
 
 void sp_canvas_item_affine_absolute(SPCanvasItem *item, Geom::Affine const &aff);
 

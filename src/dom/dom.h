@@ -1,6 +1,7 @@
-#ifndef __DOM_H__
-#define __DOM_H__
+#ifndef SEEN_DOM_H
+#define SEEN_DOM_H
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -12,7 +13,8 @@
  * More thorough explanations of the various classes and their algorithms
  * can be found there.
  *     
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -436,7 +438,7 @@ public:
      * Return whether the namespaced name argument is present in the list.
      * This is done lexically, not identically.     
      */
-    virtual bool containsNS(const DOMString namespaceURI,const DOMString &name)
+    virtual bool containsNS(const DOMString &namespaceURI, const DOMString &name)
         {
         for (unsigned int i=0; i<namePairs.size() ; i++)
             {
@@ -962,7 +964,7 @@ protected:
  
     /**
      * For the Ptr smart pointer
-     */	     
+     */
     int _refCnt;
 
 };
@@ -1122,7 +1124,7 @@ public:
     virtual NodePtr getNamedItem(const DOMString& name)
         {
         std::vector<NamedNodeMapEntry>::iterator iter;
-        for (iter = entries.begin() ; iter!=entries.end() ; iter++)
+        for (iter = entries.begin() ; iter!=entries.end() ; ++iter)
             {
             if (iter->name == name)
                 {
@@ -1145,7 +1147,7 @@ public:
         DOMString namespaceURI = arg->getNamespaceURI();
         DOMString name         = arg->getNodeName();
         std::vector<NamedNodeMapEntry>::iterator iter;
-        for (iter = entries.begin() ; iter!=entries.end() ; iter++)
+        for (iter = entries.begin() ; iter!=entries.end() ; ++iter)
             {
             if (iter->name == name)
                 {
@@ -1166,7 +1168,7 @@ public:
     virtual NodePtr removeNamedItem(const DOMString& name) throw(DOMException)
         {
         std::vector<NamedNodeMapEntry>::iterator iter;
-        for (iter = entries.begin() ; iter!=entries.end() ; iter++)
+        for (iter = entries.begin() ; iter!=entries.end() ; ++iter)
             {
             if (iter->name == name)
                 {
@@ -1203,7 +1205,7 @@ public:
                                  const DOMString& localName)
         {
         std::vector<NamedNodeMapEntry>::iterator iter;
-        for (iter = entries.begin() ; iter!=entries.end() ; iter++)
+        for (iter = entries.begin() ; iter!=entries.end() ; ++iter)
             {
             if (iter->namespaceURI == namespaceURI && iter->name == localName)
                 {
@@ -1226,7 +1228,7 @@ public:
         DOMString namespaceURI = arg->getNamespaceURI();
         DOMString name         = arg->getNodeName();
         std::vector<NamedNodeMapEntry>::iterator iter;
-        for (iter = entries.begin() ; iter!=entries.end() ; iter++)
+        for (iter = entries.begin() ; iter!=entries.end() ; ++iter)
             {
             if (iter->namespaceURI == namespaceURI && iter->name == name)
                 {
@@ -1248,7 +1250,7 @@ public:
                                     throw(DOMException)
         {
         std::vector<NamedNodeMapEntry>::iterator iter;
-        for (iter = entries.begin() ; iter!=entries.end() ; iter++)
+        for (iter = entries.begin() ; iter!=entries.end() ; ++iter)
             {
             if (iter->namespaceURI == namespaceURI && iter->name == localName)
                 {
@@ -2743,7 +2745,7 @@ public:
 }  //namespace org
 
 
-#endif // __DOM_H__
+#endif // SEEN_DOM_H
 
 
 /*#########################################################################

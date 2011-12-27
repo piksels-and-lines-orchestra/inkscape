@@ -1,4 +1,4 @@
-/** \file
+/*
  * SPDocument manipulation
  *
  * Authors:
@@ -37,13 +37,14 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include <string>
 #include <cstring>
+#include <2geom/transforms.h>
 
 #include "desktop.h"
 #include "dir-util.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing-item.h"
 #include "document-private.h"
 #include "helper/units.h"
 #include "inkscape-private.h"
@@ -214,6 +215,11 @@ SPDocument::~SPDocument() {
     //delete this->_whiteboard_session_manager;
 }
 
+SPDefs *SPDocument::getDefs()
+{
+    return root->defs;
+}
+
 Persp3D *
 SPDocument::getCurrentPersp3D() {
     // Check if current_persp3d is still valid
@@ -243,8 +249,7 @@ SPDocument::setCurrentPersp3D(Persp3D * const persp) {
 
 void SPDocument::getPerspectivesInDefs(std::vector<Persp3D*> &list) const
 {
-    SPDefs *defs = SP_ROOT(this->root)->defs;
-    for (SPObject *i = defs->firstChild(); i; i = i->getNext() ) {
+    for (SPObject *i = root->defs->firstChild(); i; i = i->getNext() ) {
         if (SP_IS_PERSP3D(i)) {
             list.push_back(SP_PERSP3D(i));
         }
@@ -307,6 +312,18 @@ SPDocument *SPDocument::createDoc(Inkscape::XML::Document *rdoc,
     document->rdoc = rdoc;
     document->rroot = rroot;
 
+    if (document->uri){
+        g_free(document->uri);
+        document->uri = 0;
+    }
+    if (document->base){
+        g_free(document->base);
+        document->base = 0;
+    }
+    if (document->name){
+        g_free(document->name);
+        document->name = 0;
+    }
 #ifndef WIN32
     document->uri = prepend_current_dir_if_relative(uri);
 #else
@@ -348,7 +365,7 @@ SPDocument *SPDocument::createDoc(Inkscape::XML::Document *rdoc,
     rroot->setAttribute("baseProfile", NULL);
 
     // creating namedview
-    if (!sp_item_group_get_child_by_name((SPGroup *) document->root, NULL, "sodipodi:namedview")) {
+    if (!sp_item_group_get_child_by_name(document->root, NULL, "sodipodi:namedview")) {
         // if there's none in the document already,
         Inkscape::XML::Node *rnew = NULL;
 
@@ -388,13 +405,12 @@ SPDocument *SPDocument::createDoc(Inkscape::XML::Document *rdoc,
         Inkscape::GC::release(rnew);
     }
 
-    /* Defs */
-    if (!SP_ROOT(document->root)->defs) {
-        Inkscape::XML::Node *r;
-        r = rdoc->createElement("svg:defs");
+    // Defs
+    if (!document->root->defs) {
+        Inkscape::XML::Node *r = rdoc->createElement("svg:defs");
         rroot->addChild(r, NULL);
         Inkscape::GC::release(r);
-        g_assert(SP_ROOT(document->root)->defs);
+        g_assert(document->root->defs);
     }
 
     /* Default RDF */
@@ -481,24 +497,20 @@ SPDocument *SPDocument::createNewDoc(gchar const *uri, unsigned int keepalive, b
 
 SPDocument *SPDocument::createNewDocFromMem(gchar const *buffer, gint length, unsigned int keepalive)
 {
-    SPDocument *doc;
-    Inkscape::XML::Document *rdoc;
-    Inkscape::XML::Node *rroot;
-    gchar *name;
+    SPDocument *doc = 0;
 
-    rdoc = sp_repr_read_mem(buffer, length, SP_SVG_NS_URI);
-
-    /* If it cannot be loaded, return NULL without warning */
-    if (rdoc == NULL) return NULL;
-
-    rroot = rdoc->root();
-    /* If xml file is not svg, return NULL without warning */
-    /* fixme: destroy document */
-    if (strcmp(rroot->name(), "svg:svg") != 0) return NULL;
-
-    name = g_strdup_printf(_("Memory document %d"), ++doc_count);
-
-    doc = createDoc(rdoc, NULL, NULL, name, keepalive);
+    Inkscape::XML::Document *rdoc = sp_repr_read_mem(buffer, length, SP_SVG_NS_URI);
+    if ( rdoc ) {
+        // Only continue to create a non-null doc if it could be loaded
+        Inkscape::XML::Node *rroot = rdoc->root();
+        if ( strcmp(rroot->name(), "svg:svg") != 0 ) {
+            // If xml file is not svg, return NULL without warning
+            // TODO fixme: destroy document
+        } else {
+            Glib::ustring name = Glib::ustring::compose( _("Memory document %1"), ++doc_count );
+            doc = createDoc(rdoc, NULL, NULL, name.c_str(), keepalive);
+        }
+    }
 
     return doc;
 }
@@ -520,19 +532,17 @@ gdouble SPDocument::getWidth() const
     g_return_val_if_fail(this->priv != NULL, 0.0);
     g_return_val_if_fail(this->root != NULL, 0.0);
 
-    SPRoot *root = SP_ROOT(this->root);
-
-    if (root->width.unit == SVGLength::PERCENT && root->viewBox_set)
-        return root->viewBox.x1 - root->viewBox.x0;
-    return root->width.computed;
+    gdouble result = root->width.computed;
+    if (root->width.unit == SVGLength::PERCENT && root->viewBox_set) {
+        result = root->viewBox.width();
+    }
+    return result;
 }
 
 void SPDocument::setWidth(gdouble width, const SPUnit *unit)
 {
-    SPRoot *root = SP_ROOT(this->root);
-
     if (root->width.unit == SVGLength::PERCENT && root->viewBox_set) { // set to viewBox=
-        root->viewBox.x1 = root->viewBox.x0 + sp_units_get_pixels (width, *unit);
+        root->viewBox.setMax(Geom::Point(root->viewBox.left() + sp_units_get_pixels (width, *unit), root->viewBox.bottom()));
     } else { // set to width=
         gdouble old_computed = root->width.computed;
         root->width.computed = sp_units_get_pixels (width, *unit);
@@ -547,18 +557,28 @@ void SPDocument::setWidth(gdouble width, const SPUnit *unit)
         }
 
         if (root->viewBox_set)
-            root->viewBox.x1 = root->viewBox.x0 + (root->width.computed / old_computed) * (root->viewBox.x1 - root->viewBox.x0);
+            root->viewBox.setMax(Geom::Point(root->viewBox.left() + (root->width.computed / old_computed) * root->viewBox.width(), root->viewBox.bottom()));
     }
 
     root->updateRepr();
 }
 
+gdouble SPDocument::getHeight() const
+{
+    g_return_val_if_fail(this->priv != NULL, 0.0);
+    g_return_val_if_fail(this->root != NULL, 0.0);
+
+    gdouble result = root->height.computed;
+    if (root->height.unit == SVGLength::PERCENT && root->viewBox_set) {
+        result = root->viewBox.height();
+    }
+    return result;
+}
+
 void SPDocument::setHeight(gdouble height, const SPUnit *unit)
 {
-    SPRoot *root = SP_ROOT(this->root);
-
     if (root->height.unit == SVGLength::PERCENT && root->viewBox_set) { // set to viewBox=
-        root->viewBox.y1 = root->viewBox.y0 + sp_units_get_pixels (height, *unit);
+        root->viewBox.setMax(Geom::Point(root->viewBox.right(), root->viewBox.top() + sp_units_get_pixels (height, *unit)));
     } else { // set to height=
         gdouble old_computed = root->height.computed;
         root->height.computed = sp_units_get_pixels (height, *unit);
@@ -573,22 +593,10 @@ void SPDocument::setHeight(gdouble height, const SPUnit *unit)
         }
 
         if (root->viewBox_set)
-            root->viewBox.y1 = root->viewBox.y0 + (root->height.computed / old_computed) * (root->viewBox.y1 - root->viewBox.y0);
+            root->viewBox.setMax(Geom::Point(root->viewBox.right(), root->viewBox.top() + (root->height.computed / old_computed) * root->viewBox.height()));
     }
 
     root->updateRepr();
-}
-
-gdouble SPDocument::getHeight() const
-{
-    g_return_val_if_fail(this->priv != NULL, 0.0);
-    g_return_val_if_fail(this->root != NULL, 0.0);
-
-    SPRoot *root = SP_ROOT(this->root);
-
-    if (root->height.unit == SVGLength::PERCENT && root->viewBox_set)
-        return root->viewBox.y1 - root->viewBox.y0;
-    return root->height.computed;
 }
 
 Geom::Point SPDocument::getDimensions() const
@@ -632,9 +640,9 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
                 margin_units = &px;
             }
             margin_top = nv->getMarginLength("fit-margin-top",margin_units, &px, w, h, false);
-            margin_top = nv->getMarginLength("fit-margin-left",margin_units, &px, w, h, true);
-            margin_top = nv->getMarginLength("fit-margin-right",margin_units, &px, w, h, true);
-            margin_top = nv->getMarginLength("fit-margin-bottom",margin_units, &px, w, h, false);
+            margin_left = nv->getMarginLength("fit-margin-left",margin_units, &px, w, h, true);
+            margin_right = nv->getMarginLength("fit-margin-right",margin_units, &px, w, h, true);
+            margin_bottom = nv->getMarginLength("fit-margin-bottom",margin_units, &px, w, h, false);
         }
     }
     
@@ -648,12 +656,13 @@ void SPDocument::fitToRect(Geom::Rect const &rect, bool with_margins)
 
     Geom::Translate const tr(
             Geom::Point(0, old_height - rect_with_margins.height())
-            - to_2geom(rect_with_margins.min()));
-    SP_GROUP(root)->translateChildItems(tr);
+            - rect_with_margins.min());
+    root->translateChildItems(tr);
 
     if(nv) {
         Geom::Translate tr2(-rect_with_margins.min());
         nv->translateGuides(tr2);
+        nv->translateGrids(tr2);
 
         // update the viewport so the drawing appears to stay where it was
         nv->scrollAllDesktops(-tr2[0], tr2[1], false);
@@ -843,12 +852,21 @@ SPDocument::removeUndoObserver(Inkscape::UndoStackObserver& observer)
     this->priv->undoStackObservers.remove(observer);
 }
 
+SPObject *SPDocument::getObjectById(Glib::ustring const &id) const
+{
+    return getObjectById( id.c_str() );
+}
+
 SPObject *SPDocument::getObjectById(gchar const *id) const
 {
     g_return_val_if_fail(id != NULL, NULL);
 
     GQuark idq = g_quark_from_string(id);
-    return (SPObject*)g_hash_table_lookup(priv->iddef, GINT_TO_POINTER(idq));
+    gpointer rv = g_hash_table_lookup(priv->iddef, GINT_TO_POINTER(idq));
+    if(rv != NULL)
+        return (SPObject*)rv;
+    else
+        return NULL;
 }
 
 sigc::connection SPDocument::connectIdChanged(gchar const *id,
@@ -918,22 +936,15 @@ void SPDocument::requestModified()
     }
 }
 
-void
-sp_document_setup_viewport (SPDocument *doc, SPItemCtx *ctx)
+void SPDocument::setupViewport(SPItemCtx *ctx)
 {
     ctx->ctx.flags = 0;
     ctx->i2doc = Geom::identity();
-    /* Set up viewport in case svg has it defined as percentages */
-    if (SP_ROOT(doc->root)->viewBox_set) { // if set, take from viewBox
-        ctx->vp.x0 = SP_ROOT(doc->root)->viewBox.x0;
-        ctx->vp.y0 = SP_ROOT(doc->root)->viewBox.y0;
-        ctx->vp.x1 = SP_ROOT(doc->root)->viewBox.x1;
-        ctx->vp.y1 = SP_ROOT(doc->root)->viewBox.y1;
+    // Set up viewport in case svg has it defined as percentages
+    if (root->viewBox_set) { // if set, take from viewBox
+        ctx->viewport = root->viewBox;
     } else { // as a last resort, set size to A4
-        ctx->vp.x0 = 0.0;
-        ctx->vp.y0 = 0.0;
-        ctx->vp.x1 = 210 * PX_PER_MM;
-        ctx->vp.y1 = 297 * PX_PER_MM;
+        ctx->viewport = Geom::Rect::from_xywh(0, 0, 210 * PX_PER_MM, 297 * PX_PER_MM);
     }
     ctx->i2vp = Geom::identity();
 }
@@ -950,7 +961,7 @@ SPDocument::_updateDocument()
     if (this->root->uflags || this->root->mflags) {
         if (this->root->uflags) {
             SPItemCtx ctx;
-            sp_document_setup_viewport (this, &ctx);
+            setupViewport(&ctx);
 
             bool saved = DocumentUndo::getUndoSensitive(this);
             DocumentUndo::setUndoSensitive(this, false);
@@ -1070,7 +1081,7 @@ static GSList *find_items_in_area(GSList *s, SPGroup *group, unsigned int dkey, 
                 s = find_items_in_area(s, SP_GROUP(o), dkey, area, test);
             } else {
                 SPItem *child = SP_ITEM(o);
-                Geom::OptRect box = child->getBboxDesktop();
+                Geom::OptRect box = child->desktopVisualBounds();
                 if ( box && test(area, *box) && (take_insensitive || child->isVisibleAndUnlocked(dkey))) {
                     s = g_slist_append(s, child);
                 }
@@ -1110,8 +1121,8 @@ SPItem *SPDocument::getItemFromListAtPointBottom(unsigned int dkey, SPGroup *gro
     for ( SPObject *o = group->firstChild() ; o && !bottomMost; o = o->getNext() ) {
         if ( SP_IS_ITEM(o) ) {
             SPItem *item = SP_ITEM(o);
-            NRArenaItem *arenaitem = item->get_arenaitem(dkey);
-            if (arenaitem && nr_arena_item_invoke_pick(arenaitem, p, delta, 1) != NULL
+            Inkscape::DrawingItem *arenaitem = item->get_arenaitem(dkey);
+            if (arenaitem && arenaitem->pick(p, delta, 1) != NULL
                 && (take_insensitive || item->isVisibleAndUnlocked(dkey))) {
                 if (g_slist_find((GSList *) list, item) != NULL) {
                     bottomMost = item;
@@ -1164,10 +1175,10 @@ SPItem *find_item_at_point(unsigned int dkey, SPGroup *group, Geom::Point const 
             }
         } else {
             SPItem *child = SP_ITEM(o);
-            NRArenaItem *arenaitem = child->get_arenaitem(dkey);
+            Inkscape::DrawingItem *arenaitem = child->get_arenaitem(dkey);
 
             // seen remembers the last (topmost) of items pickable at this point
-            if (arenaitem && nr_arena_item_invoke_pick(arenaitem, p, delta, 1) != NULL
+            if (arenaitem && arenaitem->pick(p, delta, 1) != NULL
                 && (take_insensitive || child->isVisibleAndUnlocked(dkey))) {
                 seen = child;
             }
@@ -1198,10 +1209,10 @@ SPItem *find_group_at_point(unsigned int dkey, SPGroup *group, Geom::Point const
         }
         if (SP_IS_GROUP(o) && SP_GROUP(o)->effectiveLayerMode(dkey) != SPGroup::LAYER ) {
             SPItem *child = SP_ITEM(o);
-            NRArenaItem *arenaitem = child->get_arenaitem(dkey);
+            Inkscape::DrawingItem *arenaitem = child->get_arenaitem(dkey);
 
             // seen remembers the last (topmost) of groups pickable at this point
-            if (arenaitem && nr_arena_item_invoke_pick(arenaitem, p, delta, 1) != NULL) {
+            if (arenaitem && arenaitem->pick(p, delta, 1) != NULL) {
                 seen = child;
             }
         }

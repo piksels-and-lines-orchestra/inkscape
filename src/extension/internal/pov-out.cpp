@@ -35,6 +35,7 @@
 #include "helper/geom.h"
 #include "helper/geom-curves.h"
 #include <io/sys.h>
+#include "sp-root.h"
 
 #include <string>
 #include <stdio.h>
@@ -300,7 +301,7 @@ bool PovOutput::doCurve(SPItem *item, const String &id)
     povShapes.push_back(shapeInfo); //passed all tests.  save the info
 
     // convert the path to only lineto's and cubic curveto's:
-    Geom::Affine tf = item->i2d_affine();
+    Geom::Affine tf = item->i2dt_affine();
     Geom::PathVector pathv = pathv_to_linear_and_cubic_beziers( curve->get_pathvector() * tf );
 
     /*
@@ -485,11 +486,11 @@ bool PovOutput::doTree(SPDocument *doc)
     miny  =  bignum;
     maxy  = -bignum;
 
-    if (!doTreeRecursive(doc, doc->root))
+    if (!doTreeRecursive(doc, doc->getRoot()))
         return false;
 
     //## Let's make a union of all of the Shapes
-    if (povShapes.size()>0)
+    if (!povShapes.empty())
         {
         String id = "AllShapes";
         char *pfx = (char *)id.c_str();
@@ -637,7 +638,7 @@ void PovOutput::saveDocument(SPDocument *doc, gchar const *filename_utf8)
     if (!f)
         return;
 
-    for (String::iterator iter = outbuf.begin() ; iter!=outbuf.end(); iter++)
+    for (String::iterator iter = outbuf.begin() ; iter!=outbuf.end(); ++iter)
         {
         int ch = *iter;
         fputc(ch, f);

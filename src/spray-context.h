@@ -18,16 +18,16 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
+#include <2geom/point.h>
 #include "event-context.h"
-#include <libnr/nr-point.h>
 //#include "ui/widget/spray-option.h"
 #include "ui/dialog/dialog.h"
 
 #define SP_TYPE_SPRAY_CONTEXT (sp_spray_context_get_type())
-#define SP_SPRAY_CONTEXT(o) (GTK_CHECK_CAST((o), SP_TYPE_SPRAY_CONTEXT, SPSprayContext))
-#define SP_SPRAY_CONTEXT_CLASS(k) (GTK_CHECK_CLASS_CAST((k), SP_TYPE_SPRAY_CONTEXT, SPSprayContextClass))
-#define SP_IS_SPRAY_CONTEXT(o) (GTK_CHECK_TYPE((o), SP_TYPE_SPRAY_CONTEXT))
-#define SP_IS_SPRAY_CONTEXT_CLASS(k) (GTK_CHECK_CLASS_TYPE((k), SP_TYPE_SPRAY_CONTEXT))
+#define SP_SPRAY_CONTEXT(o) (G_TYPE_CHECK_INSTANCE_CAST((o), SP_TYPE_SPRAY_CONTEXT, SPSprayContext))
+#define SP_SPRAY_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_CAST((k), SP_TYPE_SPRAY_CONTEXT, SPSprayContextClass))
+#define SP_IS_SPRAY_CONTEXT(o) (G_TYPE_CHECK_INSTANCE_TYPE((o), SP_TYPE_SPRAY_CONTEXT))
+#define SP_IS_SPRAY_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE((k), SP_TYPE_SPRAY_CONTEXT))
 
 class SPSprayContext;
 class SPSprayContextClass;
@@ -91,11 +91,6 @@ struct SPSprayContext
     Geom::Point last_push;
     SPCanvasItem *dilate_area;
 
-    bool do_h;
-    bool do_s;
-    bool do_l;
-    bool do_o;
-
     sigc::connection style_set_connection;
 };
 
@@ -104,7 +99,7 @@ struct SPSprayContextClass
     SPEventContextClass parent_class;
 };
 
-GtkType sp_spray_context_get_type(void);
+GType sp_spray_context_get_type(void);
 
 
 #endif

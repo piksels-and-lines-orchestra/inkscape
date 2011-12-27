@@ -46,12 +46,12 @@ Inkscape::SelCue::~SelCue()
     _sel_changed_connection.disconnect();
     _sel_modified_connection.disconnect();
 
-    for (std::vector<SPCanvasItem*>::iterator i = _item_bboxes.begin(); i != _item_bboxes.end(); i++) {
+    for (std::vector<SPCanvasItem*>::iterator i = _item_bboxes.begin(); i != _item_bboxes.end(); ++i) {
         gtk_object_destroy(*i);
     }
     _item_bboxes.clear();
 
-    for (std::vector<SPCanvasItem*>::iterator i = _text_baselines.begin(); i != _text_baselines.end(); i++) {
+    for (std::vector<SPCanvasItem*>::iterator i = _text_baselines.begin(); i != _text_baselines.end(); ++i) {
         gtk_object_destroy(*i);
     }
     _text_baselines.clear();
@@ -68,8 +68,6 @@ void Inkscape::SelCue::_updateItemBboxes()
     g_return_if_fail(_selection != NULL);
 
     int prefs_bbox = prefs->getBool("/tools/bounding_box");
-    SPItem::BBoxType bbox_type = !prefs_bbox ? 
-        SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX;
 
     GSList const *items = _selection->itemList();
     if (_item_bboxes.size() != g_slist_length((GSList *) items)) {
@@ -83,7 +81,8 @@ void Inkscape::SelCue::_updateItemBboxes()
         SPCanvasItem* box = _item_bboxes[bcount ++];
 
         if (box) {
-            Geom::OptRect const b = item->getBboxDesktop(bbox_type);
+            Geom::OptRect const b = (prefs_bbox == 0) ?
+                item->desktopVisualBounds() : item->desktopGeometricBounds();
 
             if (b) {
                 sp_canvas_item_show(box);
@@ -104,7 +103,7 @@ void Inkscape::SelCue::_updateItemBboxes()
 
 void Inkscape::SelCue::_newItemBboxes()
 {
-    for (std::vector<SPCanvasItem*>::iterator i = _item_bboxes.begin(); i != _item_bboxes.end(); i++) {
+    for (std::vector<SPCanvasItem*>::iterator i = _item_bboxes.begin(); i != _item_bboxes.end(); ++i) {
         gtk_object_destroy(*i);
     }
     _item_bboxes.clear();
@@ -118,13 +117,12 @@ void Inkscape::SelCue::_newItemBboxes()
     g_return_if_fail(_selection != NULL);
 
     int prefs_bbox = prefs->getBool("/tools/bounding_box");
-    SPItem::BBoxType bbox_type = !prefs_bbox ? 
-        SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX;
     
     for (GSList const *l = _selection->itemList(); l != NULL; l = l->next) {
         SPItem *item = (SPItem *) l->data;
 
-        Geom::OptRect const b = item->getBboxDesktop(bbox_type);
+        Geom::OptRect const b = (prefs_bbox == 0) ?
+            item->desktopVisualBounds() : item->desktopGeometricBounds();
 
         SPCanvasItem* box = NULL;
 
@@ -168,7 +166,7 @@ void Inkscape::SelCue::_newItemBboxes()
 
 void Inkscape::SelCue::_newTextBaselines()
 {
-    for (std::vector<SPCanvasItem*>::iterator i = _text_baselines.begin(); i != _text_baselines.end(); i++) {
+    for (std::vector<SPCanvasItem*>::iterator i = _text_baselines.begin(); i != _text_baselines.end(); ++i) {
         gtk_object_destroy(*i);
     }
     _text_baselines.clear();
@@ -191,7 +189,7 @@ void Inkscape::SelCue::_newTextBaselines()
                         NULL);
 
                     sp_canvas_item_show(baseline_point);
-                    SP_CTRL(baseline_point)->moveto((*pt) * item->i2d_affine());
+                    SP_CTRL(baseline_point)->moveto((*pt) * item->i2dt_affine());
                     sp_canvas_item_move_to_z(baseline_point, 0);
                 }
             }

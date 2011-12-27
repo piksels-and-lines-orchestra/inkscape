@@ -22,7 +22,6 @@
 #include <gdk/gdkkeysyms.h>
 
 #include "macros.h"
-#include "forward.h"
 #include "pixmaps/cursor-crosshairs.xpm"
 #include <gtk/gtk.h>
 #include "desktop.h"
@@ -182,11 +181,10 @@ sp_lpetool_context_setup(SPEventContext *ec)
 }
 
 /**
-\brief  Callback that processes the "changed" signal on the selection;
-destroys old and creates new nodepath and reassigns listeners to the new selected item's repr
-*/
-void
-sp_lpetool_context_selection_changed(Inkscape::Selection *selection, gpointer data)
+ * Callback that processes the "changed" signal on the selection;
+ * destroys old and creates new nodepath and reassigns listeners to the new selected item's repr.
+ */
+void sp_lpetool_context_selection_changed(Inkscape::Selection *selection, gpointer data)
 {
     SPLPEToolContext *lc = SP_LPETOOL_CONTEXT(data);
 

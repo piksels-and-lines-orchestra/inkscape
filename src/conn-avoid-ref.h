@@ -17,8 +17,8 @@
 #include <stddef.h>
 #include <sigc++/connection.h>
 
-struct SPDesktop;
-struct SPItem;
+class  SPDesktop;
+class  SPItem;
 struct ConnectionPoint;
 typedef std::map<int, ConnectionPoint> IdConnectionPointMap;
 namespace Avoid { class ShapeRef; }

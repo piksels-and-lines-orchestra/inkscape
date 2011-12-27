@@ -3,8 +3,10 @@
 ** vim: ts=4 sw=4 et tw=0 wm=0
 */
 /**
- * \brief Functions to automatically generate constraints for the
+ * Functions to automatically generate constraints for the
  * rectangular node overlap removal problem.
+ */
+/*
  *
  * Authors:
  *   Tim Dwyer <tgdwyer@gmail.com>
@@ -25,6 +27,8 @@
 using std::set;
 using std::vector;
 using std::list;
+using std::pair;
+using std::make_pair;
 
 namespace straightener {
 
@@ -108,7 +112,7 @@ namespace straightener {
     int compare_events(const void *a, const void *b) {
         Event *ea=*(Event**)a;
         Event *eb=*(Event**)b;
-        if(ea->v!=NULL&&ea->v==eb->v||ea->e!=NULL&&ea->e==eb->e) {
+        if((ea->v!=NULL&&ea->v==eb->v)||(ea->e!=NULL&&ea->e==eb->e)) {
             // when comparing opening and closing from object
             // open must come first
             if(ea->type==Open) return -1;
@@ -263,8 +267,8 @@ namespace straightener {
                         // node is on an edge
                         Edge *edge=(*i)->edge;
                         if(!edge->isEnd(v->id)
-                                &&(l!=NULL&&!edge->isEnd(l->id)||l==NULL)
-                                &&(r!=NULL&&!edge->isEnd(r->id)||r==NULL)) {
+                                &&((l!=NULL&&!edge->isEnd(l->id))||l==NULL)
+                                &&((r!=NULL&&!edge->isEnd(r->id))||r==NULL)) {
                             if(lastNode!=NULL) {
                                 //printf("  Rule A: Constraint: v%d +g <= v%d\n",lastNode->id,(*i)->id);
                                 cs.push_back(createConstraint(lastNode,*i,dim));

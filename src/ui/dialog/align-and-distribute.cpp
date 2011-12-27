@@ -1,5 +1,6 @@
-/** @file
- * @brief Align and Distribute dialog - implementation
+/**
+ * @file
+ * Align and Distribute dialog - implementation.
  */
 /* Authors:
  *   Bryce W. Harrington <bryce@bryceharrington.org>
@@ -20,8 +21,8 @@
 # include <config.h>
 #endif
 
-#include <gtkmm/spinbutton.h>
-
+#include <2geom/transforms.h>
+#include "ui/widget/spinbutton.h"
 #include "desktop-handles.h"
 #include "unclump.h"
 #include "document.h"
@@ -43,6 +44,7 @@
 #include "util/glib-list-iterators.h"
 #include "verbs.h"
 #include "widgets/icon.h"
+#include "sp-root.h"
 
 #include "align-and-distribute.h"
 
@@ -154,7 +156,7 @@ private :
                 selected.erase(master);
             /*}*/
             //Compute the anchor point
-            Geom::OptRect b = thing->getBboxDesktop ();
+            Geom::OptRect b = thing->desktopVisualBounds();
             if (b) {
                 mp = Geom::Point(a.mx0 * b->min()[Geom::X] + a.mx1 * b->max()[Geom::X],
                                a.my0 * b->min()[Geom::Y] + a.my1 * b->max()[Geom::Y]);
@@ -171,7 +173,7 @@ private :
 
         case AlignAndDistribute::DRAWING:
         {
-            Geom::OptRect b = static_cast<SPItem *>( sp_desktop_document(desktop)->getRoot() )->getBboxDesktop();
+            Geom::OptRect b = sp_desktop_document(desktop)->getRoot()->desktopVisualBounds();
             if (b) {
                 mp = Geom::Point(a.mx0 * b->min()[Geom::X] + a.mx1 * b->max()[Geom::X],
                                a.my0 * b->min()[Geom::Y] + a.my1 * b->max()[Geom::Y]);
@@ -183,7 +185,7 @@ private :
 
         case AlignAndDistribute::SELECTION:
         {
-            Geom::OptRect b =  selection->bounds();
+            Geom::OptRect b =  selection->visualBounds();
             if (b) {
                 mp = Geom::Point(a.mx0 * b->min()[Geom::X] + a.mx1 * b->max()[Geom::X],
                                a.my0 * b->min()[Geom::Y] + a.my1 * b->max()[Geom::Y]);
@@ -210,7 +212,7 @@ private :
         bool changed = false;
         Geom::OptRect b;
         if (sel_as_group)
-            b = selection->bounds();
+            b = selection->visualBounds();
 
         //Move each item in the selected list separately
         for (std::list<SPItem *>::iterator it(selected.begin());
@@ -219,7 +221,7 @@ private :
         {
             sp_desktop_document (desktop)->ensureUpToDate();
             if (!sel_as_group)
-                b = (*it)->getBboxDesktop();
+                b = (*it)->desktopVisualBounds();
             if (b) {
                 Geom::Point const sp(a.sx0 * b->min()[Geom::X] + a.sx1 * b->max()[Geom::X],
                                      a.sy0 * b->min()[Geom::Y] + a.sy1 * b->max()[Geom::Y]);
@@ -260,7 +262,7 @@ ActionAlign::Coeffs const ActionAlign::_allCoeffs[10] = {
     {0., 0., 1., 0., 0., 0., 0., 1.}
 };
 
-BBoxSort::BBoxSort(SPItem *pItem, Geom::Rect bounds, Geom::Dim2 orientation, double kBegin, double kEnd) :
+BBoxSort::BBoxSort(SPItem *pItem, Geom::Rect const &bounds, Geom::Dim2 orientation, double kBegin, double kEnd) :
         item(pItem),
         bbox (bounds)
 {
@@ -270,7 +272,7 @@ BBoxSort::BBoxSort(const BBoxSort &rhs) :
         //NOTE :  this copy ctor is called O(sort) when sorting the vector
         //this is bad. The vector should be a vector of pointers.
         //But I'll wait the bohem GC before doing that
-        item(rhs.item), anchor(rhs.anchor), bbox(rhs.bbox) 
+        item(rhs.item), anchor(rhs.anchor), bbox(rhs.bbox)
 {
 }
 
@@ -323,7 +325,7 @@ private :
             it != selected.end();
             ++it)
         {
-            Geom::OptRect bbox = (*it)->getBboxDesktop();
+            Geom::OptRect bbox = (*it)->desktopVisualBounds();
             if (bbox) {
                 sorted.push_back(BBoxSort(*it, *bbox, _orientation, _kBegin, _kEnd));
             }
@@ -356,7 +358,7 @@ private :
                   it < sorted.end();
                   it ++ )
             {
-                if (!NR_DF_TEST_CLOSE (pos, it->bbox.min()[_orientation], 1e-6)) {
+                if (!Geom::are_near(pos, it->bbox.min()[_orientation], 1e-6)) {
                     Geom::Point t(0.0, 0.0);
                     t[_orientation] = pos - it->bbox.min()[_orientation];
                     sp_item_move_rel(it->item, Geom::Translate(t));
@@ -379,7 +381,7 @@ private :
                 //new anchor position
                 float pos = sorted.front().anchor + i * step;
                 //Don't move if we are really close
-                if (!NR_DF_TEST_CLOSE (pos, it.anchor, 1e-6)) {
+                if (!Geom::are_near(pos, it.anchor, 1e-6)) {
                     //Compute translation
                     Geom::Point t(0.0, 0.0);
                     t[_orientation] = pos - it.anchor;
@@ -445,8 +447,8 @@ class ActionRemoveOverlaps : public Action {
 private:
     Gtk::Label removeOverlapXGapLabel;
     Gtk::Label removeOverlapYGapLabel;
-    Gtk::SpinButton removeOverlapXGap;
-    Gtk::SpinButton removeOverlapYGap;
+    Inkscape::UI::Widget::SpinButton removeOverlapXGap;
+    Inkscape::UI::Widget::SpinButton removeOverlapYGap;
 
 public:
     ActionRemoveOverlaps(Glib::ustring const &id,
@@ -549,7 +551,7 @@ public:
 	None,
 	ZOrder,
 	Clockwise
-    };	    
+    };
 
     ActionExchangePositions(Glib::ustring const &id,
                          Glib::ustring const &tiptext,
@@ -698,7 +700,7 @@ private :
         //Check 2 or more selected objects
         if (selected.size() < 2) return;
 
-        Geom::OptRect sel_bbox = selection->bounds();
+        Geom::OptRect sel_bbox = selection->visualBounds();
         if (!sel_bbox) {
             return;
         }
@@ -720,7 +722,7 @@ private :
             ++it)
         {
             sp_desktop_document (desktop)->ensureUpToDate();
-            Geom::OptRect item_box = (*it)->getBboxDesktop ();
+            Geom::OptRect item_box = (*it)->desktopVisualBounds();
             if (item_box) {
                 // find new center, staying within bbox
                 double x = _dialog.randomize_bbox->min()[Geom::X] + (*item_box)[Geom::X].extent() /2 +
@@ -805,7 +807,7 @@ private :
                 Inkscape::Text::Layout const *layout = te_get_layout(*it);
                 boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
                 if (pt) {
-                    Geom::Point base = *pt * (*it)->i2d_affine();
+                    Geom::Point base = *pt * (*it)->i2dt_affine();
                     if (base[Geom::X] < b_min[Geom::X]) b_min[Geom::X] = base[Geom::X];
                     if (base[Geom::Y] < b_min[Geom::Y]) b_min[Geom::Y] = base[Geom::Y];
                     if (base[Geom::X] > b_max[Geom::X]) b_max[Geom::X] = base[Geom::X];
@@ -848,7 +850,7 @@ private :
                     Inkscape::Text::Layout const *layout = te_get_layout(*it);
                     boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
                     if (pt) {
-                        Geom::Point base = *pt * (*it)->i2d_affine();
+                        Geom::Point base = *pt * (*it)->i2dt_affine();
                         Geom::Point t(0.0, 0.0);
                         t[_orientation] = b_min[_orientation] - base[_orientation];
                         sp_item_move_rel(*it, Geom::Translate(t));
@@ -903,107 +905,107 @@ AlignAndDistribute::AlignAndDistribute()
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
     //Instanciate the align buttons
-    addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_RIGHT_TO_ANCHOR,
+    addAlignButton(INKSCAPE_ICON("align-horizontal-right-to-anchor"),
                    _("Align right edges of objects to the left edge of the anchor"),
                    0, 0);
-    addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_LEFT,
+    addAlignButton(INKSCAPE_ICON("align-horizontal-left"),
                    _("Align left edges"),
                    0, 1);
-    addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_CENTER,
+    addAlignButton(INKSCAPE_ICON("align-horizontal-center"),
                    _("Center on vertical axis"),
                    0, 2);
-    addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_RIGHT,
+    addAlignButton(INKSCAPE_ICON("align-horizontal-right"),
                    _("Align right sides"),
                    0, 3);
-    addAlignButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_LEFT_TO_ANCHOR,
+    addAlignButton(INKSCAPE_ICON("align-horizontal-left-to-anchor"),
                    _("Align left edges of objects to the right edge of the anchor"),
                    0, 4);
-    addAlignButton(INKSCAPE_ICON_ALIGN_VERTICAL_BOTTOM_TO_ANCHOR,
+    addAlignButton(INKSCAPE_ICON("align-vertical-bottom-to-anchor"),
                    _("Align bottom edges of objects to the top edge of the anchor"),
                    1, 0);
-    addAlignButton(INKSCAPE_ICON_ALIGN_VERTICAL_TOP,
+    addAlignButton(INKSCAPE_ICON("align-vertical-top"),
                    _("Align top edges"),
                    1, 1);
-    addAlignButton(INKSCAPE_ICON_ALIGN_VERTICAL_CENTER,
+    addAlignButton(INKSCAPE_ICON("align-vertical-center"),
                    _("Center on horizontal axis"),
                    1, 2);
-    addAlignButton(INKSCAPE_ICON_ALIGN_VERTICAL_BOTTOM,
+    addAlignButton(INKSCAPE_ICON("align-vertical-bottom"),
                    _("Align bottom edges"),
                    1, 3);
-    addAlignButton(INKSCAPE_ICON_ALIGN_VERTICAL_TOP_TO_ANCHOR,
+    addAlignButton(INKSCAPE_ICON("align-vertical-top-to-anchor"),
                    _("Align top edges of objects to the bottom edge of the anchor"),
                    1, 4);
 
     //Baseline aligns
-    addBaselineButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_BASELINE,
+    addBaselineButton(INKSCAPE_ICON("align-horizontal-baseline"),
                    _("Align baseline anchors of texts horizontally"),
                       0, 5, this->align_table(), Geom::X, false);
-    addBaselineButton(INKSCAPE_ICON_ALIGN_VERTICAL_BASELINE,
+    addBaselineButton(INKSCAPE_ICON("align-vertical-baseline"),
                    _("Align baselines of texts"),
                      1, 5, this->align_table(), Geom::Y, false);
 
     //The distribute buttons
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_HORIZONTAL_GAPS,
+    addDistributeButton(INKSCAPE_ICON("distribute-horizontal-gaps"),
                         _("Make horizontal gaps between objects equal"),
                         0, 4, true, Geom::X, .5, .5);
 
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_HORIZONTAL_LEFT,
+    addDistributeButton(INKSCAPE_ICON("distribute-horizontal-left"),
                         _("Distribute left edges equidistantly"),
                         0, 1, false, Geom::X, 1., 0.);
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_HORIZONTAL_CENTER,
+    addDistributeButton(INKSCAPE_ICON("distribute-horizontal-center"),
                         _("Distribute centers equidistantly horizontally"),
                         0, 2, false, Geom::X, .5, .5);
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_HORIZONTAL_RIGHT,
+    addDistributeButton(INKSCAPE_ICON("distribute-horizontal-right"),
                         _("Distribute right edges equidistantly"),
                         0, 3, false, Geom::X, 0., 1.);
 
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_VERTICAL_GAPS,
+    addDistributeButton(INKSCAPE_ICON("distribute-vertical-gaps"),
                         _("Make vertical gaps between objects equal"),
                         1, 4, true, Geom::Y, .5, .5);
 
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_VERTICAL_TOP,
+    addDistributeButton(INKSCAPE_ICON("distribute-vertical-top"),
                         _("Distribute top edges equidistantly"),
                         1, 1, false, Geom::Y, 0, 1);
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_VERTICAL_CENTER,
+    addDistributeButton(INKSCAPE_ICON("distribute-vertical-center"),
                         _("Distribute centers equidistantly vertically"),
                         1, 2, false, Geom::Y, .5, .5);
-    addDistributeButton(INKSCAPE_ICON_DISTRIBUTE_VERTICAL_BOTTOM,
+    addDistributeButton(INKSCAPE_ICON("distribute-vertical-bottom"),
                         _("Distribute bottom edges equidistantly"),
                         1, 3, false, Geom::Y, 1., 0.);
 
     //Baseline distribs
-    addBaselineButton(INKSCAPE_ICON_DISTRIBUTE_HORIZONTAL_BASELINE,
+    addBaselineButton(INKSCAPE_ICON("distribute-horizontal-baseline"),
                    _("Distribute baseline anchors of texts horizontally"),
                       0, 5, this->distribute_table(), Geom::X, true);
-    addBaselineButton(INKSCAPE_ICON_DISTRIBUTE_VERTICAL_BASELINE,
+    addBaselineButton(INKSCAPE_ICON("distribute-vertical-baseline"),
                    _("Distribute baselines of texts vertically"),
                      1, 5, this->distribute_table(), Geom::Y, true);
 
     // Rearrange
     //Graph Layout
-    addGraphLayoutButton(INKSCAPE_ICON_DISTRIBUTE_GRAPH,
+    addGraphLayoutButton(INKSCAPE_ICON("distribute-graph"),
                             _("Nicely arrange selected connector network"),
                             0, 0);
-    addExchangePositionsButton(INKSCAPE_ICON_EXCHANGE_POSITIONS,
+    addExchangePositionsButton(INKSCAPE_ICON("exchange-positions"),
                             _("Exchange positions of selected objects - selection order"),
                             0, 1);
-    addExchangePositionsByZOrderButton(INKSCAPE_ICON_EXCHANGE_POSITIONS_ZORDER,
+    addExchangePositionsByZOrderButton(INKSCAPE_ICON("exchange-positions-zorder"),
                             _("Exchange positions of selected objects - stacking order"),
                             0, 2);
-    addExchangePositionsClockwiseButton(INKSCAPE_ICON_EXCHANGE_POSITIONS_CLOCKWISE,
+    addExchangePositionsClockwiseButton(INKSCAPE_ICON("exchange-positions-clockwise"),
                             _("Exchange positions of selected objects - clockwise rotate"),
                             0, 3);
-			    
+
     //Randomize & Unclump
-    addRandomizeButton(INKSCAPE_ICON_DISTRIBUTE_RANDOMIZE,
+    addRandomizeButton(INKSCAPE_ICON("distribute-randomize"),
                         _("Randomize centers in both dimensions"),
                         0, 4);
-    addUnclumpButton(INKSCAPE_ICON_DISTRIBUTE_UNCLUMP,
+    addUnclumpButton(INKSCAPE_ICON("distribute-unclump"),
                         _("Unclump objects: try to equalize edge-to-edge distances"),
                         0, 5);
 
     //Remove overlaps
-    addRemoveOverlapsButton(INKSCAPE_ICON_DISTRIBUTE_REMOVE_OVERLAPS,
+    addRemoveOverlapsButton(INKSCAPE_ICON("distribute-remove-overlaps"),
                             _("Move objects as little as possible so that their bounding boxes do not overlap"),
                             0, 0);
 
@@ -1011,16 +1013,16 @@ AlignAndDistribute::AlignAndDistribute()
     // NOTE: "align nodes vertically" means "move nodes vertically until they align on a common
     // _horizontal_ line". This is analogous to what the "align-vertical-center" icon means.
     // There is no doubt some ambiguity. For this reason the descriptions are different.
-    addNodeButton(INKSCAPE_ICON_ALIGN_VERTICAL_NODES,
+    addNodeButton(INKSCAPE_ICON("align-vertical-node"),
                   _("Align selected nodes to a common horizontal line"),
                   0, Geom::X, false);
-    addNodeButton(INKSCAPE_ICON_ALIGN_HORIZONTAL_NODES,
+    addNodeButton(INKSCAPE_ICON("align-horizontal-node"),
                   _("Align selected nodes to a common vertical line"),
                   1, Geom::Y, false);
-    addNodeButton(INKSCAPE_ICON_DISTRIBUTE_HORIZONTAL_NODE,
+    addNodeButton(INKSCAPE_ICON("distribute-horizontal-node"),
                   _("Distribute selected nodes horizontally"),
                   2, Geom::X, true);
-    addNodeButton(INKSCAPE_ICON_DISTRIBUTE_VERTICAL_NODE,
+    addNodeButton(INKSCAPE_ICON("distribute-vertical-node"),
                   _("Distribute selected nodes vertically"),
                   3, Geom::Y, true);
 
@@ -1085,7 +1087,7 @@ AlignAndDistribute::~AlignAndDistribute()
 
     for (std::list<Action *>::iterator it = _actionList.begin();
          it != _actionList.end();
-         it ++)
+         ++it)
         delete *it;
 }
 
@@ -1243,8 +1245,8 @@ std::list<SPItem *>::iterator AlignAndDistribute::find_master( std::list<SPItem 
     case BIGGEST:
     {
         gdouble max = -1e18;
-        for (std::list<SPItem *>::iterator it = list.begin(); it != list.end(); it++) {
-            Geom::OptRect b = (*it)->getBboxDesktop ();
+        for (std::list<SPItem *>::iterator it = list.begin(); it != list.end(); ++it) {
+            Geom::OptRect b = (*it)->desktopVisualBounds();
             if (b) {
                 gdouble dim = (*b)[horizontal ? Geom::X : Geom::Y].extent();
                 if (dim > max) {
@@ -1260,8 +1262,8 @@ std::list<SPItem *>::iterator AlignAndDistribute::find_master( std::list<SPItem 
     case SMALLEST:
     {
         gdouble max = 1e18;
-        for (std::list<SPItem *>::iterator it = list.begin(); it != list.end(); it++) {
-            Geom::OptRect b = (*it)->getBboxDesktop ();
+        for (std::list<SPItem *>::iterator it = list.begin(); it != list.end(); ++it) {
+            Geom::OptRect b = (*it)->desktopVisualBounds();
             if (b) {
                 gdouble dim = (*b)[horizontal ? Geom::X : Geom::Y].extent();
                 if (dim < max) {

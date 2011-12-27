@@ -11,10 +11,8 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
-#include <glib/gtypes.h>
+#include <glib.h>
 
-#include "forward.h"
-#include "libnr/nr-point.h"
 #include <stddef.h>
 #include <sigc++/connection.h>
 #include <sigc++/functors/slot.h>
@@ -24,7 +22,11 @@
 
 class SPConnEnd;
 struct SPCurve;
+class SPPath;
+class SPItem;
+class SPObject;
 
+namespace Geom { class Point; }
 namespace Inkscape {
 namespace XML {
 class Node;

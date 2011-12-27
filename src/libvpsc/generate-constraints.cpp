@@ -1,6 +1,9 @@
 /**
- * \brief Functions to automatically generate constraints for the
+ * @file
+ * Functions to automatically generate constraints for the
  * rectangular node overlap removal problem.
+ */
+/*
  *
  * Authors:
  *   Tim Dwyer <tgdwyer@gmail.com>
@@ -16,7 +19,7 @@
 #include "generate-constraints.h"
 #include "constraint.h"
 
-#include "2geom/isnan.h" /* Include last */
+#include <2geom/math-utils.h>
 
 using std::set;
 using std::vector;

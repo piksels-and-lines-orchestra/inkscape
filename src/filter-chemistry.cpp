@@ -22,11 +22,10 @@
 #include "filter-enums.h"
 
 #include "filters/blend.h"
+#include "filters/gaussian-blur.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
-#include "sp-gaussian-blur.h"
 #include "svg/css-ostringstream.h"
-#include "libnr/nr-matrix-fns.h"
 
 #include "xml/repr.h"
 
@@ -90,13 +89,19 @@ SPFilter *new_filter(SPDocument *document)
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
     // create a new filter
     Inkscape::XML::Node *repr;
     repr = xml_doc->createElement("svg:filter");
+
+    // Inkscape only supports sRGB. See note in sp-filter.cpp.
+    SPCSSAttr *css = sp_repr_css_attr_new();
+    sp_repr_css_set_property(css, "color-interpolation-filters", "sRGB");
+    sp_repr_css_change(repr, css, "style");
+    sp_repr_css_attr_unref(css);
 
     // Append the new filter node to defs
     defs->appendChild(repr);
@@ -124,7 +129,7 @@ filter_add_primitive(SPFilter *filter, const Inkscape::Filters::FilterPrimitiveT
     // set default values
     switch(type) {
         case Inkscape::Filters::NR_FILTER_BLEND:
-            repr->setAttribute("blend", "normal");
+            repr->setAttribute("mode", "normal");
             break;
         case Inkscape::Filters::NR_FILTER_COLORMATRIX:
             break;
@@ -187,7 +192,7 @@ new_filter_gaussian_blur (SPDocument *document, gdouble radius, double expansion
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
@@ -242,7 +247,7 @@ new_filter_blend_gaussian_blur (SPDocument *document, const char *blendmode, gdo
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
@@ -318,7 +323,7 @@ new_filter_blend_gaussian_blur (SPDocument *document, const char *blendmode, gdo
 SPFilter *
 new_filter_simple_from_item (SPDocument *document, SPItem *item, const char *mode, gdouble radius)
 {
-    Geom::OptRect const r = item->getBboxDesktop(SPItem::GEOMETRIC_BBOX);
+    Geom::OptRect const r = item->desktopGeometricBounds();
 
     double width;
     double height;
@@ -329,9 +334,9 @@ new_filter_simple_from_item (SPDocument *document, SPItem *item, const char *mod
         width = height = 0;
     }
 
-    Geom::Affine i2d (item->i2d_affine () );
+    Geom::Affine i2dt (item->i2dt_affine () );
 
-    return (new_filter_blend_gaussian_blur (document, mode, radius, i2d.descrim(), i2d.expansionX(), i2d.expansionY(), width, height));
+    return (new_filter_blend_gaussian_blur (document, mode, radius, i2dt.descrim(), i2dt.expansionX(), i2dt.expansionY(), width, height));
 }
 
 /**
@@ -356,7 +361,7 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
     // If there are more users for this filter, duplicate it
     if (filter->hrefcount > count_filter_hrefs(item, filter)) {
         Inkscape::XML::Node *repr = item->style->getFilter()->getRepr()->duplicate(xml_doc);
-        SPDefs *defs = reinterpret_cast<SPDefs *>(SP_DOCUMENT_DEFS(document));
+        SPDefs *defs = document->getDefs();
         defs->appendChild(repr);
 
         filter = SP_FILTER( document->getObjectByRepr(repr) );
@@ -364,14 +369,14 @@ SPFilter *modify_filter_gaussian_blur_from_item(SPDocument *document, SPItem *it
     }
 
     // Determine the required standard deviation value
-    Geom::Affine i2d (item->i2d_affine ());
+    Geom::Affine i2d (item->i2dt_affine ());
     double expansion = i2d.descrim();
     double stdDeviation = radius;
     if (expansion != 0)
         stdDeviation /= expansion;
 
     // Get the object size
-    Geom::OptRect const r = item->getBboxDesktop(SPItem::GEOMETRIC_BBOX);
+    Geom::OptRect const r = item->desktopGeometricBounds();
     double width;
     double height;
     if (r) {

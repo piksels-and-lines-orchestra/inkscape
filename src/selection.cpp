@@ -1,4 +1,4 @@
-/** \file
+/*
  * Per-desktop selection container
  *
  * Authors:
@@ -27,6 +27,7 @@
 #include "selection.h"
 #include "helper/recthull.h"
 #include "xml/repr.h"
+#include "preferences.h"
 
 #include "sp-shape.h"
 #include "sp-path.h"
@@ -362,51 +363,57 @@ Inkscape::XML::Node *Selection::singleRepr() {
     return obj ? obj->getRepr() : NULL;
 }
 
-NRRect *Selection::bounds(NRRect *bbox, SPItem::BBoxType type) const
+Geom::OptRect Selection::bounds(SPItem::BBoxType type) const
 {
-    g_return_val_if_fail (bbox != NULL, NULL);
-    *bbox = NRRect(bounds(type));
-    return bbox;
+    return (type == SPItem::GEOMETRIC_BBOX) ?
+        geometricBounds() : visualBounds();
 }
 
-Geom::OptRect Selection::bounds(SPItem::BBoxType type) const
+Geom::OptRect Selection::geometricBounds() const
 {
     GSList const *items = const_cast<Selection *>(this)->itemList();
 
     Geom::OptRect bbox;
     for ( GSList const *i = items ; i != NULL ; i = i->next ) {
-        bbox = unify(bbox, SP_ITEM(i->data)->getBboxDesktop(type));
+        bbox.unionWith(SP_ITEM(i->data)->desktopGeometricBounds());
     }
     return bbox;
 }
 
-NRRect *Selection::boundsInDocument(NRRect *bbox, SPItem::BBoxType type) const {
-    g_return_val_if_fail (bbox != NULL, NULL);
+Geom::OptRect Selection::visualBounds() const
+{
+    GSList const *items = const_cast<Selection *>(this)->itemList();
 
-    GSList const *items=const_cast<Selection *>(this)->itemList();
-    if (!items) {
-        bbox->x0 = bbox->y0 = bbox->x1 = bbox->y1 = 0.0;
-        return bbox;
+    Geom::OptRect bbox;
+    for ( GSList const *i = items ; i != NULL ; i = i->next ) {
+        bbox.unionWith(SP_ITEM(i->data)->desktopVisualBounds());
     }
+    return bbox;
+}
 
-    bbox->x0 = bbox->y0 = 1e18;
-    bbox->x1 = bbox->y1 = -1e18;
+Geom::OptRect Selection::preferredBounds() const
+{
+    if (Inkscape::Preferences::get()->getInt("/tools/bounding_box") == 0) {
+        return bounds(SPItem::VISUAL_BBOX);
+    } else {
+        return bounds(SPItem::GEOMETRIC_BBOX);
+    }
+}
+
+Geom::OptRect Selection::documentBounds(SPItem::BBoxType type) const
+{
+    Geom::OptRect bbox;
+    GSList const *items = const_cast<Selection *>(this)->itemList();
+    if (!items) return bbox;
 
     for ( GSList const *iter=items ; iter != NULL ; iter = iter->next ) {
-        SPItem *item=SP_ITEM(iter->data);
-        Geom::Affine i2doc(item->i2doc_affine());
-        item->invoke_bbox( bbox, i2doc, FALSE, type);
+        SPItem *item = SP_ITEM(iter->data);
+        bbox |= item->documentBounds(type);
     }
 
     return bbox;
 }
 
-Geom::OptRect Selection::boundsInDocument(SPItem::BBoxType type) const {
-    NRRect r;
-    return to_2geom(boundsInDocument(&r, type)->upgrade());
-}
-
-/** Extract the position of the center from the first selected object */
 // If we have a selection of multiple items, then the center of the first item
 // will be returned; this is also the case in SelTrans::centerRequest()
 boost::optional<Geom::Point> Selection::center() const {
@@ -418,24 +425,21 @@ boost::optional<Geom::Point> Selection::center() const {
             return first->getCenter();
         }
     }
-    Geom::OptRect bbox = bounds();
+    Geom::OptRect bbox = visualBounds();
     if (bbox) {
-        return bounds()->midpoint();
+        return bbox->midpoint();
     } else {
         return boost::optional<Geom::Point>();
     }
 }
 
-/**
- * Compute the list of points in the selection that are to be considered for snapping from.
- */
 std::vector<Inkscape::SnapCandidatePoint> Selection::getSnapPoints(SnapPreferences const *snapprefs) const {
     GSList const *items = const_cast<Selection *>(this)->itemList();
 
     SnapPreferences snapprefs_dummy = *snapprefs; // create a local copy of the snapping prefs
-    snapprefs_dummy.setIncludeItemCenter(false); // locally disable snapping to the item center
-    snapprefs_dummy.setSnapToItemNode(true); // consider any type of nodes as a snap source
-    snapprefs_dummy.setSnapSmoothNodes(true); // i.e. disregard the smooth / cusp node preference
+    snapprefs_dummy.setTargetSnappable(Inkscape::SNAPTARGET_ROTATION_CENTER, false); // locally disable snapping to the item center
+    //snapprefs_dummy.setTargetSnappable(Inkscape::SNAPTARGET_NODE_CUSP, true); // consider any type of nodes as a snap source
+    //snapprefs_dummy.setTargetSnappable(Inkscape::SNAPTARGET_NODE_SMOOTH, true); // i.e. disregard the smooth / cusp node preference
     std::vector<Inkscape::SnapCandidatePoint> p;
     for (GSList const *iter = items; iter != NULL; iter = iter->next) {
         SPItem *this_item = SP_ITEM(iter->data);
@@ -443,21 +447,22 @@ std::vector<Inkscape::SnapCandidatePoint> Selection::getSnapPoints(SnapPreferenc
 
         //Include the transformation origin for snapping
         //For a selection or group only the overall origin is considered
-        if (snapprefs != NULL && snapprefs->getIncludeItemCenter()) {
+        if (snapprefs != NULL && snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_ROTATION_CENTER)) {
             p.push_back(Inkscape::SnapCandidatePoint(this_item->getCenter(), SNAPSOURCE_ROTATION_CENTER));
         }
     }
 
     return p;
 }
+
 // TODO: both getSnapPoints and getSnapPointsConvexHull are called, subsequently. Can we do this more efficient?
 // Why do we need to include the transformation center in one case and not the other?
 std::vector<Inkscape::SnapCandidatePoint> Selection::getSnapPointsConvexHull(SnapPreferences const *snapprefs) const {
     GSList const *items = const_cast<Selection *>(this)->itemList();
 
     SnapPreferences snapprefs_dummy = *snapprefs; // create a local copy of the snapping prefs
-    snapprefs_dummy.setSnapToItemNode(true); // consider any type of nodes as a snap source
-    snapprefs_dummy.setSnapSmoothNodes(true); // i.e. disregard the smooth / cusp node preference
+    snapprefs_dummy.setTargetSnappable(Inkscape::SNAPTARGET_NODE_CUSP, true); // consider any type of nodes as a snap source
+    snapprefs_dummy.setTargetSnappable(Inkscape::SNAPTARGET_NODE_SMOOTH, true); // i.e. disregard the smooth / cusp node preference
 
     std::vector<Inkscape::SnapCandidatePoint> p;
     for (GSList const *iter = items; iter != NULL; iter = iter->next) {

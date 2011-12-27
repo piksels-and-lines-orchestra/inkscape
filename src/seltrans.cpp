@@ -1,5 +1,5 @@
 /** @file
- * @brief Helper object for transforming selected items
+ * Helper object for transforming selected items.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -90,7 +90,7 @@ Inkscape::SelTrans::SelTrans(SPDesktop *desktop) :
     _grabbed(false),
     _show_handles(true),
     _bbox(),
-    _approximate_bbox(),
+    _visual_bbox(),
     _absolute_affine(Geom::Scale(1,1)),
     _opposite(Geom::Point(0,0)),
     _opposite_for_specpoints(Geom::Point(0,0)),
@@ -104,7 +104,7 @@ Inkscape::SelTrans::SelTrans(SPDesktop *desktop) :
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     int prefs_bbox = prefs->getBool("/tools/bounding_box");
     _snap_bbox_type = !prefs_bbox ?
-        SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX;
+        SPItem::VISUAL_BBOX : SPItem::GEOMETRIC_BBOX;
 
     g_return_if_fail(desktop != NULL);
 
@@ -163,6 +163,8 @@ Inkscape::SelTrans::SelTrans(SPDesktop *desktop) :
     _sel_modified_connection = _selection->connectModified(
         sigc::mem_fun(*this, &Inkscape::SelTrans::_selModified)
         );
+
+    _all_snap_sources_iter = _all_snap_sources_sorted.end();
 }
 
 Inkscape::SelTrans::~SelTrans()
@@ -267,7 +269,7 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
         SPItem *it = reinterpret_cast<SPItem*>(sp_object_ref(SP_ITEM(l->data), NULL));
         _items.push_back(it);
         _items_const.push_back(it);
-        _items_affines.push_back(it->i2d_affine());
+        _items_affines.push_back(it->i2dt_affine());
         _items_centers.push_back(it->getCenter()); // for content-dragging, we need to remember original centers
     }
 
@@ -279,8 +281,8 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
 
     // First, determine the bounding box
     _bbox = selection->bounds(_snap_bbox_type);
-    _approximate_bbox = selection->bounds(SPItem::APPROXIMATE_BBOX); // Used for correctly scaling the strokewidth
-    _geometric_bbox = selection->bounds(SPItem::GEOMETRIC_BBOX);
+    _visual_bbox = selection->visualBounds(); // Used for correctly scaling the strokewidth
+    _geometric_bbox = selection->geometricBounds();
 
     _point = p;
     if (_geometric_bbox) {
@@ -296,13 +298,10 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
     std::vector<Inkscape::SnapCandidatePoint> snap_points_hull = selection->getSnapPointsConvexHull(&m.snapprefs);
     if (_snap_points.size() > 200) {
         /* Snapping a huge number of nodes will take way too long, so limit the number of snappable nodes
-        An average user would rarely ever try to snap such a large number of nodes anyway, because
-        (s)he could hardly discern which node would be snapping */
-        if (prefs->getBool("/options/snapclosestonly/value", false)) {
-            m.keepClosestPointOnly(_snap_points, p);
-        } else {
-            _snap_points = snap_points_hull;
-        }
+        A typical user would rarely ever try to snap such a large number of nodes anyway, because
+        (s)he would hardly be able to discern which node would be snapping */
+        _snap_points = snap_points_hull;
+        //}
         // Unfortunately, by now we will have lost the font-baseline snappoints :-(
     }
 
@@ -321,24 +320,27 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
     }
 
     _bbox_points.clear();
-    _bbox_points_for_translating.clear();
     // Collect the bounding box's corners and midpoints for each selected item
-    if (m.snapprefs.getSnapModeBBox()) {
-        bool mp = m.snapprefs.getSnapBBoxMidpoints();
-        bool emp = m.snapprefs.getSnapBBoxEdgeMidpoints();
-        // Preferably we'd use the bbox of each selected item, instead of the bbox of the selection as a whole; for translations
+    if (m.snapprefs.isTargetSnappable(SNAPTARGET_BBOX_CATEGORY)) {
+        bool c = m.snapprefs.isTargetSnappable(SNAPTARGET_BBOX_CORNER);
+        bool mp = m.snapprefs.isTargetSnappable(SNAPTARGET_BBOX_MIDPOINT);
+        bool emp = m.snapprefs.isTargetSnappable(SNAPTARGET_BBOX_EDGE_MIDPOINT);
+        // 1) Preferably we'd use the bbox of each selected item, instead of the bbox of the selection as a whole; for translations
         // this is easy to do, but when snapping the visual bbox while scaling we will have to compensate for the scaling of the
-        // stroke width. (see get_scale_transform_with_stroke()). This however is currently only implemented for a single bbox.
-        // That's why we have both _bbox_points_for_translating and _bbox_points.
-        getBBoxPoints(selection->bounds(_snap_bbox_type), &_bbox_points, false, true, emp, mp);
-        if (((_items.size() > 0) && (_items.size() < 50)) || prefs->getBool("/options/snapclosestonly/value", false)) {
-            // More than 50 items will produce at least 200 bbox points, which might make Inkscape crawl
-            // (see the comment a few lines above). In that case we will use the bbox of the selection as a whole
+        // stroke width. (see get_scale_transform_for_stroke()). This however is currently only implemented for a single bbox.
+        // 2) More than 50 items will produce at least 200 bbox points, which might make Inkscape crawl
+        // (see the comment a few lines above). In that case we will use the bbox of the selection as a whole
+        bool c1 = (_items.size() > 0) && (_items.size() < 50);
+        bool c2 = prefs->getBool("/options/snapclosestonly/value", false);
+        if (translating && (c1 || c2)) {
+            // Get the bounding box points for each item in the selection
             for (unsigned i = 0; i < _items.size(); i++) {
-                getBBoxPoints(_items[i]->getBboxDesktop(_snap_bbox_type), &_bbox_points_for_translating, false, true, emp, mp);
+                Geom::OptRect b = _items[i]->desktopBounds(_snap_bbox_type);
+                getBBoxPoints(b, &_bbox_points, false, c, emp, mp);
             }
         } else {
-            _bbox_points_for_translating = _bbox_points; // use the bbox points of the selection as a whole
+            // Only get the bounding box points of the selection as a whole
+            getBBoxPoints(selection->bounds(_snap_bbox_type), &_bbox_points, false, c, emp, mp);
         }
     }
 
@@ -355,54 +357,10 @@ void Inkscape::SelTrans::grab(Geom::Point const &p, gdouble x, gdouble y, bool s
     }
 
     // When snapping the node closest to the mouse pointer is absolutely preferred over the closest snap
-    // (i.e. when weight == 1), then we will not even try to snap to other points and discard those other
-    // points immediately.
+    // (i.e. when weight == 1), then we will not even try to snap to other points and disregard those other points
 
     if (prefs->getBool("/options/snapclosestonly/value", false)) {
-        if (m.snapprefs.getSnapModeNode()) {
-            m.keepClosestPointOnly(_snap_points, p);
-        } else {
-            _snap_points.clear(); // don't keep any point
-        }
-
-        if (m.snapprefs.getSnapModeBBox()) {
-            m.keepClosestPointOnly(_bbox_points, p);
-            m.keepClosestPointOnly(_bbox_points_for_translating, p);
-        } else {
-            _bbox_points.clear(); // don't keep any point
-            _bbox_points_for_translating.clear();
-        }
-
-        // Each of the three vectors of snappoints now contains either one snappoint or none at all.
-        if (_snap_points.size() > 1 || _bbox_points.size() > 1 || _bbox_points_for_translating.size() > 1) {
-            g_warning("Incorrect assumption encountered while finding the snap source; nothing serious, but please report to Diederik");
-        }
-
-        // Now let's reduce this to a single closest snappoint
-        Geom::Coord dsp    = _snap_points.size()                 == 1 ? Geom::L2((_snap_points.at(0)).getPoint() - p) : NR_HUGE;
-        Geom::Coord dbbp   = _bbox_points.size()                 == 1 ? Geom::L2((_bbox_points.at(0)).getPoint() - p) : NR_HUGE;
-        Geom::Coord dbbpft = _bbox_points_for_translating.size() == 1 ? Geom::L2((_bbox_points_for_translating.at(0)).getPoint() - p) : NR_HUGE;
-
-        if (translating) {
-            _bbox_points.clear();
-            if (dsp > dbbpft) {
-                _snap_points.clear();
-            } else {
-                _bbox_points_for_translating.clear();
-            }
-        } else {
-            _bbox_points_for_translating.clear();
-            if (dsp > dbbp) {
-                _snap_points.clear();
-            } else {
-                _bbox_points.clear();
-            }
-        }
-
-        if ((_snap_points.size() + _bbox_points.size() + _bbox_points_for_translating.size()) > 1) {
-            g_warning("Checking number of snap sources failed; nothing serious, but please report to Diederik");
-        }
-
+        _keepClosestPointOnly(p);
     }
 
     if ((x != -1) && (y != -1)) {
@@ -586,7 +544,7 @@ void Inkscape::SelTrans::stamp()
 
             Geom::Affine const *new_affine;
             if (_show == SHOW_OUTLINE) {
-                Geom::Affine const i2d(original_item->i2d_affine());
+                Geom::Affine const i2d(original_item->i2dt_affine());
                 Geom::Affine const i2dnew( i2d * _current_relative_affine );
                 copy_item->set_i2d_affine(i2dnew);
                 new_affine = &copy_item->transform;
@@ -695,7 +653,7 @@ void Inkscape::SelTrans::_updateVolatileState()
 
     //Update the bboxes
     _bbox = selection->bounds(_snap_bbox_type);
-    _approximate_bbox = selection->bounds(SPItem::APPROXIMATE_BBOX);
+    _visual_bbox = selection->visualBounds();
 
     if (!_bbox) {
         _empty = true;
@@ -897,8 +855,7 @@ void Inkscape::SelTrans::_selChanged(Inkscape::Selection */*selection*/)
         // reread in case it changed on the fly:
         int prefs_bbox = prefs->getBool("/tools/bounding_box");
          _snap_bbox_type = !prefs_bbox ?
-            SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX;
-        //SPItem::APPROXIMATE_BBOX will be replaced by SPItem::VISUAL_BBOX, as soon as the latter is implemented properly
+            SPItem::VISUAL_BBOX : SPItem::GEOMETRIC_BBOX;
 
         _updateVolatileState();
         _current_relative_affine.setIdentity();
@@ -1212,16 +1169,16 @@ gboolean Inkscape::SelTrans::skewRequest(SPSelTransHandle const &handle, Geom::P
         SnapManager &m = _desktop->namedview->snap_manager;
         m.setup(_desktop, false, _items_const);
 
-        Inkscape::Snapper::SnapConstraint const constraint(component_vectors[dim_b]);
+        Geom::Point cvec; cvec[dim_b] = 1.;
+        Inkscape::Snapper::SnapConstraint const constraint(cvec);
         // When skewing, we cannot snap the corners of the bounding box, see the comment in "constrainedSnapSkew" for details
         Geom::Point const s(skew[dim_a], scale[dim_a]);
         Inkscape::SnappedPoint sn = m.constrainedSnapSkew(_snap_points, _point, constraint, s, _origin, Geom::Dim2(dim_b));
 
         if (sn.getSnapped()) {
             // We snapped something, so change the skew to reflect it
-            Geom::Coord const sd = sn.getSnapped() ? sn.getTransformation()[0] : NR_HUGE;
+            skew[dim_a] = sn.getTransformation()[0];
              _desktop->snapindicator->set_new_snaptarget(sn);
-            skew[dim_a] = sd;
         } else {
             _desktop->snapindicator->remove_snaptarget();
         }
@@ -1474,14 +1431,15 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             // the constraint-line once. The constraint lines are parallel, but might not be colinear.
             // Therefore we will have to set the point through which the constraint-line runs
             // individually for each point to be snapped; this will be handled however by _snapTransformed()
-            s.push_back(m.constrainedSnapTranslate(_bbox_points_for_translating,
+            Geom::Point cvec; cvec[dim] = 1.;
+            s.push_back(m.constrainedSnapTranslate(_bbox_points,
                                                      _point,
-                                                     Inkscape::Snapper::SnapConstraint(component_vectors[dim]),
+                                                     Inkscape::Snapper::SnapConstraint(cvec),
                                                      dxy));
 
             s.push_back(m.constrainedSnapTranslate(_snap_points,
                                                      _point,
-                                                     Inkscape::Snapper::SnapConstraint(component_vectors[dim]),
+                                                     Inkscape::Snapper::SnapConstraint(cvec),
                                                      dxy));
         } else { // !control
 
@@ -1491,7 +1449,7 @@ void Inkscape::SelTrans::moveTo(Geom::Point const &xy, guint state)
             g_get_current_time(&starttime); */
 
             /* Snap to things with no constraint */
-            s.push_back(m.freeSnapTranslate(_bbox_points_for_translating, _point, dxy));
+            s.push_back(m.freeSnapTranslate(_bbox_points, _point, dxy));
             s.push_back(m.freeSnapTranslate(_snap_points, _point, dxy));
 
               /*g_get_current_time(&endtime);
@@ -1557,7 +1515,7 @@ Geom::Point Inkscape::SelTrans::_getGeomHandlePos(Geom::Point const &visual_hand
     }
 
     // Using the Geom::Rect constructor below ensures that "min() < max()", which is important
-    // because this will also hold for _bbox, and which is required for get_scale_transform_with_stroke()
+    // because this will also hold for _bbox, and which is required for get_scale_transform_for_stroke()
     Geom::Rect new_bbox = Geom::Rect(_origin_for_bboxpoints, visual_handle_pos); // new visual bounding box
     // Please note that the new_bbox might in fact be just a single line, for example when stretching (in
     // which case the handle and origin will be aligned vertically or horizontally)
@@ -1566,7 +1524,7 @@ Geom::Point Inkscape::SelTrans::_getGeomHandlePos(Geom::Point const &visual_hand
     // Calculate the absolute affine while taking into account the scaling of the stroke width
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     bool transform_stroke = prefs->getBool("/options/transform/stroke", true);
-    Geom::Affine abs_affine = get_scale_transform_with_stroke (*_bbox, _strokewidth, transform_stroke,
+    Geom::Affine abs_affine = get_scale_transform_for_uniform_stroke (*_bbox, _strokewidth, transform_stroke,
                     new_bbox.min()[Geom::X], new_bbox.min()[Geom::Y], new_bbox.max()[Geom::X], new_bbox.max()[Geom::Y]);
 
     // Calculate the scaled geometrical bbox
@@ -1601,8 +1559,8 @@ Geom::Scale Inkscape::calcScaleFactors(Geom::Point const &initial_point, Geom::P
 Geom::Point Inkscape::SelTrans::_calcAbsAffineDefault(Geom::Scale const default_scale)
 {
     Geom::Affine abs_affine = Geom::Translate(-_origin) * Geom::Affine(default_scale) * Geom::Translate(_origin);
-    Geom::Point new_bbox_min = _approximate_bbox->min() * abs_affine;
-    Geom::Point new_bbox_max = _approximate_bbox->max() * abs_affine;
+    Geom::Point new_bbox_min = _visual_bbox->min() * abs_affine;
+    Geom::Point new_bbox_max = _visual_bbox->max() * abs_affine;
 
     bool transform_stroke = false;
     gdouble strokewidth = 0;
@@ -1613,7 +1571,7 @@ Geom::Point Inkscape::SelTrans::_calcAbsAffineDefault(Geom::Scale const default_
         strokewidth = _strokewidth;
     }
 
-    _absolute_affine = get_scale_transform_with_stroke (*_approximate_bbox, strokewidth, transform_stroke,
+    _absolute_affine = get_scale_transform_for_uniform_stroke (*_visual_bbox, strokewidth, transform_stroke,
                     new_bbox_min[Geom::X], new_bbox_min[Geom::Y], new_bbox_max[Geom::X], new_bbox_max[Geom::Y]);
 
     // return the new handle position
@@ -1639,6 +1597,74 @@ Geom::Point Inkscape::SelTrans::_calcAbsAffineGeom(Geom::Scale const geom_scale)
     // see https://bugs.launchpad.net/inkscape/+bug/318726)
     g_warning("No geometric bounding box has been calculated; this is a bug that needs fixing!");
     return _calcAbsAffineDefault(geom_scale); // this is bogus, but we must return _something_
+}
+
+void Inkscape::SelTrans::_keepClosestPointOnly(Geom::Point const &p)
+{
+    SnapManager const &m = _desktop->namedview->snap_manager;
+
+    // If we're not going to snap nodes, then we might just as well get rid of their snappoints right away
+    if (!(m.snapprefs.isTargetSnappable(SNAPTARGET_NODE_CATEGORY, SNAPTARGET_OTHERS_CATEGORY) || m.snapprefs.isAnyDatumSnappable())) {
+        _snap_points.clear();
+    }
+
+    // If we're not going to snap bounding boxes, then we might just as well get rid of their snappoints right away
+    if (!m.snapprefs.isTargetSnappable(SNAPTARGET_BBOX_CATEGORY)) {
+        _bbox_points.clear();
+    }
+
+    _all_snap_sources_sorted = _snap_points;
+    _all_snap_sources_sorted.insert(_all_snap_sources_sorted.end(), _bbox_points.begin(), _bbox_points.end());
+
+    // Calculate and store the distance to the reference point for each snap candidate point
+    for(std::vector<Inkscape::SnapCandidatePoint>::iterator i = _all_snap_sources_sorted.begin(); i != _all_snap_sources_sorted.end(); ++i) {
+        (*i).setDistance(Geom::L2((*i).getPoint() - p));
+    }
+
+    // Sort them ascending, using the distance calculated above as the single criteria
+    std::sort(_all_snap_sources_sorted.begin(), _all_snap_sources_sorted.end());
+
+    // Now get the closest snap source
+    _snap_points.clear();
+    _bbox_points.clear();
+    if (!_all_snap_sources_sorted.empty()) {
+        _all_snap_sources_iter = _all_snap_sources_sorted.begin();
+        if (_all_snap_sources_sorted.front().getSourceType() & SNAPSOURCE_BBOX_CATEGORY) {
+            _bbox_points.push_back(_all_snap_sources_sorted.front());
+        } else {
+            _snap_points.push_back(_all_snap_sources_sorted.front());
+        }
+    }
+
+}
+
+void Inkscape::SelTrans::getNextClosestPoint(bool reverse)
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    if (prefs->getBool("/options/snapclosestonly/value", false)) {
+        if (!_all_snap_sources_sorted.empty()) {
+            if (reverse) { // Shift-tab will find a closer point
+                if (_all_snap_sources_iter == _all_snap_sources_sorted.begin()) {
+                    _all_snap_sources_iter = _all_snap_sources_sorted.end();
+                }
+                --_all_snap_sources_iter;
+            } else { // Tab will find a point further away
+                ++_all_snap_sources_iter;
+                if (_all_snap_sources_iter == _all_snap_sources_sorted.end()) {
+                    _all_snap_sources_iter = _all_snap_sources_sorted.begin();
+                }
+            }
+
+            _snap_points.clear();
+            _bbox_points.clear();
+
+            if ((*_all_snap_sources_iter).getSourceType() & SNAPSOURCE_BBOX_CATEGORY) {
+                _bbox_points.push_back(*_all_snap_sources_iter);
+            } else {
+                _snap_points.push_back(*_all_snap_sources_iter);
+            }
+        }
+    }
 }
 
 /*

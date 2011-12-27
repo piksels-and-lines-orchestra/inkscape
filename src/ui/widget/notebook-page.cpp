@@ -1,5 +1,5 @@
-/**
- * \brief Notebook page widget
+/*
+ * Notebook page widget.
  *
  * Author:
  *   Bryce Harrington <bryce@bryceharrington.org>
@@ -19,12 +19,6 @@ namespace Inkscape {
 namespace UI {
 namespace Widget {
 
-/**
- *    Construct a NotebookPage
- *
- *    \param label Label.
- */
-  
 NotebookPage::NotebookPage(int n_rows, int n_columns, bool expand, bool fill, guint padding)
     :_table(n_rows, n_columns)
 {

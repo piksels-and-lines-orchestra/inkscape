@@ -1,11 +1,13 @@
-/** @file
- * @brief SVG stylesheets implementation.
+/**
+ * @file
+ * SVG stylesheets implementation.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Peter Moulder <pmoulder@mail.csse.monash.edu.au>
  *   bulia byak <buliabyak@users.sf.net>
  *   Abhishek Sharma
+ *   Tavmjong Bah <tavmjong@free.fr>
  *
  * Copyright (C) 2001-2002 Lauris Kaplinski
  * Copyright (C) 2001 Ximian, Inc.
@@ -42,7 +44,6 @@
 #include "xml/repr.h"
 #include "xml/simple-document.h"
 #include "unit-constants.h"
-#include "2geom/isnan.h"
 #include "macros.h"
 #include "preferences.h"
 
@@ -333,6 +334,19 @@ static SPStyleEnum const enum_text_rendering[] = {
 static SPStyleEnum const enum_enable_background[] = {
     {"accumulate", SP_CSS_BACKGROUND_ACCUMULATE},
     {"new", SP_CSS_BACKGROUND_NEW},
+    {NULL, -1}
+};
+
+static SPStyleEnum const enum_clip_rule[] = {
+    {"nonzero", SP_WIND_RULE_NONZERO},
+    {"evenodd", SP_WIND_RULE_EVENODD},
+    {NULL, -1}
+};
+
+static SPStyleEnum const enum_color_interpolation[] = {
+    {"auto", SP_CSS_COLOR_INTERPOLATION_AUTO},
+    {"sRGB", SP_CSS_COLOR_INTERPOLATION_SRGB},
+    {"linearRGB", SP_CSS_COLOR_INTERPOLATION_LINEARRGB},
     {NULL, -1}
 };
 
@@ -656,6 +670,10 @@ sp_style_read(SPStyle *style, SPObject *object, Inkscape::XML::Node *repr)
                                                               : NULL ));
         }
     }
+    /* color interpolation */
+    SPS_READ_PENUM_IF_UNSET(&style->color_interpolation, repr, "color_interpolation", enum_color_interpolation, true);
+    /* color interpolation filters*/
+    SPS_READ_PENUM_IF_UNSET(&style->color_interpolation_filters, repr, "color_interpolation_filters", enum_color_interpolation, true);
     /* fill */
     if (!style->fill.set) {
         val = repr->attribute("fill");
@@ -767,6 +785,9 @@ sp_style_read(SPStyle *style, SPObject *object, Inkscape::XML::Node *repr)
     }
     SPS_READ_PENUM_IF_UNSET(&style->enable_background, repr,
                             "enable-background", enum_enable_background, true);
+
+    /* clip-rule */
+    SPS_READ_PENUM_IF_UNSET(&style->clip_rule, repr, "clip-rule", enum_clip_rule, true);
 
     /* 3. Merge from parent */
     if (object) {
@@ -911,8 +932,137 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
                 style->text->font.value = g_strdup(val);
                 style->text->font.set = TRUE;
                 style->text->font.inherit = (val && !strcmp(val, "inherit"));
+
+                // Break string into white space separated tokens
+                std::stringstream os( val );
+                Glib::ustring param;
+
+                while (os >> param) {
+
+                    // CSS is case insensitive but we're comparing against lowercase strings
+                    Glib::ustring lparam = param.lowercase();
+
+                    if (lparam == "/") {
+
+                        os >> param;
+                        // Eat the line-height for the moment as it is not an SVG property.
+                        // lparam = param.lowercase();
+                        // sp_style_read_ilengthornormal(&style->line_height, lparam);
+
+                    } else {
+
+                        // Skip if "normal" as that is the default (and we don't know which attribute it applies to).
+                        if (lparam == "normal") continue;
+
+                        // Check each property in turn
+
+                        // font-style
+                        SPIEnum test_style;
+                        test_style.set = FALSE;
+
+                        // Read once to see if param is valid style. If valid, .set will be TRUE.
+                        sp_style_read_ienum(&test_style, lparam.c_str(), enum_font_style, true);
+
+                        // If valid style parameter
+                        if (test_style.set) {
+
+                            // If not previously set
+                            if (!style->font_style.set) {
+                                style->font_style.set      = TRUE;
+                                style->font_style.inherit  = test_style.inherit;
+                                style->font_style.value    = test_style.value;
+                                style->font_style.computed = test_style.computed;
+                            }
+                            continue; // Next parameter.
+                        }
+
+                        // font-variant (small-caps)
+                        SPIEnum test_variant;
+                        test_variant.set = FALSE;
+                        sp_style_read_ienum(&test_variant, lparam.c_str(), enum_font_variant, true);
+
+                        // If valid variant parameter
+                        if (test_variant.set) {
+
+                            // If not previously set
+                            if (!style->font_variant.set) {
+                                style->font_variant.set      = TRUE;
+                                style->font_variant.inherit  = test_variant.inherit;
+                                style->font_variant.value    = test_variant.value;
+                                style->font_variant.computed = test_variant.computed;
+                            }
+                            continue; // Next parameter.
+                        }
+
+                        // font-weight
+                        SPIEnum test_weight;
+                        test_weight.set = FALSE;
+                        sp_style_read_ienum(&test_weight, lparam.c_str(), enum_font_weight, true);
+
+                        // If valid weight parameter
+                        if (test_weight.set) {
+
+                            // If not previously set
+                            if (!style->font_weight.set) {
+                                style->font_weight.set      = TRUE;
+                                style->font_weight.inherit  = test_weight.inherit;
+                                style->font_weight.value    = test_weight.value;
+                                style->font_weight.computed = test_weight.computed;
+                            }
+                            continue; // Next parameter
+                        }
+
+                        // Font-size
+                        SPIFontSize test_size;
+                        test_size.set = FALSE;
+
+                        // Read once to see if param is valid size.
+                        sp_style_read_ifontsize( &test_size, lparam.c_str() );
+
+                        // If valid size parameter
+                        if (test_size.set) {
+
+                            // If not previously set
+                            if (!style->font_size.set) {
+                                style->font_size.set      = TRUE;
+                                style->font_size.inherit  = test_size.inherit;
+                                style->font_size.unit     = test_size.unit;
+                                style->font_size.value    = test_size.value;
+                                style->font_size.computed = test_size.computed;
+                                style->font_size.type     = test_size.type;
+                                style->font_size.literal  = test_size.literal;
+                            }
+                            continue;
+                        }
+
+                        // No valid property value found.
+                        break;
+                    }
+                } // params
+
+                // The rest must be font-family...
+                std::string val_s = val;
+                std::string family = val_s.substr( val_s.find( param ) );
+
+                if (!style->text_private) sp_style_privatize_text(style);
+                if (!style->text->font_family.set) {
+                    gchar *val_unquoted = attribute_unquote( family.c_str() );
+                    sp_style_read_istring(&style->text->font_family, val_unquoted);
+                    if (val_unquoted) g_free (val_unquoted);
+                }
+
+                // Set all properties to their default values per CSS 2.1 spec if not already set
+                SPS_READ_IFONTSIZE_IF_UNSET(&style->font_size, "medium" );
+                SPS_READ_IENUM_IF_UNSET(&style->font_style,   "normal", enum_font_style,   true);
+                SPS_READ_IENUM_IF_UNSET(&style->font_variant, "normal", enum_font_variant, true);
+                SPS_READ_IENUM_IF_UNSET(&style->font_weight,  "normal", enum_font_weight,  true);
+                // Line height is not an SVG property but Inkscape uses it for multi-line text.
+                // sp_style_read_ilengthornormal(&style->line_height, "normal");
+
             }
+
             break;
+
             /* Text */
         case SP_PROP_TEXT_INDENT:
             SPS_READ_ILENGTH_IF_UNSET(&style->text_indent, val);
@@ -1021,7 +1171,9 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
             style->object->getRepr()->setAttribute("clip-path", val);
             break;
         case SP_PROP_CLIP_RULE:
-            g_warning("Unimplemented style property SP_PROP_CLIP_RULE: value: %s", val);
+            if (!style->clip_rule.set) {
+                sp_style_read_ienum(&style->clip_rule, val, enum_clip_rule, true);
+            }
             break;
         case SP_PROP_MASK:
             /** \todo
@@ -1069,10 +1221,18 @@ sp_style_merge_property(SPStyle *style, gint id, gchar const *val)
             break;
             /* Paint */
         case SP_PROP_COLOR_INTERPOLATION:
-            g_warning("Unimplemented style property SP_PROP_COLOR_INTERPOLATION: value: %s", val);
+            // We read it but issue warning
+            SPS_READ_IENUM_IF_UNSET(&style->color_interpolation, val, enum_color_interpolation, true);
+            if( style->color_interpolation.value != SP_CSS_COLOR_INTERPOLATION_SRGB ) {
+                g_warning("Inkscape currently only supports color-interpolation = sRGB");
+            }
             break;
         case SP_PROP_COLOR_INTERPOLATION_FILTERS:
-            g_warning("Unimplemented style property SP_PROP_INTERPOLATION_FILTERS: value: %s", val);
+            // We read it but issue warning
+            SPS_READ_IENUM_IF_UNSET(&style->color_interpolation_filters, val, enum_color_interpolation, true);
+            if( style->color_interpolation_filters.value != SP_CSS_COLOR_INTERPOLATION_SRGB ) {
+                g_warning("Inkscape currently only supports color-interpolation-filters = sRGB");
+            }
             break;
         case SP_PROP_COLOR_PROFILE:
             g_warning("Unimplemented style property SP_PROP_COLOR_PROFILE: value: %s", val);
@@ -1343,11 +1503,11 @@ sp_style_merge_font_size_from_parent(SPIFontSize &child, SPIFontSize const &pare
          * fixme: SVG and CSS do not specify clearly, whether we should use
          * user or screen coordinates (Lauris)
          */
-        if (child.value < SP_CSS_FONT_SIZE_SMALLER) {
-            child.computed = font_size_table[child.value];
-        } else if (child.value == SP_CSS_FONT_SIZE_SMALLER) {
+        if (child.literal < SP_CSS_FONT_SIZE_SMALLER) {
+            child.computed = font_size_table[child.literal];
+        } else if (child.literal == SP_CSS_FONT_SIZE_SMALLER) {
             child.computed = parent.computed / 1.2;
-        } else if (child.value == SP_CSS_FONT_SIZE_LARGER) {
+        } else if (child.literal == SP_CSS_FONT_SIZE_LARGER) {
             child.computed = parent.computed * 1.2;
         } else {
             /* Illegal value */
@@ -1355,7 +1515,21 @@ sp_style_merge_font_size_from_parent(SPIFontSize &child, SPIFontSize const &pare
     } else if (child.type == SP_FONT_SIZE_PERCENTAGE) {
         /* Unlike most other lengths, percentage for font size is relative to parent computed value
          * rather than viewport. */
-        child.computed = parent.computed * SP_F8_16_TO_FLOAT(child.value);
+        child.computed = parent.computed * child.value;
+    } else if (child.type == SP_FONT_SIZE_LENGTH) {
+        switch (child.unit) {
+            case SP_CSS_UNIT_EM:
+                /* Relative to parent font size */
+                child.computed = parent.computed * child.value;
+                break;
+            case SP_CSS_UNIT_EX:
+                /* Relative to parent font size */
+                child.computed = parent.computed * child.value * 0.5; /* Hack */
+                break;
+            default:
+                /* No change */
+                break;
+        }
     }
 }
 
@@ -1556,6 +1730,13 @@ sp_style_merge_from_parent(SPStyle *const style, SPStyle const *const parent)
     if (!style->color.set || style->color.inherit) {
         sp_style_merge_ipaint(style, &style->color, &parent->color);
     }
+    if (!style->color_interpolation.set || style->color_interpolation.inherit) {
+        style->color_interpolation.computed = parent->color_interpolation.computed;
+    }
+    if (!style->color_interpolation_filters.set || style->color_interpolation_filters.inherit) {
+        style->color_interpolation_filters.computed = parent->color_interpolation_filters.computed;
+    }
+
 
     /* Fill */
     if (!style->fill.set || style->fill.inherit || style->fill.currentcolor) {
@@ -1645,6 +1826,11 @@ sp_style_merge_from_parent(SPStyle *const style, SPStyle const *const parent)
 
     if(style->enable_background.inherit) {
         style->enable_background.value = parent->enable_background.value;
+    }
+
+    /* Clipping */
+    if (!style->clip_rule.set || style->clip_rule.inherit) {
+        style->clip_rule.computed = parent->clip_rule.computed;
     }
 }
 
@@ -1790,7 +1976,7 @@ get_relative_font_size_frac(SPIFontSize const &font_size)
 {
     switch (font_size.type) {
         case SP_FONT_SIZE_LITERAL: {
-            switch (font_size.value) {
+            switch (font_size.literal) {
                 case SP_CSS_FONT_SIZE_SMALLER:
                     return 5.0 / 6.0;
 
@@ -1803,10 +1989,20 @@ get_relative_font_size_frac(SPIFontSize const &font_size)
         }
 
         case SP_FONT_SIZE_PERCENTAGE:
-            return SP_F8_16_TO_FLOAT(font_size.value);
+            return font_size.value;
 
-        case SP_FONT_SIZE_LENGTH:
-            g_assert_not_reached();
+        case SP_FONT_SIZE_LENGTH: {
+            switch (font_size.unit ) {
+                case SP_CSS_UNIT_EM:
+                    return font_size.value;
+
+                case SP_CSS_UNIT_EX:
+                    return font_size.value * 0.5;
+
+                default:
+                    g_assert_not_reached();
+            }
+        }
     }
     g_assert_not_reached();
 }
@@ -1853,20 +2049,29 @@ sp_style_merge_from_dying_parent(SPStyle *const style, SPStyle const *const pare
     {
         /* font-size.  Note that we update the computed font-size of style,
            to assist in em calculations later in this function. */
+
         if (parent->font_size.set && !parent->font_size.inherit) {
+            /* Parent has defined font-size */
+
             if (!style->font_size.set || style->font_size.inherit) {
                 /* font_size inherits the computed value, so we can use the parent value
                  * verbatim. */
                 style->font_size = parent->font_size;
-            } else if ( style->font_size.type == SP_FONT_SIZE_LENGTH ) {
+
+            } else if ( style->font_size.type == SP_FONT_SIZE_LENGTH  && 
+                        style->font_size.unit != SP_CSS_UNIT_EM &&
+                        style->font_size.unit != SP_CSS_UNIT_EX ) {
+
                 /* Child already has absolute size (stored in computed value), so do nothing. */
+
             } else if ( style->font_size.type == SP_FONT_SIZE_LITERAL
-                        && style->font_size.value < SP_CSS_FONT_SIZE_SMALLER ) {
+                        && style->font_size.literal < SP_CSS_FONT_SIZE_SMALLER ) {
                 /* Child already has absolute size, but we ensure that the computed value
                    is up-to-date. */
-                unsigned const ix = style->font_size.value;
+                unsigned const ix = style->font_size.literal;
                 g_assert(ix < G_N_ELEMENTS(font_size_table));
                 style->font_size.computed = font_size_table[ix];
+
             } else {
                 /* Child has relative size. */
                 double const child_frac(get_relative_font_size_frac(style->font_size));
@@ -1875,17 +2080,26 @@ sp_style_merge_from_dying_parent(SPStyle *const style, SPStyle const *const pare
                 style->font_size.computed = parent->font_size.computed * child_frac;
 
                 if ( ( parent->font_size.type == SP_FONT_SIZE_LITERAL
-                       && parent->font_size.value < SP_CSS_FONT_SIZE_SMALLER )
-                     || parent->font_size.type == SP_FONT_SIZE_LENGTH )
-                {
+                       && parent->font_size.literal < SP_CSS_FONT_SIZE_SMALLER ) ||
+                     ( parent->font_size.type == SP_FONT_SIZE_LENGTH &&
+                       parent->font_size.unit != SP_CSS_UNIT_EM &&
+                       parent->font_size.unit != SP_CSS_UNIT_EX ) ) {
+
                     /* Absolute value. */
                     style->font_size.type = SP_FONT_SIZE_LENGTH;
-                    /* .value is unused for SP_FONT_SIZE_LENGTH. */
+                    /* .value is unused for non ex/em SP_FONT_SIZE_LENGTH. */
+
                 } else {
                     /* Relative value. */
+                        
                     double const parent_frac(get_relative_font_size_frac(parent->font_size));
-                    style->font_size.type = SP_FONT_SIZE_PERCENTAGE;
-                    style->font_size.value = SP_F8_16_FROM_FLOAT(parent_frac * child_frac);
+                    if( style->font_size.type == SP_FONT_SIZE_LENGTH ) {
+                        /* Value in terms of ex/em */
+                        style->font_size.value *= parent_frac;
+                    } else {
+                        style->font_size.value = parent_frac * child_frac;
+                        style->font_size.type = SP_FONT_SIZE_PERCENTAGE;
+                    }
                 }
             }
         }
@@ -1907,9 +2121,9 @@ sp_style_merge_from_dying_parent(SPStyle *const style, SPStyle const *const pare
     /* Enum values that don't have any relative settings (other than `inherit'). */
     {
         SPIEnum SPStyle::*const fields[] = {
-            //nyi: SPStyle::clip_rule,
-            //nyi: SPStyle::color_interpolation,
-            //nyi: SPStyle::color_interpolation_filters,
+            &SPStyle::clip_rule,
+            &SPStyle::color_interpolation,
+            &SPStyle::color_interpolation_filters,
             //nyi: SPStyle::color_rendering,
             &SPStyle::direction,
             &SPStyle::fill_rule,
@@ -2346,6 +2560,9 @@ sp_style_write_string(SPStyle const *const style, guint const flags)
     if (!style->color.noneSet) { // CSS does not permit "none" for color
         p += sp_style_write_ipaint(p, c + BMAX - p, "color", &style->color, NULL, flags);
     }
+    p += sp_style_write_ienum(p, c + BMAX - p, "color-interpolation", enum_color_interpolation, &style->color_interpolation, NULL, flags);
+    p += sp_style_write_ienum(p, c + BMAX - p, "color-interpolation-filters", enum_color_interpolation, &style->color_interpolation_filters, NULL, flags);
+
 
     p += sp_style_write_ipaint(p, c + BMAX - p, "fill", &style->fill, NULL, flags);
     // if fill:none, skip writing fill properties
@@ -2447,6 +2664,9 @@ sp_style_write_string(SPStyle const *const style, guint const flags)
 
     p += sp_style_write_ienum(p, c + BMAX - p, "enable-background", enum_enable_background, &style->enable_background, NULL, flags);
 
+    /* clipping */
+    p += sp_style_write_ienum(p, c + BMAX - p, "clip-rule", enum_clip_rule, &style->clip_rule, NULL, flags);
+
     /* fixme: */
     p += sp_text_style_write(p, c + BMAX - p, style->text, flags);
 
@@ -2510,6 +2730,8 @@ sp_style_write_difference(SPStyle const *const from, SPStyle const *const to)
     if (!from->color.noneSet) { // CSS does not permit "none" for color
         p += sp_style_write_ipaint(p, c + BMAX - p, "color", &from->color, &to->color, SP_STYLE_FLAG_IFSET);
     }
+    p += sp_style_write_ienum(p, c + BMAX - p, "color-interpolation", enum_color_interpolation, &from->color_interpolation, &to->color_interpolation, SP_STYLE_FLAG_IFDIFF);
+    p += sp_style_write_ienum(p, c + BMAX - p, "color-interpolation-filters", enum_color_interpolation, &from->color_interpolation_filters, &to->color_interpolation_filters, SP_STYLE_FLAG_IFDIFF);
 
     p += sp_style_write_ipaint(p, c + BMAX - p, "fill", &from->fill, &to->fill, SP_STYLE_FLAG_IFDIFF);
     // if fill:none, skip writing fill properties
@@ -2592,6 +2814,8 @@ sp_style_write_difference(SPStyle const *const from, SPStyle const *const to)
     p += sp_style_write_ienum(p, c + BMAX - p, "enable-background", enum_enable_background, &from->enable_background, &to->enable_background, SP_STYLE_FLAG_IFSET);
 
     p += sp_text_style_write(p, c + BMAX - p, from->text, SP_STYLE_FLAG_IFDIFF);
+
+    p += sp_style_write_ienum(p, c + BMAX - p, "clip-rule", enum_clip_rule, &from->clip_rule, &to->clip_rule, SP_STYLE_FLAG_IFDIFF);
 
     /** \todo
      * The reason we use IFSET rather than IFDIFF is the belief that the IFDIFF
@@ -2677,7 +2901,7 @@ sp_style_clear(SPStyle *style)
 
     style->font_size.set = FALSE;
     style->font_size.type = SP_FONT_SIZE_LITERAL;
-    style->font_size.value = SP_CSS_FONT_SIZE_MEDIUM;
+    style->font_size.literal = SP_CSS_FONT_SIZE_MEDIUM;
     style->font_size.computed = 12.0;
     style->font_style.set = FALSE;
     style->font_style.value = style->font_style.computed = SP_CSS_FONT_STYLE_NORMAL;
@@ -2751,6 +2975,8 @@ sp_style_clear(SPStyle *style)
 
     style->color.clear();
     style->color.setColor(0.0, 0.0, 0.0);
+    style->color_interpolation.value = style->color_interpolation.computed = SP_CSS_COLOR_INTERPOLATION_SRGB;
+    style->color_interpolation_filters.value = style->color_interpolation_filters.computed = SP_CSS_COLOR_INTERPOLATION_LINEARRGB;
 
     style->fill.clear();
     style->fill.setColor(0.0, 0.0, 0.0);
@@ -2784,6 +3010,8 @@ sp_style_clear(SPStyle *style)
     style->enable_background.value = SP_CSS_BACKGROUND_ACCUMULATE;
     style->enable_background.set = false;
     style->enable_background.inherit = false;
+
+    style->clip_rule.value = style->clip_rule.computed = SP_WIND_RULE_NONZERO;
 }
 
 
@@ -3008,6 +3236,7 @@ sp_style_read_ienum(SPIEnum *val, gchar const *str, SPStyleEnum const *dict,
             }
         }
     }
+    return;
 }
 
 
@@ -3066,9 +3295,8 @@ sp_style_read_ilength(SPILength *val, gchar const *str)
                 val->unit = SP_CSS_UNIT_PT;
                 val->computed = value * PX_PER_PT;
             } else if (!strcmp(e, "pc")) {
-                /* 1 pica = 12pt; FIXME: add it to SPUnit */
                 val->unit = SP_CSS_UNIT_PC;
-                val->computed = value * PX_PER_PT * 12;
+                val->computed = value * PX_PER_PC;
             } else if (!strcmp(e, "mm")) {
                 val->unit = SP_CSS_UNIT_MM;
                 val->computed = value * PX_PER_MM;
@@ -3284,52 +3512,29 @@ sp_style_read_ifontsize(SPIFontSize *val, gchar const *str)
                 val->set = TRUE;
                 val->inherit = FALSE;
                 val->type = SP_FONT_SIZE_LITERAL;
-                val->value = enum_font_size[i].value;
+                val->literal = enum_font_size[i].value;
                 return;
             }
         }
         /* Invalid */
         return;
     } else {
-        gdouble value;
-        gchar *e;
-        /* fixme: Move this to standard place (Lauris) */
-        value = g_ascii_strtod(str, &e);
-        if ((gchar const *) e != str) {
-            if (!*e) {
-                /* Userspace */
-            } else if (!strcmp(e, "px")) {
-                /* Userspace */
-            } else if (!strcmp(e, "pt")) {
-                /* Userspace * DEVICESCALE */
-                value *= PX_PER_PT;
-            } else if (!strcmp(e, "pc")) {
-                /* 12pt */
-                value *= PX_PER_PT * 12.0;
-            } else if (!strcmp(e, "mm")) {
-                value *= PX_PER_MM;
-            } else if (!strcmp(e, "cm")) {
-                value *= PX_PER_CM;
-            } else if (!strcmp(e, "in")) {
-                value *= PX_PER_IN;
-            } else if (!strcmp(e, "%")) {
-                /* Percentage */
-                val->set = TRUE;
-                val->inherit = FALSE;
+        SPILength length;
+        length.set = FALSE;
+        sp_style_read_ilength(&length, str);
+        if( length.set ) {
+            val->set      = TRUE;
+            val->inherit  = length.inherit;
+            val->unit     = length.unit;
+            val->value    = length.value;
+            val->computed = length.computed;
+            if( val->unit == SP_CSS_UNIT_PERCENT ) {
                 val->type = SP_FONT_SIZE_PERCENTAGE;
-                val->value = SP_F8_16_FROM_FLOAT(value / 100.0);
-                return;
             } else {
-                /* Invalid */
-                return;
+                val->type = SP_FONT_SIZE_LENGTH;
             }
-            /* Length */
-            val->set = TRUE;
-            val->inherit = FALSE;
-            val->type = SP_FONT_SIZE_LENGTH;
-            val->computed = value;
-            return;
         }
+        return; 
     }
 }
 
@@ -3935,7 +4140,7 @@ sp_style_write_ifontsize(gchar *p, gint const len, gchar const *key,
             return g_strlcpy(p, os.str().c_str(), len);
         } else if (val->type == SP_FONT_SIZE_PERCENTAGE) {
             Inkscape::CSSOStringStream os;
-            os << key << ":" << (SP_F8_16_TO_FLOAT(val->value) * 100.0) << "%;";
+            os << key << ":" << (val->value * 100.0) << "%;";
             return g_strlcpy(p, os.str().c_str(), len);
         }
     }
@@ -4119,6 +4324,12 @@ sp_style_unset_property_attrs(SPObject *o)
     if (style->color.set) {
         repr->setAttribute("color", NULL);
     }
+    if (style->color_interpolation.set) {
+        repr->setAttribute("color-interpolation", NULL);
+    }
+    if (style->color_interpolation_filters.set) {
+        repr->setAttribute("color-interpolation-filters", NULL);
+    }
     if (style->fill.set) {
         repr->setAttribute("fill", NULL);
     }
@@ -4178,6 +4389,9 @@ sp_style_unset_property_attrs(SPObject *o)
     }
     if (style->enable_background.set) {
         repr->setAttribute("enable-background", NULL);
+    }
+    if (style->clip_rule.set) {
+        repr->setAttribute("clip-rule", NULL);
     }
 }
 

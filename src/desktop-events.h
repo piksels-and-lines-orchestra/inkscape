@@ -13,12 +13,12 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gdk/gdkevents.h>
-#include <gtk/gtkwidget.h>
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
 
-class SPDesktop;
-class SPDesktopWidget;
-class SPCanvasItem;
+class  SPDesktop;
+class  SPDesktopWidget;
+struct SPCanvasItem;
 
 /* Item handlers */
 

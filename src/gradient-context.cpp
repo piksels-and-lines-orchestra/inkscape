@@ -48,7 +48,6 @@
 
 using Inkscape::DocumentUndo;
 
-
 static void sp_gradient_context_class_init(SPGradientContextClass *klass);
 static void sp_gradient_context_init(SPGradientContext *gr_context);
 static void sp_gradient_context_dispose(GObject *object);
@@ -62,7 +61,7 @@ static void sp_gradient_drag(SPGradientContext &rc, Geom::Point const pt, guint 
 static SPEventContextClass *parent_class;
 
 
-GtkType sp_gradient_context_get_type()
+GType sp_gradient_context_get_type()
 {
     static GType type = 0;
     if (!type) {
@@ -253,7 +252,8 @@ sp_gradient_context_is_over_line (SPGradientContext *rc, SPItem *item, Geom::Poi
 
     SPCtrlLine* line = SP_CTRLLINE(item);
 
-    Geom::Point nearest = snap_vector_midpoint (rc->mousepoint_doc, line->s, line->e, 0);
+    Geom::LineSegment ls(line->s, line->e);
+    Geom::Point nearest = ls.pointAt(ls.nearestPoint(rc->mousepoint_doc));
     double dist_screen = Geom::L2 (rc->mousepoint_doc - nearest) * desktop->current_zoom();
 
     double tolerance = (double) SP_EVENT_CONTEXT(rc)->tolerance;
@@ -497,7 +497,7 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
     SPGradientContext *rc = SP_GRADIENT_CONTEXT(event_context);
 
     event_context->tolerance = prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
-    double const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000); // in px
+    double const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000, "px"); // in px
 
     GrDrag *drag = event_context->_grdrag;
     g_assert (drag);
@@ -547,20 +547,22 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 
             dragging = true;
 
-            Geom::Point button_dt = to_2geom(desktop->w2d(button_w));
+            Geom::Point button_dt = desktop->w2d(button_w);
             if (event->button.state & GDK_SHIFT_MASK) {
-                Inkscape::Rubberband::get(desktop)->start(desktop, from_2geom(button_dt));
+                Inkscape::Rubberband::get(desktop)->start(desktop, button_dt);
             } else {
                 // remember clicked item, disregarding groups, honoring Alt; do nothing with Crtl to
                 // enable Ctrl+doubleclick of exactly the selected item(s)
                 if (!(event->button.state & GDK_CONTROL_MASK))
                     event_context->item_to_select = sp_event_context_find_item (desktop, button_w, event->button.state & GDK_MOD1_MASK, TRUE);
 
-                SnapManager &m = desktop->namedview->snap_manager;
-                m.setup(desktop);
-                m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
-                m.unSetup();
-                rc->origin = from_2geom(button_dt);
+                if (!selection->isEmpty()) {
+                    SnapManager &m = desktop->namedview->snap_manager;
+                    m.setup(desktop);
+                    m.freeSnapReturnByRef(button_dt, Inkscape::SNAPSOURCE_NODE_HANDLE);
+                    m.unSetup();
+                }
+                rc->origin = button_dt;
             }
 
             ret = TRUE;
@@ -594,14 +596,14 @@ sp_gradient_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 
             ret = TRUE;
         } else {
-            if (!drag->mouseOver()) {
+            if (!drag->mouseOver() && !selection->isEmpty()) {
                 SnapManager &m = desktop->namedview->snap_manager;
                 m.setup(desktop);
 
                 Geom::Point const motion_w(event->motion.x, event->motion.y);
                 Geom::Point const motion_dt = event_context->desktop->w2d(motion_w);
 
-                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_NODE_HANDLE));
+                m.preSnap(Inkscape::SnapCandidatePoint(motion_dt, Inkscape::SNAPSOURCE_OTHER_HANDLE));
                 m.unSetup();
             }
 

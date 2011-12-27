@@ -1,9 +1,8 @@
 #ifndef SEEN_SP_COLOR_SCALES_H
 #define SEEN_SP_COLOR_SCALES_H
 
-#include <glib/gtypes.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkvbox.h>
+#include <glib.h>
+#include <gtk/gtk.h>
 
 #include <color.h>
 #include <widgets/sp-color-slider.h>
@@ -66,8 +65,6 @@ protected:
     GtkWidget *_b[5]; /* Spinbuttons */
     GtkWidget *_l[5]; /* Labels */
 
-    GtkTooltips *_tt; /* tooltip container */
-
 private:
     // By default, disallow copy constructor and assignment operator
     ColorScales(ColorScales const &obj);
@@ -77,10 +74,10 @@ private:
 
 
 #define SP_TYPE_COLOR_SCALES (sp_color_scales_get_type())
-#define SP_COLOR_SCALES(o) (GTK_CHECK_CAST((o), SP_TYPE_COLOR_SCALES, SPColorScales))
-#define SP_COLOR_SCALES_CLASS(k) (GTK_CHECK_CLASS_CAST((k), SP_TYPE_COLOR_SCALES, SPColorScalesClass))
-#define SP_IS_COLOR_SCALES(o) (GTK_CHECK_TYPE((o), SP_TYPE_COLOR_SCALES))
-#define SP_IS_COLOR_SCALES_CLASS(k) (GTK_CHECK_CLASS_TYPE((k), SP_TYPE_COLOR_SCALES))
+#define SP_COLOR_SCALES(o) (G_TYPE_CHECK_INSTANCE_CAST((o), SP_TYPE_COLOR_SCALES, SPColorScales))
+#define SP_COLOR_SCALES_CLASS(k) (G_TYPE_CHECK_CLASS_CAST((k), SP_TYPE_COLOR_SCALES, SPColorScalesClass))
+#define SP_IS_COLOR_SCALES(o) (G_TYPE_CHECK_INSTANCE_TYPE((o), SP_TYPE_COLOR_SCALES))
+#define SP_IS_COLOR_SCALES_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE((k), SP_TYPE_COLOR_SCALES))
 
 struct SPColorScales {
     SPColorSelector parent;

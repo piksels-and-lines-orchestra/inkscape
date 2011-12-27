@@ -386,9 +386,9 @@ Geom::Point
 box3d_get_corner_screen (SPBox3D const *box, guint id, bool item_coords) {
     Proj::Pt3 proj_corner (box3d_get_proj_corner (box, id));
     if (!box3d_get_perspective(box)) {
-        return Geom::Point (NR_HUGE, NR_HUGE);
+        return Geom::Point (Geom::infinity(), Geom::infinity());
     }
-    Geom::Affine const i2d (SP_ITEM(box)->i2d_affine ());
+    Geom::Affine const i2d(box->i2dt_affine ());
     if (item_coords) {
         return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_corner).affine() * i2d.inverse();
     } else {
@@ -410,9 +410,9 @@ Geom::Point
 box3d_get_center_screen (SPBox3D *box) {
     Proj::Pt3 proj_center (box3d_get_proj_center (box));
     if (!box3d_get_perspective(box)) {
-        return Geom::Point (NR_HUGE, NR_HUGE);
+        return Geom::Point (Geom::infinity(), Geom::infinity());
     }
-    Geom::Affine const i2d (SP_ITEM(box)->i2d_affine ());
+    Geom::Affine const i2d( box->i2dt_affine() );
     return box3d_get_perspective(box)->perspective_impl->tmat.image(proj_center).affine() * i2d.inverse();
 }
 
@@ -425,6 +425,9 @@ box3d_get_center_screen (SPBox3D *box) {
 // Should we make the threshold settable in the preferences?
 static double remember_snap_threshold = 30;
 static guint remember_snap_index = 0;
+
+// constant for sizing the array of points to be considered:
+static const int MAX_POINT_COUNT = 4;
 
 static Proj::Pt3
 box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &start_pt) {
@@ -455,7 +458,7 @@ box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &sta
     Box3D::Line diag2(A, E); // diag2 is only taken into account if id equals -1, i.e., if we are snapping the center
 
     int num_snap_lines = (id != -1) ? 3 : 4;
-    Geom::Point snap_pts[num_snap_lines];
+    Geom::Point snap_pts[MAX_POINT_COUNT];
 
     snap_pts[0] = pl1.closest_to (pt);
     snap_pts[1] = pl2.closest_to (pt);
@@ -467,7 +470,7 @@ box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &sta
     gdouble const zoom = inkscape_active_desktop()->current_zoom();
 
     // determine the distances to all potential snapping points
-    double snap_dists[num_snap_lines];
+    double snap_dists[MAX_POINT_COUNT];
     for (int i = 0; i < num_snap_lines; ++i) {
         snap_dists[i] = Geom::L2 (snap_pts[i] - pt) * zoom;
     }
@@ -484,7 +487,7 @@ box3d_snap (SPBox3D *box, int id, Proj::Pt3 const &pt_proj, Proj::Pt3 const &sta
 
     // find the closest snapping point
     int snap_index = -1;
-    double snap_dist = NR_HUGE;
+    double snap_dist = Geom::infinity();
     for (int i = 0; i < num_snap_lines; ++i) {
         if (snap_dists[i] < snap_dist) {
             snap_index = i;
@@ -1177,7 +1180,7 @@ box3d_set_z_orders (SPBox3D *box) {
         for (unsigned int i = 0; i < 6; ++i) {
             side = sides.find(box->z_orders[i]);
             if (side != sides.end()) {
-                SP_ITEM((*side).second)->lowerToBottom();
+                ((*side).second)->lowerToBottom();
             }
         }
     }
@@ -1419,7 +1422,7 @@ box3d_convert_to_guides(SPItem *item) {
     box3d_push_back_corner_pair(box, pts, 2, 6);
     box3d_push_back_corner_pair(box, pts, 3, 7);
 
-    sp_guide_pt_pairs_to_guides(inkscape_active_desktop(), pts);
+    sp_guide_pt_pairs_to_guides(item->document, pts);
 }
 
 /*

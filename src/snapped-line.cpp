@@ -1,6 +1,6 @@
 /**
  *    \file src/snapped-line.cpp
- *    \brief SnappedLine class.
+ *    SnappedLine class.
  *
  *    Authors:
  *      Diederik van Lierop <mail@diedenrezi.nl>
@@ -22,7 +22,7 @@ Inkscape::SnappedLineSegment::SnappedLineSegment(Geom::Point const &snapped_poin
     _tolerance = std::max(snapped_tolerance, 1.0);
     _always_snap = always_snap;
     _at_intersection = false;
-    _second_distance = NR_HUGE;
+    _second_distance = Geom::infinity();
     _second_tolerance = 1;
     _second_always_snap = false;
 }
@@ -35,11 +35,11 @@ Inkscape::SnappedLineSegment::SnappedLineSegment()
     _source = SNAPSOURCE_UNDEFINED;
     _source_num = -1;
     _target = SNAPTARGET_UNDEFINED;
-    _distance = NR_HUGE;
+    _distance = Geom::infinity();
     _tolerance = 1;
     _always_snap = false;
     _at_intersection = false;
-    _second_distance = NR_HUGE;
+    _second_distance = Geom::infinity();
     _second_tolerance = 1;
     _second_always_snap = false;
 }
@@ -85,7 +85,7 @@ Inkscape::SnappedPoint Inkscape::SnappedLineSegment::intersect(SnappedLineSegmen
     }
 
     // No intersection
-    return SnappedPoint(Geom::Point(NR_HUGE, NR_HUGE), SNAPSOURCE_UNDEFINED, 0, SNAPTARGET_UNDEFINED, NR_HUGE, 0, false, false, false, false, NR_HUGE, 0, false);
+    return SnappedPoint(Geom::Point(Geom::infinity(), Geom::infinity()), SNAPSOURCE_UNDEFINED, 0, SNAPTARGET_UNDEFINED, Geom::infinity(), 0, false, false, false, false, Geom::infinity(), 0, false);
 };
 
 
@@ -99,7 +99,7 @@ Inkscape::SnappedLine::SnappedLine(Geom::Point const &snapped_point, Geom::Coord
     _distance = snapped_distance;
     _tolerance = std::max(snapped_tolerance, 1.0);
     _always_snap = always_snap;
-    _second_distance = NR_HUGE;
+    _second_distance = Geom::infinity();
     _second_tolerance = 1;
     _second_always_snap = false;
     _point = snapped_point;
@@ -113,10 +113,10 @@ Inkscape::SnappedLine::SnappedLine()
     _source = SNAPSOURCE_UNDEFINED;
     _source_num = -1;
     _target = SNAPTARGET_UNDEFINED;
-    _distance = NR_HUGE;
+    _distance = Geom::infinity();
     _tolerance = 1;
     _always_snap = false;
-    _second_distance = NR_HUGE;
+    _second_distance = Geom::infinity();
     _second_tolerance = 1;
     _second_always_snap = false;
     _point = Geom::Point(0,0);
@@ -168,7 +168,7 @@ Inkscape::SnappedPoint Inkscape::SnappedLine::intersect(SnappedLine const &line)
     }
 
     // No intersection
-    return SnappedPoint(Geom::Point(NR_HUGE, NR_HUGE), SNAPSOURCE_UNDEFINED, 0, SNAPTARGET_UNDEFINED, NR_HUGE, 0, false, false, false, false, NR_HUGE, 0, false);
+    return SnappedPoint(Geom::Point(Geom::infinity(), Geom::infinity()), SNAPSOURCE_UNDEFINED, 0, SNAPTARGET_UNDEFINED, Geom::infinity(), 0, false, false, false, false, Geom::infinity(), 0, false);
 }
 
 // search for the closest snapped line segment
@@ -176,7 +176,7 @@ bool getClosestSLS(std::list<Inkscape::SnappedLineSegment> const &list, Inkscape
 {
     bool success = false;
 
-    for (std::list<Inkscape::SnappedLineSegment>::const_iterator i = list.begin(); i != list.end(); i++) {
+    for (std::list<Inkscape::SnappedLineSegment>::const_iterator i = list.begin(); i != list.end(); ++i) {
         if ((i == list.begin()) || (*i).getSnapDistance() < result.getSnapDistance()) {
             result = *i;
             success = true;
@@ -191,10 +191,10 @@ bool getClosestIntersectionSLS(std::list<Inkscape::SnappedLineSegment> const &li
 {
     bool success = false;
 
-    for (std::list<Inkscape::SnappedLineSegment>::const_iterator i = list.begin(); i != list.end(); i++) {
+    for (std::list<Inkscape::SnappedLineSegment>::const_iterator i = list.begin(); i != list.end(); ++i) {
         std::list<Inkscape::SnappedLineSegment>::const_iterator j = i;
-        j++;
-        for (; j != list.end(); j++) {
+        ++j;
+        for (; j != list.end(); ++j) {
             Inkscape::SnappedPoint sp = (*i).intersect(*j);
             if (sp.getAtIntersection()) {
                 // if it's the first point
@@ -221,7 +221,7 @@ bool getClosestSL(std::list<Inkscape::SnappedLine> const &list, Inkscape::Snappe
 {
     bool success = false;
 
-    for (std::list<Inkscape::SnappedLine>::const_iterator i = list.begin(); i != list.end(); i++) {
+    for (std::list<Inkscape::SnappedLine>::const_iterator i = list.begin(); i != list.end(); ++i) {
         if ((i == list.begin()) || (*i).getSnapDistance() < result.getSnapDistance()) {
             result = *i;
             success = true;
@@ -236,10 +236,10 @@ bool getClosestIntersectionSL(std::list<Inkscape::SnappedLine> const &list, Inks
 {
     bool success = false;
 
-    for (std::list<Inkscape::SnappedLine>::const_iterator i = list.begin(); i != list.end(); i++) {
+    for (std::list<Inkscape::SnappedLine>::const_iterator i = list.begin(); i != list.end(); ++i) {
         std::list<Inkscape::SnappedLine>::const_iterator j = i;
-        j++;
-        for (; j != list.end(); j++) {
+        ++j;
+        for (; j != list.end(); ++j) {
             Inkscape::SnappedPoint sp = (*i).intersect(*j);
             if (sp.getAtIntersection()) {
                 // if it's the first point
@@ -266,8 +266,8 @@ bool getClosestIntersectionSL(std::list<Inkscape::SnappedLine> const &list1, std
 {
     bool success = false;
 
-    for (std::list<Inkscape::SnappedLine>::const_iterator i = list1.begin(); i != list1.end(); i++) {
-        for (std::list<Inkscape::SnappedLine>::const_iterator j = list2.begin(); j != list2.end(); j++) {
+    for (std::list<Inkscape::SnappedLine>::const_iterator i = list1.begin(); i != list1.end(); ++i) {
+        for (std::list<Inkscape::SnappedLine>::const_iterator j = list2.begin(); j != list2.end(); ++j) {
             Inkscape::SnappedPoint sp = (*i).intersect(*j);
             if (sp.getAtIntersection()) {
                 // if it's the first point

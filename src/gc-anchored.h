@@ -1,6 +1,4 @@
-/** \file
- * Inkscape::GC::Anchored - base class for anchored GC-managed objects
- *
+/*
  * Authors:
  *   MenTaLguY <mental@rydia.net>
  * * Copyright (C) 2004 MenTaLguY
@@ -11,7 +9,7 @@
 #ifndef SEEN_INKSCAPE_GC_ANCHORED_H
 #define SEEN_INKSCAPE_GC_ANCHORED_H
 
-#include <glib/gmessages.h>
+#include <glib.h>
 #include "gc-managed.h"
 
 namespace Inkscape {
@@ -63,7 +61,7 @@ protected:
 
 private:
     struct Anchor : public Managed<SCANNED, MANUAL> {
-        Anchor() : refcount(0) {}
+        Anchor() : refcount(0),base(NULL) {}
         Anchor(Anchored const *obj) : refcount(0) {
             base = Core::base(const_cast<Anchored *>(obj));
         }

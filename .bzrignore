@@ -29,6 +29,7 @@
 ./intltool-update.in
 ./missing
 ./stamp-h1
+./CMakeLists.txt.user
 .deps
 .dirstamp
 Makefile.in
@@ -148,3 +149,4 @@ gc.log
 share/palettes/palettes.h
 ltmain.sh@
 backup.bzr
+mkinstalldirs

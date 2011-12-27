@@ -1,5 +1,5 @@
 /** @file
- * @brief Wrapper for Boehm GC
+ * Wrapper for Boehm GC.
  */
 /* Authors:
  *   MenTaLguY <mental@rydia.net>
@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <string>
-#include <glib/gmessages.h>
+#include <glib.h>
 #include <sigc++/functors/ptr_fun.h>
 #include <glibmm/main.h>
 #include <cstddef>

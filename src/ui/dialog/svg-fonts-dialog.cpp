@@ -1,5 +1,6 @@
-/** @file
- * @brief SVG Fonts dialog - implementation
+/**
+ * @file
+ * SVG Fonts dialog - implementation.
  */
 /* Authors:
  *   Felipe C. da S. Sanches <juca@members.fsf.org>
@@ -16,7 +17,6 @@
 
 #ifdef ENABLE_SVG_FONTS
 
-#include <2geom/pathvector.h>
 #include "document-private.h"
 #include <gtkmm/notebook.h>
 #include <glibmm/i18n.h>
@@ -28,24 +28,27 @@
 #include "xml/node.h"
 #include "xml/repr.h"
 
-SvgFontDrawingArea::SvgFontDrawingArea(){
-    this->text = "";
-    this->svgfont = NULL;
+SvgFontDrawingArea::SvgFontDrawingArea():
+    _x(0),
+    _y(0),
+    _svgfont(0),
+    _text()
+{
 }
 
 void SvgFontDrawingArea::set_svgfont(SvgFont* svgfont){
-    this->svgfont = svgfont;
+    _svgfont = svgfont;
 }
 
 void SvgFontDrawingArea::set_text(Glib::ustring text){
-    this->text = text;
+    _text = text;
     redraw();
 }
 
 void SvgFontDrawingArea::set_size(int x, int y){
-    this->x = x;
-    this->y = y;
-    ((Gtk::Widget*) this)->set_size_request(x, y);
+    _x = x;
+    _y = y;
+    ((Gtk::Widget*) this)->set_size_request(_x, _y);
 }
 
 void SvgFontDrawingArea::redraw(){
@@ -53,13 +56,13 @@ void SvgFontDrawingArea::redraw(){
 }
 
 bool SvgFontDrawingArea::on_expose_event (GdkEventExpose */*event*/){
-  if (this->svgfont){
+  if (_svgfont){
     Glib::RefPtr<Gdk::Window> window = get_window();
     Cairo::RefPtr<Cairo::Context> cr = window->create_cairo_context();
-    cr->set_font_face( Cairo::RefPtr<Cairo::FontFace>(new Cairo::FontFace(this->svgfont->get_font_face(), false /* does not have reference */)) );
-    cr->set_font_size (this->y-20);
+    cr->set_font_face( Cairo::RefPtr<Cairo::FontFace>(new Cairo::FontFace(_svgfont->get_font_face(), false /* does not have reference */)) );
+    cr->set_font_size (_y-20);
     cr->move_to (10, 10);
-    cr->show_text (this->text.c_str());
+    cr->show_text (_text.c_str());
   }
   return TRUE;
 }
@@ -137,7 +140,7 @@ Gtk::HBox* SvgFontsDialog::AttrCombo(gchar* lbl, const SPAttributeEnum /*attr*/)
 Gtk::HBox* SvgFontsDialog::AttrSpin(gchar* lbl){
     Gtk::HBox* hbox = Gtk::manage(new Gtk::HBox());
     hbox->add(* Gtk::manage(new Gtk::Label(lbl)) );
-    hbox->add(* Gtk::manage(new Gtk::SpinBox()) );
+    hbox->add(* Gtk::manage(new Inkscape::UI::Widget::SpinBox()) );
     hbox->show_all();
     return hbox;
 }*/
@@ -162,7 +165,10 @@ void GlyphComboBox::update(SPFont* spfont){
 }
 
 void SvgFontsDialog::on_kerning_value_changed(){
-    if (!this->kerning_pair) return;
+    if (!get_selected_kerning_pair()) {
+        return;
+    }
+
     SPDocument* document = sp_desktop_document(this->getDesktop());
 
     //TODO: I am unsure whether this is the correct way of calling SPDocumentUndo::maybe_done
@@ -471,6 +477,24 @@ void SvgFontsDialog::add_glyph(){
     update_glyphs();
 }
 
+Geom::PathVector
+SvgFontsDialog::flip_coordinate_system(Geom::PathVector pathv){
+    double units_per_em = 1000;
+    SPObject* obj;
+    for (obj = get_selected_spfont()->children; obj; obj=obj->next){
+        if (SP_IS_FONTFACE(obj)){
+            //XML Tree being directly used here while it shouldn't be.
+            sp_repr_get_double(obj->getRepr(), "units_per_em", &units_per_em);
+        }
+    }
+
+    double baseline_offset = units_per_em - get_selected_spfont()->horiz_origin_y;
+
+    //This matrix flips y-axis and places the origin at baseline
+    Geom::Affine m(Geom::Coord(1),Geom::Coord(0),Geom::Coord(0),Geom::Coord(-1),Geom::Coord(0),Geom::Coord(baseline_offset));
+    return pathv*m;
+}
+
 void SvgFontsDialog::set_glyph_description_from_selected_path(){
     SPDesktop* desktop = this->getDesktop();
     if (!desktop) {
@@ -495,22 +519,17 @@ void SvgFontsDialog::set_glyph_description_from_selected_path(){
         return;
     } //TODO: //Is there a better way to tell it to to the user?
 
-    Geom::PathVector pathv = sp_svg_read_pathv(node->attribute("d"));
-
-    //This matrix flips the glyph vertically
-    Geom::Affine m(Geom::Coord(1),Geom::Coord(0),Geom::Coord(0),Geom::Coord(-1),Geom::Coord(0),Geom::Coord(0));
-    pathv*=m;
-    //then we offset it
-    pathv+=Geom::Point(Geom::Coord(0),Geom::Coord(get_selected_spfont()->horiz_adv_x));
-
     SPGlyph* glyph = get_selected_glyph();
     if (!glyph){
         char *msg = _("No glyph selected in the SVGFonts dialog.");
         msgStack->flash(Inkscape::ERROR_MESSAGE, msg);
         return;
     }
+
+    Geom::PathVector pathv = sp_svg_read_pathv(node->attribute("d"));
+
 	//XML Tree being directly used here while it shouldn't be.
-    glyph->getRepr()->setAttribute("d", (char*) sp_svg_write_path (pathv));
+    glyph->getRepr()->setAttribute("d", (char*) sp_svg_write_path (flip_coordinate_system(pathv)));
     DocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
 
     update_glyphs();
@@ -542,19 +561,12 @@ void SvgFontsDialog::missing_glyph_description_from_selected_path(){
 
     Geom::PathVector pathv = sp_svg_read_pathv(node->attribute("d"));
 
-    //This matrix flips the glyph vertically
-    Geom::Affine m(Geom::Coord(1),Geom::Coord(0),Geom::Coord(0),Geom::Coord(-1),Geom::Coord(0),Geom::Coord(0));
-    pathv*=m;
-    //then we offset it
-//  pathv+=Geom::Point(Geom::Coord(0),Geom::Coord(get_selected_spfont()->horiz_adv_x));
-    pathv+=Geom::Point(Geom::Coord(0),Geom::Coord(1000));//TODO: use here the units-per-em attribute?
-
     SPObject* obj;
     for (obj = get_selected_spfont()->children; obj; obj=obj->next){
         if (SP_IS_MISSING_GLYPH(obj)){
 
             //XML Tree being directly used here while it shouldn't be.
-            obj->getRepr()->setAttribute("d", (char*) sp_svg_write_path (pathv));
+            obj->getRepr()->setAttribute("d", (char*) sp_svg_write_path (flip_coordinate_system(pathv)));
             DocumentUndo::done(doc, SP_VERB_DIALOG_SVG_FONTS, _("Set glyph curves"));
         }
     }
@@ -786,7 +798,7 @@ SPFont *new_font(SPDocument *document)
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS(document);
+    SPDefs *defs = document->getDefs();
 
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
 
@@ -903,7 +915,7 @@ SvgFontsDialog::SvgFontsDialog()
     _FontsList.signal_button_release_event().connect_notify(sigc::mem_fun(*this, &SvgFontsDialog::fonts_list_button_release));
     create_fonts_popup_menu(_FontsList, sigc::mem_fun(*this, &SvgFontsDialog::remove_selected_font));
 
-    _defs_observer.set(SP_DOCUMENT_DEFS(sp_desktop_document(this->getDesktop())));
+    _defs_observer.set(sp_desktop_document(this->getDesktop())->getDefs());
     _defs_observer.signal_changed().connect(sigc::mem_fun(*this, &SvgFontsDialog::update_fonts));
 
     _getContents()->show_all();

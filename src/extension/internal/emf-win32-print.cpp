@@ -42,9 +42,7 @@
 #include "sp-item.h"
 
 //#include "glib.h"
-//#include "gtk/gtkdialog.h"
-//#include "gtk/gtkbox.h"
-//#include "gtk/gtkstock.h"
+//#include "gtk/gtk.h"
 
 //#include "glibmm/i18n.h"
 //#include "enums.h"
@@ -52,15 +50,12 @@
 #include "style.h"
 //#include "sp-paint-server.h"
 #include "inkscape-version.h"
+#include "sp-root.h"
 
 //#include "libnrtype/FontFactory.h"
 //#include "libnrtype/font-instance.h"
 //#include "libnrtype/font-style-to-pos.h"
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-#include "win32.h"
 #include "emf-win32-print.h"
 
 #include "unit-constants.h"
@@ -81,6 +76,8 @@ static float dwDPI = 2540;
 
 
 PrintEmfWin32::PrintEmfWin32 (void):
+    _width(0),
+    _height(0),
     hdc(NULL),
     hbrush(NULL),
     hbrushOld(NULL),
@@ -110,15 +107,13 @@ PrintEmfWin32::~PrintEmfWin32 (void)
 }
 
 
-unsigned int
-PrintEmfWin32::setup (Inkscape::Extension::Print * /*mod*/)
+unsigned int PrintEmfWin32::setup (Inkscape::Extension::Print * /*mod*/)
 {
     return TRUE;
 }
 
 
-unsigned int
-PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
+unsigned int PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
 {
     gchar const *utf8_fn = mod->get_param_string("destination");
 
@@ -140,25 +135,22 @@ PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
     _width = doc->getWidth();
     _height = doc->getHeight();
 
-    NRRect d;
     bool pageBoundingBox;
     pageBoundingBox = mod->get_param_bool("pageBoundingBox");
+
+    Geom::Rect d;
     if (pageBoundingBox) {
-        d.x0 = d.y0 = 0;
-        d.x1 = _width;
-        d.y1 = _height;
+        d = Geom::Rect::from_xywh(0, 0, _width, _height);
     } else {
-        SPItem* doc_item = SP_ITEM(doc->getRoot());
-        doc_item->invoke_bbox(&d, doc_item->i2d_affine(), TRUE);
+        SPItem* doc_item = doc->getRoot();
+        Geom::OptRect bbox = doc_item->desktopVisualBounds();
+        if (bbox) d = *bbox;
     }
 
-    d.x0 *= IN_PER_PX;
-    d.y0 *= IN_PER_PX;
-    d.x1 *= IN_PER_PX;
-    d.y1 *= IN_PER_PX;
+    d *= Geom::Scale(IN_PER_PX);
 
-    float dwInchesX = (d.x1 - d.x0);
-    float dwInchesY = (d.y1 - d.y0);
+    float dwInchesX = d.width();
+    float dwInchesY = d.height();
 
     // dwInchesX x dwInchesY in .01mm units
     SetRect( &rc, 0, 0, (int) ceil(dwInchesX*2540), (int) ceil(dwInchesY*2540) );
@@ -186,14 +178,11 @@ PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
     snprintf(buff+len+1, sizeof(buff)-len-2, "%s", p);
     
     // Create the Metafile
-    if (PrintWin32::is_os_wide()) {
+    {
         WCHAR wbuff[1024];
         ZeroMemory(wbuff, sizeof(wbuff));
         MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, buff, sizeof(buff)/sizeof(buff[0]), wbuff, sizeof(wbuff)/sizeof(wbuff[0]));
         hdc = CreateEnhMetaFileW( hScreenDC, unicode_uri, &rc, wbuff );
-    }
-    else {
-        hdc = CreateEnhMetaFileA( hScreenDC, ansi_uri, &rc, buff );
     }
 
     // Release the reference DC
@@ -234,14 +223,13 @@ PrintEmfWin32::begin (Inkscape::Extension::Print *mod, SPDocument *doc)
     g_free(local_fn);
     g_free(unicode_fn);
 
-    m_tr_stack.push( Geom::Scale(1, -1) * Geom::Translate(0, doc->getHeight()));
+    m_tr_stack.push( Geom::Scale(1, -1) * Geom::Translate(0, doc->getHeight())); /// @fixme hardcoded doc2dt transform
 
     return 0;
 }
 
 
-unsigned int
-PrintEmfWin32::finish (Inkscape::Extension::Print * /*mod*/)
+unsigned int PrintEmfWin32::finish (Inkscape::Extension::Print * /*mod*/)
 {
     if (!hdc) return 0;
 
@@ -259,8 +247,7 @@ PrintEmfWin32::finish (Inkscape::Extension::Print * /*mod*/)
 }
 
 
-unsigned int
-PrintEmfWin32::comment (Inkscape::Extension::Print * /*module*/,
+unsigned int PrintEmfWin32::comment (Inkscape::Extension::Print * /*module*/,
                         const char * /*comment*/)
 {
     if (!hdc) return 0;
@@ -271,8 +258,7 @@ PrintEmfWin32::comment (Inkscape::Extension::Print * /*module*/,
 }
 
 
-int
-PrintEmfWin32::create_brush(SPStyle const *style)
+int PrintEmfWin32::create_brush(SPStyle const *style)
 {
     float rgb[3];
 
@@ -298,8 +284,7 @@ PrintEmfWin32::create_brush(SPStyle const *style)
 }
 
 
-void
-PrintEmfWin32::destroy_brush()
+void PrintEmfWin32::destroy_brush()
 {
     SelectObject( hdc, hbrushOld );
     if (hbrush)
@@ -309,8 +294,7 @@ PrintEmfWin32::destroy_brush()
 }
 
 
-void
-PrintEmfWin32::create_pen(SPStyle const *style, const Geom::Affine &transform)
+void PrintEmfWin32::create_pen(SPStyle const *style, const Geom::Affine &transform)
 {
     if (style) {
         float rgb[3];
@@ -433,8 +417,7 @@ PrintEmfWin32::create_pen(SPStyle const *style, const Geom::Affine &transform)
 }
 
 
-void
-PrintEmfWin32::destroy_pen()
+void PrintEmfWin32::destroy_pen()
 {
     SelectObject( hdc, hpenOld );
     if (hpen)
@@ -443,8 +426,7 @@ PrintEmfWin32::destroy_pen()
 }
 
 
-void
-PrintEmfWin32::flush_fill()
+void PrintEmfWin32::flush_fill()
 {
     if (!fill_pathv.empty()) {
         stroke_and_fill = false;
@@ -458,32 +440,27 @@ PrintEmfWin32::flush_fill()
     }
 }
 
-unsigned int
-PrintEmfWin32::bind(Inkscape::Extension::Print * /*mod*/, Geom::Affine const *transform, float /*opacity*/)
-{
-    Geom::Affine tr = *transform;
-    
-    if (m_tr_stack.size()) {
+unsigned int PrintEmfWin32::bind(Inkscape::Extension::Print * /*mod*/, Geom::Affine const &transform, float /*opacity*/)
+{   
+    if (!m_tr_stack.empty()) {
         Geom::Affine tr_top = m_tr_stack.top();
-        m_tr_stack.push(tr * tr_top);
+        m_tr_stack.push(transform * tr_top);
     } else {
-        m_tr_stack.push(tr);
+        m_tr_stack.push(transform);
     }
 
     return 1;
 }
 
-unsigned int
-PrintEmfWin32::release(Inkscape::Extension::Print * /*mod*/)
+unsigned int PrintEmfWin32::release(Inkscape::Extension::Print * /*mod*/)
 {
     m_tr_stack.pop();
     return 1;
 }
 
-unsigned int
-PrintEmfWin32::fill(Inkscape::Extension::Print * /*mod*/,
-                    Geom::PathVector const &pathv, Geom::Affine const * /*transform*/, SPStyle const *style,
-                    NRRect const * /*pbox*/, NRRect const * /*dbox*/, NRRect const * /*bbox*/)
+unsigned int PrintEmfWin32::fill(Inkscape::Extension::Print * /*mod*/,
+                    Geom::PathVector const &pathv, Geom::Affine const & /*transform*/, SPStyle const *style,
+                    Geom::OptRect const &/*pbox*/, Geom::OptRect const &/*dbox*/, Geom::OptRect const &/*bbox*/)
 {
     if (!hdc) return 0;
 
@@ -509,10 +486,9 @@ PrintEmfWin32::fill(Inkscape::Extension::Print * /*mod*/,
 }
 
 
-unsigned int
-PrintEmfWin32::stroke (Inkscape::Extension::Print * /*mod*/,
-                       Geom::PathVector const &pathv, const Geom::Affine * /*transform*/, const SPStyle *style,
-                       const NRRect * /*pbox*/, const NRRect * /*dbox*/, const NRRect * /*bbox*/)
+unsigned int PrintEmfWin32::stroke (Inkscape::Extension::Print * /*mod*/,
+                       Geom::PathVector const &pathv, const Geom::Affine &/*transform*/, const SPStyle *style,
+                       Geom::OptRect const &/*pbox*/, Geom::OptRect const &/*dbox*/, Geom::OptRect const &/*bbox*/)
 {
     if (!hdc) return 0;
 
@@ -549,8 +525,7 @@ PrintEmfWin32::stroke (Inkscape::Extension::Print * /*mod*/,
 }
 
 
-bool
-PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Affine &transform)
+bool PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Affine &transform)
 {
     Geom::PathVector pv = pathv_to_linear_and_cubic_beziers( pathv * transform );
     
@@ -745,8 +720,7 @@ PrintEmfWin32::print_simple_shape(Geom::PathVector const &pathv, const Geom::Aff
     return done;
 }
 
-unsigned int
-PrintEmfWin32::print_pathv(Geom::PathVector const &pathv, const Geom::Affine &transform)
+unsigned int PrintEmfWin32::print_pathv(Geom::PathVector const &pathv, const Geom::Affine &transform)
 {
     simple_shape = print_simple_shape(pathv, transform);
 
@@ -850,14 +824,12 @@ PrintEmfWin32::print_pathv(Geom::PathVector const &pathv, const Geom::Affine &tr
 }
 
 
-bool
-PrintEmfWin32::textToPath(Inkscape::Extension::Print * ext)
+bool PrintEmfWin32::textToPath(Inkscape::Extension::Print * ext)
 {
     return ext->get_param_bool("textToPath");
 }
 
-unsigned int
-PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom::Point p,
+unsigned int PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom::Point const &p,
                     SPStyle const *const style)
 {
     if (!hdc) return 0;
@@ -879,76 +851,40 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
 #endif
 
     if (!hfont) {
-        if (PrintWin32::is_os_wide()) {
-            LOGFONTW *lf = (LOGFONTW*)g_malloc(sizeof(LOGFONTW));
-            g_assert(lf != NULL);
-            
-            lf->lfHeight = style->font_size.computed * IN_PER_PX * dwDPI;
-            lf->lfWidth = 0;
-            lf->lfEscapement = rot;
-            lf->lfOrientation = rot;
-            lf->lfWeight =
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_100 ? FW_THIN :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_200 ? FW_EXTRALIGHT :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_300 ? FW_LIGHT :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_400 ? FW_NORMAL :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_500 ? FW_MEDIUM :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_600 ? FW_SEMIBOLD :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_700 ? FW_BOLD :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_800 ? FW_EXTRABOLD :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_900 ? FW_HEAVY :
-                FW_NORMAL;
-            lf->lfItalic = (style->font_style.computed == SP_CSS_FONT_STYLE_ITALIC);
-            lf->lfUnderline = style->text_decoration.underline;
-            lf->lfStrikeOut = style->text_decoration.line_through;
-            lf->lfCharSet = DEFAULT_CHARSET;
-            lf->lfOutPrecision = OUT_DEFAULT_PRECIS;
-            lf->lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            lf->lfQuality = DEFAULT_QUALITY;
-            lf->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
-            
-            gunichar2 *unicode_name = g_utf8_to_utf16( style->text->font_family.value, -1, NULL, NULL, NULL );
-            wcsncpy(lf->lfFaceName, (wchar_t*) unicode_name, LF_FACESIZE-1);
-            g_free(unicode_name);
-            
-            hfont = CreateFontIndirectW(lf);
-            
-            g_free(lf);
-        }
-        else {
-            LOGFONTA *lf = (LOGFONTA*)g_malloc(sizeof(LOGFONTA));
-            g_assert(lf != NULL);
-            
-            lf->lfHeight = style->font_size.computed * IN_PER_PX * dwDPI;
-            lf->lfWidth = 0;
-            lf->lfEscapement = rot;
-            lf->lfOrientation = rot;
-            lf->lfWeight =
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_100 ? FW_THIN :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_200 ? FW_EXTRALIGHT :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_300 ? FW_LIGHT :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_400 ? FW_NORMAL :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_500 ? FW_MEDIUM :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_600 ? FW_SEMIBOLD :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_700 ? FW_BOLD :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_800 ? FW_EXTRABOLD :
-                style->font_weight.computed == SP_CSS_FONT_WEIGHT_900 ? FW_HEAVY :
-                FW_NORMAL;
-            lf->lfItalic = (style->font_style.computed == SP_CSS_FONT_STYLE_ITALIC);
-            lf->lfUnderline = style->text_decoration.underline;
-            lf->lfStrikeOut = style->text_decoration.line_through;
-            lf->lfCharSet = DEFAULT_CHARSET;
-            lf->lfOutPrecision = OUT_DEFAULT_PRECIS;
-            lf->lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            lf->lfQuality = DEFAULT_QUALITY;
-            lf->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
-            
-            strncpy(lf->lfFaceName, (char*) style->text->font_family.value, LF_FACESIZE-1);
-
-            hfont = CreateFontIndirectA(lf);
-            
-            g_free(lf);
-        }
+        LOGFONTW *lf = (LOGFONTW*)g_malloc(sizeof(LOGFONTW));
+        g_assert(lf != NULL);
+        
+        lf->lfHeight = style->font_size.computed * IN_PER_PX * dwDPI;
+        lf->lfWidth = 0;
+        lf->lfEscapement = rot;
+        lf->lfOrientation = rot;
+        lf->lfWeight =
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_100 ? FW_THIN :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_200 ? FW_EXTRALIGHT :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_300 ? FW_LIGHT :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_400 ? FW_NORMAL :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_500 ? FW_MEDIUM :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_600 ? FW_SEMIBOLD :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_700 ? FW_BOLD :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_800 ? FW_EXTRABOLD :
+            style->font_weight.computed == SP_CSS_FONT_WEIGHT_900 ? FW_HEAVY :
+            FW_NORMAL;
+        lf->lfItalic = (style->font_style.computed == SP_CSS_FONT_STYLE_ITALIC);
+        lf->lfUnderline = style->text_decoration.underline;
+        lf->lfStrikeOut = style->text_decoration.line_through;
+        lf->lfCharSet = DEFAULT_CHARSET;
+        lf->lfOutPrecision = OUT_DEFAULT_PRECIS;
+        lf->lfClipPrecision = CLIP_DEFAULT_PRECIS;
+        lf->lfQuality = DEFAULT_QUALITY;
+        lf->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
+        
+        gunichar2 *unicode_name = g_utf8_to_utf16( style->text->font_family.value, -1, NULL, NULL, NULL );
+        wcsncpy(lf->lfFaceName, (wchar_t*) unicode_name, LF_FACESIZE-1);
+        g_free(unicode_name);
+        
+        hfont = CreateFontIndirectW(lf);
+        
+        g_free(lf);
     }
     
     HFONT hfontOld = (HFONT) SelectObject(hdc, hfont);
@@ -966,19 +902,16 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
     // Transparent text background
     SetBkMode(hdc, TRANSPARENT);
 
-    p = p * tf;
-    p[Geom::X] = (p[Geom::X] * IN_PER_PX * dwDPI);
-    p[Geom::Y] = (p[Geom::Y] * IN_PER_PX * dwDPI);
+    Geom::Point p2 = p * tf;
+    p2[Geom::X] = (p2[Geom::X] * IN_PER_PX * dwDPI);
+    p2[Geom::Y] = (p2[Geom::Y] * IN_PER_PX * dwDPI);
 
-    LONG const xpos = (LONG) round(p[Geom::X]);
-    LONG const ypos = (LONG) round(rc.bottom-p[Geom::Y]);
+    LONG const xpos = (LONG) round(p2[Geom::X]);
+    LONG const ypos = (LONG) round(rc.bottom - p2[Geom::Y]);
 
-    if (PrintWin32::is_os_wide()) {
+    {
         gunichar2 *unicode_text = g_utf8_to_utf16( text, -1, NULL, NULL, NULL );
         TextOutW(hdc, xpos, ypos, (WCHAR*)unicode_text, wcslen((wchar_t*)unicode_text));
-    }
-    else {
-        TextOutA(hdc, xpos, ypos, (CHAR*)text, strlen((char*)text));
     }
 
     SelectObject(hdc, hfontOld);
@@ -987,8 +920,7 @@ PrintEmfWin32::text(Inkscape::Extension::Print * /*mod*/, char const *text, Geom
     return 0;
 }
 
-void
-PrintEmfWin32::init (void)
+void PrintEmfWin32::init (void)
 {
     Inkscape::Extension::Extension * ext;
 

@@ -1,9 +1,11 @@
 #ifndef SEEN_SP_CANVAS_H
 #define SEEN_SP_CANVAS_H
 
-/** \file
+/**
+ * @file
  * SPCanvas, SPCanvasBuf.
- *
+ */
+/*
  * Authors:
  *   Federico Mena <federico@nuclecu.unam.mx>
  *   Raph Levien <raph@gimp.org>
@@ -27,24 +29,18 @@
 # endif
 #endif
 
-#include <glib/gtypes.h>
-#include <gdk/gdkevents.h>
-#include <gdk/gdkgc.h>
-#include <gtk/gtkobject.h>
-#include <gtk/gtkwidget.h>
-
+#include <glib.h>
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
 #include <glibmm/ustring.h>
-
 #include <2geom/affine.h>
-#include <libnr/nr-rect-l.h>
-
 #include <2geom/rect.h>
 
 G_BEGIN_DECLS
 
 #define SP_TYPE_CANVAS sp_canvas_get_type()
-#define SP_CANVAS(obj) (GTK_CHECK_CAST((obj), SP_TYPE_CANVAS, SPCanvas))
-#define SP_IS_CANVAS(obj) (GTK_CHECK_TYPE((obj), SP_TYPE_CANVAS))
+#define SP_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), SP_TYPE_CANVAS, SPCanvas))
+#define SP_IS_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), SP_TYPE_CANVAS))
 
 GType sp_canvas_get_type();
 
@@ -58,18 +54,16 @@ enum {
 };
 
 /**
- * The canvas buf contains the actual pixels.
+ * Structure used when rendering canvas items.
  */
-struct SPCanvasBuf{
-    guchar *buf;
-    int buf_rowstride;
-    NRRectL rect;
-    NRRectL visible_rect;
-    /// Background color, given as 0xrrggbb
-    guint32 bg_color;
-    // If empty, ignore contents of buffer and use a solid area of bg_color
-    bool is_empty;
+struct SPCanvasBuf {
     cairo_t *ct;
+    Geom::IntRect rect;
+    Geom::IntRect visible_rect;
+
+    unsigned char *buf;
+    int buf_rowstride;
+    bool is_empty;
 };
 
 G_END_DECLS
@@ -116,9 +110,6 @@ struct SPCanvas {
 
     int close_enough;
 
-    /* GC for temporary draw pixmap */
-    GdkGC *pixmap_gc;
-
     unsigned int need_update : 1;
     unsigned int need_redraw : 1;
     unsigned int need_repick : 1;
@@ -147,13 +138,13 @@ struct SPCanvas {
 
 #if ENABLE_LCMS
     bool enable_cms_display_adj;
-    Glib::ustring* cms_key;
+    Glib::ustring cms_key;
 #endif // ENABLE_LCMS
 
     bool is_scrolling;
 
     Geom::Rect getViewbox() const;
-    NR::IRect getViewboxIntegers() const;
+    Geom::IntRect getViewboxIntegers() const;
 };
 
 GtkWidget *sp_canvas_new_aa();

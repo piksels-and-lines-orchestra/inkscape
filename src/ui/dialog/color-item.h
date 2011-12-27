@@ -12,6 +12,7 @@
 #ifndef SEEN_DIALOGS_COLOR_ITEM_H
 #define SEEN_DIALOGS_COLOR_ITEM_H
 
+#include <boost/ptr_container/ptr_vector.hpp>
 #include <gtkmm/tooltips.h>
 
 #include "widgets/ege-paint-def.h"
@@ -33,7 +34,7 @@ public:
 
     Glib::ustring _name;
     int _prefWidth;
-    std::vector<ColorItem*> _colors;
+    boost::ptr_vector<ColorItem> _colors;
 };
 
 
@@ -58,8 +59,7 @@ public:
 
     void setGradient(SPGradient *grad);
     SPGradient * getGradient() const { return _grad; }
-
-    void setPixData(guchar* px, int width, int height);
+    void setPattern(cairo_pattern_t *pattern);
 
     void setState( bool fill, bool stroke );
     bool isFill() { return _isFill; }
@@ -104,9 +104,7 @@ private:
     int _linkGray;
     ColorItem* _linkSrc;
     SPGradient* _grad;
-    guchar *_pixData;
-    int _pixWidth;
-    int _pixHeight;
+    cairo_pattern_t *_pattern;
     std::vector<ColorItem*> _listeners;
 };
 

@@ -1,5 +1,6 @@
-/** @file
- * @brief A simple dialog with information about extensions
+/**
+ * @file
+ * A simple dialog with information about extensions.
  */
 /* Authors:
  *   Jon A. Cruz
@@ -9,11 +10,12 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gtk/gtkdialog.h> //for GTK_RESPONSE* types
+#include <gtk/gtk.h> //for GTK_RESPONSE* types
 #include <gtkmm/scrolledwindow.h>
 
 #include "extension/db.h"
 #include "extensions.h"
+#include "extension/extension.h"
 
 
 namespace Inkscape {

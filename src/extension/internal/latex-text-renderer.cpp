@@ -10,7 +10,7 @@
  *   Jon A. Cruz <jon@joncruz.org>
  *   Abhishek Sharma
  *
- * Copyright (C) 2006-2010 Authors
+ * Copyright (C) 2006-2011 Authors
  *
  * Licensed under GNU GPL
  */
@@ -70,7 +70,7 @@ latex_render_document_text_to_file( SPDocument *doc, gchar const *filename,
     }
     else {
         // we want to export the entire document from root
-        base = SP_ITEM(doc->getRoot());
+        base = doc->getRoot();
         pageBoundingBox = !exportDrawing;
     }
 
@@ -196,22 +196,22 @@ static char const preamble[] =
 "%% \n"
 "%% For more information, please see info/svg-inkscape on CTAN:\n"
 "%%   http://tug.ctan.org/tex-archive/info/svg-inkscape\n"
-"\n"
-"\\begingroup\n"
-"  \\makeatletter\n"
+"%%\n"
+"\\begingroup%\n"
+"  \\makeatletter%\n"
 "  \\providecommand\\color[2][]{%\n"
-"    \\errmessage{(Inkscape) Color is used for the text in Inkscape, but the package \'color.sty\' is not loaded}\n"
+"    \\errmessage{(Inkscape) Color is used for the text in Inkscape, but the package \'color.sty\' is not loaded}%\n"
 "    \\renewcommand\\color[2][]{}%\n"
-"  }\n"
+"  }%\n"
 "  \\providecommand\\transparent[1]{%\n"
-"    \\errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package \'transparent.sty\' is not loaded}\n"
+"    \\errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package \'transparent.sty\' is not loaded}%\n"
 "    \\renewcommand\\transparent[1]{}%\n"
-"  }\n"
-"  \\providecommand\\rotatebox[2]{#2}\n";
+"  }%\n"
+"  \\providecommand\\rotatebox[2]{#2}%\n";
 
 static char const postamble[] =
 "  \\end{picture}%\n"
-"\\endgroup\n";
+"\\endgroup%\n";
 
 void
 LaTeXTextRenderer::writePreamble()
@@ -265,11 +265,6 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
 {
     SPText *textobj = SP_TEXT (item);
     SPStyle *style = item->style;
-
-    gchar *str = sp_te_get_string_multiline(item);
-    if (!str) {
-        return;
-    }
 
     // get position and alignment
     // Align vertically on the baseline of the font (retreived from the anchor point)
@@ -340,7 +335,7 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
              li != le; li.nextStartOfSpan())
         {
             SPStyle const &spanstyle = *(sp_te_style_at_position (item, li));
-            bool is_bold = false, is_italic = false;
+            bool is_bold = false, is_italic = false, is_oblique = false;
 
             if (spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_500 ||
                 spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_600 ||
@@ -351,19 +346,34 @@ LaTeXTextRenderer::sp_text_render(SPItem *item)
                 spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_BOLDER) 
             {
                 is_bold = true;
-                os << "{\\bfseries{}";
+                os << "\\textbf{";
             }
             if (spanstyle.font_style.computed == SP_CSS_FONT_STYLE_ITALIC) 
             {
                 is_italic = true;
-                os << "{\\itshape{}";
+                os << "\\textit{";
+            }
+            if (spanstyle.font_style.computed == SP_CSS_FONT_STYLE_OBLIQUE) 
+            {
+                is_oblique = true;
+                os << "\\textsl{";  // this is an accurate choice if the LaTeX chosen font matches the font in Inkscape. Gives bad results when it is not so...
             }
 
             Inkscape::Text::Layout::iterator ln = li; 
             ln.nextStartOfSpan();
-            Glib::ustring spanstr = sp_te_get_string_multiline (item, li, ln);
-            os << spanstr;
+            Glib::ustring uspanstr = sp_te_get_string_multiline (item, li, ln);
+            const gchar *spanstr = uspanstr.c_str();
+            if (!spanstr) {
+                continue;
+            }
+            // replace carriage return with double slash
+            gchar ** splitstr = g_strsplit(spanstr, "\n", -1);
+            gchar *spanstr_new = g_strjoinv("\\\\ ", splitstr);
+            os << spanstr_new;
+            g_strfreev(splitstr);
+            g_free(spanstr_new);
 
+            if (is_oblique) { os << "}"; } // oblique end
             if (is_italic) { os << "}"; } // italic end
             if (is_bold) { os << "}"; } // bold end
         }
@@ -388,16 +398,6 @@ Flowing in rectangle is possible, not in arb shape.
 
     SPFlowtext *flowtext = SP_FLOWTEXT(item);
     SPStyle *style = item->style;
-
-    gchar *strtext = sp_te_get_string_multiline(item);
-    if (!strtext) {
-        return;
-    }
-    // replace carriage return with double slash
-    gchar ** splitstr = g_strsplit(strtext, "\n", -1);
-    gchar *str = g_strjoinv("\\\\ ", splitstr);
-    g_free(strtext);
-    g_strfreev(splitstr);
 
     SPItem *frame_item = flowtext->get_frame(NULL);
     if (!frame_item || !SP_IS_RECT(frame_item)) {
@@ -479,7 +479,7 @@ Flowing in rectangle is possible, not in arb shape.
              li != le; li.nextStartOfSpan())
         {
             SPStyle const &spanstyle = *(sp_te_style_at_position (item, li));
-            bool is_bold = false, is_italic = false;
+            bool is_bold = false, is_italic = false, is_oblique = false;
 
             if (spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_500 ||
                 spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_600 ||
@@ -490,19 +490,34 @@ Flowing in rectangle is possible, not in arb shape.
                 spanstyle.font_weight.computed == SP_CSS_FONT_WEIGHT_BOLDER) 
             {
                 is_bold = true;
-                os << "{\\bfseries{}";
+                os << "\\textbf{";
             }
             if (spanstyle.font_style.computed == SP_CSS_FONT_STYLE_ITALIC) 
             {
                 is_italic = true;
-                os << "{\\itshape{}";
+                os << "\\textit{";
+            }
+            if (spanstyle.font_style.computed == SP_CSS_FONT_STYLE_OBLIQUE) 
+            {
+                is_oblique = true;
+                os << "\\textsl{";  // this is an accurate choice if the LaTeX chosen font matches the font in Inkscape. Gives bad results when it is not so...
             }
 
             Inkscape::Text::Layout::iterator ln = li; 
             ln.nextStartOfSpan();
-            Glib::ustring spanstr = sp_te_get_string_multiline (item, li, ln);
-            os << spanstr;
+            Glib::ustring uspanstr = sp_te_get_string_multiline (item, li, ln);
+            const gchar *spanstr = uspanstr.c_str();
+            if (!spanstr) {
+                continue;
+            }
+            // replace carriage return with double slash
+            gchar ** splitstr = g_strsplit(spanstr, "\n", -1);
+            gchar *spanstr_new = g_strjoinv("\\\\ ", splitstr);
+            os << spanstr_new;
+            g_strfreev(splitstr);
+            g_free(spanstr_new);
 
+            if (is_oblique) { os << "}"; } // oblique end
             if (is_italic) { os << "}"; } // italic end
             if (is_bold) { os << "}"; } // bold end
         }
@@ -517,13 +532,10 @@ Flowing in rectangle is possible, not in arb shape.
     fprintf(_stream, "%s", os.str().c_str());
 }
 
-void
-LaTeXTextRenderer::sp_root_render(SPItem *item)
+void LaTeXTextRenderer::sp_root_render(SPRoot *root)
 {
-    SPRoot *root = SP_ROOT(item);
-
     push_transform(root->c2p);
-    sp_group_render(item);
+    sp_group_render(root);
     pop_transform();
 }
 
@@ -536,7 +548,7 @@ LaTeXTextRenderer::sp_item_invoke_render(SPItem *item)
     }
 
     if (SP_IS_ROOT(item)) {
-        return sp_root_render(item);
+        return sp_root_render(SP_ROOT(item));
     } else if (SP_IS_GROUP(item)) {
         return sp_group_render(item);
     } else if (SP_IS_USE(item)) {
@@ -563,34 +575,34 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
 // The boundingbox calculation here should be exactly the same as the one by CairoRenderer::setupDocument !
 
     if (!base) {
-        base = SP_ITEM(doc->getRoot());
+        base = doc->getRoot();
     }
 
-    Geom::OptRect d;
+    Geom::Rect d;
     if (pageBoundingBox) {
-        d = Geom::Rect( Geom::Point(0,0),
-                        Geom::Point(doc->getWidth(), doc->getHeight()) );
+        d = Geom::Rect::from_xywh(Geom::Point(0,0), doc->getDimensions());
     } else {
-        base->invoke_bbox( d, base->i2d_affine(), TRUE, SPItem::RENDERING_BBOX);
-    }
-    if (!d) {
-        g_message("LaTeXTextRenderer: could not retrieve boundingbox.");
-        return false;
+        Geom::OptRect bbox = base->desktopVisualBounds();
+        if (!bbox) {
+            g_message("CairoRenderer: empty bounding box.");
+            return false;
+        }
+        d = *bbox;
     }
 
     // scale all coordinates, such that the width of the image is 1, this is convenient for scaling the image in LaTeX
-    double scale = 1/(d->width());
-    double _width = d->width() * scale;
-    double _height = d->height() * scale;
+    double scale = 1/(d.width());
+    double _width = d.width() * scale;
+    double _height = d.height() * scale;
     push_transform( Geom::Scale(scale, scale) );
 
     if (!pageBoundingBox)
     {
-        push_transform( Geom::Translate( - d->min() ) );
+        push_transform( Geom::Translate( -d.min() ) );
     }
 
     // flip y-axis
-    push_transform( Geom::Scale(1,-1) * Geom::Translate(0, doc->getHeight()) );
+    push_transform( Geom::Scale(1,-1) * Geom::Translate(0, doc->getHeight()) ); /// @fixme hardcoded desktop transform!
 
     // write the info to LaTeX
     Inkscape::SVGOStringStream os;
@@ -598,19 +610,19 @@ LaTeXTextRenderer::setupDocument(SPDocument *doc, bool pageBoundingBox, SPItem *
 
     // scaling of the image when including it in LaTeX
 
-    os << "  \\ifx\\svgwidth\\undefined\n";
-    os << "    \\setlength{\\unitlength}{" << d->width() * PT_PER_PX << "pt}\n";
-    os << "    \\ifx\\svgscale\\undefined\n";
-    os << "      \\relax\n";
-    os << "    \\else\n";
-    os << "      \\setlength{\\unitlength}{\\unitlength * \\real{\\svgscale}}\n";
-    os << "    \\fi\n";
-    os << "  \\else\n";
-    os << "    \\setlength{\\unitlength}{\\svgwidth}\n";
-    os << "  \\fi\n";
-    os << "  \\global\\let\\svgwidth\\undefined\n";
-    os << "  \\global\\let\\svgscale\\undefined\n";
-    os << "  \\makeatother\n";
+    os << "  \\ifx\\svgwidth\\undefined%\n";
+    os << "    \\setlength{\\unitlength}{" << d.width() * PT_PER_PX << "bp}%\n"; // note: 'bp' is the Postscript pt unit in LaTeX, see LP bug #792384
+    os << "    \\ifx\\svgscale\\undefined%\n";
+    os << "      \\relax%\n";
+    os << "    \\else%\n";
+    os << "      \\setlength{\\unitlength}{\\unitlength * \\real{\\svgscale}}%\n";
+    os << "    \\fi%\n";
+    os << "  \\else%\n";
+    os << "    \\setlength{\\unitlength}{\\svgwidth}%\n";
+    os << "  \\fi%\n";
+    os << "  \\global\\let\\svgwidth\\undefined%\n";
+    os << "  \\global\\let\\svgscale\\undefined%\n";
+    os << "  \\makeatother%\n";
 
     os << "  \\begin{picture}(" << _width << "," << _height << ")%\n";
     // strip pathname, as it is probably desired. Having a specific path in the TeX file is not convenient.
@@ -630,7 +642,7 @@ LaTeXTextRenderer::transform()
 void
 LaTeXTextRenderer::push_transform(Geom::Affine const &tr)
 {
-    if(_transform_stack.size()){
+    if(!_transform_stack.empty()){
         Geom::Affine tr_top = _transform_stack.top();
         _transform_stack.push(tr * tr_top);
     } else {

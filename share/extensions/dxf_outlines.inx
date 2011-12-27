@@ -9,7 +9,7 @@
 		<page name="options" _gui-text="Options">
 			<param name="ROBO" type="boolean" _gui-text="use ROBO-Master type of spline output">false</param>
 			<param name="POLY" type="boolean" _gui-text="use LWPOLYLINE type of line output">true</param>
-			<param name="units" type="enum" _gui-text="Units">
+			<param name="units" type="enum" _gui-text="Base unit">
 				<_item value="72./90">pt</_item>
 				<_item value="1./15">pc</_item>
 				<_item value="1.">px</_item>
@@ -19,11 +19,20 @@
 				<_item value="1./90">in</_item>
 				<_item value="1./1080">ft</_item>
 			</param>
+			<param name="encoding" type="enum" _gui-text="Character Encoding">
+				<_item value="latin_1">Latin 1</_item>
+				<_item value="cp1250">CP 1250</_item>
+				<_item value="cp1252">CP 1252</_item>
+				<_item value="utf_8">UTF 8</_item>
+			</param>
 		</page>
 		<page name="help" _gui-text="Help">
-			<_param name="inputhelp" type="description" xml:space="preserve">- AutoCAD Release 13 format.
-- assume svg drawing is in pixels, at 90 dpi.
-- only line and spline elements are supported.
+			<_param name="inputhelp" type="description" xml:space="preserve">- AutoCAD Release 14 DXF format.
+- The base unit parameter specifies in what unit the coordinates are output (90 px = 1 in).
+- Supported element types
+    - paths (lines and splines)
+    - rectangles
+    - clones (the crossreference to the original is lost)
 - ROBO-Master spline output is a specialized spline readable only by ROBO-Master and AutoDesk viewers, not Inkscape.
 - LWPOLYLINE output is a multiply-connected polyline, disable it to use a legacy version of the LINE output.</_param>
 		</page>
@@ -31,7 +40,7 @@
 	<output>
 		<extension>.dxf</extension>
 		<mimetype>image/dxf</mimetype>
-		<_filetypename>Desktop Cutting Plotter (R13) (*.dxf)</_filetypename>
+		<_filetypename>Desktop Cutting Plotter (AutoCAD DXF R14) (*.dxf)</_filetypename>
 		<_filetypetooltip>Desktop Cutting Plotter</_filetypetooltip>
 		<dataloss>true</dataloss>
 	</output>

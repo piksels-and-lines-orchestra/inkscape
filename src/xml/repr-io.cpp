@@ -24,6 +24,7 @@
 #include "xml/attribute-record.h"
 #include "xml/rebase-hrefs.h"
 #include "xml/simple-document.h"
+#include "xml/text-node.h"
 
 #include "io/sys.h"
 #include "io/uristream.h"
@@ -31,6 +32,8 @@
 #include "io/gzipstream.h"
 
 #include "extension/extension.h"
+
+#include "attribute-rel-util.h"
 
 #include "preferences.h"
 
@@ -52,6 +55,7 @@ static void sp_repr_write_stream_root_element(Node *repr, Writer &out,
                                               int inlineattrs, int indent,
                                               gchar const *old_href_abs_base,
                                               gchar const *new_href_abs_base);
+
 static void sp_repr_write_stream_element(Node *repr, Writer &out,
                                          gint indent_level, bool add_whitespace,
                                          Glib::QueryQuark elide_prefix,
@@ -78,6 +82,10 @@ public:
           instr(0),
           gzin(0)
     {
+        for (int k=0;k<4;k++)
+        {
+            firstFew[k]=0;
+        }
     }
     virtual ~XmlSource()
     {
@@ -254,6 +262,7 @@ int XmlSource::close()
 Document *
 sp_repr_read_file (const gchar * filename, const gchar *default_ns)
 {
+    // g_warning( "Reading file: %s", filename );
     xmlDocPtr doc = 0;
     Document * rdoc = 0;
 
@@ -444,6 +453,18 @@ sp_repr_do_read (xmlDocPtr doc, const gchar *default_ns)
                 promote_to_namespace(root, INKSCAPE_EXTENSION_NS_NC);
             }
         }
+
+
+        // Clean unnecessary attributes and style properties from SVG documents. (Controlled by
+        // preferences.)  Note: internal Inkscape svg files will also be cleaned (filters.svg,
+        // icons.svg). How can one tell if a file is internal?
+        if ( !strcmp(root->name(), "svg:svg" ) ) {
+            Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+            bool clean = prefs->getBool("/options/svgoutput/check_on_reading");
+            if( clean ) {
+                sp_attribute_clean_tree( root );
+            }
+        }
     }
 
     g_hash_table_destroy (prefix_map);
@@ -496,7 +517,9 @@ sp_repr_svg_read_node (Document *xml_doc, xmlNodePtr node, const gchar *default_
             return NULL; // we do not preserve all-whitespace nodes unless we are asked to
         }
 
-        return xml_doc->createTextNode(reinterpret_cast<gchar *>(node->content));
+        // We keep track of original node type so that CDATA sections are preserved on output.
+        return xml_doc->createTextNode(reinterpret_cast<gchar *>(node->content),
+                                       node->type == XML_CDATA_SECTION_NODE );
     }
 
     if (node->type == XML_COMMENT_NODE) {
@@ -644,7 +667,7 @@ sp_repr_save_rebased_file(Document *doc, gchar const *const filename, gchar cons
         return false;
     }
 
-    gchar *old_href_abs_base = NULL;
+    std::string old_href_abs_base;
     gchar *new_href_abs_base = NULL;
     if (for_filename) {
         old_href_abs_base = calc_abs_doc_base(old_base);
@@ -662,9 +685,8 @@ sp_repr_save_rebased_file(Document *doc, gchar const *const filename, gchar cons
          * to using sodipodi:absref instead of the xlink:href value,
          * then we should do `if streq() { free them and set both to NULL; }'. */
     }
-    sp_repr_save_stream(doc, file, default_ns, compress, old_href_abs_base, new_href_abs_base);
+    sp_repr_save_stream(doc, file, default_ns, compress, old_href_abs_base.c_str(), new_href_abs_base);
 
-    g_free(old_href_abs_base);
     g_free(new_href_abs_base);
 
     if (fclose (file) != 0) {
@@ -803,6 +825,12 @@ sp_repr_write_stream_root_element(Node *repr, Writer &out,
     using Inkscape::Util::ptr_shared;
 
     g_assert(repr != NULL);
+
+    // Clean unnecessary attributes and stype properties. (Controlled by preferences.)
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    bool clean = prefs->getBool("/options/svgoutput/check_on_writing");
+    if (clean) sp_attribute_clean_tree( repr );
+
     Glib::QueryQuark xml_prefix=g_quark_from_static_string("xml");
 
     NSMap ns_map;
@@ -849,7 +877,12 @@ void sp_repr_write_stream( Node *repr, Writer &out, gint indent_level,
 {
     switch (repr->type()) {
         case Inkscape::XML::TEXT_NODE: {
-            repr_quote_write( out, repr->content() );
+            if( dynamic_cast<const Inkscape::XML::TextNode *>(repr)->is_CData() ) {
+                // Preserve CDATA sections, not converting '&' to &amp;, etc.
+                out.printf( "<![CDATA[%s]]>", repr->content() );
+            } else {
+                repr_quote_write( out, repr->content() );
+            }
             break;
         }
         case Inkscape::XML::COMMENT_NODE: {
@@ -879,17 +912,16 @@ void sp_repr_write_stream( Node *repr, Writer &out, gint indent_level,
 }
 
 
-static void
-sp_repr_write_stream_element (Node * repr, Writer & out, gint indent_level,
-                              bool add_whitespace,
-                              Glib::QueryQuark elide_prefix,
-                              List<AttributeRecord const> attributes, 
-                              int inlineattrs, int indent,
-                              gchar const *const old_href_base,
-                              gchar const *const new_href_base)
+void sp_repr_write_stream_element( Node * repr, Writer & out,
+                                   gint indent_level, bool add_whitespace,
+                                   Glib::QueryQuark elide_prefix,
+                                   List<AttributeRecord const> attributes, 
+                                   int inlineattrs, int indent,
+                                   gchar const *old_href_base,
+                                   gchar const *new_href_base )
 {
-    Node *child;
-    bool loose;
+    Node *child = 0;
+    bool loose = false;
 
     g_return_if_fail (repr != NULL);
 
@@ -919,6 +951,28 @@ sp_repr_write_stream_element (Node * repr, Writer & out, gint indent_level,
     gchar const *xml_space_attr = repr->attribute("xml:space");
     if (xml_space_attr != NULL && !strcmp(xml_space_attr, "preserve")) {
         add_whitespace = false;
+    }
+
+    // THIS DOESN'T APPEAR TO DO ANYTHING. Can it be commented out or deleted?
+    {
+        GQuark const href_key = g_quark_from_static_string("xlink:href");
+        GQuark const absref_key = g_quark_from_static_string("sodipodi:absref");
+
+        gchar const *xxHref = 0;
+        gchar const *xxAbsref = 0;
+        for ( List<AttributeRecord const> ai(attributes); ai; ++ai ) {
+            if ( ai->key == href_key ) {
+                xxHref = ai->value;
+            } else if ( ai->key == absref_key ) {
+                xxAbsref = ai->value;
+            }
+        }
+
+        // Might add a special case for absref but no href.
+        if ( old_href_base && new_href_base && xxHref ) {
+            //g_message("href rebase test with [%s] and [%s]", xxHref, xxAbsref);
+            //std::string newOne = rebase_href_attrs( old_href_base, new_href_base, xxHref, xxAbsref );
+        }
     }
 
     for ( List<AttributeRecord const> iter = rebase_href_attrs(old_href_base, new_href_base,

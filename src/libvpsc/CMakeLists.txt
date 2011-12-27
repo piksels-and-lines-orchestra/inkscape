@@ -1,13 +1,29 @@
-SET(libvpsc_SRC
-block.cpp
-blocks.cpp
-constraint.cpp
-csolve_VPSC.cpp
-generate-constraints.cpp
-remove_rectangle_overlap.cpp
-solve_VPSC.cpp
-variable.cpp
+
+set(libvpsc_SRC
+	block.cpp
+	blocks.cpp
+	constraint.cpp
+	csolve_VPSC.cpp
+	generate-constraints.cpp
+	remove_rectangle_overlap.cpp
+	solve_VPSC.cpp
+	variable.cpp
+	pairingheap/PairingHeap.cpp
+
+
+	# -------
+	# Headers
+	block.h
+	blocks.h
+	constraint.h
+	csolve_VPSC.h
+	generate-constraints.h
+	pairingheap/PairingHeap.h
+	pairingheap/dsexceptions.h
+	placement_SolveVPSC.h
+	remove_rectangle_overlap.h
+	solve_VPSC.h
+	variable.h
 )
-ADD_LIBRARY(vpsc STATIC ${libvpsc_SRC})
-TARGET_LINK_LIBRARIES(vpsc
-${INKSCAPE_LIBS})
+
+add_inkscape_lib(vpsc_LIB "${libvpsc_SRC}")

@@ -1,8 +1,18 @@
 /**
  * @file
- * @brief This is a simple mechanism to bind Inkscape to Java, and thence
+ * This is a simple mechanism to bind Inkscape to Java, and thence
  * to all of the nice things that can be layered upon that.
  *
+ * Note: We must limit Java or JVM-specific code to this file
+ * and to dobinding.cpp.  It should be hidden from javabind.h
+ * 
+ * This file is mostly about getting things up and running, and
+ * providing the basic C-to-Java hooks.
+ *   
+ * dobinding.cpp will have the rote and repetitious
+ * class-by-class binding   
+ */  
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -52,23 +62,13 @@
 #include "javabind-private.h"
 #include <path-prefix.h>
 #include <prefix.h>
-#include <glib/gmessages.h>
+#include <glib.h>
 
 //For repr and document
 #include <document.h>
 #include <inkscape.h>
 #include <xml/repr.h>
 
-/**
- * Note: We must limit Java or JVM-specific code to this file
- * and to dobinding.cpp.  It should be hidden from javabind.h
- * 
- * This file is mostly about getting things up and running, and
- * providing the basic C-to-Java hooks.
- *   
- * dobinding.cpp will have the rote and repetitious
- * class-by-class binding   
- */  
 
 
 namespace Inkscape
@@ -568,7 +568,7 @@ static const char *commonJavaPaths[] =
 static bool findJVM(String &result)
 {
     std::vector<String> results;
-    int found = false;
+    bool found = false;
 
     /* Is there one specified by the user? */
     const char *javaHome = getenv("JAVA_HOME");
@@ -586,7 +586,7 @@ static bool findJVM(String &result)
         {
         return false;
         }
-    if (results.size() == 0)
+    if (results.empty())
         return false;
     //Look first for a Client VM
     for (unsigned int i=0 ; i<results.size() ; i++)

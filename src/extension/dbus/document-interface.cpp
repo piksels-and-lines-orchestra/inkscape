@@ -17,7 +17,7 @@
 
 #include "document-interface.h"
 #include <string.h>
-
+#include <dbus/dbus-glib.h>
 #include "desktop-handles.h" //sp_desktop_document()
 #include "desktop-style.h" //sp_desktop_get_style
 #include "display/canvas-text.h" //text
@@ -35,11 +35,45 @@
 #include "selection.h" //selection struct
 #include "sp-ellipse.h"
 #include "sp-object.h"
+#include "sp-root.h"
 #include "style.h" //style_write
+
+#include "file.h" //IO
+
+#include "extension/system.h" //IO
+
+#include "extension/output.h" //IO
+
+#include "print.h" //IO
+
+#include "live_effects/parameter/text.h" //text
+#include "display/canvas-text.h" //text
+
+#include "display/sp-canvas.h" //text
+#include "text-editing.h"
 #include "verbs.h"
 #include "xml/repr.h" //sp_repr_document_new
 
 //#include "2geom/svg-path-parser.h" //get_node_coordinates
+
+#include <glib.h>
+#include <dbus/dbus-glib.h>
+
+#if 0
+#include <libxml/tree.h>
+#include <libxml/parser.h>
+#include <libxml/xpath.h>
+#include <libxml/xpathInternals.h>
+#endif
+ 
+ enum
+ {
+   OBJECT_MOVED_SIGNAL,
+   LAST_SIGNAL
+ };
+ 
+ static guint signals[LAST_SIGNAL] = { 0 };
+
 
 /****************************************************************************
      HELPER / SHORTCUT FUNCTIONS
@@ -61,13 +95,13 @@ get_repr_by_name (SPDesktop *desk, gchar *name, GError **error)
     /* ALTERNATIVE (is this faster if only repr is needed?)
     Inkscape::XML::Node *node = sp_repr_lookup_name((doc->root)->repr, name);
     */
-  Inkscape::XML::Node * node = sp_desktop_document(desk)->getObjectById(name)->getRepr();
-    if (!node)
+  SPObject * obj = sp_desktop_document(desk)->getObjectById(name);
+    if (!obj)
     {
         g_set_error(error, INKSCAPE_ERROR, INKSCAPE_ERROR_OBJECT, "Object '%s' not found in document.", name);
         return NULL;
     }
-    return node;
+    return  obj->getRepr();
 }
 
 /* 
@@ -123,16 +157,14 @@ desktop_ensure_active (SPDesktop* desk) {
 
 gdouble
 selection_get_center_x (Inkscape::Selection *sel){
-    NRRect *box = g_new(NRRect, 1);;
-    box = sel->boundsInDocument(box);
-    return box->x0 + ((box->x1 - box->x0)/2);
+    Geom::OptRect box = sel->documentBounds(SPItem::GEOMETRIC_BBOX);
+    return box ? box->midpoint()[Geom::X] : 0;
 }
 
 gdouble
 selection_get_center_y (Inkscape::Selection *sel){
-    NRRect *box = g_new(NRRect, 1);;
-    box = sel->boundsInDocument(box);
-    return box->y0 + ((box->y1 - box->y0)/2);
+    Geom::OptRect box = sel->documentBounds(SPItem::GEOMETRIC_BBOX);
+    return box ? box->midpoint()[Geom::X] : 0;
 }
 
 /* 
@@ -188,8 +220,7 @@ dbus_create_node (SPDesktop *desk, const gchar *type)
  * There is probably a better way to do this (use the shape tools default styles)
  * but I'm not sure how.
  */
-gchar *
-finish_create_shape (DocumentInterface *object, GError **error, Inkscape::XML::Node *newNode, gchar *desc)
+gchar *finish_create_shape (DocumentInterface *object, GError ** /*error*/, Inkscape::XML::Node *newNode, gchar *desc)
 {
 
     SPCSSAttr *style = sp_desktop_get_style(object->desk, TRUE);
@@ -204,11 +235,11 @@ finish_create_shape (DocumentInterface *object, GError **error, Inkscape::XML::N
     object->desk->currentLayer()->appendChildRepr(newNode);
     object->desk->currentLayer()->updateRepr();
 
-    if (object->updates)
-
-      Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  0, (gchar *)desc);
-    //else
+    if (object->updates) {
+        Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  0, (gchar *)desc);
+    //} else {
         //document_interface_pause_updates(object, error);
+    }
 
     return strdup(newNode->attribute("id"));
 }
@@ -266,12 +297,20 @@ document_interface_class_init (DocumentInterfaceClass *klass)
         GObjectClass *object_class;
         object_class = G_OBJECT_CLASS (klass);
         object_class->finalize = document_interface_finalize;
+        signals[OBJECT_MOVED_SIGNAL] =
+        g_signal_new ("object_moved",
+                      G_OBJECT_CLASS_TYPE (klass),
+                      G_SIGNAL_RUN_LAST,
+                      0,
+                      NULL, NULL,
+                      g_cclosure_marshal_VOID__STRING,
+                      G_TYPE_NONE, 1, G_TYPE_STRING);        
 }
 
 static void
 document_interface_init (DocumentInterface *object)
 {
-	object->desk = NULL;
+    object->desk = NULL;
 }
 
 
@@ -298,37 +337,34 @@ inkscape_error_quark (void)
 
 #define ENUM_ENTRY(NAME, DESC) { NAME, "" #NAME "", DESC }
 
-GType
-inkscape_error_get_type (void)
+GType inkscape_error_get_type(void)
 {
-	static GType etype = 0;
+    static GType etype = 0;
 
-	if (etype == 0)
-	{
-		static const GEnumValue values[] =
-		{
+    if (etype == 0) {
+        static const GEnumValue values[] =
+            {
 
-			ENUM_ENTRY (INKSCAPE_ERROR_SELECTION, "Incompatible_Selection"),
-			ENUM_ENTRY (INKSCAPE_ERROR_OBJECT, "Incompatible_Object"),
-			ENUM_ENTRY (INKSCAPE_ERROR_VERB, "Failed_Verb"),
-			ENUM_ENTRY (INKSCAPE_ERROR_OTHER, "Generic_Error"),
-			{ 0, 0, 0 }
-		};
+                ENUM_ENTRY(INKSCAPE_ERROR_SELECTION, "Incompatible_Selection"),
+                ENUM_ENTRY(INKSCAPE_ERROR_OBJECT, "Incompatible_Object"),
+                ENUM_ENTRY(INKSCAPE_ERROR_VERB, "Failed_Verb"),
+                ENUM_ENTRY(INKSCAPE_ERROR_OTHER, "Generic_Error"),
+                { 0, 0, 0 }
+            };
 
-		etype = g_enum_register_static ("InkscapeError", values);
-	}
+        etype = g_enum_register_static("InkscapeError", values);
+    }
 
-	return etype;
+    return etype;
 }
 
 /****************************************************************************
      MISC FUNCTIONS
 ****************************************************************************/
 
-gboolean
-document_interface_delete_all (DocumentInterface *object, GError **error)
+gboolean document_interface_delete_all(DocumentInterface *object, GError ** /*error*/)
 {
-    sp_edit_clear_all (object->desk);
+    sp_edit_clear_all(object->desk);
     return TRUE;
 }
 
@@ -346,6 +382,7 @@ document_interface_call_verb (DocumentInterface *object, gchar *verbid, GError *
                 if (object->updates) {
                     Inkscape::DocumentUndo::done(sp_desktop_document(desk2),  verb->get_code(), g_strdup(verb->get_tip()));
                 }
+                return TRUE;
             }
         }
     }
@@ -470,17 +507,20 @@ document_interface_spiral (DocumentInterface *object, int cx, int cy,
     return retval;
 }
 
-gboolean
+gchar*
 document_interface_text (DocumentInterface *object, int x, int y, gchar *text, GError **error)
 {
-    //FIXME: Not selectable (aka broken).  Needs to be rewritten completely.
 
-    SPDesktop *desktop = object->desk;
-    SPCanvasText * canvas_text = (SPCanvasText *) sp_canvastext_new(sp_desktop_tempgroup(desktop), desktop, Geom::Point(0,0), "");
-    sp_canvastext_set_text (canvas_text, text);
-    sp_canvastext_set_coords (canvas_text, x, y);
+  Inkscape::XML::Node *text_node = dbus_create_node(object->desk, "svg:text");
+    sp_repr_set_int(text_node, "x", x);
+    sp_repr_set_int(text_node, "y", y);
+    //just a workaround so i can get an spitem from the name
+    gchar  *name = finish_create_shape (object, error, text_node, (gchar *)"create text");
+    
+    SPItem* text_obj=(SPItem* )get_object_by_name(object->desk, name, error);
+    sp_te_set_repr_text_multiline(text_obj, text);
 
-    return TRUE;
+    return name;
 }
 
 gchar *
@@ -505,7 +545,7 @@ document_interface_image (DocumentInterface *object, int x, int y, gchar *filena
     return strdup(newNode->attribute("id"));
 }
 
-gchar *document_interface_node (DocumentInterface *object, gchar *type, GError **error)
+gchar *document_interface_node(DocumentInterface *object, gchar *type, GError ** /*error*/)
 {
     SPDocument * doc = sp_desktop_document (object->desk);
     Inkscape::XML::Document *xml_doc = doc->getReprDoc();
@@ -515,10 +555,11 @@ gchar *document_interface_node (DocumentInterface *object, gchar *type, GError *
     object->desk->currentLayer()->appendChildRepr(newNode);
     object->desk->currentLayer()->updateRepr();
 
-    if (object->updates)
+    if (object->updates) {
         Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  0, (gchar *)"created empty node");
-    //else
+    //} else {
         //document_interface_pause_updates(object, error);
+    }
 
     return strdup(newNode->attribute("id"));
 }
@@ -538,26 +579,23 @@ document_interface_document_get_height (DocumentInterface *object)
   return sp_desktop_document(object->desk)->getHeight();
 }
 
-gchar *
-document_interface_document_get_css (DocumentInterface *object, GError **error)
+gchar *document_interface_document_get_css(DocumentInterface *object, GError ** /*error*/)
 {
     SPCSSAttr *current = (object->desk)->current;
     return sp_repr_css_write_string(current);
 }
 
-gboolean 
-document_interface_document_merge_css (DocumentInterface *object,
-                                       gchar *stylestring, GError **error)
+gboolean document_interface_document_merge_css(DocumentInterface *object,
+                                               gchar *stylestring, GError ** /*error*/)
 {
     SPCSSAttr * style = sp_repr_css_attr_new();
-    sp_repr_css_attr_add_from_string (style, stylestring);
-    sp_desktop_set_style (object->desk, style);
+    sp_repr_css_attr_add_from_string(style, stylestring);
+    sp_desktop_set_style(object->desk, style);
     return TRUE;
 }
 
-gboolean 
-document_interface_document_set_css (DocumentInterface *object,
-                                     gchar *stylestring, GError **error)
+gboolean document_interface_document_set_css(DocumentInterface *object,
+                                             gchar *stylestring, GError ** /*error*/)
 {
     SPCSSAttr * style = sp_repr_css_attr_new();
     sp_repr_css_attr_add_from_string (style, stylestring);
@@ -573,6 +611,44 @@ document_interface_document_resize_to_fit_selection (DocumentInterface *object,
     return dbus_call_verb (object, SP_VERB_FIT_CANVAS_TO_SELECTION, error);
     return TRUE;
 }
+
+gboolean
+document_interface_document_set_display_area (DocumentInterface *object,
+                                              double x0,
+                                              double y0,
+                                              double x1,
+                                              double y1,
+                                              double border,
+                                              GError **error)
+{
+      object->desk->set_display_area (x0,
+                    y0,
+                    x1,
+                    y1,
+                    border, false);
+      return TRUE;
+}
+
+
+GArray *
+document_interface_document_get_display_area (DocumentInterface *object)
+{
+  Geom::Rect const d = object->desk->get_display_area();
+  
+  GArray * dArr = g_array_new (TRUE, TRUE, sizeof(double));
+
+  double x0 = d.min()[Geom::X];
+  double y0 = d.min()[Geom::Y];
+  double x1 = d.max()[Geom::X];
+  double y1 = d.max()[Geom::Y];
+  g_array_append_val (dArr, x0); //
+  g_array_append_val (dArr, y0);
+  g_array_append_val (dArr, x1);
+  g_array_append_val (dArr, y1);
+  return dArr;
+
+}
+
 
 /****************************************************************************
      OBJECT FUNCTIONS
@@ -790,8 +866,7 @@ document_interface_move_to_layer (DocumentInterface *object, gchar *shape,
     return TRUE;
 }
 
-GArray *
-document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape)
+GArray *document_interface_get_node_coordinates(DocumentInterface * /*object*/, gchar * /*shape*/)
 {
     //FIXME: Needs lot's of work.
 /*
@@ -809,6 +884,49 @@ document_interface_get_node_coordinates (DocumentInterface *object, gchar *shape
 }
 
 
+gboolean
+document_interface_set_text (DocumentInterface *object, gchar *name, gchar *text, GError **error)
+{
+
+  SPItem* text_obj=(SPItem* )get_object_by_name(object->desk, name, error);
+  //TODO verify object type
+  if (!text_obj)
+    return FALSE;
+  sp_te_set_repr_text_multiline(text_obj, text);
+  return TRUE;
+      
+}
+
+
+
+gboolean
+document_interface_text_apply_style (DocumentInterface *object, gchar *name,
+                                     int start_pos, int end_pos,  gchar *style, gchar *styleval,
+                                     GError **error)
+{
+
+  SPItem* text_obj=(SPItem* )get_object_by_name(object->desk, name, error);
+
+  //void sp_te_apply_style(SPItem *text, Inkscape::Text::Layout::iterator const &start, Inkscape::Text::Layout::iterator const &end, SPCSSAttr const *css)
+  //TODO verify object type
+  if (!text_obj)
+    return FALSE;
+  Inkscape::Text::Layout const *layout = te_get_layout(text_obj);
+  Inkscape::Text::Layout::iterator start = layout->charIndexToIterator (start_pos);
+  Inkscape::Text::Layout::iterator end = layout->charIndexToIterator (end_pos);
+
+  SPCSSAttr *css = sp_repr_css_attr_new();
+  sp_repr_css_set_property(css, style, styleval);
+    
+  sp_te_apply_style(text_obj,
+                    start,
+                    end,
+                    css);
+  return TRUE;
+      
+}
+
+
 /****************************************************************************
      FILE I/O FUNCTIONS
 ****************************************************************************/
@@ -823,16 +941,29 @@ document_interface_save (DocumentInterface *object, GError **error)
     return FALSE;
 }
 
-gboolean 
-document_interface_load (DocumentInterface *object, 
-                        gchar *filename, GError **error)
+gboolean document_interface_load(DocumentInterface *object, 
+                                 gchar *filename, GError ** /*error*/)
+{
+    desktop_ensure_active(object->desk);
+    const Glib::ustring file(filename);
+    sp_file_open(file, NULL, TRUE, TRUE);
+    if (object->updates) {
+        Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  SP_VERB_FILE_OPEN, "Opened File");
+    }
+    return TRUE;
+}
+
+gchar *
+document_interface_import (DocumentInterface *object, 
+                           gchar *filename, GError **error)
 {
     desktop_ensure_active (object->desk);
     const Glib::ustring file(filename);
-    sp_file_open(file, NULL, TRUE, TRUE);
-    if (object->updates)
-        Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  SP_VERB_FILE_OPEN, "Opened File");
-    return TRUE;
+    SPDocument * doc = sp_desktop_document(object->desk);
+
+    SPObject *new_obj = NULL;
+    new_obj = file_import(doc, file, NULL);
+    return strdup(new_obj->getRepr()->attribute("id"));
 }
 
 gboolean 
@@ -844,8 +975,9 @@ document_interface_save_as (DocumentInterface *object,
     const Glib::ustring file(filename);
     return file_save_remote(doc, file, NULL, TRUE, TRUE);
     #endif
-    if (!doc || strlen(filename)<1) //Safety check
+    if (!doc || strlen(filename)<1) { //Safety check
         return false;
+    }
 
     try {
         Inkscape::Extension::save(NULL, doc, filename,
@@ -860,12 +992,12 @@ document_interface_save_as (DocumentInterface *object,
     return true;
 }
 
-gboolean
-document_interface_mark_as_unmodified (DocumentInterface *object, GError **error)
+gboolean document_interface_mark_as_unmodified(DocumentInterface *object, GError ** /*error*/)
 {
     SPDocument * doc = sp_desktop_document(object->desk);
-    if (doc)
+    if (doc) {
         doc->modified_since_save = FALSE;
+    }
     return TRUE;
 }
 
@@ -916,8 +1048,7 @@ document_interface_redo (DocumentInterface *object, GError **error)
      Need to make sure it plays well with verbs because they are used so much.
 ****************************************************************************/
 
-void
-document_interface_pause_updates (DocumentInterface *object, GError **error)
+void document_interface_pause_updates(DocumentInterface *object, GError ** /*error*/)
 {
     object->updates = FALSE;
     object->desk->canvas->drawing_disabled = 1;
@@ -927,8 +1058,7 @@ document_interface_pause_updates (DocumentInterface *object, GError **error)
     //sp_desktop_document(object->desk)->root->mflags = FALSE;
 }
 
-void
-document_interface_resume_updates (DocumentInterface *object, GError **error)
+void document_interface_resume_updates(DocumentInterface *object, GError ** /*error*/)
 {
     object->updates = TRUE;
     object->desk->canvas->drawing_disabled = 0;
@@ -941,16 +1071,15 @@ document_interface_resume_updates (DocumentInterface *object, GError **error)
     Inkscape::DocumentUndo::done(sp_desktop_document(object->desk),  SP_VERB_CONTEXT_RECT, "Multiple actions");
 }
 
-void
-document_interface_update (DocumentInterface *object, GError **error)
+void document_interface_update(DocumentInterface *object, GError ** /*error*/)
 {
-    sp_desktop_document(object->desk)->root->uflags = TRUE;
-    sp_desktop_document(object->desk)->root->mflags = TRUE;
+    sp_desktop_document(object->desk)->getRoot()->uflags = TRUE;
+    sp_desktop_document(object->desk)->getRoot()->mflags = TRUE;
     object->desk->enableInteraction();
     sp_desktop_document(object->desk)->_updateDocument();
     object->desk->disableInteraction();
-    sp_desktop_document(object->desk)->root->uflags = FALSE;
-    sp_desktop_document(object->desk)->root->mflags = FALSE;
+    sp_desktop_document(object->desk)->getRoot()->uflags = FALSE;
+    sp_desktop_document(object->desk)->getRoot()->mflags = FALSE;
     //Inkscape::DocumentUndo::done(sp_desktop_document(object->desk), SP_VERB_CONTEXT_RECT, "Multiple actions");
 }
 
@@ -958,8 +1087,7 @@ document_interface_update (DocumentInterface *object, GError **error)
      SELECTION FUNCTIONS FIXME: use call_verb where appropriate (once update system is tested.)
 ****************************************************************************/
 
-gboolean
-document_interface_selection_get (DocumentInterface *object, char ***out, GError **error)
+gboolean document_interface_selection_get(DocumentInterface *object, char ***out, GError ** /*error*/)
 {
     Inkscape::Selection * sel = sp_desktop_selection(object->desk);
     GSList const *oldsel = sel->list();
@@ -1002,10 +1130,9 @@ document_interface_selection_add_list (DocumentInterface *object,
     return TRUE;
 }
 
-gboolean
-document_interface_selection_set (DocumentInterface *object, char *name, GError **error)
+gboolean document_interface_selection_set(DocumentInterface *object, char *name, GError ** /*error*/)
 {
-    SPDocument * doc = sp_desktop_document (object->desk);
+    SPDocument * doc = sp_desktop_document(object->desk);
     Inkscape::Selection *selection = sp_desktop_selection(object->desk);
     selection->set(doc->getObjectById(name));
     return TRUE;
@@ -1023,8 +1150,7 @@ document_interface_selection_set_list (DocumentInterface *object,
     return TRUE;
 }
 
-gboolean
-document_interface_selection_rotate (DocumentInterface *object, int angle, GError **error)
+gboolean document_interface_selection_rotate(DocumentInterface *object, int angle, GError ** /*error*/)
 {
     Inkscape::Selection *selection = sp_desktop_selection(object->desk);
     sp_selection_rotate(selection, angle);
@@ -1038,8 +1164,7 @@ document_interface_selection_delete (DocumentInterface *object, GError **error)
     return dbus_call_verb (object, SP_VERB_EDIT_DELETE, error);
 }
 
-gboolean
-document_interface_selection_clear (DocumentInterface *object, GError **error)
+gboolean document_interface_selection_clear(DocumentInterface *object, GError ** /*error*/)
 {
     sp_desktop_selection(object->desk)->clear();
     return TRUE;
@@ -1060,10 +1185,9 @@ document_interface_select_all_in_all_layers(DocumentInterface *object,
     return dbus_call_verb (object, SP_VERB_EDIT_SELECT_ALL_IN_ALL_LAYERS, error);
 }
 
-gboolean
-document_interface_selection_box (DocumentInterface *object, int x, int y,
-                                  int x2, int y2, gboolean replace, 
-                                  GError **error)
+gboolean document_interface_selection_box(DocumentInterface * /*object*/, int /*x*/, int /*y*/,
+                                          int /*x2*/, int /*y2*/, gboolean /*replace*/,
+                                          GError ** /*error*/)
 {
     //FIXME: implement.
     return FALSE;
@@ -1124,8 +1248,7 @@ document_interface_selection_paste (DocumentInterface *object, GError **error)
     return dbus_call_verb (object, SP_VERB_EDIT_PASTE, error);
 }
 
-gboolean
-document_interface_selection_scale (DocumentInterface *object, gdouble grow, GError **error)
+gboolean document_interface_selection_scale(DocumentInterface *object, gdouble grow, GError ** /*error*/)
 {
     Inkscape::Selection *selection = sp_desktop_selection(object->desk);
     if (!selection)
@@ -1136,19 +1259,17 @@ document_interface_selection_scale (DocumentInterface *object, gdouble grow, GEr
     return TRUE;
 }
 
-gboolean
-document_interface_selection_move (DocumentInterface *object, gdouble x, gdouble y, GError **error)
+gboolean document_interface_selection_move(DocumentInterface *object, gdouble x, gdouble y, GError ** /*error*/)
 {
-    sp_selection_move (object->desk, x, 0 - y); //switching coordinate systems.
+    sp_selection_move(object->desk, x, 0 - y); //switching coordinate systems.
     return TRUE;
 }
 
-gboolean
-document_interface_selection_move_to (DocumentInterface *object, gdouble x, gdouble y, GError **error)
+gboolean document_interface_selection_move_to(DocumentInterface *object, gdouble x, gdouble y, GError ** /*error*/)
 {
     Inkscape::Selection * sel = sp_desktop_selection(object->desk);
 
-    Geom::OptRect sel_bbox = sel->bounds();
+    Geom::OptRect sel_bbox = sel->visualBounds();
     if (sel_bbox) {
         Geom::Point m( x - selection_get_center_x(sel) , 0 - (y - selection_get_center_y(sel)) );
         sp_selection_move_relative(sel, m, true);
@@ -1260,13 +1381,12 @@ document_interface_selection_change_level (DocumentInterface *object, gchar *cmd
      LAYER FUNCTIONS
 ****************************************************************************/
 
-gchar *
-document_interface_layer_new (DocumentInterface *object, GError **error)
+gchar *document_interface_layer_new(DocumentInterface *object, GError ** /*error*/)
 {
     SPDesktop * dt = object->desk;
     SPObject *new_layer = Inkscape::create_layer(dt->currentRoot(), dt->currentLayer(), Inkscape::LPOS_BELOW);
     dt->setCurrentLayer(new_layer);
-    return g_strdup(get_name_from_object (new_layer));
+    return g_strdup(get_name_from_object(new_layer));
 }
 
 gboolean 
@@ -1282,8 +1402,7 @@ document_interface_layer_set (DocumentInterface *object,
     return TRUE;
 }
 
-gchar **
-document_interface_layer_get_all (DocumentInterface *object)
+gchar **document_interface_layer_get_all(DocumentInterface * /*object*/)
 {
     //FIXME: implement.
     return NULL;
@@ -1317,7 +1436,79 @@ document_interface_layer_previous (DocumentInterface *object, GError **error)
 }
 
 
+//////////////signals
 
 
+DocumentInterface *fugly;
+gboolean dbus_send_ping (SPDesktop* desk,     SPItem *item)
+{
+  //DocumentInterface *obj;
+  if (!item) return TRUE;
+  g_signal_emit (desk->dbus_document_interface, signals[OBJECT_MOVED_SIGNAL], 0, item->getId());
+  return TRUE;
+}
+
+//////////tree
 
 
+gboolean
+document_interface_get_children (DocumentInterface *object,  char *name, char ***out, GError **error)
+{
+  SPItem* parent=(SPItem* )get_object_by_name(object->desk, name, error);
+
+  GSList const *children = parent->childList(false);
+
+    int size = g_slist_length((GSList *) children);
+
+    *out = g_new0 (char *, size + 1);
+
+    int i = 0;
+    for (GSList const *iter = children; iter != NULL; iter = iter->next) {
+      (*out)[i] = g_strdup(SP_OBJECT(iter->data)->getRepr()->attribute("id"));
+        i++;
+    }
+    (*out)[i] = NULL;
+
+    return TRUE;
+
+}
+
+
+gchar* 
+document_interface_get_parent (DocumentInterface *object,  char *name, GError **error)
+{
+  SPItem* node=(SPItem* )get_object_by_name(object->desk, name, error);
+  
+  SPObject* parent=node->parent;
+
+  return g_strdup(parent->getRepr()->attribute("id"));
+
+}
+
+#if 0
+//just pseudo code
+gboolean
+document_interface_get_xpath (DocumentInterface *object,  char *xpath_expression, char ***out, GError **error){
+  SPDocument * doc = sp_desktop_document (object->desk);
+  Inkscape::XML::Document *repr = doc->getReprDoc();
+
+  xmlXPathObjectPtr xpathObj;
+  xmlXPathContextPtr xpathCtx;
+  xpathCtx = xmlXPathNewContext(repr);//XmlDocPtr
+  xpathObj = xmlXPathEvalExpression(xmlCharStrdup(xpath_expression), xpathCtx);
+  
+  //xpathresult result = xpatheval(repr, xpath_selection);
+  //convert resut to a string array we can return via dbus
+  return TRUE;
+}
+#endif
+/*
+  Local Variables:
+  mode:c++
+  c-file-style:"stroustrup"
+  c-file-offsets:((innamespace . 0)(inline-open . 0))
+  indent-tabs-mode:nil
+  fill-column:99
+  End:
+*/
+// vim: expandtab:shiftwidth=4:tabstop=8:softtabstop=4 :

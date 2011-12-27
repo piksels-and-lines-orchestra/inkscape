@@ -14,10 +14,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <2geom/point.h>
 
-#include "libnr/nr-point.h"
-#include "livarot/livarot-forward.h"
 #include "livarot/LivarotDefs.h"
+
+class Path;
+class FloatLigne;
 
 struct SweepTree;
 struct SweepTreeList;
@@ -315,7 +317,7 @@ public:
     void QuickScan(float &pos, int &curP, float to, AlphaLigne* line, float step);
 
     void Transform(Geom::Affine const &tr)
-        {for(std::vector<dg_point>::iterator it=_pts.begin();it!=_pts.end();it++) it->x*=tr;}
+        {for(std::vector<dg_point>::iterator it=_pts.begin();it!=_pts.end();++it) it->x*=tr;}
 
     std::vector<back_data> ebData;
     std::vector<voronoi_point> vorpData;

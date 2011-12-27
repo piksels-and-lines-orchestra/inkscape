@@ -1,5 +1,3 @@
-#define __SP_RULER_C__
-
 /*
  * Customized ruler class for inkscape
  *
@@ -8,8 +6,9 @@
  *   Frank Felfe <innerspace@iname.com>
  *   bulia byak <buliabyak@users.sf.net>
  *   Diederik van Lierop <mail@diedenrezi.nl>
+ *   Jon A. Cruz <jon@joncruz.org>
  *
- * Copyright (C) 1999-2008 authors
+ * Copyright (C) 1999-2011 authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -37,30 +36,25 @@ static gint sp_hruler_motion_notify (GtkWidget      *widget, GdkEventMotion *eve
 
 static GtkWidgetClass *hruler_parent_class;
 
-GtkType
+GType
 sp_hruler_get_type (void)
 {
-    //TODO: switch to GObject
-    // GtkType and such calls were deprecated a while back with the
-    // introduction of GObject as a separate layer, with GType instead. --JonCruz
-
-  static GtkType hruler_type = 0;
+  static GType hruler_type = 0;
 
   if (!hruler_type)
     {
-      static const GtkTypeInfo hruler_info =
-      {
-        (gchar*) "SPHRuler",
-        sizeof (SPHRuler),
+      static const GTypeInfo hruler_info = {
         sizeof (SPHRulerClass),
-        (GtkClassInitFunc) sp_hruler_class_init,
-        (GtkObjectInitFunc) sp_hruler_init,
-        /* reserved_1 */ NULL,
-        /* reserved_2 */ NULL,
-        (GtkClassInitFunc) NULL,
+	NULL, NULL,
+        (GClassInitFunc) sp_hruler_class_init,
+	NULL, NULL,
+        sizeof (SPHRuler),
+	0,
+        (GInstanceInitFunc) sp_hruler_init,
+	NULL
       };
   
-      hruler_type = gtk_type_unique (gtk_ruler_get_type (), &hruler_info);
+      hruler_type = g_type_register_static (gtk_ruler_get_type (), "SPHRuler", &hruler_info, (GTypeFlags)0);
     }
 
   return hruler_type;
@@ -72,7 +66,7 @@ sp_hruler_class_init (SPHRulerClass *klass)
   GtkWidgetClass *widget_class;
   GtkRulerClass *ruler_class;
 
-  hruler_parent_class = (GtkWidgetClass *) gtk_type_class (GTK_TYPE_RULER);
+  hruler_parent_class = (GtkWidgetClass *) g_type_class_peek_parent (klass);
 
   widget_class = (GtkWidgetClass*) klass;
   ruler_class = (GtkRulerClass*) klass;
@@ -96,7 +90,7 @@ sp_hruler_init (SPHRuler *hruler)
 GtkWidget*
 sp_hruler_new (void)
 {
-  return GTK_WIDGET (gtk_type_new (sp_hruler_get_type ()));
+  return GTK_WIDGET (g_object_new (sp_hruler_get_type (), NULL));
 }
 
 static gint
@@ -128,30 +122,25 @@ static void sp_vruler_size_request (GtkWidget *widget, GtkRequisition *requisiti
 
 static GtkWidgetClass *vruler_parent_class;
 
-GtkType
+GType
 sp_vruler_get_type (void)
 {
-    //TODO: switch to GObject
-    // GtkType and such calls were deprecated a while back with the
-    // introduction of GObject as a separate layer, with GType instead. --JonCruz
-
-  static GtkType vruler_type = 0;
+  static GType vruler_type = 0;
 
   if (!vruler_type)
     {
-      static const GtkTypeInfo vruler_info =
-      {
-	(gchar*) "SPVRuler",
-	sizeof (SPVRuler),
+      static const GTypeInfo vruler_info = {
 	sizeof (SPVRulerClass),
-	(GtkClassInitFunc) sp_vruler_class_init,
-	(GtkObjectInitFunc) sp_vruler_init,
-	/* reserved_1 */ NULL,
-        /* reserved_2 */ NULL,
-        (GtkClassInitFunc) NULL,
+	NULL, NULL,
+	(GClassInitFunc) sp_vruler_class_init,
+	NULL, NULL,
+	sizeof (SPVRuler),
+	0,
+	(GInstanceInitFunc) sp_vruler_init,
+	NULL
       };
 
-      vruler_type = gtk_type_unique (gtk_ruler_get_type (), &vruler_info);
+      vruler_type = g_type_register_static (gtk_ruler_get_type (), "SPVRuler", &vruler_info, (GTypeFlags)0);
     }
 
   return vruler_type;
@@ -163,7 +152,7 @@ sp_vruler_class_init (SPVRulerClass *klass)
   GtkWidgetClass *widget_class;
   GtkRulerClass *ruler_class;
 
-  vruler_parent_class = (GtkWidgetClass *) gtk_type_class (GTK_TYPE_RULER);
+  vruler_parent_class = (GtkWidgetClass *) g_type_class_peek_parent (klass);
 
   widget_class = (GtkWidgetClass*) klass;
   ruler_class = (GtkRulerClass*) klass;
@@ -189,7 +178,7 @@ sp_vruler_init (SPVRuler *vruler)
 GtkWidget*
 sp_vruler_new (void)
 {
-  return GTK_WIDGET (gtk_type_new (sp_vruler_get_type ()));
+  return GTK_WIDGET (g_object_new (sp_vruler_get_type (), NULL));
 }
 
 
@@ -222,8 +211,7 @@ static void
 sp_ruler_common_draw_ticks (GtkRuler *ruler)
 {
     GtkWidget *widget;
-    GdkGC *gc, *bg_gc;
-    PangoFontDescription *pango_desc;
+    GdkGC *gc;
     PangoContext *pango_context;
     PangoLayout *pango_layout;
     gint i, j, tick_index;
@@ -246,15 +234,13 @@ sp_ruler_common_draw_ticks (GtkRuler *ruler)
 
     g_return_if_fail (ruler != NULL);
 
-    if (!GTK_WIDGET_DRAWABLE (ruler)) 
+    if (!gtk_widget_is_drawable (GTK_WIDGET (ruler)))
         return;
 
     g_object_get(G_OBJECT(ruler), "orientation", &orientation, NULL);
     widget = GTK_WIDGET (ruler);
     gc = widget->style->fg_gc[GTK_STATE_NORMAL];
-    bg_gc = widget->style->bg_gc[GTK_STATE_NORMAL];
 
-    pango_desc = widget->style->font_desc;
     pango_context = gtk_widget_get_pango_context (widget);
     pango_layout = pango_layout_new (pango_context);
     PangoFontDescription *fs = pango_font_description_new ();
@@ -390,26 +376,19 @@ sp_ruler_common_draw_ticks (GtkRuler *ruler)
     }
 }
 
-//TODO: warning: deprecated conversion from string constant to ‘gchar*’
-//
-//Turn out to be warnings that we should probably leave in place. The
-// pointers/types used need to be read-only. So until we correct the using
-// code, those warnings are actually desired. They say "Hey! Fix this". We
-// definitely don't want to hide/ignore them. --JonCruz
-
-// TODO address const/non-const gchar* issue:
+// Note: const casts are due to GtkRuler being const-broken and not scheduled for any more fixes.
 /// Ruler metrics.
 static GtkRulerMetric const sp_ruler_metrics[] = {
   // NOTE: the order of records in this struct must correspond to the SPMetric enum.
-  {"NONE",			"", 1, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"millimeters",	"mm", PX_PER_MM, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"centimeters",	"cm", PX_PER_CM, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"inches",		"in", PX_PER_IN, { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512 }, { 1, 2, 4, 8, 16 }},
-  {"feet",			"ft", PX_PER_FT, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"points",		"pt", PX_PER_PT, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"picas",			"pc", PX_PER_PC, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"pixels",		"px", PX_PER_PX, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
-  {"meters",		"m",  PX_PER_M,  { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("NONE"),          const_cast<gchar*>(""),   1,         { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("millimeters"),   const_cast<gchar*>("mm"), PX_PER_MM, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("centimeters"),   const_cast<gchar*>("cm"), PX_PER_CM, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("inches"),        const_cast<gchar*>("in"), PX_PER_IN, { 1, 2, 4,  8, 16, 32,  64, 128, 256,  512 }, { 1, 2,  4,  8,  16 }},
+  {const_cast<gchar*>("feet"),          const_cast<gchar*>("ft"), PX_PER_FT, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("points"),        const_cast<gchar*>("pt"), PX_PER_PT, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("picas"),         const_cast<gchar*>("pc"), PX_PER_PC, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("pixels"),        const_cast<gchar*>("px"), PX_PER_PX, { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
+  {const_cast<gchar*>("meters"),        const_cast<gchar*>("m"),  PX_PER_M,  { 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000 }, { 1, 5, 10, 50, 100 }},
 };
 
 void
@@ -425,6 +404,6 @@ sp_ruler_set_metric (GtkRuler *ruler,
 
   ruler->metric = const_cast<GtkRulerMetric *>(&sp_ruler_metrics[metric]);
 
-  if (GTK_WIDGET_DRAWABLE (ruler))
+  if (gtk_widget_is_drawable (GTK_WIDGET (ruler)))
     gtk_widget_queue_draw (GTK_WIDGET (ruler));
 }

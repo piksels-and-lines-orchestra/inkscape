@@ -1,5 +1,3 @@
-#define __NR_FILTER_PRIMITIVE_CPP__
-
 /*
  * SVG filters rendering
  *
@@ -13,8 +11,8 @@
  */
 
 #include "display/nr-filter-primitive.h"
+#include "display/nr-filter-slot.h"
 #include "display/nr-filter-types.h"
-#include "libnr/nr-pixblock.h"
 #include "svg/svg-length.h"
 
 namespace Inkscape {
@@ -48,7 +46,14 @@ FilterPrimitive::~FilterPrimitive()
     // Nothing to do here
 }
 
-void FilterPrimitive::area_enlarge(NRRectL &/*area*/, Geom::Affine const &/*m*/)
+void FilterPrimitive::render_cairo(FilterSlot &slot)
+{
+    // passthrough
+    cairo_surface_t *in = slot.getcairo(_input);
+    slot.set(_output, in);
+}
+
+void FilterPrimitive::area_enlarge(Geom::IntRect &/*area*/, Geom::Affine const &/*m*/)
 {
     // This doesn't need to do anything by default
 }
@@ -154,10 +159,6 @@ Geom::Rect FilterPrimitive::filter_primitive_area(FilterUnits const &units)
 
     Geom::Rect area(minp, maxp);
     return area;
-}
-
-FilterTraits FilterPrimitive::get_input_traits() {
-    return TRAIT_ANYTHING;
 }
 
 } /* namespace Filters */

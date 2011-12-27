@@ -1,9 +1,7 @@
 #ifndef SEEN_DISPLAY_GRAYSCALE_H
 #define SEEN_DISPLAY_GRAYSCALE_H
 
-/** \file
- * Provide methods to calculate grayscale values (e.g. convert rgba value to grayscale rgba value)
- *
+/*
  * Author:
  *   Johan Engelen <goejendaagh@zonnet.nl>
  *
@@ -12,21 +10,20 @@
  * Released under GNU GPL
  */
 
-#include <gdk/gdktypes.h>
+#include <gdk/gdk.h>
 
+/**
+ * Provide methods to calculate grayscale values (e.g. convert rgba value to grayscale rgba value).
+ */
 namespace Grayscale {
     guint32 process(guint32 rgba);
     guint32 process(guchar r, guchar g, guchar b, guchar a);
     guchar  luminance(guchar r, guchar g, guchar b);
 
-    const float red_factor = 0.3;
-    const float green_factor = 0.59;
-    const float blue_factor = 0.11;
-
     bool activeDesktopIsGrayscale();
 };
 
-#endif /* !SEEN_DISPLAY_GRAYSCALE_H */
+#endif // !SEEN_DISPLAY_GRAYSCALE_H
 
 /*
   Local Variables:

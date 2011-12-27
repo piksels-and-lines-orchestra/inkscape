@@ -1,5 +1,6 @@
-/** @file
- * @brief File/Print operations
+/**
+ * @file
+ * File/Print operations.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -29,9 +30,8 @@
 #endif
 
 #include <gtk/gtk.h>
-#include <glib/gmem.h>
+#include <glib.h>
 #include <glibmm/i18n.h>
-#include <libnr/nr-pixops.h>
 
 #include "desktop.h"
 #include "desktop-handles.h"
@@ -54,6 +54,7 @@
 #include "path-prefix.h"
 #include "preferences.h"
 #include "print.h"
+#include "resource-manager.h"
 #include "rdf.h"
 #include "selection-chemistry.h"
 #include "selection.h"
@@ -209,14 +210,14 @@ sp_file_exit()
  *  \param replace_empty if true, and the current desktop is empty, this document
  *  will replace the empty one.
  */
-bool
-sp_file_open(const Glib::ustring &uri,
-             Inkscape::Extension::Extension *key,
-             bool add_to_recent, bool replace_empty)
+bool sp_file_open(const Glib::ustring &uri,
+                  Inkscape::Extension::Extension *key,
+                  bool add_to_recent, bool replace_empty)
 {
     SPDesktop *desktop = SP_ACTIVE_DESKTOP;
-    if (desktop)
+    if (desktop) {
         desktop->setWaitingCursor();
+    }
 
     SPDocument *doc = NULL;
     try {
@@ -227,33 +228,44 @@ sp_file_open(const Glib::ustring &uri,
         doc = NULL;
     }
 
-    if (desktop)
+    if (desktop) {
         desktop->clearWaitingCursor();
+    }
 
     if (doc) {
         SPDocument *existing = desktop ? sp_desktop_document(desktop) : NULL;
 
         if (existing && existing->virgin && replace_empty) {
             // If the current desktop is empty, open the document there
-            doc->ensureUpToDate();
+            doc->ensureUpToDate(); // TODO this will trigger broken link warnings, etc.
             desktop->change_document(doc);
             doc->emitResizedSignal(doc->getWidth(), doc->getHeight());
         } else {
             // create a whole new desktop and window
-            SPViewWidget *dtw = sp_desktop_widget_new(sp_document_namedview(doc, NULL));
+            SPViewWidget *dtw = sp_desktop_widget_new(sp_document_namedview(doc, NULL)); // TODO this will trigger broken link warnings, etc.
             sp_create_window(dtw, TRUE);
             desktop = static_cast<SPDesktop*>(dtw->view);
         }
 
         doc->virgin = FALSE;
+
         // everyone who cares now has a reference, get rid of ours
         doc->doUnref();
+
         // resize the window to match the document properties
         sp_namedview_window_from_document(desktop);
         sp_namedview_update_layers_from_document(desktop);
 
         if (add_to_recent) {
             sp_file_add_recent( doc->getURI() );
+        }
+
+        if ( inkscape_use_gui() ) {
+            // Perform a fixup pass for hrefs.
+            if ( Inkscape::ResourceManager::getManager().fixupBrokenLinks(doc) ) {
+                Glib::ustring msg = _("Broken links have been changed to point to existing files.");
+                desktop->showInfoDialog(msg);
+            }
         }
 
         return TRUE;
@@ -790,7 +802,7 @@ sp_file_save_dialog(Gtk::Window &parentWindow, SPDocument *doc, Inkscape::Extens
     } else {
         dialog_title = (char const *) _("Select file to save to");
     }
-    gchar* doc_title = doc->root->title();
+    gchar* doc_title = doc->getRoot()->title();
     Inkscape::UI::Dialog::FileSaveDialog *saveDialog =
         Inkscape::UI::Dialog::FileSaveDialog::create(
             parentWindow,
@@ -941,7 +953,7 @@ sp_file_save_a_copy(Gtk::Window &parentWindow, gpointer /*object*/, gpointer /*d
 /**
  *  Import a resource.  Called by sp_file_import()
  */
-void
+SPObject *
 file_import(SPDocument *in_doc, const Glib::ustring &uri,
                Inkscape::Extension::Extension *key)
 {
@@ -963,7 +975,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
 
         prevent_id_clashes(doc, in_doc);
 
-        SPObject *in_defs = SP_DOCUMENT_DEFS(in_doc);
+        SPObject *in_defs = in_doc->getDefs();
         Inkscape::XML::Node *last_def = in_defs->getRepr()->lastChild();
 
         SPCSSAttr *style = sp_css_attr_from_object(doc->getRoot());
@@ -978,7 +990,7 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
 
         // Create a new group if necessary.
         Inkscape::XML::Node *newgroup = NULL;
-        if ((style && style->firstChild()) || items_count > 1) {
+        if ((style && style->attributeList()) || items_count > 1) {
             newgroup = xml_in_doc->createElement("svg:g");
             sp_repr_css_set(newgroup, style, "style");
         }
@@ -1039,13 +1051,13 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
             // preserve parent and viewBox transformations
             // c2p is identity matrix at this point unless ensureUpToDate is called
             doc->ensureUpToDate();
-            Geom::Affine affine = SP_ROOT(doc->getRoot())->c2p * SP_ITEM(place_to_insert)->i2doc_affine().inverse();
+            Geom::Affine affine = doc->getRoot()->c2p * SP_ITEM(place_to_insert)->i2doc_affine().inverse();
             sp_selection_apply_affine(selection, desktop->dt2doc() * affine * desktop->doc2dt(), true, false);
 
             // move to mouse pointer
             {
                 sp_desktop_document(desktop)->ensureUpToDate();
-                Geom::OptRect sel_bbox = selection->bounds();
+                Geom::OptRect sel_bbox = selection->visualBounds();
                 if (sel_bbox) {
                     Geom::Point m( desktop->point() - sel_bbox->midpoint() );
                     sp_selection_move_relative(selection, m, false);
@@ -1056,14 +1068,14 @@ file_import(SPDocument *in_doc, const Glib::ustring &uri,
         doc->doUnref();
         DocumentUndo::done(in_doc, SP_VERB_FILE_IMPORT,
                            _("Import"));
-
+        return new_obj;
     } else {
         gchar *text = g_strdup_printf(_("Failed to load the requested file %s"), uri.c_str());
         sp_ui_error_dialog(text);
         g_free(text);
     }
 
-    return;
+    return NULL;
 }
 
 
@@ -1492,20 +1504,6 @@ sp_file_print(Gtk::Window& parentWindow)
     SPDocument *doc = SP_ACTIVE_DOCUMENT;
     if (doc)
         sp_print_document(parentWindow, doc);
-}
-
-/**
- * Display what the drawing would look like, if
- * printed.
- */
-void
-sp_file_print_preview(gpointer /*object*/, gpointer /*data*/)
-{
-
-    SPDocument *doc = SP_ACTIVE_DOCUMENT;
-    if (doc)
-        sp_print_preview_document(doc);
-
 }
 
 

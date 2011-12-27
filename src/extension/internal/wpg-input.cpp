@@ -49,9 +49,17 @@
 #include "extension/input.h"
 #include "document.h"
 
-#include "libwpg/libwpg.h"
-#include "libwpg/WPGStreamImplementation.h"
+// Take a guess and fallback to 0.1.x if no configure has run
+#if !defined(WITH_LIBWPG01) && !defined(WITH_LIBWPG02)
+#define WITH_LIBWPG01 1
+#endif
 
+#include "libwpg/libwpg.h"
+#if WITH_LIBWPG01
+#include "libwpg/WPGStreamImplementation.h"
+#elif WITH_LIBWPG02
+#include "libwpd-stream/libwpd-stream.h"
+#endif
 
 using namespace libwpg;
 
@@ -60,11 +68,19 @@ namespace Extension {
 namespace Internal {
 
 
-SPDocument *
-WpgInput::open(Inkscape::Extension::Input * mod, const gchar * uri) {
+SPDocument *WpgInput::open(Inkscape::Extension::Input * /*mod*/, const gchar * uri)
+{
+#if WITH_LIBWPG01
     WPXInputStream* input = new libwpg::WPGFileStream(uri);
+#elif WITH_LIBWPG02
+    WPXInputStream* input = new WPXFileStream(uri);
+#endif
     if (input->isOLEStream()) {
+#if WITH_LIBWPG01
         WPXInputStream* olestream = input->getDocumentOLEStream();
+#elif WITH_LIBWPG02
+        WPXInputStream* olestream = input->getDocumentOLEStream("PerfectOffice_MAIN");
+#endif
         if (olestream) {
             delete input;
             input = olestream;
@@ -79,7 +95,11 @@ WpgInput::open(Inkscape::Extension::Input * mod, const gchar * uri) {
         return NULL;
     }
 
+#if WITH_LIBWPG01
     libwpg::WPGString output;
+#elif WITH_LIBWPG02
+    WPXString output;
+#endif
     if (!libwpg::WPGraphics::generateSVG(input, output)) {
         delete input;
         return NULL;

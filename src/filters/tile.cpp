@@ -1,5 +1,3 @@
-#define __SP_FETILE_CPP__
-
 /** \file
  * SVG <feTile> implementation.
  *
@@ -19,9 +17,10 @@
 
 #include "attributes.h"
 #include "svg/svg.h"
-#include "tile.h"
+#include "filters/tile.h"
 #include "xml/repr.h"
-
+#include "display/nr-filter.h"
+#include "display/nr-filter-tile.h"
 
 /* FeTile base class */
 

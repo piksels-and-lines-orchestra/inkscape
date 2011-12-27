@@ -1,4 +1,4 @@
-/**
+/*
  * Our base String stream classes.  We implement these to
  * be based on Glib::ustring
  *
@@ -15,12 +15,6 @@
 #include "sys.h"
 #include <string>
 #include <cstring>
-
-#ifdef WIN32
-// For now to get at is_os_wide().
-# include "extension/internal/win32.h"
-using Inkscape::Extension::Internal::PrintWin32;
-#endif
 
 
 namespace Inkscape
@@ -65,7 +59,7 @@ static FILE *fopen_utf8name( char const *utf8name, int mode )
         g_free(filename);
     }
 #else
-    if ( PrintWin32::is_os_wide() ) {
+    {
         gunichar2 *wideName = g_utf8_to_utf16( utf8name, -1, NULL, NULL, NULL );
         if ( wideName )  {
             if (mode == FILE_READ)
@@ -77,15 +71,6 @@ static FILE *fopen_utf8name( char const *utf8name, int mode )
             gchar *safe = Inkscape::IO::sanitizeString(utf8name);
             g_message("Unable to convert filename from UTF-8 to UTF-16 [%s]", safe);
             g_free(safe);
-        }
-    } else {
-        gchar *filename = g_filename_from_utf8( utf8name, -1, NULL, NULL, NULL );
-        if ( filename ) {
-            if (mode == FILE_READ)
-                fp = std::fopen(filename, "rb");
-            else
-                fp = std::fopen(filename, "wb");
-            g_free(filename);
         }
     }
 #endif
@@ -113,27 +98,26 @@ UriInputStream::UriInputStream(Inkscape::URI &source)
         scheme = SCHEME_FILE;
     else if (strncmp("data", schemestr, 4)==0)
         scheme = SCHEME_DATA;
-    //printf("in schemestr:'%s' scheme:'%d'\n", schemestr, scheme);
-    gchar *cpath = NULL;
 
+    gchar *cpath = NULL;
     switch (scheme) {
 
         case SCHEME_FILE:
             cpath = uri.toNativeFilename();
-            //printf("in cpath:'%s'\n", cpath);
             inf = fopen_utf8name(cpath, FILE_READ);
-            //inf = fopen(cpath, "rb");
-            g_free(cpath);
             if (!inf) {
                 Glib::ustring err = "UriInputStream cannot open file ";
                 err += cpath;
+                g_free(cpath);
                 throw StreamException(err);
+            }
+            else{
+                g_free(cpath);
             }
         break;
 
         case SCHEME_DATA:
             data        = (unsigned char *) uri.getPath();
-            //printf("in data:'%s'\n", data);
             dataPos     = 0;
             dataLen     = strlen((const char *)data);
         break;
@@ -146,15 +130,18 @@ UriInputStream::UriInputStream(Inkscape::URI &source)
  *
  */
 UriInputStream::UriInputStream(FILE *source, Inkscape::URI &uri)
-    throw (StreamException): inf(source),
-                             uri(uri)
+    throw (StreamException): uri(uri),
+                             inf(source),
+                             data(0),
+                             dataPos(0),
+                             dataLen(0),
+                             closed(false)
 {
     scheme = SCHEME_FILE;
     if (!inf) {
         Glib::ustring err = "UriInputStream passed NULL";
         throw StreamException(err);
     }
-    closed = false;
 }
 
 /**

@@ -1,6 +1,4 @@
-/**
- * \brief A custom wrapper around gdl-dock-item
- *
+/*
  * Author:
  *   Gustav Broberg <broberg@kth.se>
  *
@@ -19,7 +17,7 @@
 #include <gtkmm/paned.h>
 #include <gtkmm/window.h>
 
-#include "libgdl/libgdl.h"
+#include "libgdl/gdl.h"
 
 namespace Inkscape {
 namespace UI {
@@ -27,6 +25,9 @@ namespace Widget {
 
 class Dock;
 
+/**
+ * A custom wrapper around gdl-dock-item.
+ */
 class DockItem {
 
 public:

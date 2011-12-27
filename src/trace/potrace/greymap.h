@@ -1,11 +1,10 @@
-/* Copyright (C) 2001-2007 Peter Selinger.
+/* Copyright (C) 2001-2011 Peter Selinger.
    This file is part of Potrace. It is free software and it is covered
    by the GNU General Public License. See the file COPYING for details. */
 
-/* $Id$ */
 
-#ifndef PGM_H
-#define PGM_H
+#ifndef GREYMAP_H
+#define GREYMAP_H
 
 #include <stdio.h>
 
@@ -55,4 +54,4 @@ int gm_read(FILE *f, greymap_t **gmp);
 int gm_writepgm(FILE *f, greymap_t *gm, char *comment, int raw, int mode, double gamma);
 int gm_print(FILE *f, greymap_t *gm);
 
-#endif /* PGM_H */
+#endif /* GREYMAP_H */

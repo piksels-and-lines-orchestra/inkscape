@@ -15,10 +15,22 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gtk/gtkstyle.h>
+#include <gtk/gtk.h>
 
-#include "forward.h"
 #include "sp-item.h"
+
+class SPViewWidget;
+
+namespace Inkscape {
+
+class Verb;
+
+namespace UI {
+namespace View {
+class View;
+} // namespace View
+} // namespace UI
+} // namespace Inkscape
 
 /**
  *  Create a new document window.

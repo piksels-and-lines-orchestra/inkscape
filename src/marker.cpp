@@ -17,16 +17,10 @@
 #include <string>
 #include "config.h"
 
-
-#include "libnr/nr-matrix-fns.h"
-#include "libnr/nr-matrix-ops.h"
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-matrix-ops.h"
-#include "libnr/nr-translate-matrix-ops.h"
-#include "libnr/nr-convert2geom.h"
 #include <2geom/affine.h>
+#include <2geom/transforms.h>
 #include "svg/svg.h"
-#include "display/nr-arena-group.h"
+#include "display/drawing-group.h"
 #include "xml/repr.h"
 #include "attributes.h"
 #include "marker.h"
@@ -36,7 +30,7 @@
 struct SPMarkerView {
 	SPMarkerView *next;
 	unsigned int key;
-  std::vector<NRArenaItem *> items;
+  std::vector<Inkscape::DrawingItem *> items;
 };
 
 static void sp_marker_class_init (SPMarkerClass *klass);
@@ -48,9 +42,9 @@ static void sp_marker_set (SPObject *object, unsigned int key, const gchar *valu
 static void sp_marker_update (SPObject *object, SPCtx *ctx, guint flags);
 static Inkscape::XML::Node *sp_marker_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static NRArenaItem *sp_marker_private_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_marker_private_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_marker_private_hide (SPItem *item, unsigned int key);
-static void sp_marker_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+static Geom::OptRect sp_marker_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 static void sp_marker_print (SPItem *item, SPPrintContext *ctx);
 
 static void sp_marker_view_remove (SPMarker *marker, SPMarkerView *view, unsigned int destroyitems);
@@ -173,7 +167,7 @@ sp_marker_release (SPObject *object)
 	marker = (SPMarker *) object;
 
 	while (marker->views) {
-		/* Destroy all NRArenaitems etc. */
+		/* Destroy all DrawingItems etc. */
 		/* Parent class ::hide method */
 		((SPItemClass *) parent_class)->hide ((SPItem *) marker, marker->views->key);
 		sp_marker_view_remove (marker, marker->views, TRUE);
@@ -196,14 +190,9 @@ sp_marker_release (SPObject *object)
  *     SP_ATTR_VIEWBOX
  *     SP_ATTR_PRESERVEASPECTRATIO
  */
-static void
-sp_marker_set (SPObject *object, unsigned int key, const gchar *value)
+static void sp_marker_set(SPObject *object, unsigned int key, const gchar *value)
 {
-	SPItem *item;
-	SPMarker *marker;
-
-	item = SP_ITEM (object);
-	marker = SP_MARKER (object);
+	SPMarker *marker = SP_MARKER(object);
 
 	switch (key) {
 	case SP_ATTR_MARKERUNITS:
@@ -344,18 +333,12 @@ sp_marker_set (SPObject *object, unsigned int key, const gchar *value)
  * Updates <marker> when its attributes have changed.  Takes care of setting up
  * transformations and viewBoxes.
  */
-static void
-sp_marker_update (SPObject *object, SPCtx *ctx, guint flags)
+static void sp_marker_update(SPObject *object, SPCtx *ctx, guint flags)
 {
-	SPItem *item;
-	SPMarker *marker;
+	SPMarker *marker = SP_MARKER(object);
 	SPItemCtx rctx;
-    Geom::Rect vb;
+        Geom::Rect vb;
 	double x, y, width, height;
-	SPMarkerView *v;
-
-	item = SP_ITEM (object);
-	marker = SP_MARKER (object);
 
 	/* fixme: We have to set up clip here too */
 
@@ -365,10 +348,7 @@ sp_marker_update (SPObject *object, SPCtx *ctx, guint flags)
 	rctx.i2doc = Geom::identity();
 	rctx.i2vp = Geom::identity();
 	/* Set up viewport */
-	rctx.vp.x0 = 0.0;
-	rctx.vp.y0 = 0.0;
-	rctx.vp.x1 = marker->markerWidth.computed;
-	rctx.vp.y1 = marker->markerHeight.computed;
+	rctx.viewport = Geom::Rect::from_xywh(0, 0, marker->markerWidth.computed, marker->markerHeight.computed);
 
 	/* Start with identity transform */
 	marker->c2p.setIdentity();
@@ -377,20 +357,20 @@ sp_marker_update (SPObject *object, SPCtx *ctx, guint flags)
     if (marker->viewBox) {
         vb = *marker->viewBox;
 	} else {
-        vb = *(rctx.vp.upgrade_2geom());
+        vb = rctx.viewport;
 	}
 	/* Now set up viewbox transformation */
 	/* Determine actual viewbox in viewport coordinates */
 	if (marker->aspect_align == SP_ASPECT_NONE) {
 		x = 0.0;
 		y = 0.0;
-		width = rctx.vp.x1 - rctx.vp.x0;
-		height = rctx.vp.y1 - rctx.vp.y0;
+		width = rctx.viewport.width();
+		height = rctx.viewport.height();
 	} else {
 		double scalex, scaley, scale;
 		/* Things are getting interesting */
-        scalex = (rctx.vp.x1 - rctx.vp.x0) / (vb.width());
-        scaley = (rctx.vp.y1 - rctx.vp.y0) / (vb.height());
+        scalex = rctx.viewport.width() / (vb.width());
+        scaley = rctx.viewport.height() / (vb.height());
 		scale = (marker->aspect_clip == SP_ASPECT_MEET) ? MIN (scalex, scaley) : MAX (scalex, scaley);
         width = (vb.width()) * scale;
         height = (vb.height()) * scale;
@@ -401,36 +381,36 @@ sp_marker_update (SPObject *object, SPCtx *ctx, guint flags)
 			y = 0.0;
 			break;
 		case SP_ASPECT_XMID_YMIN:
-			x = 0.5 * ((rctx.vp.x1 - rctx.vp.x0) - width);
+			x = 0.5 * (rctx.viewport.width() - width);
 			y = 0.0;
 			break;
 		case SP_ASPECT_XMAX_YMIN:
-			x = 1.0 * ((rctx.vp.x1 - rctx.vp.x0) - width);
+			x = 1.0 * (rctx.viewport.width() - width);
 			y = 0.0;
 			break;
 		case SP_ASPECT_XMIN_YMID:
 			x = 0.0;
-			y = 0.5 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			y = 0.5 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMID_YMID:
-			x = 0.5 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 0.5 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 0.5 * (rctx.viewport.width() - width);
+			y = 0.5 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMAX_YMID:
-			x = 1.0 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 0.5 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 1.0 * (rctx.viewport.width() - width);
+			y = 0.5 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMIN_YMAX:
 			x = 0.0;
-			y = 1.0 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			y = 1.0 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMID_YMAX:
-			x = 0.5 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 1.0 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 0.5 * (rctx.viewport.width() - width);
+			y = 1.0 * (rctx.viewport.height() - height);
 			break;
 		case SP_ASPECT_XMAX_YMAX:
-			x = 1.0 * ((rctx.vp.x1 - rctx.vp.x0) - width);
-			y = 1.0 * ((rctx.vp.y1 - rctx.vp.y0) - height);
+			x = 1.0 * (rctx.viewport.width() - width);
+			y = 1.0 * (rctx.viewport.height() - height);
 			break;
 		default:
 			x = 0.0;
@@ -448,26 +428,24 @@ sp_marker_update (SPObject *object, SPCtx *ctx, guint flags)
 	/* If viewBox is set reinitialize child viewport */
 	/* Otherwise it already correct */
 	if (marker->viewBox) {
-            rctx.vp.x0 = marker->viewBox->min()[Geom::X];
-            rctx.vp.y0 = marker->viewBox->min()[Geom::Y];
-            rctx.vp.x1 = marker->viewBox->max()[Geom::X];
-            rctx.vp.y1 = marker->viewBox->max()[Geom::Y];
+	    rctx.viewport = *marker->viewBox;
             rctx.i2vp = Geom::identity();
 	}
 
-	/* And invoke parent method */
-	if (((SPObjectClass *) (parent_class))->update)
+	// And invoke parent method
+	if (((SPObjectClass *) (parent_class))->update) {
 		((SPObjectClass *) (parent_class))->update (object, (SPCtx *) &rctx, flags);
+        }
 
-	/* As last step set additional transform of arena group */
-	for (v = marker->views; v != NULL; v = v->next) {
-      for (unsigned i = 0 ; i < v->items.size() ; i++) {
+        // As last step set additional transform of drawing group
+        for (SPMarkerView *v = marker->views; v != NULL; v = v->next) {
+            for (unsigned i = 0 ; i < v->items.size() ; i++) {
                 if (v->items[i]) {
-                    Geom::Affine tmp = marker->c2p;
-                    nr_arena_group_set_child_transform(NR_ARENA_GROUP(v->items[i]), &tmp);
+                    Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->items[i]);
+                    g->setChildTransform(marker->c2p);
                 }
-      }
-	}
+            }
+        }
 }
 
 /**
@@ -537,8 +515,8 @@ sp_marker_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::X
 /**
  * This routine is disabled to break propagation.
  */
-static NRArenaItem *
-sp_marker_private_show (SPItem */*item*/, NRArena */*arena*/, unsigned int /*key*/, unsigned int /*flags*/)
+static Inkscape::DrawingItem *
+sp_marker_private_show (SPItem */*item*/, Inkscape::Drawing &/*drawing*/, unsigned int /*key*/, unsigned int /*flags*/)
 {
     /* Break propagation */
     return NULL;
@@ -556,10 +534,11 @@ sp_marker_private_hide (SPItem */*item*/, unsigned int /*key*/)
 /**
  * This routine is disabled to break propagation.
  */
-static void
-sp_marker_bbox(SPItem const *, NRRect *, Geom::Affine const &, unsigned const)
+static Geom::OptRect
+sp_marker_bbox(SPItem const *, Geom::Affine const &, SPItem::BBoxType)
 {
-	/* Break propagation */
+    /* Break propagation */
+    return Geom::OptRect();
 }
 
 /**
@@ -575,14 +554,14 @@ sp_marker_print (SPItem */*item*/, SPPrintContext */*ctx*/)
 
 /**
  * Removes any SPMarkerViews that a marker has with a specific key.
- * Set up the NRArenaItem array's size in the specified SPMarker's SPMarkerView.
+ * Set up the DrawingItem array's size in the specified SPMarker's SPMarkerView.
  * This is called from sp_shape_update() for shapes that have markers.  It
  * removes the old view of the marker and establishes a new one, registering
  * it with the marker's list of views for future updates.
  *
  * \param marker Marker to create views in.
  * \param key Key to give each SPMarkerView.
- * \param size Number of NRArenaItems to put in the SPMarkerView.
+ * \param size Number of DrawingItems to put in the SPMarkerView.
  */
 void
 sp_marker_show_dimension (SPMarker *marker, unsigned int key, unsigned int size)
@@ -614,13 +593,20 @@ sp_marker_show_dimension (SPMarker *marker, unsigned int key, unsigned int size)
 
 /**
  * Shows an instance of a marker.  This is called during sp_shape_update_marker_view()
- * show and transform a child item in the arena for all views with the given key.
+ * show and transform a child item in the drawing for all views with the given key.
  */
-NRArenaItem *
-sp_marker_show_instance ( SPMarker *marker, NRArenaItem *parent,
+Inkscape::DrawingItem *
+sp_marker_show_instance ( SPMarker *marker, Inkscape::DrawingItem *parent,
                           unsigned int key, unsigned int pos,
                           Geom::Affine const &base, float linewidth)
 {
+    // do not show marker if linewidth == 0 and markerUnits == strokeWidth
+    // otherwise Cairo will fail to render anything on the tile
+    // that contains the "degenerate" marker
+    if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH && linewidth == 0) {
+        return NULL;
+    }
+
     for (SPMarkerView *v = marker->views; v != NULL; v = v->next) {
         if (v->key == key) {
             if (pos >= v->items.size()) {
@@ -629,14 +615,13 @@ sp_marker_show_instance ( SPMarker *marker, NRArenaItem *parent,
             if (!v->items[pos]) {
                 /* Parent class ::show method */
                 v->items[pos] = ((SPItemClass *) parent_class)->show ((SPItem *) marker,
-                                                                      parent->arena, key,
+                                                                      parent->drawing(), key,
                                                                       SP_ITEM_REFERENCE_FLAGS);
                 if (v->items[pos]) {
                     /* fixme: Position (Lauris) */
-                    nr_arena_item_add_child (parent, v->items[pos], NULL);
-                    /* nr_arena_item_unref (v->items[pos]); */
-                    Geom::Affine tmp = marker->c2p;
-                    nr_arena_group_set_child_transform((NRArenaGroup *) v->items[pos], &tmp);
+                    parent->prependChild(v->items[pos]);
+                    Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->items[pos]);
+                    if (g) g->setChildTransform(marker->c2p);
                 }
             }
             if (v->items[pos]) {
@@ -651,8 +636,7 @@ sp_marker_show_instance ( SPMarker *marker, NRArenaItem *parent,
                 if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH) {
                     m = Geom::Scale(linewidth) * m;
                 }
-                
-                nr_arena_item_set_transform(v->items[pos], m);
+                v->items[pos]->setTransform(m);
             }
             return v->items[pos];
         }
@@ -703,7 +687,7 @@ sp_marker_view_remove (SPMarker *marker, SPMarkerView *view, unsigned int destro
 	if (destroyitems) {
       for (i = 0; i < view->items.size(); i++) {
 			/* We have to walk through the whole array because there may be hidden items */
-			if (view->items[i]) nr_arena_item_unref (view->items[i]);
+			delete view->items[i];
 		}
 	}
     view->items.clear();
@@ -713,7 +697,7 @@ sp_marker_view_remove (SPMarker *marker, SPMarkerView *view, unsigned int destro
 const gchar *generate_marker(GSList *reprs, Geom::Rect bounds, SPDocument *document, Geom::Affine /*transform*/, Geom::Affine move)
 {
     Inkscape::XML::Document *xml_doc = document->getReprDoc();
-    Inkscape::XML::Node *defsrepr = SP_DOCUMENT_DEFS(document)->getRepr();
+    Inkscape::XML::Node *defsrepr = document->getDefs()->getRepr();
 
     Inkscape::XML::Node *repr = xml_doc->createElement("svg:marker");
 

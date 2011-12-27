@@ -1,4 +1,4 @@
-/**
+/*
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -175,7 +175,9 @@ void XmlWriter::writeFile(FILE *f, const NodePtr node)
 /**
  *
  */
-XmlWriter::XmlWriter()
+XmlWriter::XmlWriter() :
+    indent(0),
+    buf()
 {
 }
 

@@ -1,4 +1,4 @@
-/** \file
+/*
  * Inkscape - an ambitious vector drawing program
  *
  * Authors:
@@ -31,7 +31,7 @@
 // This has to be included prior to anything that includes setjmp.h, it croaks otherwise
 #include <png.h>
 
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
@@ -51,10 +51,6 @@
 #include <glib/gprintf.h>
 #include <glib-object.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkbox.h>
 
 #include "gc-core.h"
 
@@ -100,9 +96,8 @@
 #include <extension/input.h>
 
 #ifdef WIN32
+#include <windows.h>
 #include "registrytool.h"
-#include "extension/internal/win32.h"
-using Inkscape::Extension::Internal::PrintWin32;
 #endif // WIN32
 
 #include "extension/init.h"
@@ -646,7 +641,7 @@ main(int argc, char **argv)
 
     gboolean use_gui;
 
-#ifndef WIN32
+#if !defined(WIN32) && !defined(GDK_WINDOWING_QUARTZ)
     use_gui = (g_getenv("DISPLAY") != NULL);
 #else
     use_gui = TRUE;
@@ -702,9 +697,6 @@ main(int argc, char **argv)
     }
 
 #ifdef WIN32
-#ifndef REPLACEARGS_ANSI
-    if ( PrintWin32::is_os_wide() )
-#endif // REPLACEARGS_ANSI
     {
         // If the call fails, we'll need to convert charsets
         needToRecodeParams = !replaceArgs( argc, argv );
@@ -1203,8 +1195,8 @@ do_query_dimension (SPDocument *doc, bool extent, Geom::Dim2 const axis, const g
         doc->ensureUpToDate();
         SPItem *item = ((SPItem *) o);
 
-        // "true" SVG bbox for scripting
-        Geom::OptRect area = item->getBounds(item->i2doc_affine());
+        // visual bbox in document coords for scripting
+        Geom::OptRect area = item->documentVisualBounds();
         if (area) {
             Inkscape::SVGOStringStream os;
             if (extent) {
@@ -1234,7 +1226,7 @@ do_query_all_recurse (SPObject *o)
 {
     SPItem *item = ((SPItem *) o);
     if (o->getId() && SP_IS_ITEM(item)) {
-        Geom::OptRect area = item->getBounds(item->i2doc_affine());
+        Geom::OptRect area = item->documentVisualBounds();
         if (area) {
             Inkscape::SVGOStringStream os;
             os << o->getId();
@@ -1328,8 +1320,7 @@ sp_do_export_png(SPDocument *doc)
 
             // write object bbox to area
             doc->ensureUpToDate();
-            Geom::OptRect areaMaybe;
-            static_cast<SPItem *>(o_area)->invoke_bbox( areaMaybe, static_cast<SPItem *>(o_area)->i2d_affine(), TRUE);
+            Geom::OptRect areaMaybe = static_cast<SPItem *>(o_area)->desktopVisualBounds();
             if (areaMaybe) {
                 area = *areaMaybe;
             } else {
@@ -1353,7 +1344,7 @@ sp_do_export_png(SPDocument *doc)
     } else if (sp_export_area_page || !(sp_export_id || sp_export_area_drawing)) {
         /* Export the whole page: note: Inkscape uses 'page' in all menus and dialogs, not 'canvas' */
         doc->ensureUpToDate();
-        Geom::Point origin (SP_ROOT(doc->root)->x.computed, SP_ROOT(doc->root)->y.computed);
+        Geom::Point origin(doc->getRoot()->x.computed, doc->getRoot()->y.computed);
         area = Geom::Rect(origin, origin + doc->getDimensions());
     }
 

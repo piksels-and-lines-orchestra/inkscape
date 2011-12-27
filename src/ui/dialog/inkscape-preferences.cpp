@@ -1,5 +1,6 @@
-/** @file
- * @brief Inkscape Preferences dialog - implementation
+/**
+ * @file
+ * Inkscape Preferences dialog - implementation.
  */
 /* Authors:
  *   Carl Hetherington
@@ -7,7 +8,7 @@
  *   Johan Engelen <j.b.c.engelen@ewi.utwente.nl>
  *   Bruno Dilly <bruno.dilly@gmail.com>
  *
- * Copyright (C) 2004-2007 Authors
+ * Copyright (C) 2004-2011 Authors
  *
  * Released under GNU GPL.  Read the file 'COPYING' for more information.
  */
@@ -21,7 +22,7 @@
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/alignment.h>
 
-#include <gtk/gtkicontheme.h>
+#include <gtk/gtk.h>
 
 #include "preferences.h"
 #include "inkscape-preferences.h"
@@ -38,9 +39,10 @@
 #include "selection-chemistry.h"
 #include "xml/repr.h"
 #include "ui/widget/style-swatch.h"
+#include "ui/widget/spinbutton.h"
 #include "display/nr-filter-gaussian.h"
 #include "display/nr-filter-types.h"
-#include "color-profile-fns.h"
+#include "cms-system.h"
 #include "color-profile.h"
 #include "display/canvas-grid.h"
 #include "path-prefix.h"
@@ -61,6 +63,7 @@ using Inkscape::UI::Widget::PrefCheckButton;
 using Inkscape::UI::Widget::PrefRadioButton;
 using Inkscape::UI::Widget::PrefSpinButton;
 using Inkscape::UI::Widget::StyleSwatch;
+using Inkscape::CMSSystem;
 
 
 InkscapePreferences::InkscapePreferences()
@@ -70,7 +73,7 @@ InkscapePreferences::InkscapePreferences()
       _current_page(0)
 {
     //get the width of a spinbutton
-    Gtk::SpinButton* sb = new Gtk::SpinButton;
+    Inkscape::UI::Widget::SpinButton* sb = new Inkscape::UI::Widget::SpinButton;
     sb->set_width_chars(6);
     _getContents()->add(*sb);
     show_all_children();
@@ -122,7 +125,7 @@ InkscapePreferences::InkscapePreferences()
     initPageTransforms();
     initPageClones();
     initPageMasks();
-    initPageFilters();
+    initPageRendering();
     initPageBitmaps();
     initPageCMS();
     initPageGrids();
@@ -248,17 +251,17 @@ void InkscapePreferences::initPageSteps()
 {
     this->AddPage(_page_steps, _("Steps"), PREFS_PAGE_STEPS);
 
-    _steps_arrow.init ( "/options/nudgedistance/value", 0.0, 1000.0, 0.01, 1.0, 2.0, false, false);
+    _steps_arrow.init ( "/options/nudgedistance/value", 0.0, 1000.0, 0.01, 2.0, UNIT_TYPE_LINEAR, "px");
     //nudgedistance is limited to 1000 in select-context.cpp: use the same limit here
-    _page_steps.add_line( false, _("Arrow keys move by:"), _steps_arrow, _("px"),
-                          _("Pressing an arrow key moves selected object(s) or node(s) by this distance (in px units)"), false);
-    _steps_scale.init ( "/options/defaultscale/value", 0.0, 1000.0, 0.01, 1.0, 2.0, false, false);
+    _page_steps.add_line( false, _("Arrow keys move by:"), _steps_arrow, "",
+                          _("Pressing an arrow key moves selected object(s) or node(s) by this distance"), false);
+    _steps_scale.init ( "/options/defaultscale/value", 0.0, 1000.0, 0.01, 2.0, UNIT_TYPE_LINEAR, "px");
     //defaultscale is limited to 1000 in select-context.cpp: use the same limit here
-    _page_steps.add_line( false, _("> and < scale by:"), _steps_scale, _("px"),
-                          _("Pressing > or < scales selection up or down by this increment (in px units)"), false);
-    _steps_inset.init ( "/options/defaultoffsetwidth/value", 0.0, 3000.0, 0.01, 1.0, 2.0, false, false);
-    _page_steps.add_line( false, _("Inset/Outset by:"), _steps_inset, _("px"),
-                          _("Inset and Outset commands displace the path by this distance (in px units)"), false);
+    _page_steps.add_line( false, _("> and < scale by:"), _steps_scale, "",
+                          _("Pressing > or < scales selection up or down by this increment"), false);
+    _steps_inset.init ( "/options/defaultoffsetwidth/value", 0.0, 3000.0, 0.01, 2.0, UNIT_TYPE_LINEAR, "px");
+    _page_steps.add_line( false, _("Inset/Outset by:"), _steps_inset, "",
+                          _("Inset and Outset commands displace the path by this distance"), false);
     _steps_compass.init ( _("Compass-like display of angles"), "/options/compassangledisplay/value", true);
     _page_steps.add_line( false, "", _steps_compass, "",
                             _("When on, angles are displayed with 0 at north, 0 to 360 range, positive clockwise; otherwise with 0 at east, -180 to 180 range, positive counterclockwise"));
@@ -269,6 +272,9 @@ void InkscapePreferences::initPageSteps()
     _steps_rot_snap.init("/options/rotationsnapsperpi/value", labels, values, num_items, 12);
     _page_steps.add_line( false, _("Rotation snaps every:"), _steps_rot_snap, _("degrees"),
                            _("Rotating with Ctrl pressed snaps every that much degrees; also, pressing [ or ] rotates by this amount"), false);
+    _steps_rot_relative.init ( _("Relative snapping of guideline angles"), "/options/relativeguiderotationsnap/value", false);
+    _page_steps.add_line( false, "", _steps_rot_relative, "",
+                            _("When on, the snap angles when rotating a guideline will be relative to the original angle"));
     _steps_zoom.init ( "/options/zoomincrement/value", 101.0, 500.0, 1.0, 1.0, 1.414213562, true, true);
     _page_steps.add_line( false, _("Zoom in/out by:"), _steps_zoom, _("%"),
                           _("Zoom tool click, +/- keys, and middle click zoom in and out by this multiplier"), false);
@@ -393,7 +399,7 @@ void InkscapePreferences::initPageTools()
     Gtk::TreeModel::iterator iter_tools = this->AddPage(_page_tools, _("Tools"), PREFS_PAGE_TOOLS);
     _path_tools = _page_list.get_model()->get_path(iter_tools);
 
-    _page_tools.add_group_header( _("Bounding box to use:"));
+    _page_tools.add_group_header( _("Bounding box to use"));
     _t_bbox_visual.init ( _("Visual bounding box"), "/tools/bounding_box", 0, false, 0); // 0 means visual
     _page_tools.add_line( true, "", _t_bbox_visual, "",
                             _("This bounding box includes stroke width, markers, filter margins, etc."));
@@ -401,7 +407,7 @@ void InkscapePreferences::initPageTools()
     _page_tools.add_line( true, "", _t_bbox_geometric, "",
                             _("This bounding box includes only the bare path"));
 
-    _page_tools.add_group_header( _("Conversion to guides:"));
+    _page_tools.add_group_header( _("Conversion to guides"));
     _t_cvg_keep_objects.init ( _("Keep objects after conversion to guides"), "/tools/cvg_keep_objects", false);
     _page_tools.add_line( true, "", _t_cvg_keep_objects, "",
                             _("When converting an object to guides, don't delete the object after the conversion"));
@@ -418,14 +424,14 @@ void InkscapePreferences::initPageTools()
     this->AddPage(_page_selector, _("Selector"), iter_tools, PREFS_PAGE_TOOLS_SELECTOR);
 
     AddSelcueCheckbox(_page_selector, "/tools/select", false);
-    _page_selector.add_group_header( _("When transforming, show:"));
+    _page_selector.add_group_header( _("When transforming, show"));
     _t_sel_trans_obj.init ( _("Objects"), "/tools/select/show", "content", true, 0);
     _page_selector.add_line( true, "", _t_sel_trans_obj, "",
                             _("Show the actual objects when moving or transforming"));
     _t_sel_trans_outl.init ( _("Box outline"), "/tools/select/show", "outline", false, &_t_sel_trans_obj);
     _page_selector.add_line( true, "", _t_sel_trans_outl, "",
                             _("Show only a box outline of the objects when moving or transforming"));
-    _page_selector.add_group_header( _("Per-object selection cue:"));
+    _page_selector.add_group_header( _("Per-object selection cue"));
     _t_sel_cue_none.init ( _("None"), "/options/selcue/value", Inkscape::SelCue::NONE, false, 0);
     _page_selector.add_line( true, "", _t_sel_cue_none, "",
                             _("No per-object selection indication"));
@@ -478,6 +484,12 @@ void InkscapePreferences::initPageTools()
     this->AddPage(_page_zoom, _("Zoom"), iter_tools, PREFS_PAGE_TOOLS_ZOOM);
     AddSelcueCheckbox(_page_zoom, "/tools/zoom", true);
     AddGradientCheckbox(_page_zoom, "/tools/zoom", false);
+
+    //Measure
+    this->AddPage(_page_measure, _("Measure"), iter_tools, PREFS_PAGE_TOOLS_MEASURE);
+    PrefCheckButton* cb = Gtk::manage( new PrefCheckButton);
+    cb->init ( _("Ignore first and last points"), "/tools/measure/ignore_1st_and_last", true);
+    _page_measure.add_line( false, "", *cb, "", _("The start and end of the measurement tool's control line will not be considered for calculating lengths. Only lengths between actual curve intersections will be displayed."));
 
     //Shapes
     Gtk::TreeModel::iterator iter_shapes = this->AddPage(_page_shapes, _("Shapes"), iter_tools, PREFS_PAGE_TOOLS_SHAPES);
@@ -646,20 +658,20 @@ void InkscapePreferences::initPageClones()
     _clone_option_delete.init ( _("Are deleted"), "/options/cloneorphans/value",
                                   SP_CLONE_ORPHANS_DELETE, false, &_clone_option_unlink);
 
-    _page_clones.add_group_header( _("When the original moves, its clones and linked offsets:"));
+    _page_clones.add_group_header( _("Moving original: clones and linked offsets"));
     _page_clones.add_line( true, "", _clone_option_parallel, "",
                            _("Clones are translated by the same vector as their original"));
     _page_clones.add_line( true, "", _clone_option_stay, "",
                            _("Clones preserve their positions when their original is moved"));
     _page_clones.add_line( true, "", _clone_option_transform, "",
                            _("Each clone moves according to the value of its transform= attribute; for example, a rotated clone will move in a different direction than its original"));
-    _page_clones.add_group_header( _("When the original is deleted, its clones:"));
+    _page_clones.add_group_header( _("Deleting original: clones"));
     _page_clones.add_line( true, "", _clone_option_unlink, "",
                            _("Orphaned clones are converted to regular objects"));
     _page_clones.add_line( true, "", _clone_option_delete, "",
                            _("Orphaned clones are deleted along with their original"));
 
-    _page_clones.add_group_header( _("When duplicating original+clones:"));
+    _page_clones.add_group_header( _("Duplicating original+clones/linked offset"));
 
     _clone_relink_on_duplicate.init ( _("Relink duplicated clones"), "/options/relinkclonesonduplicate/value", false);
     _page_clones.add_line(true, "", _clone_relink_on_duplicate, "",
@@ -728,8 +740,22 @@ void InkscapePreferences::initPageTransforms()
     this->AddPage(_page_transforms, _("Transforms"), PREFS_PAGE_TRANSFORMS);
 }
 
-void InkscapePreferences::initPageFilters()
+void InkscapePreferences::initPageRendering()
 {
+    /* show infobox */
+    _show_filters_info_box.init( _("Show filter primitives infobox"), "/options/showfiltersinfobox/value", true);
+    _page_rendering.add_line(true, "", _show_filters_info_box, "",
+                        _("Show icons and descriptions for the filter primitives available at the filter effects dialog"));
+
+    /* threaded blur */ //related comments/widgets/functions should be renamed and option should be moved elsewhere when inkscape is fully multi-threaded
+    _filter_multi_threaded.init("/options/threading/numthreads", 1.0, 8.0, 1.0, 2.0, 4.0, true, false);
+    _page_rendering.add_line( false, _("Number of Threads:"), _filter_multi_threaded, _("(requires restart)"),
+                           _("Configure number of processors/threads to use when rendering filters"), false);
+
+    // rendering cache
+    _rendering_cache_size.init("/options/renderingcache/size", 0.0, 4096.0, 1.0, 32.0, 64.0, true, false);
+    _page_rendering.add_line( false, _("Rendering cache size:"), _rendering_cache_size, C_("mebibyte (2^20 bytes) abbreviation","MiB"), _("Set the amount of memory per document which can be used to store rendered parts of the drawing for later reuse; set to zero to disable caching"), false);
+
     /* blur quality */
     _blur_quality_best.init ( _("Best quality (slowest)"), "/options/blurquality/value",
                                   BLUR_QUALITY_BEST, false, 0);
@@ -742,16 +768,16 @@ void InkscapePreferences::initPageFilters()
     _blur_quality_worst.init ( _("Lowest quality (fastest)"), "/options/blurquality/value",
                                   BLUR_QUALITY_WORST, false, &_blur_quality_best);
 
-    _page_filters.add_group_header( _("Gaussian blur quality for display"));
-    _page_filters.add_line( true, "", _blur_quality_best, "",
+    _page_rendering.add_group_header( _("Gaussian blur quality for display"));
+    _page_rendering.add_line( true, "", _blur_quality_best, "",
                            _("Best quality, but display may be very slow at high zooms (bitmap export always uses best quality)"));
-    _page_filters.add_line( true, "", _blur_quality_better, "",
+    _page_rendering.add_line( true, "", _blur_quality_better, "",
                            _("Better quality, but slower display"));
-    _page_filters.add_line( true, "", _blur_quality_normal, "",
+    _page_rendering.add_line( true, "", _blur_quality_normal, "",
                            _("Average quality, acceptable display speed"));
-    _page_filters.add_line( true, "", _blur_quality_worse, "",
+    _page_rendering.add_line( true, "", _blur_quality_worse, "",
                            _("Lower quality (some artifacts), but display is faster"));
-    _page_filters.add_line( true, "", _blur_quality_worst, "",
+    _page_rendering.add_line( true, "", _blur_quality_worst, "",
                            _("Lowest quality (considerable artifacts), but display is fastest"));
 
     /* filter quality */
@@ -766,29 +792,19 @@ void InkscapePreferences::initPageFilters()
     _filter_quality_worst.init ( _("Lowest quality (fastest)"), "/options/filterquality/value",
                                   Inkscape::Filters::FILTER_QUALITY_WORST, false, &_filter_quality_best);
 
-    _page_filters.add_group_header( _("Filter effects quality for display"));
-    _page_filters.add_line( true, "", _filter_quality_best, "",
+    _page_rendering.add_group_header( _("Filter effects quality for display"));
+    _page_rendering.add_line( true, "", _filter_quality_best, "",
                            _("Best quality, but display may be very slow at high zooms (bitmap export always uses best quality)"));
-    _page_filters.add_line( true, "", _filter_quality_better, "",
+    _page_rendering.add_line( true, "", _filter_quality_better, "",
                            _("Better quality, but slower display"));
-    _page_filters.add_line( true, "", _filter_quality_normal, "",
+    _page_rendering.add_line( true, "", _filter_quality_normal, "",
                            _("Average quality, acceptable display speed"));
-    _page_filters.add_line( true, "", _filter_quality_worse, "",
+    _page_rendering.add_line( true, "", _filter_quality_worse, "",
                            _("Lower quality (some artifacts), but display is faster"));
-    _page_filters.add_line( true, "", _filter_quality_worst, "",
+    _page_rendering.add_line( true, "", _filter_quality_worst, "",
                            _("Lowest quality (considerable artifacts), but display is fastest"));
 
-    /* show infobox */
-    _show_filters_info_box.init( _("Show filter primitives infobox"), "/options/showfiltersinfobox/value", true);
-    _page_filters.add_line(true, "", _show_filters_info_box, "",
-                        _("Show icons and descriptions for the filter primitives available at the filter effects dialog"));
-
-    /* threaded blur */ //related comments/widgets/functions should be renamed and option should be moved elsewhere when inkscape is fully multi-threaded
-    _filter_multi_threaded.init("/options/threading/numthreads", 1.0, 8.0, 1.0, 2.0, 4.0, true, false);
-    _page_filters.add_line( false, _("Number of Threads:"), _filter_multi_threaded, _("(requires restart)"),
-                           _("Configure number of processors/threads to use with rendering of gaussian blur"), false);
-
-    this->AddPage(_page_filters, _("Filters"), PREFS_PAGE_FILTERS);
+    this->AddPage(_page_rendering, _("Rendering"), PREFS_PAGE_RENDERING);
 }
 
 
@@ -848,7 +864,7 @@ static void profileComboChanged( Gtk::ComboBoxText* combo )
     } else {
         Glib::ustring active = combo->get_active_text();
 
-        Glib::ustring path = get_path_for_profile(active);
+        Glib::ustring path = CMSSystem::getPathForProfile(active);
         if ( !path.empty() ) {
             prefs->setString("/options/displayprofile/uri", path);
         }
@@ -858,7 +874,7 @@ static void profileComboChanged( Gtk::ComboBoxText* combo )
 static void proofComboChanged( Gtk::ComboBoxText* combo )
 {
     Glib::ustring active = combo->get_active_text();
-    Glib::ustring path = get_path_for_profile(active);
+    Glib::ustring path = CMSSystem::getPathForProfile(active);
 
     if ( !path.empty() ) {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -896,8 +912,8 @@ void InkscapePreferences::initPageCMS()
     _page_cms.add_group_header( _("Display adjustment"));
 
     Glib::ustring tmpStr;
-    std::list<Glib::ustring> sources = ColorProfile::getBaseProfileDirs();
-    for ( std::list<Glib::ustring>::const_iterator it = sources.begin(); it != sources.end(); ++it ) {
+    std::vector<Glib::ustring> sources = ColorProfile::getBaseProfileDirs();
+    for ( std::vector<Glib::ustring>::const_iterator it = sources.begin(); it != sources.end(); ++it ) {
         gchar* part = g_strdup_printf( "\n%s", it->c_str() );
         tmpStr += part;
         g_free(part);
@@ -965,7 +981,7 @@ void InkscapePreferences::initPageCMS()
 
 #if ENABLE_LCMS
     {
-        std::vector<Glib::ustring> names = ::Inkscape::colorprofile_get_display_names();
+        std::vector<Glib::ustring> names = ::Inkscape::CMSSystem::getDisplayNames();
         Glib::ustring current = prefs->getString( "/options/displayprofile/uri" );
 
         gint index = 0;
@@ -973,7 +989,7 @@ void InkscapePreferences::initPageCMS()
         index++;
         for ( std::vector<Glib::ustring>::iterator it = names.begin(); it != names.end(); ++it ) {
             _cms_display_profile.append_text( *it );
-            Glib::ustring path = get_path_for_profile(*it);
+            Glib::ustring path = CMSSystem::getPathForProfile(*it);
             if ( !path.empty() && path == current ) {
                 _cms_display_profile.set_active(index);
             }
@@ -983,12 +999,12 @@ void InkscapePreferences::initPageCMS()
             _cms_display_profile.set_active(0);
         }
 
-        names = ::Inkscape::colorprofile_get_softproof_names();
+        names = ::Inkscape::CMSSystem::getSoftproofNames();
         current = prefs->getString("/options/softproof/uri");
         index = 0;
         for ( std::vector<Glib::ustring>::iterator it = names.begin(); it != names.end(); ++it ) {
             _cms_proof_profile.append_text( *it );
-            Glib::ustring path = get_path_for_profile(*it);
+            Glib::ustring path = CMSSystem::getPathForProfile(*it);
             if ( !path.empty() && path == current ) {
                 _cms_proof_profile.set_active(index);
             }
@@ -1033,10 +1049,14 @@ void InkscapePreferences::initPageGrids()
         _grids_xy.add_line( false, _("Grid units:"), _grids_xy_units, "", "", false);
         _grids_xy_origin_x.init("/options/grids/xy/origin_x", -10000.0, 10000.0, 0.1, 1.0, 0.0, false, false);
         _grids_xy_origin_y.init("/options/grids/xy/origin_y", -10000.0, 10000.0, 0.1, 1.0, 0.0, false, false);
+        _grids_xy_origin_x.set_digits(5);
+        _grids_xy_origin_y.set_digits(5);
         _grids_xy.add_line( false, _("Origin X:"), _grids_xy_origin_x, "", _("X coordinate of grid origin"), false);
         _grids_xy.add_line( false, _("Origin Y:"), _grids_xy_origin_y, "", _("Y coordinate of grid origin"), false);
         _grids_xy_spacing_x.init("/options/grids/xy/spacing_x", -10000.0, 10000.0, 0.1, 1.0, 1.0, false, false);
         _grids_xy_spacing_y.init("/options/grids/xy/spacing_y", -10000.0, 10000.0, 0.1, 1.0, 1.0, false, false);
+        _grids_xy_spacing_x.set_digits(5);
+        _grids_xy_spacing_y.set_digits(5);
         _grids_xy.add_line( false, _("Spacing X:"), _grids_xy_spacing_x, "", _("Distance between vertical grid lines"), false);
         _grids_xy.add_line( false, _("Spacing Y:"), _grids_xy_spacing_y, "", _("Distance between horizontal grid lines"), false);
 
@@ -1054,9 +1074,12 @@ void InkscapePreferences::initPageGrids()
         _grids_axonom.add_line( false, _("Grid units:"), _grids_axonom_units, "", "", false);
         _grids_axonom_origin_x.init("/options/grids/axonom/origin_x", -10000.0, 10000.0, 0.1, 1.0, 0.0, false, false);
         _grids_axonom_origin_y.init("/options/grids/axonom/origin_y", -10000.0, 10000.0, 0.1, 1.0, 0.0, false, false);
+        _grids_axonom_origin_x.set_digits(5);
+        _grids_axonom_origin_y.set_digits(5);
         _grids_axonom.add_line( false, _("Origin X:"), _grids_axonom_origin_x, "", _("X coordinate of grid origin"), false);
         _grids_axonom.add_line( false, _("Origin Y:"), _grids_axonom_origin_y, "", _("Y coordinate of grid origin"), false);
         _grids_axonom_spacing_y.init("/options/grids/axonom/spacing_y", -10000.0, 10000.0, 0.1, 1.0, 1.0, false, false);
+        _grids_axonom_spacing_y.set_digits(5);
         _grids_axonom.add_line( false, _("Spacing Y:"), _grids_axonom_spacing_y, "", _("Base length of z-axis"), false);
         _grids_axonom_angle_x.init("/options/grids/axonom/angle_x", -360.0, 360.0, 1.0, 10.0, 30.0, false, false);
         _grids_axonom_angle_z.init("/options/grids/axonom/angle_z", -360.0, 360.0, 1.0, 10.0, 30.0, false, false);
@@ -1101,6 +1124,42 @@ void InkscapePreferences::initPageSVGOutput()
     _svgoutput_minimumexponent.init("/options/svgoutput/minimumexponent", -32.0, -1, 1.0, 2.0, -8.0, true, false);
     _page_svgoutput.add_line( false, _("Minimum exponent:"), _svgoutput_minimumexponent, "", _("The smallest number written to SVG is 10 to the power of this exponent; anything smaller is written as zero"), false);
 
+    /* Code to add controls for attribute checking options */
+
+    /* Add incorrect style properties options  */
+    _page_svgoutput.add_group_header( _("Improper Attributes Actions"));
+
+    _svgoutput_attrwarn.init( _("Print warnings"), "/options/svgoutput/incorrect_attributes_warn", true);
+    _page_svgoutput.add_line( false, "", _svgoutput_attrwarn, "", _("Print warning if invalid or non-useful attributes found. Database files located in inkscape_data_dir/attributes."), false);
+    _svgoutput_attrremove.init( _("Remove attributes"), "/options/svgoutput/incorrect_attributes_remove", false);
+    _page_svgoutput.add_line( false, "", _svgoutput_attrremove, "", _("Delete invalid or non-useful attributes from element tag."), false);
+
+    /* Add incorrect style properties options  */
+    _page_svgoutput.add_group_header( _("Inappropriate Style Properties Actions"));
+
+    _svgoutput_stylepropwarn.init( _("Print warnings"), "/options/svgoutput/incorrect_style_properties_warn", true);
+    _page_svgoutput.add_line( false, "", _svgoutput_stylepropwarn, "", _("Print warning if inappropriate style properties found (i.e. 'font-family' set on a <rect>). Database files located in inkscape_data_dir/attributes."), false);
+    _svgoutput_stylepropremove.init( _("Remove style properties"), "/options/svgoutput/incorrect_style_properties_remove", false);
+    _page_svgoutput.add_line( false, "", _svgoutput_stylepropremove, "", _("Delete inappropriate style properties."), false);
+
+    /* Add default or inherited style properties options  */
+    _page_svgoutput.add_group_header( _("Non-useful Style Properties Actions"));
+
+    _svgoutput_styledefaultswarn.init( _("Print warnings"), "/options/svgoutput/style_defaults_warn", true);
+    _page_svgoutput.add_line( false, "", _svgoutput_styledefaultswarn, "", _("Print warning if redundant style properties found (i.e. if a property has the default value and a different value is not inherited or if value is the same as would be inherited). Database files located in inkscape_data_dir/attributes."), false);
+    _svgoutput_styledefaultsremove.init( _("Remove style properties"), "/options/svgoutput/style_defaults_remove", false);
+    _page_svgoutput.add_line( false, "", _svgoutput_styledefaultsremove, "", _("Delete redundant style properties."), false);
+
+    _page_svgoutput.add_group_header( _("Check Attributes and Style Properties on:"));
+
+    _svgoutput_check_reading.init( _("Reading"), "/options/svgoutput/check_on_reading", false);
+    _page_svgoutput.add_line( false, "", _svgoutput_check_reading, "", _("Check attributes and style properties on reading in SVG files (including those internal to Inkscape which will slow down startup)."), false);
+    _svgoutput_check_editing.init( _("Editing"), "/options/svgoutput/check_on_editing", false);
+    _page_svgoutput.add_line( false, "", _svgoutput_check_editing, "", _("Check attributes and style properties while editing SVG files (may slow down Inkscape, mostly useful for debugging)."), false);
+    _svgoutput_check_writing.init( _("Writing"), "/options/svgoutput/check_on_writing", true);
+    _page_svgoutput.add_line( false, "", _svgoutput_check_writing, "", _("Check attributes and style properties on writing out SVG files."), false);
+
+
     this->AddPage(_page_svgoutput, _("SVG output"), PREFS_PAGE_SVGOUTPUT);
 }
 
@@ -1122,6 +1181,31 @@ void InkscapePreferences::initPageUI()
         "dz", "de", "el", "en", "en_AU", "en_CA", "en_GB", "en_US@piglatin", "eo", "et", "fa", "fi", "fr", "ga",
         "gl", "he", "hu", "id", "it", "ja", "km", "rw", "ko", "lt", "mk", "mn", "ne", "nb", "nn", "pa",
         "pl", "pt", "pt_BR", "ro", "ru", "sr", "sr@latin", "sk", "sl", "es", "es_MX", "sv", "te_IN", "th", "tr", "uk", "vi" };
+
+    {
+        // sorting languages according to translated name
+        int i = 0;
+        int j = 0;
+        int n = sizeof( languages ) / sizeof( Glib::ustring );
+        Glib::ustring key_language;
+        Glib::ustring key_langValue;
+        for ( j = 1 ; j < n ; j++ ) {
+            key_language = languages[j];
+            key_langValue = langValues[j];
+            i = j-1;
+            while ( i >= 0
+                    && ( ( languages[i] > key_language
+                         && langValues[i] != "" )
+                       || key_langValue == "" ) )
+            {
+                languages[i+1] = languages[i];
+                langValues[i+1] = langValues[i];
+                i--;
+            }
+            languages[i+1] = key_language;
+            langValues[i+1] = key_langValue;
+        }
+    }
 
     _ui_languages.init( "/ui/language", languages, langValues, G_N_ELEMENTS(languages), languages[0]);
     _page_ui.add_line( false, _("Language (requires restart):"), _ui_languages, "",
@@ -1177,7 +1261,7 @@ void InkscapePreferences::initPageSave()
 {
     _save_use_current_dir.init( _("Use current directory for \"Save As ...\""), "/dialogs/save_as/use_current_dir", true);
     _page_save.add_line( false, "", _save_use_current_dir, "",
-                         _("When this option is on, the \"Save as...\" dialog will always open in the directory where the currently open document is; when it's off, it will open in the directory where you last saved a file using that dialog"), true);
+                         _("When this option is on, the \"Save as...\" and \"Save a Copy\" dialogs will always open in the directory where the currently open document is; when it's off, each will open in the directory where you last saved a file using it"), true);
 
 
     // Autosave options

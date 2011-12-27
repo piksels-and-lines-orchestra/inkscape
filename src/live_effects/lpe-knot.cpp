@@ -1,5 +1,6 @@
-/** @file
- * @brief LPE knot effect implementation
+/**
+ * @file
+ * LPE knot effect implementation.
  */
 /* Authors:
  *   Jean-Francois Barraud <jf.barraud@gmail.com>
@@ -124,7 +125,7 @@ findShadowedTime(Geom::Path const &patha, std::vector<Geom::Point> const &pt_and
 
     double tmin = 0, tmax = size_nondegenerate(patha);
     double period = size_nondegenerate(patha);
-    if (times.size()>0){
+    if (!times.empty()){
         unsigned rk = upper_bound( times.begin(),  times.end(), ta ) - times.begin();
         if ( rk < times.size() ) 
             tmax = times[rk];
@@ -213,7 +214,7 @@ CrossingPoints::CrossingPoints(std::vector<Geom::Path> const &paths) : std::vect
             if (cp.j == i) cuts[cp.tj] = k;
         }
         unsigned count = 0;
-        for ( std::map < double, unsigned >::iterator m=cuts.begin(); m!=cuts.end(); m++ ){
+        for ( std::map < double, unsigned >::iterator m=cuts.begin(); m!=cuts.end(); ++m ){
             if ( (*this)[m->second].i == i && (*this)[m->second].ti == m->first ){
                 (*this)[m->second].ni = count;
             }else{
@@ -340,11 +341,11 @@ CrossingPoints::inherit_signs(CrossingPoints const &other, int default_value)
 LPEKnot::LPEKnot(LivePathEffectObject *lpeobject) :
     Effect(lpeobject),
     // initialise your parameters here:
-    interruption_width(_("Fixed width:"), _("Size of hidden region of lower string"), "interruption_width", &wr, this, 3),
-    prop_to_stroke_width(_("In units of stroke width"), _("Consider 'Interruption width' as a ratio of stroke width"), "prop_to_stroke_width", &wr, this, true),
-    add_stroke_width(_("Stroke width"), _("Add the stroke width to the interruption size"), "add_stroke_width", &wr, this, true),
-    add_other_stroke_width(_("Crossing path stroke width"), _("Add crossed stroke width to the interruption size"), "add_other_stroke_width", &wr, this, true),
-    switcher_size(_("Switcher size:"), _("Orientation indicator/switcher size"), "switcher_size", &wr, this, 15),
+    interruption_width(_("Fi_xed width:"), _("Size of hidden region of lower string"), "interruption_width", &wr, this, 3),
+    prop_to_stroke_width(_("_In units of stroke width"), _("Consider 'Interruption width' as a ratio of stroke width"), "prop_to_stroke_width", &wr, this, true),
+    add_stroke_width(_("St_roke width"), _("Add the stroke width to the interruption size"), "add_stroke_width", &wr, this, true),
+    add_other_stroke_width(_("_Crossing path stroke width"), _("Add crossed stroke width to the interruption size"), "add_other_stroke_width", &wr, this, true),
+    switcher_size(_("S_witcher size:"), _("Orientation indicator/switcher size"), "switcher_size", &wr, this, 15),
     crossing_points_vector(_("Crossing Signs"), _("Crossings signs"), "crossing_points_vector", &wr, this),
     gpaths(),gstroke_widths()
 {
@@ -464,7 +465,7 @@ LPEKnot::doEffect_path (std::vector<Geom::Path> const &path_in)
         }
 
         //If the all component is hidden, continue.
-        if ( dom.size() == 0){
+        if (dom.empty()){
             continue;
         }
 
@@ -517,7 +518,7 @@ void collectPathsAndWidths (SPLPEItem const *lpeitem, std::vector<Geom::Path> &p
             for (unsigned i=0; i<subpaths.size(); i++){
                 paths.push_back(subpaths[i]);
                 //FIXME: do we have to be more carefull when trying to access stroke width?
-                stroke_widths.push_back(SP_ITEM(lpeitem)->style->stroke_width.computed);
+                stroke_widths.push_back(lpeitem->style->stroke_width.computed);
             }
         }
     }

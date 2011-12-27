@@ -17,12 +17,12 @@
 #endif
 
 #include <gtk/gtk.h>
-#include <gtk/gtkaction.h>
 
 #include "widgets/button.h"
 #include "widgets/spw-utilities.h"
 #include "widgets/widget-sizes.h"
 #include "widgets/spinbutton-events.h"
+#include "ui/widget/spinbutton.h"
 #include "widgets/icon.h"
 #include "widgets/sp-widget.h"
 
@@ -70,7 +70,7 @@ sp_selection_layout_widget_update(SPWidget *spw, Inkscape::Selection *sel)
     if ( sel && !sel->isEmpty() ) {
         int prefs_bbox = prefs->getInt("/tools/bounding_box", 0);
         SPItem::BBoxType bbox_type = (prefs_bbox ==0)?
-            SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX;
+            SPItem::VISUAL_BBOX : SPItem::GEOMETRIC_BBOX;
         Geom::OptRect const bbox(sel->bounds(bbox_type));
         if ( bbox ) {
             UnitTracker *tracker = reinterpret_cast<UnitTracker*>(g_object_get_data(G_OBJECT(spw), "tracker"));
@@ -159,12 +159,16 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
 
     document->ensureUpToDate ();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    int prefs_bbox = prefs->getInt("/tools/bounding_box");
-    SPItem::BBoxType bbox_type = (prefs_bbox ==0)?
-        SPItem::APPROXIMATE_BBOX : SPItem::GEOMETRIC_BBOX;
-    Geom::OptRect bbox = selection->bounds(bbox_type);
 
-    if ( !bbox ) {
+    Geom::OptRect bbox_vis = selection->visualBounds();
+    Geom::OptRect bbox_geom = selection->geometricBounds();
+
+    int prefs_bbox = prefs->getInt("/tools/bounding_box");
+    SPItem::BBoxType bbox_type = (prefs_bbox == 0)?
+        SPItem::VISUAL_BBOX : SPItem::GEOMETRIC_BBOX;
+    Geom::OptRect bbox_user = selection->bounds(bbox_type);
+
+    if ( !bbox_user ) {
         g_object_set_data(G_OBJECT(spw), "update", GINT_TO_POINTER(FALSE));
         return;
     }
@@ -186,35 +190,35 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
         x0 = sp_units_get_pixels (a_x->value, unit);
         y0 = sp_units_get_pixels (a_y->value, unit);
         x1 = x0 + sp_units_get_pixels (a_w->value, unit);
-        xrel = sp_units_get_pixels (a_w->value, unit) / bbox->dimensions()[Geom::X];
+        xrel = sp_units_get_pixels (a_w->value, unit) / bbox_user->dimensions()[Geom::X];
         y1 = y0 + sp_units_get_pixels (a_h->value, unit);
-        yrel = sp_units_get_pixels (a_h->value, unit) / bbox->dimensions()[Geom::Y];
+        yrel = sp_units_get_pixels (a_h->value, unit) / bbox_user->dimensions()[Geom::Y];
     } else {
         double const x0_propn = a_x->value * unit.unittobase;
-        x0 = bbox->min()[Geom::X] * x0_propn;
+        x0 = bbox_user->min()[Geom::X] * x0_propn;
         double const y0_propn = a_y->value * unit.unittobase;
-        y0 = y0_propn * bbox->min()[Geom::Y];
+        y0 = y0_propn * bbox_user->min()[Geom::Y];
         xrel = a_w->value * unit.unittobase;
-        x1 = x0 + xrel * bbox->dimensions()[Geom::X];
+        x1 = x0 + xrel * bbox_user->dimensions()[Geom::X];
         yrel = a_h->value * unit.unittobase;
-        y1 = y0 + yrel * bbox->dimensions()[Geom::Y];
+        y1 = y0 + yrel * bbox_user->dimensions()[Geom::Y];
     }
 
     // Keep proportions if lock is on
     GtkToggleAction *lock = GTK_TOGGLE_ACTION( g_object_get_data(G_OBJECT(spw), "lock") );
     if ( gtk_toggle_action_get_active(lock) ) {
         if (adj == a_h) {
-            x1 = x0 + yrel * bbox->dimensions()[Geom::X];
+            x1 = x0 + yrel * bbox_user->dimensions()[Geom::X];
         } else if (adj == a_w) {
-            y1 = y0 + xrel * bbox->dimensions()[Geom::Y];
+            y1 = y0 + xrel * bbox_user->dimensions()[Geom::Y];
         }
     }
 
     // scales and moves, in px
-    double mh = fabs(x0 - bbox->min()[Geom::X]);
-    double sh = fabs(x1 - bbox->max()[Geom::X]);
-    double mv = fabs(y0 - bbox->min()[Geom::Y]);
-    double sv = fabs(y1 - bbox->max()[Geom::Y]);
+    double mh = fabs(x0 - bbox_user->min()[Geom::X]);
+    double sh = fabs(x1 - bbox_user->max()[Geom::X]);
+    double mv = fabs(y0 - bbox_user->min()[Geom::Y]);
+    double sv = fabs(y1 - bbox_user->max()[Geom::Y]);
 
     // unless the unit is %, convert the scales and moves to the unit
     if (unit.base == SP_UNIT_ABSOLUTE || unit.base == SP_UNIT_DEVICE) {
@@ -242,7 +246,16 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
         gdouble strokewidth = stroke_average_width (selection->itemList());
         int transform_stroke = prefs->getBool("/options/transform/stroke", true) ? 1 : 0;
 
-        Geom::Affine scaler = get_scale_transform_with_stroke (*bbox, strokewidth, transform_stroke, x0, y0, x1, y1);
+        Geom::Affine scaler;
+        if (bbox_type == SPItem::VISUAL_BBOX) {
+            scaler = get_scale_transform_for_variable_stroke (*bbox_vis, *bbox_geom, transform_stroke, x0, y0, x1, y1);
+        } else {
+            // 1) We could have use the newer get_scale_transform_for_variable_stroke() here, but to avoid regressions
+            // we'll just use the old get_scale_transform_for_uniform_stroke() for now.
+            // 2) get_scale_transform_for_uniform_stroke() is intended for visual bounding boxes, not geometrical ones!
+            // we'll trick it into using a geometric bounding box though, by setting the stroke width to zero
+            scaler = get_scale_transform_for_uniform_stroke (*bbox_geom, 0, false, x0, y0, x1, y1);
+        }
 
         sp_selection_apply_affine(selection, scaler);
         DocumentUndo::maybeDone(document, actionkey, SP_VERB_CONTEXT_SELECT,
@@ -255,6 +268,16 @@ sp_object_layout_any_value_changed(GtkAdjustment *adj, SPWidget *spw)
     g_object_set_data(G_OBJECT(spw), "update", GINT_TO_POINTER(FALSE));
 }
 
+static GtkWidget* createCustomSlider( GtkAdjustment *adjustment, gdouble climbRate, guint digits )
+{
+    Inkscape::UI::Widget::SpinButton *inkSpinner = new Inkscape::UI::Widget::SpinButton(*Glib::wrap(adjustment, true), climbRate, digits);
+    inkSpinner = Gtk::manage( inkSpinner );
+    GtkWidget *widget = GTK_WIDGET( inkSpinner->gobj() );
+    return widget;
+}
+
+// TODO create_adjustment_action appears to be a rogue tile copy from toolbox.cpp. Resolve it to be unified:
+
 static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        gchar const *label,
                                                        gchar const *shortLabel,
@@ -266,6 +289,12 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        gchar const *tooltip,
                                                        gboolean altx )
 {
+    static bool init = false;
+    if ( !init ) {
+        init = true;
+        ege_adjustment_action_set_compact_tool_factory( createCustomSlider );
+    }
+
     GtkAdjustment* adj = GTK_ADJUSTMENT( gtk_adjustment_new( 0.0, lower, 1e6, SPIN_STEP, SPIN_PAGE_STEP, 0 ) );
     if (tracker) {
         tracker->addAdjustment(adj);
@@ -279,7 +308,7 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
         g_object_set( act, "short_label", Q_(shortLabel), NULL );
     }
 
-    gtk_signal_connect( GTK_OBJECT(adj), "value_changed", GTK_SIGNAL_FUNC(sp_object_layout_any_value_changed), spw );
+    g_signal_connect( G_OBJECT(adj), "value_changed", G_CALLBACK(sp_object_layout_any_value_changed), spw );
     if ( focusTarget ) {
         ege_adjustment_action_set_focuswidget( act, focusTarget );
     }
@@ -351,9 +380,9 @@ static void toggle_pattern( GtkToggleAction* act, gpointer data )
 static void toggle_lock( GtkToggleAction *act, gpointer /*data*/ ) {
     gboolean active = gtk_toggle_action_get_active( act );
     if ( active ) {
-        g_object_set( G_OBJECT(act), "iconId", INKSCAPE_ICON_OBJECT_LOCKED, NULL );
+        g_object_set( G_OBJECT(act), "iconId", INKSCAPE_ICON("object-locked"), NULL );
     } else {
-        g_object_set( G_OBJECT(act), "iconId", INKSCAPE_ICON_OBJECT_UNLOCKED, NULL );
+        g_object_set( G_OBJECT(act), "iconId", INKSCAPE_ICON("object-unlocked"), NULL );
     }
 }
 
@@ -382,7 +411,7 @@ static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::Vi
     InkAction* inky = ink_action_new( verb->get_id(), verb->get_name(), verb->get_tip(), verb->get_image(), size  );
     act = GTK_ACTION(inky);
 
-    g_signal_connect( G_OBJECT(inky), "activate", GTK_SIGNAL_FUNC(trigger_sp_action), targetAction );
+    g_signal_connect( G_OBJECT(inky), "activate", G_CALLBACK(trigger_sp_action), targetAction );
 
     Inkscape::queueIconPrerender( verb->get_image(), size );
 
@@ -480,7 +509,7 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     InkToggleAction* itact = ink_toggle_action_new( "LockAction",
                                                     _("Lock width and height"),
                                                     _("When locked, change both width and height by the same proportion"),
-                                                    INKSCAPE_ICON_OBJECT_UNLOCKED,
+                                                    INKSCAPE_ICON("object-unlocked"),
                                                     Inkscape::ICON_SIZE_DECORATION );
     g_object_set( itact, "short_label", "Lock", NULL );
     g_object_set_data( G_OBJECT(spw), "lock", itact );
@@ -502,8 +531,8 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     g_object_set_data( G_OBJECT(spw), "contextActions", contextActions );
 
     // Force update when selection changes.
-    gtk_signal_connect(GTK_OBJECT(spw), "modify_selection", GTK_SIGNAL_FUNC(sp_selection_layout_widget_modify_selection), desktop);
-    gtk_signal_connect(GTK_OBJECT(spw), "change_selection", GTK_SIGNAL_FUNC(sp_selection_layout_widget_change_selection), desktop);
+    g_signal_connect(G_OBJECT(spw), "modify_selection", G_CALLBACK(sp_selection_layout_widget_modify_selection), desktop);
+    g_signal_connect(G_OBJECT(spw), "change_selection", G_CALLBACK(sp_selection_layout_widget_change_selection), desktop);
 
     // Update now.
     sp_selection_layout_widget_update(SP_WIDGET(spw), SP_ACTIVE_DESKTOP ? sp_desktop_selection(SP_ACTIVE_DESKTOP) : NULL);
@@ -527,7 +556,7 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     // "Transform with object" buttons
 
     {
-        EgeOutputAction* act = ege_output_action_new( "transform_affect_label", _("Affect:"), _("Control whether or not to scale stroke widths, scale rectangle corners, transform gradient fills, and transform pattern fills with the object"), 0 ); 
+        EgeOutputAction* act = ege_output_action_new( "transform_affect_label", _("Affect:"), _("Control whether or not to scale stroke widths, scale rectangle corners, transform gradient fills, and transform pattern fills with the object"), 0 );
         ege_output_action_set_use_markup( act, TRUE );
         g_object_set( act, "visible-overflown", FALSE, NULL );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
@@ -537,7 +566,7 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     InkToggleAction* itact = ink_toggle_action_new( "transform_stroke",
                                                     _("Scale stroke width"),
                                                     _("When scaling objects, scale the stroke width by the same proportion"),
-                                                    INKSCAPE_ICON_TRANSFORM_AFFECT_STROKE,
+                                                    INKSCAPE_ICON("transform-affect-stroke"),
                                                     Inkscape::ICON_SIZE_DECORATION );
     gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(itact), prefs->getBool("/options/transform/stroke", true) );
     g_signal_connect_after( G_OBJECT(itact), "toggled", G_CALLBACK(toggle_stroke), desktop) ;
@@ -548,7 +577,7 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     InkToggleAction* itact = ink_toggle_action_new( "transform_corners",
                                                     _("Scale rounded corners"),
                                                     _("When scaling rectangles, scale the radii of rounded corners"),
-                                                    INKSCAPE_ICON_TRANSFORM_AFFECT_ROUNDED_CORNERS,
+                                                    INKSCAPE_ICON("transform-affect-rounded-corners"),
                                                   Inkscape::ICON_SIZE_DECORATION );
     gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(itact), prefs->getBool("/options/transform/rectcorners", true) );
     g_signal_connect_after( G_OBJECT(itact), "toggled", G_CALLBACK(toggle_corners), desktop) ;
@@ -559,7 +588,7 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     InkToggleAction* itact = ink_toggle_action_new( "transform_gradient",
                                                     _("Move gradients"),
                                                     _("Move gradients (in fill or stroke) along with the objects"),
-                                                    INKSCAPE_ICON_TRANSFORM_AFFECT_GRADIENT,
+                                                    INKSCAPE_ICON("transform-affect-gradient"),
                                                   Inkscape::ICON_SIZE_DECORATION );
     gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(itact), prefs->getBool("/options/transform/gradient", true) );
     g_signal_connect_after( G_OBJECT(itact), "toggled", G_CALLBACK(toggle_gradient), desktop) ;
@@ -570,7 +599,7 @@ void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GOb
     InkToggleAction* itact = ink_toggle_action_new( "transform_pattern",
                                                     _("Move patterns"),
                                                     _("Move patterns (in fill or stroke) along with the objects"),
-                                                    INKSCAPE_ICON_TRANSFORM_AFFECT_PATTERN,
+                                                    INKSCAPE_ICON("transform-affect-pattern"),
                                                   Inkscape::ICON_SIZE_DECORATION );
     gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(itact), prefs->getBool("/options/transform/pattern", true) );
     g_signal_connect_after( G_OBJECT(itact), "toggled", G_CALLBACK(toggle_pattern), desktop) ;

@@ -1,7 +1,9 @@
-/** \file
+/**
+ * @file
  *
  * Paper-size widget and helper functions
- *
+ */
+/*
  * Authors:
  *   bulia byak <buliabyak@users.sf.net>
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -24,6 +26,7 @@
 #include <string>
 #include <string.h>
 #include <vector>
+#include <2geom/transforms.h>
 
 #include "desktop-handles.h"
 #include "document.h"
@@ -235,9 +238,17 @@ PageSizer::PageSizer(Registry & _wr)
       _marginLeft( _("L_eft:"), _("Left margin"), "fit-margin-left", _wr),
       _marginRight( _("Ri_ght:"), _("Right margin"), "fit-margin-right", _wr),
       _marginBottom( _("Botto_m:"), _("Bottom margin"), "fit-margin-bottom", _wr),
-      
+      _lockMarginUpdate(false),
       _widgetRegistry(&_wr)
 {
+    // set precision of scalar entry boxes
+    _dimensionWidth.setDigits(5);
+    _dimensionHeight.setDigits(5);
+    _marginTop.setDigits(5);
+    _marginLeft.setDigits(5);
+    _marginRight.setDigits(5);
+    _marginBottom.setDigits(5);
+
     //# Set up the Paper Size combo box
     _paperSizeListStore = Gtk::ListStore::create(_paperSizeListColumns);
     _paperSizeList.set_model(_paperSizeListStore);
@@ -422,7 +433,7 @@ PageSizer::setDim (double w, double h, bool changeList)
         // The origin for the user is in the lower left corner; this point should remain stationary when
         // changing the page size. The SVG's origin however is in the upper left corner, so we must compensate for this
         Geom::Translate const vert_offset(Geom::Point(0, (old_height - h)));
-        SP_GROUP(SP_ROOT(doc->root))->translateChildItems(vert_offset);
+        doc->getRoot()->translateChildItems(vert_offset);
         DocumentUndo::done(doc, SP_VERB_NONE, _("Set page size"));
     }
 
@@ -464,18 +475,20 @@ PageSizer::setDim (double w, double h, bool changeList)
 void 
 PageSizer::updateFitMarginsUI(Inkscape::XML::Node *nv_repr)
 {
-    double value = 0.0;
-    if (sp_repr_get_double(nv_repr, "fit-margin-top", &value)) {
-        _marginTop.setValue(value);
-    }
-    if (sp_repr_get_double(nv_repr, "fit-margin-left", &value)) {
-        _marginLeft.setValue(value);
-    }
-    if (sp_repr_get_double(nv_repr, "fit-margin-right", &value)) {
-        _marginRight.setValue(value);
-    }
-    if (sp_repr_get_double(nv_repr, "fit-margin-bottom", &value)) {
-        _marginBottom.setValue(value);
+    if (!_lockMarginUpdate) {
+        double value = 0.0;
+        if (sp_repr_get_double(nv_repr, "fit-margin-top", &value)) {
+            _marginTop.setValue(value);
+        }
+        if (sp_repr_get_double(nv_repr, "fit-margin-left", &value)) {
+            _marginLeft.setValue(value);
+        }
+        if (sp_repr_get_double(nv_repr, "fit-margin-right", &value)) {
+            _marginRight.setValue(value);
+        }
+        if (sp_repr_get_double(nv_repr, "fit-margin-bottom", &value)) {
+            _marginBottom.setValue(value);
+        }
     }
 }
 
@@ -498,7 +511,7 @@ PageSizer::find_paper_size (double w, double h) const
 
     std::map<Glib::ustring, PaperSize>::const_iterator iter;
     for (iter = _paperSizeTable.begin() ;
-         iter != _paperSizeTable.end() ; iter++) {
+         iter != _paperSizeTable.end() ; ++iter) {
         PaperSize paper = iter->second;
         SPUnit const &i_unit = sp_unit_get_by_id(paper.unit);
         double smallX = sp_units_get_pixels(paper.smaller, i_unit);
@@ -512,7 +525,7 @@ PageSizer::find_paper_size (double w, double h) const
             // We need to search paperSizeListStore explicitly for the
             // specified paper size because it is sorted in a different
             // way than paperSizeTable (which is sorted alphabetically)
-            for (p = _paperSizeListStore->children().begin(); p != _paperSizeListStore->children().end(); p++) {
+            for (p = _paperSizeListStore->children().begin(); p != _paperSizeListStore->children().end(); ++p) {
                 if ((*p)[_paperSizeListColumns.nameColumn] == paper.name) {
                     return p;
                 }
@@ -537,14 +550,18 @@ PageSizer::fire_fit_canvas_to_selection_or_drawing()
     SPDocument *doc;
     SPNamedView *nv;
     Inkscape::XML::Node *nv_repr;
+	
     if ((doc = sp_desktop_document(SP_ACTIVE_DESKTOP))
         && (nv = sp_document_namedview(doc, 0))
         && (nv_repr = nv->getRepr())) {
+        _lockMarginUpdate = true;
         sp_repr_set_svg_double(nv_repr, "fit-margin-top", _marginTop.getValue());
         sp_repr_set_svg_double(nv_repr, "fit-margin-left", _marginLeft.getValue());
         sp_repr_set_svg_double(nv_repr, "fit-margin-right", _marginRight.getValue());
         sp_repr_set_svg_double(nv_repr, "fit-margin-bottom", _marginBottom.getValue());
+        _lockMarginUpdate = false;
     }
+
     Verb *verb = Verb::get( SP_VERB_FIT_CANVAS_TO_SELECTION_OR_DRAWING );
     if (verb) {
         SPAction *action = verb->get_action(dt);

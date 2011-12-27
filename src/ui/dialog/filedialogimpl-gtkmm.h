@@ -35,11 +35,7 @@
 //Temporary ugly hack
 //Remove this after the get_filter() calls in
 //show() on both classes are fixed
-#include <gtk/gtkfilechooser.h>
-
-//Another hack
-#include <gtk/gtkentry.h>
-#include <gtk/gtkexpander.h>
+#include <gtk/gtk.h>
 
 //Inkscape includes
 #include "extension/input.h"
@@ -53,6 +49,9 @@
 
 namespace Inkscape
 {
+
+class URI;
+
 namespace UI
 {
 namespace Dialog
@@ -80,7 +79,7 @@ findExpanderWidgets(Gtk::Container *parent,
 class FileType
 {
     public:
-    FileType() {}
+    FileType(): name(), pattern(),extension(0) {}
     ~FileType() {}
     Glib::ustring name;
     Glib::ustring pattern;

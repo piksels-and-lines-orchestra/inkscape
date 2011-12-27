@@ -1,5 +1,6 @@
-/** @file
- * @brief Inkscape color swatch UI item.
+/**
+ * @file
+ * Inkscape color swatch UI item.
  */
 /* Authors:
  *   Jon A. Cruz
@@ -13,14 +14,15 @@
 #include <errno.h>
 #include <glibmm/i18n.h>
 #include <gtkmm/label.h>
-#include <gtk/gtkdnd.h>
+#include <cairo.h>
+#include <gtk/gtk.h>
 
 #include "color-item.h"
 
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "desktop-style.h"
-#include "display/nr-plain-stuff.h"
+#include "display/cairo-utils.h"
 #include "document.h"
 #include "inkscape.h" // for SP_ACTIVE_DESKTOP
 #include "io/resource.h"
@@ -212,17 +214,20 @@ static void colorItemDragBegin( GtkWidget */*widget*/, GdkDragContext* dc, gpoin
         } else {
             GdkPixbuf* pixbuf = 0;
             if ( item->getGradient() ){
-                guchar* px = g_new( guchar, 3 * height * width );
-                nr_render_checkerboard_rgb( px, width, height, 3 * width, 0, 0 );
+                cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+                cairo_pattern_t *gradient = sp_gradient_create_preview_pattern(item->getGradient(), width);
+                cairo_t *ct = cairo_create(s);
+                cairo_set_source(ct, gradient);
+                cairo_paint(ct);
+                cairo_destroy(ct);
+                cairo_pattern_destroy(gradient);
+                cairo_surface_flush(s);
 
-                sp_gradient_render_vector_block_rgb( item->getGradient(),
-                                                     px, width, height, 3 * width,
-                                                     0, width, TRUE );
-
-                pixbuf = gdk_pixbuf_new_from_data( px, GDK_COLORSPACE_RGB, FALSE, 8,
-                                                   width, height, width * 3,
-                                                   0, // add delete function
-                                                   0 );
+                pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(s),
+                                                  GDK_COLORSPACE_RGB, TRUE, 8,
+                                                  width, height, cairo_image_surface_get_stride(s),
+                                                  ink_cairo_pixbuf_cleanup, s);
+                convert_pixbuf_argb32_to_normal(pixbuf);
             } else {
                 Glib::RefPtr<Gdk::Pixbuf> thumb = Gdk::Pixbuf::create( Gdk::COLORSPACE_RGB, false, 8, width, height );
                 guint32 fillWith = (0xff000000 & (item->def.getR() << 24))
@@ -252,10 +257,8 @@ static void colorItemDragBegin( GtkWidget */*widget*/, GdkDragContext* dc, gpoin
 // }
 
 
-SwatchPage::SwatchPage() :
-    _name(),
-    _prefWidth(0),
-    _colors()
+SwatchPage::SwatchPage()
+    : _prefWidth(0)
 {
 }
 
@@ -265,10 +268,7 @@ SwatchPage::~SwatchPage()
 
 
 ColorItem::ColorItem(ege::PaintDef::ColorType type) :
-    Previewable(),
     def(type),
-    tips(),
-    _previews(),
     _isFill(false),
     _isStroke(false),
     _isLive(false),
@@ -277,18 +277,12 @@ ColorItem::ColorItem(ege::PaintDef::ColorType type) :
     _linkGray(0),
     _linkSrc(0),
     _grad(0),
-    _pixData(0),
-    _pixWidth(0),
-    _pixHeight(0),
-    _listeners()
+    _pattern(0)
 {
 }
 
 ColorItem::ColorItem( unsigned int r, unsigned int g, unsigned int b, Glib::ustring& name ) :
-    Previewable(),
     def( r, g, b, name ),
-    tips(),
-    _previews(),
     _isFill(false),
     _isStroke(false),
     _isLive(false),
@@ -297,15 +291,15 @@ ColorItem::ColorItem( unsigned int r, unsigned int g, unsigned int b, Glib::ustr
     _linkGray(0),
     _linkSrc(0),
     _grad(0),
-    _pixData(0),
-    _pixWidth(0),
-    _pixHeight(0),
-    _listeners()
+    _pattern(0)
 {
 }
 
 ColorItem::~ColorItem()
 {
+    if (_pattern != NULL) {
+        cairo_pattern_destroy(_pattern);
+    }
 }
 
 ColorItem::ColorItem(ColorItem const &other) :
@@ -361,18 +355,16 @@ void ColorItem::setGradient(SPGradient *grad)
     }
 }
 
-void ColorItem::setPixData(guchar* px, int width, int height)
+void ColorItem::setPattern(cairo_pattern_t *pattern)
 {
-    if (px != _pixData) {
-        if (_pixData) {
-            g_free(_pixData);
-        }
-        _pixData = px;
-        _pixWidth = width;
-        _pixHeight = height;
-
-        _updatePreviews();
+    if (pattern) {
+        cairo_pattern_reference(pattern);
     }
+    if (_pattern) {
+        cairo_pattern_destroy(_pattern);
+    }
+    _pattern = pattern;
+    _updatePreviews();
 }
 
 void ColorItem::_dragGetColorData( GtkWidget */*widget*/,
@@ -469,8 +461,8 @@ void ColorItem::_updatePreviews()
                 for ( std::vector<SwatchPage*>::iterator it2 = possible.begin(); it2 != possible.end() && !found; ++it2 ) {
                     SwatchPage* curr = *it2;
                     index = 0;
-                    for ( std::vector<ColorItem*>::iterator zz = curr->_colors.begin(); zz != curr->_colors.end(); ++zz ) {
-                        if ( this == *zz ) {
+                    for ( boost::ptr_vector<ColorItem>::iterator zz = curr->_colors.begin(); zz != curr->_colors.end(); ++zz ) {
+                        if ( this == &*zz ) {
                             found = true;
                             paletteName = curr->_name;
                             break;
@@ -520,16 +512,30 @@ void ColorItem::_regenPreview(EekPreview * preview)
 
         eek_preview_set_pixbuf( preview, pixbuf );
     }
-    else if ( !_pixData ){
+    else if ( !_pattern ){
         eek_preview_set_color( preview,
                                (def.getR() << 8) | def.getR(),
                                (def.getG() << 8) | def.getG(),
                                (def.getB() << 8) | def.getB() );
     } else {
-        GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data( _pixData, GDK_COLORSPACE_RGB, FALSE, 8,
-                                                      _pixWidth, _pixHeight, _pixWidth * 3,
-                                                      0, // add delete function
-                                                      0 );
+        // These correspond to PREVIEW_PIXBUF_WIDTH and VBLOCK from swatches.cpp
+        // TODO: the pattern to draw should be in the widget that draws the preview,
+        //       so the preview can be scalable
+        int w = 128;
+        int h = 16;
+
+        cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+        cairo_t *ct = cairo_create(s);
+        cairo_set_source(ct, _pattern);
+        cairo_paint(ct);
+        cairo_destroy(ct);
+        cairo_surface_flush(s);
+
+        GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data( cairo_image_surface_get_data(s),
+                                                      GDK_COLORSPACE_RGB, TRUE, 8,
+                                                      w, h, cairo_image_surface_get_stride(s),
+                                                      ink_cairo_pixbuf_cleanup, s);
+        convert_pixbuf_argb32_to_normal(pixbuf);
         eek_preview_set_pixbuf( preview, pixbuf );
     }
 
@@ -729,12 +735,12 @@ void ColorItem::_wireMagicColors( SwatchPage *colorSet )
 {
     if ( colorSet )
     {
-        for ( std::vector<ColorItem*>::iterator it = colorSet->_colors.begin(); it != colorSet->_colors.end(); ++it )
+        for ( boost::ptr_vector<ColorItem>::iterator it = colorSet->_colors.begin(); it != colorSet->_colors.end(); ++it )
         {
-            std::string::size_type pos = (*it)->def.descr.find("*{");
+            std::string::size_type pos = it->def.descr.find("*{");
             if ( pos != std::string::npos )
             {
-                std::string subby = (*it)->def.descr.substr( pos + 2 );
+                std::string subby = it->def.descr.substr( pos + 2 );
                 std::string::size_type endPos = subby.find("}*");
                 if ( endPos != std::string::npos )
                 {
@@ -744,12 +750,12 @@ void ColorItem::_wireMagicColors( SwatchPage *colorSet )
 
                     if ( subby.find('E') != std::string::npos )
                     {
-                        (*it)->def.setEditable( true );
+                        it->def.setEditable( true );
                     }
 
                     if ( subby.find('L') != std::string::npos )
                     {
-                        (*it)->_isLive = true;
+                        it->_isLive = true;
                     }
 
                     std::string part;
@@ -759,7 +765,7 @@ void ColorItem::_wireMagicColors( SwatchPage *colorSet )
                         if ( popVal( colorIndex, part ) ) {
                             guint64 percent = 0;
                             if ( popVal( percent, part ) ) {
-                                (*it)->_linkTint( *(colorSet->_colors[colorIndex]), percent );
+                                it->_linkTint( colorSet->_colors[colorIndex], percent );
                             }
                         }
                     }
@@ -774,7 +780,7 @@ void ColorItem::_wireMagicColors( SwatchPage *colorSet )
                                 if ( !popVal( grayLevel, part ) ) {
                                     grayLevel = 0;
                                 }
-                                (*it)->_linkTone( *(colorSet->_colors[colorIndex]), percent, grayLevel );
+                                it->_linkTone( colorSet->_colors[colorIndex], percent, grayLevel );
                             }
                         }
                     }

@@ -30,19 +30,12 @@
 #include "desktop-handles.h"
 #include "sp-namedview.h"
 #include "live_effects/effect.h"
-
 #include "sp-pattern.h"
 #include "sp-path.h"
-
 #include <glibmm/i18n.h>
-
 #include "object-edit.h"
-
-#include <libnr/nr-scale-ops.h>
-
 #include "xml/repr.h"
-
-#include "2geom/isnan.h"
+#include <2geom/math-utils.h>
 
 #define sp_round(v,m) (((v) < 0.0) ? ((ceil((v) / (m) - 0.5)) * (m)) : ((floor((v) / (m) + 0.5)) * (m)))
 
@@ -481,7 +474,7 @@ Box3DKnotHolderEntity::knot_set_generic(SPItem *item, unsigned int knot_id, Geom
 
     g_assert(item != NULL);
     SPBox3D *box = SP_BOX3D(item);
-    Geom::Affine const i2d (item->i2d_affine ());
+    Geom::Affine const i2dt (item->i2dt_affine ());
 
     Box3D::Axis movement;
     if ((knot_id < 4) != (state & GDK_SHIFT_MASK)) {
@@ -490,7 +483,7 @@ Box3DKnotHolderEntity::knot_set_generic(SPItem *item, unsigned int knot_id, Geom
         movement = Box3D::Z;
     }
 
-    box3d_set_corner (box, knot_id, s * i2d, movement, (state & GDK_CONTROL_MASK));
+    box3d_set_corner (box, knot_id, s * i2dt, movement, (state & GDK_CONTROL_MASK));
     box3d_set_z_orders(box);
     box3d_position_set(box);
 }
@@ -657,9 +650,9 @@ Box3DKnotHolderEntityCenter::knot_set(Geom::Point const &new_pos, Geom::Point co
     Geom::Point const s = snap_knot_position(new_pos);
 
     SPBox3D *box = SP_BOX3D(item);
-    Geom::Affine const i2d (item->i2d_affine ());
+    Geom::Affine const i2dt (item->i2dt_affine ());
 
-    box3d_set_center (SP_BOX3D(item), s * i2d, origin * i2d, !(state & GDK_SHIFT_MASK) ? Box3D::XY : Box3D::Z,
+    box3d_set_center (SP_BOX3D(item), s * i2dt, origin * i2dt, !(state & GDK_SHIFT_MASK) ? Box3D::XY : Box3D::Z,
                       state & GDK_CONTROL_MASK);
 
     box3d_set_z_orders(box);
@@ -966,7 +959,7 @@ StarKnotHolderEntity1::knot_set(Geom::Point const &p, Geom::Point const &/*origi
 
     Geom::Point const s = snap_knot_position(p);
 
-    Geom::Point d = s - to_2geom(star->center);
+    Geom::Point d = s - star->center;
 
     double arg1 = atan2(d);
     double darg1 = arg1 - star->arg[0];
@@ -993,7 +986,7 @@ StarKnotHolderEntity2::knot_set(Geom::Point const &p, Geom::Point const &/*origi
     Geom::Point const s = snap_knot_position(p);
 
     if (star->flatsided == false) {
-        Geom::Point d = s - to_2geom(star->center);
+        Geom::Point d = s - star->center;
 
         double arg1 = atan2(d);
         double darg1 = arg1 - star->arg[1];

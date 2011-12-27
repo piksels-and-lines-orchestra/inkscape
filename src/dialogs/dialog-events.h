@@ -9,12 +9,10 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#ifndef __DIALOG_EVENTS_H__
-#define __DIALOG_EVENTS_H__
+#ifndef SEEN_DIALOG_EVENTS_H
+#define SEEN_DIALOG_EVENTS_H
 
-#include <gtk/gtkstyle.h>
-#include <gtk/gtkwindow.h>
-#include <forward.h>
+#include <gtk/gtk.h>
  
 /*
  * event callback can only accept one argument, but we need two,
@@ -29,6 +27,12 @@ namespace Gtk {
 class Window;
 class Entry;
 }
+
+class SPDesktop;
+
+namespace Inkscape {
+class Application;
+} // namespace Inkscape
  
 typedef struct { 
     GtkWidget *win;

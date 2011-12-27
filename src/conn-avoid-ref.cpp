@@ -394,7 +394,7 @@ Geom::Point SPAvoidRef::getConnectionPointPos(const int type, const int id)
     if ( type == ConnPointDefault )
     {
         // For now, just default to the centre of the item
-        Geom::OptRect bbox = item->getBounds(item->i2doc_affine());
+        Geom::OptRect bbox = item->documentVisualBounds();
         pos = (bbox) ? bbox->midpoint() : Geom::Point(0, 0);
     }
     else
@@ -491,6 +491,7 @@ static std::vector<Geom::Point> approxItemWithPoints(SPItem const *item, const G
     }
     else if (SP_IS_SHAPE(item))
     {
+        SP_SHAPE(item)->setShape();
         SPCurve* item_curve = SP_SHAPE(item)->getCurve();
         // make sure it has an associated curve
         if (item_curve)

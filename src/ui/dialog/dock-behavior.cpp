@@ -1,5 +1,6 @@
-/** @file
- * @brief A dockable dialog implementation.
+/**
+ * @file
+ * A dockable dialog implementation.
  */
 /* Author:
  *   Gustav Broberg <broberg@kth.se>
@@ -165,8 +166,7 @@ DockBehavior::set_title(Glib::ustring title)
     _dock_item.set_title(title);
 }
 
-void
-DockBehavior::set_sensitive(bool sensitive)
+void DockBehavior::set_sensitive(bool sensitive)
 {
     // TODO check this. Seems to be bad that we ignore the parameter
     get_vbox()->set_sensitive();
@@ -263,7 +263,7 @@ DockBehavior::onDesktopActivated(SPDesktop *desktop)
         }
 
         // we're done, allow next retransientizing not sooner than after 120 msec
-        gtk_timeout_add (120, (GtkFunction) sp_retransientize_again, (gpointer) floating_win);
+        g_timeout_add (120, (GSourceFunc) sp_retransientize_again, (gpointer) floating_win);
     }
 }
 

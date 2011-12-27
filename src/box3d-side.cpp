@@ -24,6 +24,8 @@
 #include "desktop-style.h"
 #include "box3d.h"
 
+struct SPPathClass;
+
 static void box3d_side_class_init (Box3DSideClass *klass);
 static void box3d_side_init (Box3DSide *side);
 
@@ -217,7 +219,7 @@ void
 box3d_side_set_shape (SPShape *shape)
 {
     Box3DSide *side = SP_BOX3D_SIDE (shape);
-    if (!side->document->root) {
+    if (!side->document->getRoot()) {
         // avoid a warning caused by sp_document_height() (which is called from sp_item_i2d_affine() below)
         // when reading a file containing 3D boxes
         return;

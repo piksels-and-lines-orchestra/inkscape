@@ -31,7 +31,6 @@
 #include <2geom/affine.h>
 
 #include "ui/widget/scalar.h"
-#include "libnr/nr-values.h"
 
 namespace Inkscape {
 namespace LivePathEffect {
@@ -271,13 +270,13 @@ LPERoughHatches::LPERoughHatches(LivePathEffectObject *lpeobject) :
     registerParameter( dynamic_cast<Parameter *>(&front_thickness) );
     registerParameter( dynamic_cast<Parameter *>(&back_thickness) );
 
-    //hatch_dist.param_set_range(0.1, NR_HUGE);
-    growth.param_set_range(0, NR_HUGE);
+    //hatch_dist.param_set_range(0.1, Geom::infinity());
+    growth.param_set_range(0, Geom::infinity());
     dist_rdm.param_set_range(0, 99.);
-    stroke_width_top.param_set_range(0,  NR_HUGE);
-    stroke_width_bot.param_set_range(0,  NR_HUGE);
-    front_thickness.param_set_range(0, NR_HUGE);
-    back_thickness.param_set_range(0, NR_HUGE);
+    stroke_width_top.param_set_range(0,  Geom::infinity());
+    stroke_width_bot.param_set_range(0,  Geom::infinity());
+    front_thickness.param_set_range(0, Geom::infinity());
+    back_thickness.param_set_range(0, Geom::infinity());
 
     // hide the widgets for direction and bender vectorparams
     direction.widget_is_visible = false;
@@ -331,7 +330,7 @@ LPERoughHatches::doEffect_pwd2 (Geom::Piecewise<Geom::D2<Geom::SBasis> > const &
 
     std::vector<std::vector<Point> > snakePoints;
     snakePoints = linearSnake(transformed_pwd2_in, transformed_org);
-    if ( snakePoints.size() > 0 ){
+    if (!snakePoints.empty()){
         Piecewise<D2<SBasis> >smthSnake = smoothSnake(snakePoints);
         smthSnake = smthSnake*mat.inverse();
         if (do_bend.get_value()){
@@ -557,7 +556,7 @@ LPERoughHatches::resetDefaults(SPItem * item)
 {
     Effect::resetDefaults(item);
 
-    Geom::OptRect bbox = item->getBounds(Geom::identity(), SPItem::GEOMETRIC_BBOX);
+    Geom::OptRect bbox = item->geometricBounds();
     Geom::Point origin(0.,0.);
     Geom::Point vector(50.,0.);
     if (bbox) {

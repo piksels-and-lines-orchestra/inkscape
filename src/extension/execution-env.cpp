@@ -128,7 +128,7 @@ ExecutionEnv::createWorkingDialog (void) {
 
     SPDesktop *desktop = (SPDesktop *)_doc;
     GtkWidget *toplevel = gtk_widget_get_toplevel(&(desktop->canvas->widget));
-    if (!toplevel || !GTK_WIDGET_TOPLEVEL (toplevel))
+    if (!toplevel || !gtk_widget_is_toplevel (toplevel))
         return;
     Gtk::Window *window = Glib::wrap(GTK_WINDOW(toplevel), false);
 
@@ -141,7 +141,10 @@ ExecutionEnv::createWorkingDialog (void) {
                                true); // modal
     _visibleDialog->signal_response().connect(sigc::mem_fun(this, &ExecutionEnv::workingCanceled));
     g_free(dlgmessage);
-    _visibleDialog->show();
+
+    if (!_effect->is_silent()){
+        _visibleDialog->show();
+    }
 
     return;
 }
@@ -190,7 +193,7 @@ ExecutionEnv::reselect (void) {
 
     Inkscape::Selection * selection = sp_desktop_selection(desktop);
 
-    for (std::list<Glib::ustring>::iterator i = _selected.begin(); i != _selected.end(); i++) {
+    for (std::list<Glib::ustring>::iterator i = _selected.begin(); i != _selected.end(); ++i) {
         SPObject * obj = doc->getObjectById(i->c_str());
         if (obj != NULL) {
             selection->add(obj);

@@ -1,6 +1,4 @@
-/**
- * \brief Notebook Page Widget - A tabbed notebook page for dialogs.
- *
+/*
  * Author:
  *   Bryce Harrington <bryce@bryceharrington.org>
  *
@@ -20,10 +18,18 @@ namespace Inkscape {
 namespace UI {
 namespace Widget {
 
+/**
+ * A tabbed notebook page for dialogs.
+ */
 class NotebookPage : public Gtk::VBox
 {
 public:
+
     NotebookPage();
+
+    /**
+     * Construct a NotebookPage.
+     */
     NotebookPage(int n_rows, int n_columns, bool expand=false, bool fill=false, guint padding=0);
 
     Gtk::Table& table() { return _table; }

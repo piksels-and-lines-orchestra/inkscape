@@ -1,4 +1,4 @@
-/** \file
+/*
  * SPKnot implementation
  *
  * Authors:
@@ -68,9 +68,6 @@ static void sp_knot_set_ctrl_state(SPKnot *knot);
 static GObjectClass *parent_class;
 static guint knot_signals[LAST_SIGNAL] = { 0 };
 
-/**
- * Registers SPKnot class and returns its type number.
- */
 GType sp_knot_get_type()
 {
     static GType type = 0;
@@ -258,9 +255,6 @@ static void sp_knot_dispose(GObject *object)
     }
 }
 
-/**
- * Update knot for dragging and tell canvas an item was grabbed.
- */
 void sp_knot_start_dragging(SPKnot *knot, Geom::Point const &p, gint x, gint y, guint32 etime)
 {
     // save drag origin
@@ -463,9 +457,6 @@ void sp_knot_handler_request_position(GdkEvent *event, SPKnot *knot)
         gobble_motion_events(GDK_BUTTON1_MASK);
 }
 
-/**
- * Return new knot object.
- */
 SPKnot *sp_knot_new(SPDesktop *desktop, const gchar *tip)
 {
     g_return_val_if_fail(desktop != NULL, NULL);
@@ -489,15 +480,12 @@ SPKnot *sp_knot_new(SPDesktop *desktop, const gchar *tip)
                                     "mode", SP_KNOT_MODE_XOR,
                                     NULL);
 
-    knot->_event_handler_id = gtk_signal_connect(GTK_OBJECT(knot->item), "event",
-                                                 GTK_SIGNAL_FUNC(sp_knot_handler), knot);
+    knot->_event_handler_id = g_signal_connect(G_OBJECT(knot->item), "event",
+                                                 G_CALLBACK(sp_knot_handler), knot);
 
     return knot;
 }
 
-/**
- * Show knot on its canvas.
- */
 void sp_knot_show(SPKnot *knot)
 {
     g_return_if_fail(knot != NULL);
@@ -506,9 +494,6 @@ void sp_knot_show(SPKnot *knot)
     sp_knot_set_flag(knot, SP_KNOT_VISIBLE, TRUE);
 }
 
-/**
- * Hide knot on its canvas.
- */
 void sp_knot_hide(SPKnot *knot)
 {
     g_return_if_fail(knot != NULL);
@@ -517,9 +502,6 @@ void sp_knot_hide(SPKnot *knot)
     sp_knot_set_flag(knot, SP_KNOT_VISIBLE, FALSE);
 }
 
-/**
- * Request or set new position for knot.
- */
 void sp_knot_request_position(SPKnot *knot, Geom::Point const &p, guint state)
 {
     g_return_if_fail(knot != NULL);
@@ -540,9 +522,6 @@ void sp_knot_request_position(SPKnot *knot, Geom::Point const &p, guint state)
     }
 }
 
-/**
- * Return distance of point to knot's position; unused.
- */
 gdouble sp_knot_distance(SPKnot * knot, Geom::Point const &p, guint state)
 {
     g_return_val_if_fail(knot != NULL, 1e18);
@@ -559,9 +538,6 @@ gdouble sp_knot_distance(SPKnot * knot, Geom::Point const &p, guint state)
     return distance;
 }
 
-/**
- * Move knot to new position.
- */
 void sp_knot_set_position(SPKnot *knot, Geom::Point const &p, guint state)
 {
     g_return_if_fail(knot != NULL);
@@ -580,9 +556,6 @@ void sp_knot_set_position(SPKnot *knot, Geom::Point const &p, guint state)
     knot->_moved_signal.emit(knot, p, state);
 }
 
-/**
- * Move knot to new position, without emitting a MOVED signal.
- */
 void sp_knot_moveto(SPKnot *knot, Geom::Point const &p)
 {
     g_return_if_fail(knot != NULL);
@@ -595,9 +568,6 @@ void sp_knot_moveto(SPKnot *knot, Geom::Point const &p)
     }
 }
 
-/**
- * Returns position of knot.
- */
 Geom::Point sp_knot_position(SPKnot const *knot)
 {
     g_assert(knot != NULL);
@@ -606,9 +576,6 @@ Geom::Point sp_knot_position(SPKnot const *knot)
     return knot->pos;
 }
 
-/**
- * Set flag in knot, with side effects.
- */
 void sp_knot_set_flag(SPKnot *knot, guint flag, bool set)
 {
     g_assert(knot != NULL);
@@ -640,21 +607,18 @@ void sp_knot_set_flag(SPKnot *knot, guint flag, bool set)
     }
 }
 
-/**
- * Update knot's pixbuf and set its control state.
- */
 void sp_knot_update_ctrl(SPKnot *knot)
 {
     if (!knot->item) {
         return;
     }
 
-    gtk_object_set(GTK_OBJECT(knot->item), "shape", knot->shape, NULL);
-    gtk_object_set(GTK_OBJECT(knot->item), "mode", knot->mode, NULL);
-    gtk_object_set(GTK_OBJECT(knot->item), "size", (gdouble) knot->size, NULL);
-    gtk_object_set(GTK_OBJECT(knot->item), "anchor", knot->anchor, NULL);
+    g_object_set(knot->item, "shape", knot->shape, NULL);
+    g_object_set(knot->item, "mode", knot->mode, NULL);
+    g_object_set(knot->item, "size", (gdouble) knot->size, NULL);
+    g_object_set(knot->item, "anchor", knot->anchor, NULL);
     if (knot->pixbuf) {
-        gtk_object_set(GTK_OBJECT (knot->item), "pixbuf", knot->pixbuf, NULL);
+        g_object_set(knot->item, "pixbuf", knot->pixbuf, NULL);
     }
 
     sp_knot_set_ctrl_state(knot);
@@ -666,29 +630,29 @@ void sp_knot_update_ctrl(SPKnot *knot)
 static void sp_knot_set_ctrl_state(SPKnot *knot)
 {
     if (knot->flags & SP_KNOT_DRAGGING) {
-        gtk_object_set(GTK_OBJECT (knot->item),
+        g_object_set(knot->item,
                        "fill_color",
                        knot->fill[SP_KNOT_STATE_DRAGGING],
                        NULL);
-        gtk_object_set(GTK_OBJECT (knot->item),
+        g_object_set(knot->item,
                        "stroke_color",
                        knot->stroke[SP_KNOT_STATE_DRAGGING],
                        NULL);
     } else if (knot->flags & SP_KNOT_MOUSEOVER) {
-        gtk_object_set(GTK_OBJECT(knot->item),
+        g_object_set(knot->item,
                        "fill_color",
                        knot->fill[SP_KNOT_STATE_MOUSEOVER],
                        NULL);
-        gtk_object_set(GTK_OBJECT(knot->item),
+        g_object_set(knot->item,
                        "stroke_color",
                        knot->stroke[SP_KNOT_STATE_MOUSEOVER],
                        NULL);
     } else {
-        gtk_object_set(GTK_OBJECT(knot->item),
+        g_object_set(knot->item,
                        "fill_color",
                         knot->fill[SP_KNOT_STATE_NORMAL],
                        NULL);
-        gtk_object_set(GTK_OBJECT(knot->item),
+        g_object_set(knot->item,
                        "stroke_color",
                        knot->stroke[SP_KNOT_STATE_NORMAL],
                        NULL);

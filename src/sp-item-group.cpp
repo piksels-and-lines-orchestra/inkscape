@@ -22,10 +22,8 @@
 #include <cstring>
 #include <string>
 
-#include "display/nr-arena-group.h"
+#include "display/drawing-group.h"
 #include "display/curve.h"
-#include "libnr/nr-matrix-ops.h"
-#include "libnr/nr-matrix-fns.h"
 #include "xml/repr.h"
 #include "svg/svg.h"
 #include "document.h"
@@ -49,6 +47,7 @@
 #include "sp-title.h"
 #include "sp-desc.h"
 #include "sp-switch.h"
+#include "sp-defs.h"
 
 using Inkscape::DocumentUndo;
 
@@ -66,10 +65,10 @@ static void sp_group_modified (SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_group_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 static void sp_group_set(SPObject *object, unsigned key, char const *value);
 
-static void sp_group_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+static Geom::OptRect sp_group_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 static void sp_group_print (SPItem * item, SPPrintContext *ctx);
 static gchar * sp_group_description (SPItem * item);
-static NRArenaItem *sp_group_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_group_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static void sp_group_hide (SPItem * item, unsigned int key);
 static void sp_group_snappoints (SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 
@@ -170,17 +169,15 @@ sp_group_dispose(GObject *object)
     delete SP_GROUP(object)->group;
 }
 
-static void
-sp_group_child_added (SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
+static void sp_group_child_added(SPObject *object, Inkscape::XML::Node *child, Inkscape::XML::Node *ref)
 {
-    SPItem *item;
+    SPGroup *group = SP_GROUP(object);
 
-    item = SP_ITEM (object);
-
-    if (((SPObjectClass *) (parent_class))->child_added)
+    if (((SPObjectClass *) (parent_class))->child_added) {
         (* ((SPObjectClass *) (parent_class))->child_added) (object, child, ref);
+    }
 
-    SP_GROUP(object)->group->onChildAdded(child);
+    group->group->onChildAdded(child);
 }
 
 /* fixme: hide (Lauris) */
@@ -277,10 +274,10 @@ static Inkscape::XML::Node * sp_group_write(SPObject *object, Inkscape::XML::Doc
     return repr;
 }
 
-static void
-sp_group_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags)
+static Geom::OptRect
+sp_group_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type)
 {
-    SP_GROUP(item)->group->calculateBBox(bbox, transform, flags);
+    return SP_GROUP(item)->group->bounds(type, transform);
 }
 
 static void
@@ -315,10 +312,10 @@ static void sp_group_set(SPObject *object, unsigned key, char const *value) {
     }
 }
 
-static NRArenaItem *
-sp_group_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags)
+static Inkscape::DrawingItem *
+sp_group_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags)
 {
-    return SP_GROUP(item)->group->show(arena, key, flags);
+    return SP_GROUP(item)->group->show(drawing, key, flags);
 }
 
 static void
@@ -345,10 +342,10 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
     g_return_if_fail (SP_IS_GROUP (group));
 
     SPDocument *doc = group->document;
-    SPObject *root = doc->getRoot();
-    SPObject *defs = SP_OBJECT(SP_ROOT(root)->defs);
+    SPRoot *root = doc->getRoot();
+    SPObject *defs = root->defs;
 
-    SPItem *gitem = SP_ITEM (group);
+    SPItem *gitem = group;
     Inkscape::XML::Node *grepr = gitem->getRepr();
 
     g_return_if_fail (!strcmp (grepr->name(), "svg:g") || !strcmp (grepr->name(), "svg:a") || !strcmp (grepr->name(), "svg:switch"));
@@ -361,7 +358,7 @@ sp_item_group_ungroup (SPGroup *group, GSList **children, bool do_done)
 
 	if (SP_IS_BOX3D(gitem)) {
 		group = box3d_convert_to_group(SP_BOX3D(gitem));
-		gitem = SP_ITEM(group);
+		gitem = group;
 	}
 
 	sp_lpe_item_remove_all_path_effects(SP_LPE_ITEM(group), false);
@@ -565,9 +562,9 @@ void SPGroup::_updateLayerMode(unsigned int display_key) {
     SPItemView *view;
     for ( view = this->display ; view ; view = view->next ) {
         if ( !display_key || view->key == display_key ) {
-            NRArenaGroup *arena_group=NR_ARENA_GROUP(view->arenaitem);
-            if (arena_group) {
-                nr_arena_group_set_transparent(arena_group, effectiveLayerMode(view->key) == SPGroup::LAYER);
+            Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(view->arenaitem);
+            if (g) {
+                g->setPickChildren(effectiveLayerMode(view->key) == SPGroup::LAYER);
             }
         }
     }
@@ -599,13 +596,13 @@ void CGroup::onChildAdded(Inkscape::XML::Node *child) {
         if ( SP_IS_ITEM(ochild) ) {
             /* TODO: this should be moved into SPItem somehow */
             SPItemView *v;
-            NRArenaItem *ac;
+            Inkscape::DrawingItem *ac;
 
             for (v = _group->display; v != NULL; v = v->next) {
-                ac = SP_ITEM (ochild)->invoke_show (NR_ARENA_ITEM_ARENA (v->arenaitem), v->key, v->flags);
+                ac = SP_ITEM (ochild)->invoke_show (v->arenaitem->drawing(), v->key, v->flags);
 
                 if (ac) {
-                    nr_arena_item_append_child (v->arenaitem, ac);
+                    v->arenaitem->appendChild(ac);
                 }
             }
         }
@@ -614,16 +611,16 @@ void CGroup::onChildAdded(Inkscape::XML::Node *child) {
         if ( ochild && SP_IS_ITEM(ochild) ) {
             /* TODO: this should be moved into SPItem somehow */
             SPItemView *v;
-            NRArenaItem *ac;
+            Inkscape::DrawingItem *ac;
 
             unsigned position = SP_ITEM(ochild)->pos_in_parent();
 
             for (v = _group->display; v != NULL; v = v->next) {
-                ac = SP_ITEM (ochild)->invoke_show (NR_ARENA_ITEM_ARENA (v->arenaitem), v->key, v->flags);
+                ac = SP_ITEM (ochild)->invoke_show (v->arenaitem->drawing(), v->key, v->flags);
 
                 if (ac) {
-                    nr_arena_item_add_child (v->arenaitem, ac, NULL);
-                    nr_arena_item_set_order (ac, position);
+                    v->arenaitem->prependChild(ac);
+                    ac->setZOrder(position);
                 }
             }
         }
@@ -649,10 +646,11 @@ void CGroup::onUpdate(SPCtx *ctx, unsigned int flags) {
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
-      SPObject *object = _group;
-      for (SPItemView *v = _group->display; v != NULL; v = v->next) {
-          nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
-      }
+        SPObject *object = _group;
+        for (SPItemView *v = _group->display; v != NULL; v = v->next) {
+            Inkscape::DrawingGroup *group = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
+            group->setStyle(object->style);
+        }
     }
 
     GSList *l = g_slist_reverse(_group->childList(true, SPObject::ActionUpdate));
@@ -680,10 +678,11 @@ void CGroup::onModified(guint flags) {
     flags &= SP_OBJECT_MODIFIED_CASCADE;
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
-      SPObject *object = _group;
-      for (SPItemView *v = _group->display; v != NULL; v = v->next) {
-          nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
-      }
+        SPObject *object = _group;
+        for (SPItemView *v = _group->display; v != NULL; v = v->next) {
+            Inkscape::DrawingGroup *group = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
+            group->setStyle(object->style);
+        }
     }
 
     GSList *l = g_slist_reverse(_group->childList(true));
@@ -697,22 +696,21 @@ void CGroup::onModified(guint flags) {
     }
 }
 
-void CGroup::calculateBBox(NRRect *bbox, Geom::Affine const &transform, unsigned const flags) {
-
-    Geom::OptRect dummy_bbox;
+Geom::OptRect CGroup::bounds(SPItem::BBoxType type, Geom::Affine const &transform)
+{
+    Geom::OptRect bbox;
 
     GSList *l = _group->childList(false, SPObject::ActionBBox);
     while (l) {
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM(o) && !SP_ITEM(o)->isHidden()) {
             SPItem *child = SP_ITEM(o);
-            Geom::Affine const ct(to_2geom(child->transform) * transform);
-            child->invoke_bbox_full( dummy_bbox, ct, flags, FALSE);
+            Geom::Affine const ct(child->transform * transform);
+            bbox |= child->bounds(type, ct);
         }
         l = g_slist_remove (l, o);
     }
-
-    *bbox = NRRect(dummy_bbox);
+    return bbox;
 }
 
 void CGroup::onPrint(SPPrintContext *ctx) {
@@ -745,35 +743,28 @@ gchar *CGroup::getDescription() {
                  len), len);
 }
 
-NRArenaItem *CGroup::show (NRArena *arena, unsigned int key, unsigned int flags) {
-    NRArenaItem *ai;
+Inkscape::DrawingItem *CGroup::show (Inkscape::Drawing &drawing, unsigned int key, unsigned int flags) {
+    Inkscape::DrawingGroup *ai;
     SPObject *object = _group;
 
-    ai = NRArenaGroup::create(arena);
+    ai = new Inkscape::DrawingGroup(drawing);
+    ai->setPickChildren(_group->effectiveLayerMode(key) == SPGroup::LAYER);
+    ai->setStyle(object->style);
 
-    nr_arena_group_set_transparent(NR_ARENA_GROUP (ai),
-                                   _group->effectiveLayerMode(key) ==
-                         SPGroup::LAYER);
-    nr_arena_group_set_style(NR_ARENA_GROUP(ai), object->style);
-
-    _showChildren(arena, ai, key, flags);
+    _showChildren(drawing, ai, key, flags);
     return ai;
 }
 
-void CGroup::_showChildren (NRArena *arena, NRArenaItem *ai, unsigned int key, unsigned int flags) {
-    NRArenaItem *ac = NULL;
-    NRArenaItem *ar = NULL;
+void CGroup::_showChildren (Inkscape::Drawing &drawing, Inkscape::DrawingItem *ai, unsigned int key, unsigned int flags) {
+    Inkscape::DrawingItem *ac = NULL;
     SPItem * child = NULL;
     GSList *l = g_slist_reverse(_group->childList(false, SPObject::ActionShow));
     while (l) {
         SPObject *o = SP_OBJECT (l->data);
         if (SP_IS_ITEM (o)) {
             child = SP_ITEM (o);
-            ac = child->invoke_show (arena, key, flags);
-            if (ac) {
-                nr_arena_item_add_child (ai, ac, ar);
-                ar = ac;
-            }
+            ac = child->invoke_show (drawing, key, flags);
+            ai->appendChild(ac);
         }
         l = g_slist_remove (l, o);
     }
@@ -804,7 +795,7 @@ void CGroup::onOrderChanged (Inkscape::XML::Node *child, Inkscape::XML::Node *, 
         SPItemView *v;
         unsigned position = SP_ITEM(ochild)->pos_in_parent();
         for ( v = SP_ITEM (ochild)->display ; v != NULL ; v = v->next ) {
-            nr_arena_item_set_order (v->arenaitem, position);
+            v->arenaitem->setZOrder(position);
         }
     }
 

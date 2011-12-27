@@ -15,20 +15,15 @@
 #endif
 #include <sstream>
 #include <string.h>
-#include <desktop.h>
+#include "desktop.h"
 
 #include "color.h"
-#include "sp-canvas-util.h"
-#include "inkscape-cairo.h"
-#include "canvas-bpath.h"
 #include "display/sp-canvas-group.h"
+#include "display/sp-canvas-util.h"
+#include "display/canvas-bpath.h"
 #include "display/curve.h"
-#include "display/inkscape-cairo.h"
-#include "libnr/nr-pixops.h"
+#include "display/cairo-utils.h"
 #include "helper/geom.h"
-
-
-void nr_pixblock_render_bpath_rgba (Shape* theS,uint32_t color,NRRectL &area,char* destBuf,int stride);
 
 static void sp_canvas_bpath_class_init (SPCanvasBPathClass *klass);
 static void sp_canvas_bpath_init (SPCanvasBPath *path);
@@ -40,20 +35,22 @@ static double sp_canvas_bpath_point (SPCanvasItem *item, Geom::Point p, SPCanvas
 
 static SPCanvasItemClass *parent_class;
 
-GtkType
+GType
 sp_canvas_bpath_get_type (void)
 {
-    static GtkType type = 0;
+    static GType type = 0;
     if (!type) {
-        GtkTypeInfo info = {
-            (gchar *)"SPCanvasBPath",
-            sizeof (SPCanvasBPath),
+	GTypeInfo info = {
             sizeof (SPCanvasBPathClass),
-            (GtkClassInitFunc) sp_canvas_bpath_class_init,
-            (GtkObjectInitFunc) sp_canvas_bpath_init,
-            NULL, NULL, NULL
-        };
-        type = gtk_type_unique (SP_TYPE_CANVAS_ITEM, &info);
+	    NULL, NULL,
+            (GClassInitFunc) sp_canvas_bpath_class_init,
+	    NULL, NULL,
+            sizeof (SPCanvasBPath),
+	    0,
+            (GInstanceInitFunc) sp_canvas_bpath_init,
+	    NULL
+	};
+        type = g_type_register_static (SP_TYPE_CANVAS_ITEM, "SPCanvasBPath", &info, (GTypeFlags)0);
     }
     return type;
 }
@@ -67,7 +64,7 @@ sp_canvas_bpath_class_init (SPCanvasBPathClass *klass)
     object_class = GTK_OBJECT_CLASS (klass);
     item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass*)gtk_type_class (SP_TYPE_CANVAS_ITEM);
+    parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_canvas_bpath_destroy;
 
@@ -139,9 +136,7 @@ sp_canvas_bpath_render (SPCanvasItem *item, SPCanvasBuf *buf)
 {
     SPCanvasBPath *cbp = SP_CANVAS_BPATH (item);
 
-    sp_canvas_prepare_buffer(buf);
-
-    Geom::Rect area (Geom::Point(buf->rect.x0, buf->rect.y0), Geom::Point(buf->rect.x1, buf->rect.y1));
+    Geom::Rect area = buf->rect;
 
     if ( !cbp->curve  || 
          ((cbp->stroke_rgba & 0xff) == 0 && (cbp->fill_rgba & 0xff) == 0 ) || 
@@ -154,33 +149,29 @@ sp_canvas_bpath_render (SPCanvasItem *item, SPCanvasBuf *buf)
     bool dofill = ((cbp->fill_rgba & 0xff) != 0);
     bool dostroke = ((cbp->stroke_rgba & 0xff) != 0);
 
-    cairo_set_tolerance(buf->ct, 1.25); // low quality, but good enough for canvas items
+    cairo_set_tolerance(buf->ct, 0.5);
     cairo_new_path(buf->ct);
 
-    if (!dofill)
-        feed_pathvector_to_cairo (buf->ct, cbp->curve->get_pathvector(), cbp->affine, area, true, 1);
-    else
-        feed_pathvector_to_cairo (buf->ct, cbp->curve->get_pathvector(), cbp->affine, area, false, 1);
+    feed_pathvector_to_cairo (buf->ct, cbp->curve->get_pathvector(), cbp->affine, area,
+        /* optimized_stroke = */ !dofill, 1);
 
     if (dofill) {
         // RGB / BGR
-        cairo_set_source_rgba(buf->ct, SP_RGBA32_B_F(cbp->fill_rgba), SP_RGBA32_G_F(cbp->fill_rgba), SP_RGBA32_R_F(cbp->fill_rgba), SP_RGBA32_A_F(cbp->fill_rgba));
+        ink_cairo_set_source_rgba32(buf->ct, cbp->fill_rgba);
         cairo_set_fill_rule(buf->ct, cbp->fill_rule == SP_WIND_RULE_EVENODD? CAIRO_FILL_RULE_EVEN_ODD
                             : CAIRO_FILL_RULE_WINDING);
-        if (dostroke)
-            cairo_fill_preserve(buf->ct);
-        else 
-            cairo_fill(buf->ct);
+        cairo_fill_preserve(buf->ct);
     }
 
     if (dostroke) {
-        // RGB / BGR
-        cairo_set_source_rgba(buf->ct, SP_RGBA32_B_F(cbp->stroke_rgba), SP_RGBA32_G_F(cbp->stroke_rgba), SP_RGBA32_R_F(cbp->stroke_rgba), SP_RGBA32_A_F(cbp->stroke_rgba));
+        ink_cairo_set_source_rgba32(buf->ct, cbp->stroke_rgba);
         cairo_set_line_width(buf->ct, 1);
         if (cbp->dashes[0] != 0 && cbp->dashes[1] != 0) {
             cairo_set_dash (buf->ct, cbp->dashes, 2, 0);
         }
         cairo_stroke(buf->ct);
+    } else {
+        cairo_new_path(buf->ct);
     }
 }
 
@@ -192,12 +183,12 @@ sp_canvas_bpath_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_
     if ( !cbp->curve  || 
          ((cbp->stroke_rgba & 0xff) == 0 && (cbp->fill_rgba & 0xff) == 0 ) || 
          cbp->curve->get_segment_count() < 1)
-        return NR_HUGE;
+        return Geom::infinity();
 
     double width = 0.5;
     Geom::Rect viewbox = item->canvas->getViewbox();
     viewbox.expandBy (width);
-    double dist = NR_HUGE;
+    double dist = Geom::infinity();
     pathv_matrix_point_bbox_wind_distance(cbp->curve->get_pathvector(), cbp->affine, p, NULL, NULL, &dist, 0.5, &viewbox);
 
     if (dist <= 1.0) {

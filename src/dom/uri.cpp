@@ -1,4 +1,4 @@
-/**
+/*
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -144,6 +144,7 @@ void URI::init()
     scheme    = SCHEME_NONE;
     schemeStr.clear();
     port      = 0;
+    portSpecified = false;
     authority.clear();
     path.clear();
     absolute  = false;
@@ -179,7 +180,7 @@ static DOMString toStr(const std::vector<int> &arr)
 {
     DOMString buf;
     std::vector<int>::const_iterator iter;
-    for (iter=arr.begin() ; iter!=arr.end() ; iter++)
+    for (iter=arr.begin() ; iter!=arr.end() ; ++iter)
         {
         int ch = *iter;
         if (isprint(ch))
@@ -200,18 +201,18 @@ static DOMString toStr(const std::vector<int> &arr)
 DOMString URI::toString() const
 {
     DOMString str = schemeStr;
-    if (authority.size() > 0)
+    if (!authority.empty())
         {
         str.append("//");
         str.append(toStr(authority));
         }
     str.append(toStr(path));
-    if (query.size() > 0)
+    if (!query.empty())
         {
         str.append("?");
         str.append(toStr(query));
         }
-    if (fragment.size() > 0)
+    if (!fragment.empty())
         {
         str.append("#");
         str.append(toStr(fragment));
@@ -380,11 +381,11 @@ URI URI::resolve(const URI &other) const
         return other;
 
     //## 2
-    if (other.fragment.size()  >  0 &&
-        other.path.size()      == 0 &&
-        other.scheme           == SCHEME_NONE &&
-        other.authority.size() == 0 &&
-        other.query.size()     == 0 )
+    if (!other.fragment.empty()     &&
+        other.path.empty()          &&
+        other.scheme == SCHEME_NONE &&
+        other.authority.empty()     &&
+        other.query.empty())
         {
         URI fragUri = *this;
         fragUri.fragment = other.fragment;
@@ -398,7 +399,7 @@ URI URI::resolve(const URI &other) const
     newUri.schemeStr = schemeStr;
     newUri.query     = other.query;
     newUri.fragment  = other.fragment;
-    if (other.authority.size() > 0)
+    if (!other.authority.empty())
         {
         //# 3.2
         if (absolute || other.absolute)
@@ -503,13 +504,13 @@ void URI::normalize()
         else if (sequ(s, "..") && iter != segments.begin() &&
                  !sequ(*(iter-1), ".."))
             {
-            iter--; //back up, then erase two entries
+            --iter; //back up, then erase two entries
             iter = segments.erase(iter);
             iter = segments.erase(iter);
             edited = true;
             }
         else
-            iter++;
+            ++iter;
         }
 
     //## Rebuild path, if necessary
@@ -521,7 +522,7 @@ void URI::normalize()
             path.push_back('/');
             }
         std::vector< std::vector<int> >::iterator iter;
-        for (iter=segments.begin() ; iter!=segments.end() ; iter++)
+        for (iter=segments.begin() ; iter!=segments.end() ; ++iter)
             {
             if (iter != segments.begin())
                 path.push_back('/');
@@ -920,7 +921,7 @@ bool URI::parse(const DOMString &str)
 
     DOMString::const_iterator iter;
     unsigned int i=0;
-    for (iter= str.begin() ; iter!=str.end() ; iter++)
+    for (iter= str.begin() ; iter!=str.end() ; ++iter)
         {
         int ch = *iter;
         if (ch == '\\')

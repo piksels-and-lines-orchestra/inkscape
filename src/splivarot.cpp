@@ -19,7 +19,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
-#include <glib/gmem.h>
+#include <glib.h>
 #include "xml/repr.h"
 #include "svg/svg.h"
 #include "sp-path.h"
@@ -45,7 +45,6 @@
 #include "xml/repr.h"
 #include "xml/repr-sorting.h"
 #include <2geom/pathvector.h>
-#include <libnr/nr-scale-matrix-ops.h>
 #include "helper/geom.h"
 
 #include "livarot/Path.h"
@@ -607,6 +606,9 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Affine 
 {
     SPMarker* marker = SP_MARKER (marker_object);
     SPItem* marker_item = sp_item_first_item_child(marker_object);
+    if (!marker_item) {
+        return;
+    }
 
     Geom::Affine tr(marker_transform);
 
@@ -626,32 +628,53 @@ void sp_selected_path_outline_add_marker( SPObject *marker_object, Geom::Affine 
 }
 
 static
+void item_outline_add_marker_child( SPItem const *item, Geom::Affine marker_transform, Geom::PathVector* pathv_in )
+{
+    Geom::Affine tr(marker_transform);
+    tr = item->transform * tr;
+
+    // note: a marker child item can be an item group!
+    if (SP_IS_GROUP(item)) {
+        // recurse through all childs:
+        for (SPObject const *o = item->firstChild() ; o ; o = o->getNext() ) {
+            if ( SP_IS_ITEM(o) ) {
+                item_outline_add_marker_child(SP_ITEM(o), tr, pathv_in);
+            }
+        }
+    } else {
+        Geom::PathVector* marker_pathv = item_outline(item);
+
+        if (marker_pathv) {
+            for (unsigned int j=0; j < marker_pathv->size(); j++) {
+                pathv_in->push_back((*marker_pathv)[j] * tr);
+            }
+            delete marker_pathv;
+        }
+    }
+}
+
+static
 void item_outline_add_marker( SPObject const *marker_object, Geom::Affine marker_transform,
                               Geom::Scale stroke_scale, Geom::PathVector* pathv_in )
 {
     SPMarker const * marker = SP_MARKER(marker_object);
-    SPItem const * marker_item = sp_item_first_item_child(marker_object);
 
     Geom::Affine tr(marker_transform);
     if (marker->markerUnits == SP_MARKER_UNITS_STROKEWIDTH) {
         tr = stroke_scale * tr;
     }
     // total marker transform
-    tr = marker_item->transform * marker->c2p * tr;
+    tr = marker->c2p * tr;
 
-    Geom::PathVector* marker_pathv = item_outline(marker_item);
-    
-    if (marker_pathv) {
-        for (unsigned int j=0; j < marker_pathv->size(); j++) {
-            pathv_in->push_back((*marker_pathv)[j] * tr);
-        }
-        delete marker_pathv;
+    SPItem const * marker_item = sp_item_first_item_child(marker_object); // why only consider the first item? can a marker only consist of a single item (that may be a group)?
+    if (marker_item) {
+        item_outline_add_marker_child(marker_item, tr, pathv_in);
     }
 }
 
 /**
  *  Returns a pathvector that is the outline of the stroked item, with markers.
- *  item must be SPShape of SPText.
+ *  item must be SPShape or SPText.
  */
 Geom::PathVector* item_outline(SPItem const *item)
 {
@@ -1245,7 +1268,7 @@ void
 sp_selected_path_offset(SPDesktop *desktop)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0);
+    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0, "px");
 
     sp_selected_path_do_offset(desktop, true, prefOffset);
 }
@@ -1253,7 +1276,7 @@ void
 sp_selected_path_inset(SPDesktop *desktop)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0);
+    double prefOffset = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0, "px");
 
     sp_selected_path_do_offset(desktop, false, prefOffset);
 }
@@ -1379,7 +1402,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
 
         {
             Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-            o_width = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0);
+            o_width = prefs->getDouble("/options/defaultoffsetwidth/value", 1.0, "px");
         }
 
         if (o_width < 0.01)
@@ -1468,6 +1491,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
         if ( updating ) {
 
 			//XML Tree being used directly here while it shouldn't be
+            item->doWriteTransform(item->getRepr(), transform);
             char const *id = item->getRepr()->attribute("id");
             char const *uri = g_strdup_printf("#%s", id);
             repr->setAttribute("xlink:href", uri);
@@ -1486,11 +1510,7 @@ sp_selected_path_create_offset_object(SPDesktop *desktop, int expand, bool updat
 
         SPItem *nitem = (SPItem *) sp_desktop_document(desktop)->getObjectByRepr(repr);
 
-        if ( updating ) {
-            // on conserve l'original
-            // we reapply the transform to the original (offset will feel it)
-            item->doWriteTransform(item->getRepr(), transform);
-        } else {
+        if ( !updating ) {
             // delete original, apply the transform to the offset
             item->deleteObject(false);
             nitem->doWriteTransform(repr, transform);
@@ -1788,19 +1808,10 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
                                                false);
     }
 
-
-    SPCurve *curve = NULL;
-
-    if (SP_IS_SHAPE(item)) {
-        curve = SP_SHAPE(item)->getCurve();
-        if (!curve)
-            return false;
-    }
-
-    if (SP_IS_TEXT(item)) {
-        curve = SP_TEXT(item)->getNormalizedBpath();
-        if (!curve)
-            return false;
+    // get path to simplify (note that the path *before* LPE calculation is needed)
+    Path *orig = Path_for_item_before_LPE(item, false);
+    if (orig == NULL) {
+        return false;
     }
 
     // correct virtual size by full transform (bug #166937)
@@ -1820,14 +1831,6 @@ sp_selected_path_simplify_item(SPDesktop *desktop,
     gchar *mask = g_strdup(item->getRepr()->attribute("mask"));
     gchar *clip_path = g_strdup(item->getRepr()->attribute("clip-path"));
 
-    Path *orig = Path_for_item(item, false);
-    if (orig == NULL) {
-        g_free(style);
-        curve->unref();
-        return false;
-    }
-
-    curve->unref();
     // remember the position of the item
     gint pos = item->getRepr()->position();
     // remember parent
@@ -1939,7 +1942,7 @@ sp_selected_path_simplify_items(SPDesktop *desktop,
 
     bool didSomething = false;
 
-    Geom::OptRect selectionBbox = selection->bounds();
+    Geom::OptRect selectionBbox = selection->visualBounds();
     if (!selectionBbox) {
         return false;
     }
@@ -1960,7 +1963,7 @@ sp_selected_path_simplify_items(SPDesktop *desktop,
           continue;
 
         if (simplifyIndividualPaths) {
-            Geom::OptRect itemBbox = item->getBounds(item->i2d_affine());
+            Geom::OptRect itemBbox = item->desktopVisualBounds();
             if (itemBbox) {
                 simplifySize      = L2(itemBbox->dimensions());
             } else {
@@ -2090,6 +2093,27 @@ Path_for_item(SPItem *item, bool doTransformation, bool transformFull)
     return dest;
 }
 
+/**
+ * Obtains an item's Path before the LPE stack has been applied.
+ */
+Path *
+Path_for_item_before_LPE(SPItem *item, bool doTransformation, bool transformFull)
+{
+    SPCurve *curve = curve_for_item_before_LPE(item);
+
+    if (curve == NULL)
+        return NULL;
+    
+    Geom::PathVector *pathv = pathvector_for_curve(item, curve, doTransformation, transformFull, Geom::identity(), Geom::identity());
+    curve->unref();
+    
+    Path *dest = new Path;
+    dest->LoadPathVector(*pathv);
+    delete pathv;
+
+    return dest;
+}
+
 /* 
  * NOTE: Returns empty pathvector if curve == NULL
  * TODO: see if calling this method can be optimized. All the pathvector copying might be slow.
@@ -2116,6 +2140,10 @@ pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool t
     return dest;
 }
 
+/**
+ * Obtains an item's curve. For SPPath, it is the path *before* LPE. For SPShapes other than path, it is the path *after* LPE.
+ * So the result is somewhat ill-defined, and probably this method should not be used... See curve_for_item_before_LPE.
+ */
 SPCurve* curve_for_item(SPItem *item)
 {
     if (!item) 
@@ -2136,6 +2164,31 @@ SPCurve* curve_for_item(SPItem *item)
     else if (SP_IS_IMAGE(item))
     {
     curve = sp_image_get_curve(SP_IMAGE(item));
+    }
+    
+    return curve; // do not forget to unref the curve at some point!
+}
+
+/**
+ * Obtains an item's curve *before* LPE.
+ * The returned SPCurve should be unreffed by the caller.
+ */
+SPCurve* curve_for_item_before_LPE(SPItem *item)
+{
+    if (!item) 
+        return NULL;
+    
+    SPCurve *curve = NULL;
+    if (SP_IS_SHAPE(item)) {
+        curve = SP_SHAPE(item)->getCurveBeforeLPE();
+    }
+    else if (SP_IS_TEXT(item) || SP_IS_FLOWTEXT(item))
+    {
+        curve = te_get_layout(item)->convertToCurves();
+    }
+    else if (SP_IS_IMAGE(item))
+    {
+        curve = sp_image_get_curve(SP_IMAGE(item));
     }
     
     return curve; // do not forget to unref the curve at some point!

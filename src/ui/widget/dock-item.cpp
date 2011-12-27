@@ -1,6 +1,4 @@
-/**
- * \brief A custom Inkscape wrapper around gdl_dock_item
- *
+/*
  * Author:
  *   Gustav Broberg <broberg@kth.se>
  *
@@ -262,7 +260,7 @@ DockItem::present()
 void
 DockItem::grab_focus()
 {
-    if (GTK_WIDGET_REALIZED (_gdl_dock_item)) {
+    if (gtk_widget_get_realized (_gdl_dock_item)) {
 
         // make sure the window we're in is present
         Gtk::Widget *toplevel = getWidget().get_toplevel();

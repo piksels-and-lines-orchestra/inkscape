@@ -16,9 +16,7 @@
 #endif
 
 
-#include <display/curve.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-matrix-fns.h>
+#include "display/curve.h"
 #include <2geom/rect.h>
 
 #include "inkscape.h"
@@ -175,8 +173,8 @@ sp_rect_update(SPObject *object, SPCtx *ctx, guint flags)
         SPRect *rect = (SPRect *) object;
         SPStyle *style = object->style;
         SPItemCtx const *ictx = (SPItemCtx const *) ctx;
-        double const w = (ictx->vp.x1 - ictx->vp.x0);
-        double const h = (ictx->vp.y1 - ictx->vp.y0);
+        double const w = ictx->viewport.width();
+        double const h = ictx->viewport.height();
         double const em = style->font_size.computed;
         double const ex = 0.5 * em;  // fixme: get x height from pango or libnrtype.
         rect->x.update(em, ex, w);
@@ -232,6 +230,7 @@ sp_rect_set_shape(SPShape *shape)
 
     if ((rect->height.computed < 1e-18) || (rect->width.computed < 1e-18)) {
         SP_SHAPE(rect)->setCurveInsync( NULL, TRUE);
+        SP_SHAPE(rect)->setCurveBeforeLPE( NULL );
         return;
     }
 
@@ -282,6 +281,10 @@ sp_rect_set_shape(SPShape *shape)
 
     c->closepath();
     SP_SHAPE(rect)->setCurveInsync( c, TRUE);
+    SP_SHAPE(rect)->setCurveBeforeLPE( c );
+
+    // LPE is not applied because result can generally not be represented as SPRect
+
     c->unref();
 }
 
@@ -414,7 +417,7 @@ sp_rect_set_visible_rx(SPRect *rect, gdouble rx)
         rect->rx.computed = rx / vector_stretch(
             Geom::Point(rect->x.computed + 1, rect->y.computed),
             Geom::Point(rect->x.computed, rect->y.computed),
-            SP_ITEM(rect)->transform);
+            rect->transform);
         rect->rx._set = true;
     }
     SP_OBJECT(rect)->updateRepr();
@@ -430,7 +433,7 @@ sp_rect_set_visible_ry(SPRect *rect, gdouble ry)
         rect->ry.computed = ry / vector_stretch(
             Geom::Point(rect->x.computed, rect->y.computed + 1),
             Geom::Point(rect->x.computed, rect->y.computed),
-            SP_ITEM(rect)->transform);
+            rect->transform);
         rect->ry._set = true;
     }
     SP_OBJECT(rect)->updateRepr();
@@ -444,7 +447,7 @@ sp_rect_get_visible_rx(SPRect *rect)
     return rect->rx.computed * vector_stretch(
         Geom::Point(rect->x.computed + 1, rect->y.computed),
         Geom::Point(rect->x.computed, rect->y.computed),
-        SP_ITEM(rect)->transform);
+        rect->transform);
 }
 
 gdouble
@@ -455,7 +458,7 @@ sp_rect_get_visible_ry(SPRect *rect)
     return rect->ry.computed * vector_stretch(
         Geom::Point(rect->x.computed, rect->y.computed + 1),
         Geom::Point(rect->x.computed, rect->y.computed),
-        SP_ITEM(rect)->transform);
+        rect->transform);
 }
 
 Geom::Rect
@@ -478,9 +481,9 @@ sp_rect_compensate_rxry(SPRect *rect, Geom::Affine xform)
     Geom::Point cy = c + Geom::Point(0, 1);
 
     // apply previous transform if any
-    c *= SP_ITEM(rect)->transform;
-    cx *= SP_ITEM(rect)->transform;
-    cy *= SP_ITEM(rect)->transform;
+    c *= rect->transform;
+    cx *= rect->transform;
+    cy *= rect->transform;
 
     // find out stretches that we need to compensate
     gdouble eX = vector_stretch(cx, c, xform);
@@ -510,7 +513,7 @@ sp_rect_set_visible_width(SPRect *rect, gdouble width)
     rect->width.computed = width / vector_stretch(
         Geom::Point(rect->x.computed + 1, rect->y.computed),
         Geom::Point(rect->x.computed, rect->y.computed),
-        SP_ITEM(rect)->transform);
+        rect->transform);
     rect->width._set = true;
     SP_OBJECT(rect)->updateRepr();
 }
@@ -521,7 +524,7 @@ sp_rect_set_visible_height(SPRect *rect, gdouble height)
     rect->height.computed = height / vector_stretch(
         Geom::Point(rect->x.computed, rect->y.computed + 1),
         Geom::Point(rect->x.computed, rect->y.computed),
-        SP_ITEM(rect)->transform);
+        rect->transform);
     rect->height._set = true;
     SP_OBJECT(rect)->updateRepr();
 }
@@ -534,7 +537,7 @@ sp_rect_get_visible_width(SPRect *rect)
     return rect->width.computed * vector_stretch(
         Geom::Point(rect->x.computed + 1, rect->y.computed),
         Geom::Point(rect->x.computed, rect->y.computed),
-        SP_ITEM(rect)->transform);
+        rect->transform);
 }
 
 gdouble
@@ -545,7 +548,7 @@ sp_rect_get_visible_height(SPRect *rect)
     return rect->height.computed * vector_stretch(
         Geom::Point(rect->x.computed, rect->y.computed + 1),
         Geom::Point(rect->x.computed, rect->y.computed),
-        SP_ITEM(rect)->transform);
+        rect->transform);
 }
 
 /**
@@ -563,35 +566,30 @@ static void sp_rect_snappoints(SPItem const *item, std::vector<Inkscape::SnapCan
     g_assert(item != NULL);
     g_assert(SP_IS_RECT(item));
 
-    // Help enforcing strict snapping, i.e. only return nodes when we're snapping nodes to nodes or a guide to nodes
-    if (!(snapprefs->getSnapModeNode() || snapprefs->getSnapModeGuide())) {
-        return;
-    }
-
     SPRect *rect = SP_RECT(item);
 
-    Geom::Affine const i2d (item->i2d_affine ());
+    Geom::Affine const i2dt (item->i2dt_affine ());
 
-    Geom::Point p0 = Geom::Point(rect->x.computed, rect->y.computed) * i2d;
-    Geom::Point p1 = Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2d;
-    Geom::Point p2 = Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed + rect->height.computed) * i2d;
-    Geom::Point p3 = Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed) * i2d;
+    Geom::Point p0 = Geom::Point(rect->x.computed, rect->y.computed) * i2dt;
+    Geom::Point p1 = Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2dt;
+    Geom::Point p2 = Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed + rect->height.computed) * i2dt;
+    Geom::Point p3 = Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed) * i2dt;
 
-    if (snapprefs->getSnapToItemNode()) {
-        p.push_back(Inkscape::SnapCandidatePoint(p0, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
-        p.push_back(Inkscape::SnapCandidatePoint(p1, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
-        p.push_back(Inkscape::SnapCandidatePoint(p2, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
-        p.push_back(Inkscape::SnapCandidatePoint(p3, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_RECT_CORNER)) {
+        p.push_back(Inkscape::SnapCandidatePoint(p0, Inkscape::SNAPSOURCE_RECT_CORNER, Inkscape::SNAPTARGET_RECT_CORNER));
+        p.push_back(Inkscape::SnapCandidatePoint(p1, Inkscape::SNAPSOURCE_RECT_CORNER, Inkscape::SNAPTARGET_RECT_CORNER));
+        p.push_back(Inkscape::SnapCandidatePoint(p2, Inkscape::SNAPSOURCE_RECT_CORNER, Inkscape::SNAPTARGET_RECT_CORNER));
+        p.push_back(Inkscape::SnapCandidatePoint(p3, Inkscape::SNAPSOURCE_RECT_CORNER, Inkscape::SNAPTARGET_RECT_CORNER));
     }
 
-    if (snapprefs->getSnapLineMidpoints()) { // only do this when we're snapping nodes (enforce strict snapping)
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_LINE_MIDPOINT)) {
         p.push_back(Inkscape::SnapCandidatePoint((p0 + p1)/2, Inkscape::SNAPSOURCE_LINE_MIDPOINT, Inkscape::SNAPTARGET_LINE_MIDPOINT));
         p.push_back(Inkscape::SnapCandidatePoint((p1 + p2)/2, Inkscape::SNAPSOURCE_LINE_MIDPOINT, Inkscape::SNAPTARGET_LINE_MIDPOINT));
         p.push_back(Inkscape::SnapCandidatePoint((p2 + p3)/2, Inkscape::SNAPSOURCE_LINE_MIDPOINT, Inkscape::SNAPTARGET_LINE_MIDPOINT));
         p.push_back(Inkscape::SnapCandidatePoint((p3 + p0)/2, Inkscape::SNAPSOURCE_LINE_MIDPOINT, Inkscape::SNAPTARGET_LINE_MIDPOINT));
     }
 
-    if (snapprefs->getSnapObjectMidpoints()) { // only do this when we're snapping nodes (enforce strict snapping)
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_OBJECT_MIDPOINT)) {
         p.push_back(Inkscape::SnapCandidatePoint((p0 + p2)/2, Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
     }
 
@@ -603,25 +601,25 @@ sp_rect_convert_to_guides(SPItem *item) {
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     if (!prefs->getBool("/tools/shapes/rect/convertguides", true)) {
-        SP_ITEM(rect)->convert_to_guides();
+        rect->convert_to_guides();
         return;
     }
 
     std::list<std::pair<Geom::Point, Geom::Point> > pts;
 
-    Geom::Affine const i2d (SP_ITEM(rect)->i2d_affine());
+    Geom::Affine const i2dt(rect->i2dt_affine());
 
-    Geom::Point A1(Geom::Point(rect->x.computed, rect->y.computed) * i2d);
-    Geom::Point A2(Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2d);
-    Geom::Point A3(Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed + rect->height.computed) * i2d);
-    Geom::Point A4(Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed) * i2d);
+    Geom::Point A1(Geom::Point(rect->x.computed, rect->y.computed) * i2dt);
+    Geom::Point A2(Geom::Point(rect->x.computed, rect->y.computed + rect->height.computed) * i2dt);
+    Geom::Point A3(Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed + rect->height.computed) * i2dt);
+    Geom::Point A4(Geom::Point(rect->x.computed + rect->width.computed, rect->y.computed) * i2dt);
 
     pts.push_back(std::make_pair(A1, A2));
     pts.push_back(std::make_pair(A2, A3));
     pts.push_back(std::make_pair(A3, A4));
     pts.push_back(std::make_pair(A4, A1));
 
-    sp_guide_pt_pairs_to_guides(inkscape_active_desktop(), pts);
+    sp_guide_pt_pairs_to_guides(item->document, pts);
 }
 
 /*

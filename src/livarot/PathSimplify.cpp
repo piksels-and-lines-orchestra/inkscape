@@ -6,8 +6,8 @@
  *
  */
 
-#include <glib/gmem.h>
-#include <libnr/nr-point-matrix-ops.h>
+#include <glib.h>
+#include <2geom/affine.h>
 #include "livarot/Path.h"
 #include "livarot/path-description.h"
 
@@ -127,7 +127,7 @@ double DistanceToCubic(Geom::Point const &start, PathDescrCubicTo res, Geom::Poi
     }
     
     Geom::Point seg = res.p - start;
-    nnle = NR::cross(seg, sp);
+    nnle = Geom::cross(seg, sp);
     nnle *= nnle;
     nnle /= Geom::dot(seg, seg);
     if ( nnle < nle ) {

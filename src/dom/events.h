@@ -1,7 +1,8 @@
-#ifndef __EVENTS_H__
-#define __EVENTS_H__
+#ifndef SEEN_EVENTS_H
+#define SEEN_EVENTS_H
 
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -9,7 +10,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -508,17 +510,20 @@ public:
     virtual void removeEventListener(const DOMString &type,
                                      const EventListener *listener,
                                      bool useCapture)
-        {
+    {
         std::vector<EventListenerEntry>::iterator iter;
-        for (iter = listeners.begin() ; iter != listeners.end() ; iter++)
-            {
+        for (iter = listeners.begin() ; iter != listeners.end() ; ){
             EventListenerEntry entry = *iter;
             if (entry.eventType == type &&
                 entry.listener  == listener &&
-                useCapture && entry.useCapture)
-                listeners.erase(iter);
+                useCapture && entry.useCapture){
+                iter = listeners.erase(iter);
+            }
+            else{
+                ++iter;
             }
         }
+    }
 
     /**
      * This method allows the dispatch of events into the implementation's event 
@@ -566,18 +571,21 @@ public:
                                        const DOMString &type,
                                        const EventListener *listener,
                                        bool useCapture)
-        {
+    {
         std::vector<EventListenerEntry>::iterator iter;
-        for (iter = listeners.begin() ; iter != listeners.end() ; iter++)
-            {
+        for (iter = listeners.begin() ; iter != listeners.end() ; ){
             EventListenerEntry entry = *iter;
             if (entry.namespaceURI == namespaceURI &&
                 entry.eventType    == type &&
                 entry.listener     == listener &&
-                useCapture && entry.useCapture)
-                listeners.erase(iter);
+                useCapture && entry.useCapture){
+                iter = listeners.erase(iter);
+            }
+            else {
+                ++iter;
             }
         }
+    }
 
     /**
      * This method allows the DOM application to know if an event listener, attached 
@@ -589,7 +597,7 @@ public:
                                const DOMString &type)
         {
         std::vector<EventListenerEntry>::iterator iter;
-        for (iter = listeners.begin() ; iter != listeners.end() ; iter++)
+        for (iter = listeners.begin() ; iter != listeners.end() ; ++iter)
             {
             EventListenerEntry entry = *iter;
             if (entry.namespaceURI == namespaceURI &&
@@ -611,7 +619,7 @@ public:
                                     const DOMString &type)
         {
         std::vector<EventListenerEntry>::iterator iter;
-        for (iter = listeners.begin() ; iter != listeners.end() ; iter++)
+        for (iter = listeners.begin() ; iter != listeners.end() ; ++iter)
             {
             EventListenerEntry entry = *iter;
             if (entry.namespaceURI == namespaceURI &&
@@ -1601,7 +1609,7 @@ protected:
 }  //namespace w3c
 }  //namespace org
 
-#endif   /* __EVENTS_H__ */
+#endif // SEEN_EVENTS_H
 
 /*#########################################################################
 ## E N D    O F    F I L E

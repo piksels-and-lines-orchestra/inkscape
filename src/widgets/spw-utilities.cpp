@@ -1,5 +1,3 @@
-#define __SPW_UTILITIES_C__
-
 /*
  * Inkscape Widget Utilities
  *
@@ -92,15 +90,13 @@ GtkWidget *spw_vbox_checkbutton(GtkWidget *dialog, GtkWidget *vbox,
   g_assert (dialog != NULL);
   g_assert (vbox != NULL);
 
-  GtkTooltips *tt = gtk_tooltips_new ();
-
   GtkWidget *b = gtk_check_button_new_with_label (label);
-  gtk_tooltips_set_tip(tt, b, tip, NULL);
+  gtk_widget_set_tooltip_text(b, tip);
   g_assert (b != NULL);
   gtk_widget_show (b);
   gtk_box_pack_start (GTK_BOX (vbox), b, FALSE, FALSE, 0);
-  gtk_object_set_data (GTK_OBJECT (b), "key", key);
-  gtk_object_set_data (GTK_OBJECT (dialog), key, b);
+  g_object_set_data (G_OBJECT (b), "key", key);
+  g_object_set_data (G_OBJECT (dialog), key, b);
   g_signal_connect (G_OBJECT (b), "toggled", cb, dialog);
   return b;
 }
@@ -130,8 +126,8 @@ spw_checkbutton(GtkWidget * dialog, GtkWidget * table,
   gtk_widget_show (b);
   gtk_table_attach (GTK_TABLE (table), b, 1, 2, row, row+1,
 		    (GtkAttachOptions)(GTK_EXPAND | GTK_FILL), (GtkAttachOptions)0, 0, 0);
-  gtk_object_set_data (GTK_OBJECT (b), "key", key);
-  gtk_object_set_data (GTK_OBJECT (dialog), key, b);
+  g_object_set_data (G_OBJECT (b), "key", key);
+  g_object_set_data (G_OBJECT (dialog), key, b);
   g_signal_connect (G_OBJECT (b), "toggled", cb, dialog);
   if (insensitive == 1) {
     gtk_widget_set_sensitive (b, FALSE);
@@ -158,7 +154,7 @@ spw_dropdown(GtkWidget * dialog, GtkWidget * table,
   gtk_widget_show (selector);
   gtk_table_attach (GTK_TABLE (table), selector, 1, 2, row, row+1,
 		    (GtkAttachOptions)(GTK_EXPAND | GTK_FILL), (GtkAttachOptions)0, 0, 0);
-  gtk_object_set_data (GTK_OBJECT (dialog), key, selector);
+  g_object_set_data (G_OBJECT (dialog), key, selector);
   return selector;
 }
 
@@ -183,9 +179,9 @@ spw_unit_selector(GtkWidget * dialog, GtkWidget * table,
 
   a = gtk_adjustment_new (0.0, can_be_negative?-1e6:0, 1e6, 1.0, 10.0, 10.0);
   g_assert(a != NULL);
-  gtk_object_set_data (GTK_OBJECT (a), "key", key);
-  gtk_object_set_data (GTK_OBJECT (a), "unit_selector", us);
-  gtk_object_set_data (GTK_OBJECT (dialog), key, a);
+  g_object_set_data (G_OBJECT (a), "key", key);
+  g_object_set_data (G_OBJECT (a), "unit_selector", us);
+  g_object_set_data (G_OBJECT (dialog), key, a);
   sp_unit_selector_add_adjustment (SP_UNIT_SELECTOR (us), GTK_ADJUSTMENT (a));
   sb = gtk_spin_button_new (GTK_ADJUSTMENT (a), 1.0, 4);
   g_assert(sb != NULL);
@@ -229,15 +225,14 @@ sp_set_font_size_smaller (GtkWidget *w)
 }
 
 /**
-\brief  Finds the descendant of w which has the data with the given key and returns the data, or NULL if there's none
-*/
-gpointer
-sp_search_by_data_recursive (GtkWidget *w, gpointer key)
+ * Finds the descendant of w which has the data with the given key and returns the data, or NULL if there's none.
+ */
+gpointer sp_search_by_data_recursive(GtkWidget *w, gpointer key)
 {
 	gpointer r = NULL;
 
 	if (w && GTK_IS_OBJECT(w)) {
-		r = gtk_object_get_data (GTK_OBJECT(w), (gchar *) key);
+		r = g_object_get_data(G_OBJECT(w), (gchar *) key);
 	}
 	if (r) return r;
 
@@ -253,16 +248,15 @@ sp_search_by_data_recursive (GtkWidget *w, gpointer key)
 }
 
 /**
-\brief  Returns the descendant of w which has the given key and value pair, or NULL if there's none
-*/
-GtkWidget *
-sp_search_by_value_recursive (GtkWidget *w, gchar *key, gchar *value)
+ * Returns the descendant of w which has the given key and value pair, or NULL if there's none.
+ */
+GtkWidget *sp_search_by_value_recursive(GtkWidget *w, gchar *key, gchar *value)
 {
 	gchar *r = NULL;
 	GtkWidget *child;
 
 	if (w && GTK_IS_OBJECT(w)) {
-		r = (gchar *) gtk_object_get_data (GTK_OBJECT(w), key);
+		r = (gchar *) g_object_get_data(G_OBJECT(w), key);
 	}
 	if (r && !strcmp (r, value)) return w;
 

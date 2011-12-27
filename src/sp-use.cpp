@@ -20,11 +20,9 @@
 #include <cstring>
 #include <string>
 
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-matrix-fns.h>
 #include <2geom/transforms.h>
 #include <glibmm/i18n.h>
-#include "display/nr-arena-group.h"
+#include "display/drawing-group.h"
 #include "attributes.h"
 #include "document.h"
 #include "sp-object-repr.h"
@@ -51,11 +49,11 @@ static Inkscape::XML::Node *sp_use_write(SPObject *object, Inkscape::XML::Docume
 static void sp_use_update(SPObject *object, SPCtx *ctx, guint flags);
 static void sp_use_modified(SPObject *object, guint flags);
 
-static void sp_use_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+static Geom::OptRect sp_use_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 static void sp_use_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 static void sp_use_print(SPItem *item, SPPrintContext *ctx);
 static gchar *sp_use_description(SPItem *item);
-static NRArenaItem *sp_use_show(SPItem *item, NRArena *arena, unsigned key, unsigned flags);
+static Inkscape::DrawingItem *sp_use_show(SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags);
 static void sp_use_hide(SPItem *item, unsigned key);
 
 static void sp_use_href_changed(SPObject *old_ref, SPObject *ref, SPUse *use);
@@ -278,10 +276,11 @@ sp_use_write(SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::
     return repr;
 }
 
-static void
-sp_use_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags)
+static Geom::OptRect
+sp_use_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type)
 {
     SPUse const *use = SP_USE(item);
+    Geom::OptRect bbox;
 
     if (use->child && SP_IS_ITEM(use->child)) {
         SPItem *child = SP_ITEM(use->child);
@@ -289,15 +288,9 @@ sp_use_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, uns
                              * Geom::Translate(use->x.computed,
                                                use->y.computed)
                              * transform );
-        Geom::OptRect optbbox;
-        child->invoke_bbox_full( optbbox, ct, flags, FALSE);
-        if (optbbox) {
-            bbox->x0 = (*optbbox)[0][0];
-            bbox->y0 = (*optbbox)[1][0];
-            bbox->x1 = (*optbbox)[0][1];
-            bbox->y1 = (*optbbox)[1][1];
-        }
+        bbox = child->bounds(type, ct);
     }
+    return bbox;
 }
 
 static void
@@ -348,23 +341,23 @@ sp_use_description(SPItem *item)
     }
 }
 
-static NRArenaItem *
-sp_use_show(SPItem *item, NRArena *arena, unsigned key, unsigned flags)
+static Inkscape::DrawingItem *
+sp_use_show(SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags)
 {
     SPUse *use = SP_USE(item);
 
-    NRArenaItem *ai = NRArenaGroup::create(arena);
-    nr_arena_group_set_transparent(NR_ARENA_GROUP(ai), FALSE);
-    nr_arena_group_set_style(NR_ARENA_GROUP(ai), item->style);
+    Inkscape::DrawingGroup *ai = new Inkscape::DrawingGroup(drawing);
+    ai->setPickChildren(false);
+    ai->setStyle(item->style);
 
     if (use->child) {
-        NRArenaItem *ac = SP_ITEM(use->child)->invoke_show(arena, key, flags);
+        Inkscape::DrawingItem *ac = SP_ITEM(use->child)->invoke_show(drawing, key, flags);
         if (ac) {
-            nr_arena_item_add_child(ai, ac, NULL);
+            ai->prependChild(ac);
         }
         Geom::Translate t(use->x.computed,
                         use->y.computed);
-        nr_arena_group_set_child_transform(NR_ARENA_GROUP(ai), Geom::Affine(t));
+        ai->setChildTransform(t);
     }
 
     return ai;
@@ -542,10 +535,10 @@ sp_use_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPUse *use)
                 (use->child)->invoke_build(use->document, childrepr, TRUE);
 
                 for (SPItemView *v = item->display; v != NULL; v = v->next) {
-                    NRArenaItem *ai;
-                    ai = SP_ITEM(use->child)->invoke_show(NR_ARENA_ITEM_ARENA(v->arenaitem), v->key, v->flags);
+                    Inkscape::DrawingItem *ai;
+                    ai = SP_ITEM(use->child)->invoke_show(v->arenaitem->drawing(), v->key, v->flags);
                     if (ai) {
-                        nr_arena_item_add_child(v->arenaitem, ai, NULL);
+                        v->arenaitem->prependChild(ai);
                     }
                 }
 
@@ -594,27 +587,25 @@ sp_use_update(SPObject *object, SPCtx *ctx, unsigned flags)
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
       for (SPItemView *v = SP_ITEM(object)->display; v != NULL; v = v->next) {
-        nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
+        Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
+        g->setStyle(object->style);
       }
     }
 
     /* Set up child viewport */
     if (use->x.unit == SVGLength::PERCENT) {
-        use->x.computed = use->x.value * (ictx->vp.x1 - ictx->vp.x0);
+        use->x.computed = use->x.value * ictx->viewport.width();
     }
     if (use->y.unit == SVGLength::PERCENT) {
-        use->y.computed = use->y.value * (ictx->vp.y1 - ictx->vp.y0);
+        use->y.computed = use->y.value * ictx->viewport.height();
     }
     if (use->width.unit == SVGLength::PERCENT) {
-        use->width.computed = use->width.value * (ictx->vp.x1 - ictx->vp.x0);
+        use->width.computed = use->width.value * ictx->viewport.width();
     }
     if (use->height.unit == SVGLength::PERCENT) {
-        use->height.computed = use->height.value * (ictx->vp.y1 - ictx->vp.y0);
+        use->height.computed = use->height.value * ictx->viewport.height();
     }
-    cctx.vp.x0 = 0.0;
-    cctx.vp.y0 = 0.0;
-    cctx.vp.x1 = use->width.computed;
-    cctx.vp.y1 = use->height.computed;
+    cctx.viewport = Geom::Rect::from_xywh(0, 0, use->width.computed, use->height.computed);
     cctx.i2vp = Geom::identity();
     flags&=~SP_OBJECT_USER_MODIFIED_FLAG_B;
 
@@ -635,8 +626,9 @@ sp_use_update(SPObject *object, SPCtx *ctx, unsigned flags)
 
     /* As last step set additional transform of arena group */
     for (SPItemView *v = item->display; v != NULL; v = v->next) {
+        Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
         Geom::Affine t(Geom::Translate(use->x.computed, use->y.computed));
-        nr_arena_group_set_child_transform(NR_ARENA_GROUP(v->arenaitem), t);
+        g->setChildTransform(t);
     }
 }
 
@@ -652,7 +644,8 @@ sp_use_modified(SPObject *object, guint flags)
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
       for (SPItemView *v = SP_ITEM(object)->display; v != NULL; v = v->next) {
-        nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
+        Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
+        g->setStyle(object->style);
       }
     }
 

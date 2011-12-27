@@ -1,5 +1,5 @@
-#ifndef __SP_UNIT_MENU_H__
-#define __SP_UNIT_MENU_H__
+#ifndef SP_UNIT_MENU_H
+#define SP_UNIT_MENU_H
 
 /*
  * SPUnitMenu
@@ -10,19 +10,20 @@
  *
  */
 
-#include <glib/gtypes.h>
-#include <gtk/gtkoptionmenu.h>
+#include <glib.h>
+#include <gtk/gtk.h>
 
-#include <helper/helper-forward.h>
-
+struct SPUnit;
+struct SPUnitSelector;
+struct SPUnitSelectorClass;
 
 /* Unit selector Widget */
 
 #define SP_TYPE_UNIT_SELECTOR (sp_unit_selector_get_type())
-#define SP_UNIT_SELECTOR(o) (GTK_CHECK_CAST((o), SP_TYPE_UNIT_SELECTOR, SPUnitSelector))
-#define SP_UNIT_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_CAST((k), SP_TYPE_UNIT_SELECTOR, SPUnitSelectorClass))
-#define SP_IS_UNIT_SELECTOR(o) (GTK_CHECK_TYPE((o), SP_TYPE_UNIT_SELECTOR))
-#define SP_IS_UNIT_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_TYPE((k), SP_TYPE_UNIT_SELECTOR))
+#define SP_UNIT_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_CAST((o), SP_TYPE_UNIT_SELECTOR, SPUnitSelector))
+#define SP_UNIT_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_CAST((k), SP_TYPE_UNIT_SELECTOR, SPUnitSelectorClass))
+#define SP_IS_UNIT_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_TYPE((o), SP_TYPE_UNIT_SELECTOR))
+#define SP_IS_UNIT_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE((k), SP_TYPE_UNIT_SELECTOR))
 
 GType sp_unit_selector_get_type(void);
 
@@ -45,7 +46,7 @@ void sp_unit_selector_set_value_in_pixels(SPUnitSelector *selector, GtkAdjustmen
 
 
 
-#endif
+#endif // SP_UNIT_MENU_H
 
 /*
   Local Variables:

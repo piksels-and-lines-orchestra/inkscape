@@ -18,7 +18,7 @@
 # include "config.h"
 #endif
 #include <color.h>
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 
 
 static void sp_ctrlpoint_class_init (SPCtrlPointClass *klass);
@@ -56,7 +56,7 @@ sp_ctrlpoint_class_init (SPCtrlPointClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     SPCanvasItemClass *item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass*)gtk_type_class (SP_TYPE_CANVAS_ITEM);
+    parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_ctrlpoint_destroy;
 
@@ -105,7 +105,7 @@ sp_ctrlpoint_render (SPCanvasItem *item, SPCanvasBuf *buf)
 
     Geom::Point pt = cp->pt * cp->affine;
 
-    cairo_arc(buf->ct, pt[Geom::X] - buf->rect.x0, pt[Geom::Y] - buf->rect.y0, cp->radius, 0.0, 2 * M_PI);
+    cairo_arc(buf->ct, pt[Geom::X] - buf->rect.left(), pt[Geom::Y] - buf->rect.top(), cp->radius, 0.0, 2 * M_PI);
     cairo_stroke(buf->ct);
 }
 

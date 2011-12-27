@@ -31,6 +31,7 @@ struct SPCanvasGroup;
 /* Represents the constraint on p that dot(g.direction, p) == g.position. */
 class SPGuide : public SPObject {
 public:
+    char* label;
     Geom::Point normal_to_line;
     Geom::Point point_on_line;
 
@@ -42,7 +43,7 @@ public:
     inline bool isHorizontal() const { return (normal_to_line[Geom::X] == 0.); };
     inline bool isVertical() const { return (normal_to_line[Geom::Y] == 0.); };
     inline double angle() const { return std::atan2( - normal_to_line[Geom::X], normal_to_line[Geom::Y] ); };
-    static SPGuide *createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &pt2);
+    static SPGuide *createSPGuide(SPDocument *doc, Geom::Point const &pt1, Geom::Point const &pt2);
     void showSPGuide(SPCanvasGroup *group, GCallback handler);
     void hideSPGuide(SPCanvas *canvas);
     void sensitize(SPCanvas *canvas, gboolean sensitive);
@@ -57,11 +58,14 @@ public:
 
 GType sp_guide_get_type();
 
-void sp_guide_pt_pairs_to_guides(SPDesktop *dt, std::list<std::pair<Geom::Point, Geom::Point> > &pts);
+void sp_guide_pt_pairs_to_guides(SPDocument *doc, std::list<std::pair<Geom::Point, Geom::Point> > &pts);
 void sp_guide_create_guides_around_page(SPDesktop *dt);
+void sp_guide_delete_all_guides(SPDesktop *dt);
 
 void sp_guide_moveto(SPGuide &guide, Geom::Point const point_on_line, bool const commit);
 void sp_guide_set_normal(SPGuide &guide, Geom::Point const normal_to_line, bool const commit);
+void sp_guide_set_label(SPGuide &guide, const char* label, bool const commit);
+void sp_guide_set_color(SPGuide &guide, const unsigned char r, const unsigned char g, const unsigned char b, bool const commit);
 void sp_guide_remove(SPGuide *guide);
 
 char *sp_guide_description(SPGuide const *guide, const bool verbose = true);

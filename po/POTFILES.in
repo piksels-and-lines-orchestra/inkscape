@@ -27,6 +27,7 @@ share/extensions/svg_and_media_zip_output.py
 share/extensions/uniconv_output.py
 share/extensions/web-set-att.py
 share/extensions/web-transmit-att.py
+share/extensions/webslicer_export.py
 share/filters/i18n.py
 share/filters/filters.svg.h
 share/palettes/palettes.h
@@ -76,6 +77,7 @@ src/extension/internal/bitmap/channel.cpp
 src/extension/internal/bitmap/charcoal.cpp
 src/extension/internal/bitmap/colorize.cpp
 src/extension/internal/bitmap/contrast.cpp
+src/extension/internal/bitmap/crop.cpp
 src/extension/internal/bitmap/cycleColormap.cpp
 src/extension/internal/bitmap/despeckle.cpp
 src/extension/internal/bitmap/edge.cpp
@@ -108,14 +110,21 @@ src/extension/internal/cairo-ps-out.cpp
 src/extension/internal/cairo-renderer-pdf-out.cpp
 src/extension/internal/clear-n_.h
 src/extension/internal/emf-win32-inout.cpp
-src/extension/internal/filter/abc.h
+src/extension/internal/filter/bevels.h
+src/extension/internal/filter/blurs.h
+src/extension/internal/filter/bumps.h
 src/extension/internal/filter/color.h
-src/extension/internal/filter/drop-shadow.h
-src/extension/internal/filter/experimental.h
+src/extension/internal/filter/distort.h
 src/extension/internal/filter/filter-file.cpp
 src/extension/internal/filter/filter.cpp
+src/extension/internal/filter/image.h
 src/extension/internal/filter/morphology.h
-src/extension/internal/filter/snow.h
+src/extension/internal/filter/overlays.h
+src/extension/internal/filter/paint.h
+src/extension/internal/filter/protrusions.h
+src/extension/internal/filter/shadows.h
+src/extension/internal/filter/textures.h
+src/extension/internal/filter/transparency.h
 src/extension/internal/gdkpixbuf-input.cpp
 src/extension/internal/gimpgrad.cpp
 src/extension/internal/grid.cpp
@@ -127,7 +136,6 @@ src/extension/internal/pdfinput/pdf-input.cpp
 src/extension/internal/pov-out.cpp
 src/extension/internal/svg.cpp
 src/extension/internal/svgz.cpp
-src/extension/internal/win32.cpp
 src/extension/internal/wpg-input.cpp
 src/extension/param/bool.cpp
 src/extension/param/description.cpp
@@ -323,6 +331,7 @@ share/extensions/export_gimp_palette.py
 share/extensions/extractimage.py
 share/extensions/guides_creator.py
 share/extensions/inkex.py
+share/extensions/interp_att_g.py
 share/extensions/markers_strokepaint.py
 share/extensions/pathalongpath.py
 share/extensions/pathmodifier.py
@@ -332,6 +341,7 @@ share/extensions/polyhedron_3d.py
 share/extensions/summersnight.py
 share/extensions/svg_and_media_zip_output.py
 share/extensions/uniconv_output.py
+share/extensions/voronoi2svg.py
 share/extensions/web-set-att.py
 share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/addnodes.inx
@@ -382,18 +392,21 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/fractalize.inx
 [type: gettext/xml] share/extensions/funcplot.inx
 [type: gettext/xml] share/extensions/gears.inx
-[type: gettext/xml] share/extensions/gcodetools_all_in_one.inx
+[type: gettext/xml] share/extensions/gcodetools_about.inx
 [type: gettext/xml] share/extensions/gcodetools_area.inx
 [type: gettext/xml] share/extensions/gcodetools_check_for_updates.inx
 [type: gettext/xml] share/extensions/gcodetools_dxf_points.inx
 [type: gettext/xml] share/extensions/gcodetools_engraving.inx
+[type: gettext/xml] share/extensions/gcodetools_graffiti.inx
 [type: gettext/xml] share/extensions/gcodetools_lathe.inx
 [type: gettext/xml] share/extensions/gcodetools_orientation_points.inx
 [type: gettext/xml] share/extensions/gcodetools_path_to_gcode.inx
+[type: gettext/xml] share/extensions/gcodetools_prepare_path_for_plasma.inx
 [type: gettext/xml] share/extensions/gcodetools_tools_library.inx
 [type: gettext/xml] share/extensions/generate_voronoi.inx
 [type: gettext/xml] share/extensions/gimp_xcf.inx
 [type: gettext/xml] share/extensions/grid_cartesian.inx
+[type: gettext/xml] share/extensions/grid_isometric.inx
 [type: gettext/xml] share/extensions/grid_polar.inx
 [type: gettext/xml] share/extensions/guides_creator.inx
 [type: gettext/xml] share/extensions/guillotine.inx
@@ -421,11 +434,15 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/jessyInk_uninstall.inx
 [type: gettext/xml] share/extensions/jessyInk_video.inx
 [type: gettext/xml] share/extensions/jessyInk_view.inx
+[type: gettext/xml] share/extensions/layers2svgfont.inx
+[type: gettext/xml] share/extensions/layout_nup.inx
 [type: gettext/xml] share/extensions/lindenmayer.inx
 [type: gettext/xml] share/extensions/lorem_ipsum.inx
 [type: gettext/xml] share/extensions/markers_strokepaint.inx
 [type: gettext/xml] share/extensions/measure.inx
 [type: gettext/xml] share/extensions/motion.inx
+[type: gettext/xml] share/extensions/new_glyph_layer.inx
+[type: gettext/xml] share/extensions/next_glyph_layer.inx
 [type: gettext/xml] share/extensions/outline2svg.inx
 [type: gettext/xml] share/extensions/param_curves.inx
 [type: gettext/xml] share/extensions/pathalongpath.inx
@@ -436,6 +453,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/plt_input.inx
 [type: gettext/xml] share/extensions/plt_output.inx
 [type: gettext/xml] share/extensions/polyhedron_3d.inx
+[type: gettext/xml] share/extensions/previous_glyph_layer.inx
 [type: gettext/xml] share/extensions/printing-marks.inx
 [type: gettext/xml] share/extensions/ps_input.inx
 [type: gettext/xml] share/extensions/radiusrand.inx
@@ -448,6 +466,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/rtree.inx
 [type: gettext/xml] share/extensions/rubberstretch.inx
 [type: gettext/xml] share/extensions/scour.inx
+[type: gettext/xml] share/extensions/setup_typography_canvas.inx
 [type: gettext/xml] share/extensions/sk1_input.inx
 [type: gettext/xml] share/extensions/sk1_output.inx
 [type: gettext/xml] share/extensions/sk_input.inx
@@ -459,7 +478,9 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/svg2xaml.inx
 [type: gettext/xml] share/extensions/svg_and_media_zip_output.inx
 [type: gettext/xml] share/extensions/svgcalendar.inx
+[type: gettext/xml] share/extensions/svgfont2layers.inx
 [type: gettext/xml] share/extensions/text_braille.inx
+[type: gettext/xml] share/extensions/text_extract.inx
 [type: gettext/xml] share/extensions/text_flipcase.inx
 [type: gettext/xml] share/extensions/text_lowercase.inx
 [type: gettext/xml] share/extensions/text_randomcase.inx
@@ -469,6 +490,7 @@ share/extensions/web-transmit-att.py
 [type: gettext/xml] share/extensions/text_uppercase.inx
 [type: gettext/xml] share/extensions/triangle.inx
 [type: gettext/xml] share/extensions/txt2svg.inx
+[type: gettext/xml] share/extensions/voronoi2svg.inx
 [type: gettext/xml] share/extensions/webslicer_create_group.inx
 [type: gettext/xml] share/extensions/webslicer_create_rect.inx
 [type: gettext/xml] share/extensions/webslicer_export.inx

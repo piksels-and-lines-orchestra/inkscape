@@ -13,15 +13,14 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <glib/gtypes.h>
+#include <glib.h>
 #include <utility>   // std::pair
 #include "libnrtype/Layout-TNG.h"
-#include <libnr/nr-forward.h>
 #include "text-tag-attributes.h"
 
-class SPCSSAttr;
-struct SPItem;
-struct SPObject;
+class  SPCSSAttr;
+class  SPItem;
+class  SPObject;
 struct SPStyle;
 
 typedef std::pair<Inkscape::Text::Layout::iterator, Inkscape::Text::Layout::iterator> iterator_pair; 

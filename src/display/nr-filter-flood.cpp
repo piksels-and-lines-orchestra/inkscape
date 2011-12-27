@@ -3,8 +3,9 @@
  *
  * Authors:
  *   Felipe Corrêa da Silva Sanches <juca@members.fsf.org>
+ *   Tavmjong Bah <tavmjong@free.fr> (use primitive filter region)
  *
- * Copyright (C) 2007 authors
+ * Copyright (C) 2007, 2011 authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -13,10 +14,12 @@
 # include "config.h"
 #endif
 
+#include "display/cairo-utils.h"
 #include "display/nr-filter-flood.h"
-#include "display/nr-filter-utils.h"
+#include "display/nr-filter-slot.h"
 #include "svg/svg-icc-color.h"
 #include "svg/svg-color.h"
+#include "color.h"
 
 namespace Inkscape {
 namespace Filters {
@@ -31,48 +34,40 @@ FilterPrimitive * FilterFlood::create() {
 FilterFlood::~FilterFlood()
 {}
 
-int FilterFlood::render(FilterSlot &slot, FilterUnits const &/*units*/) {
-//g_message("rendering feflood");
-    NRPixBlock *in = slot.get(_input);
-    if (!in) {
-        g_warning("Missing source image for feFlood (in=%d)", _input);
-        return 1;
+void FilterFlood::render_cairo(FilterSlot &slot)
+{
+    cairo_surface_t *input = slot.getcairo(_input);
+
+    double r = SP_RGBA32_R_F(color);
+    double g = SP_RGBA32_G_F(color);
+    double b = SP_RGBA32_B_F(color);
+    double a = opacity;
+
+    #if ENABLE_LCMS
+    if (icc) {
+        guchar ru, gu, bu;
+        icc_color_to_sRGB(icc, &ru, &gu, &bu);
+        r = SP_COLOR_U_TO_F(ru);
+        g = SP_COLOR_U_TO_F(gu);
+        b = SP_COLOR_U_TO_F(bu);
     }
+    #endif
 
-    int i;
-    int in_w = in->area.x1 - in->area.x0;
-    int in_h = in->area.y1 - in->area.y0;
- 
-    NRPixBlock *out = new NRPixBlock;
+    cairo_surface_t *out = ink_cairo_surface_create_same_size(input, CAIRO_CONTENT_COLOR_ALPHA);
+    cairo_t *ct = cairo_create(out);
+    cairo_set_source_rgba(ct, r, g, b, a);
+    cairo_set_operator(ct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(ct);
+    cairo_destroy(ct);
 
-    nr_pixblock_setup_fast(out, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                           in->area.x0, in->area.y0, in->area.x1, in->area.y1,
-                           true);
-
-    unsigned char *out_data = NR_PIXBLOCK_PX(out);
-    unsigned char r,g,b,a;
-
-
-        r = CLAMP_D_TO_U8((color >> 24) % 256);
-        g = CLAMP_D_TO_U8((color >> 16) % 256);
-        b = CLAMP_D_TO_U8((color >>  8) % 256);
-        a = CLAMP_D_TO_U8(opacity*255);
-
-#if ENABLE_LCMS
-        icc_color_to_sRGB(icc, &r, &g, &b);
-//g_message("result: r:%d g:%d b:%d", r, g, b);
-#endif //ENABLE_LCMS
-
-    for(i=0; i < 4*in_h*in_w; i+=4){
-            out_data[i]=r;
-            out_data[i+1]=g;
-            out_data[i+2]=b;
-            out_data[i+3]=a;
-    }
-
-    out->empty = FALSE;
     slot.set(_output, out);
-    return 0;
+    cairo_surface_destroy(out);
+}
+
+bool FilterFlood::can_handle_affine(Geom::Affine const &)
+{
+    // flood is a per-pixel primitive and is immutable under transformations
+    return true;
 }
 
 void FilterFlood::set_color(guint32 c) {
@@ -86,9 +81,11 @@ void FilterFlood::set_opacity(double o) {
 void FilterFlood::set_icc(SVGICCColor *icc_color) {
     icc = icc_color;
 }
-
-void FilterFlood::area_enlarge(NRRectL &/*area*/, Geom::Affine const &/*trans*/)
+double FilterFlood::complexity(Geom::Affine const &)
 {
+    // flood is actually less expensive than normal rendering,
+    // but when flood is processed, the object has already been rendered
+    return 1.0;
 }
 
 } /* namespace Filters */

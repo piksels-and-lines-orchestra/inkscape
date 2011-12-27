@@ -1,5 +1,5 @@
-#ifndef __INKSCAPE_PRIVATE_H__
-#define __INKSCAPE_PRIVATE_H__
+#ifndef SEEN_INKSCAPE_PRIVATE_H
+#define SEEN_INKSCAPE_PRIVATE_H
 
 /*
  * Some forward declarations
@@ -12,16 +12,17 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
+#include <glib-object.h>
 
 #define SP_TYPE_INKSCAPE (inkscape_get_type ())
-#define SP_INKSCAPE(obj) (GTK_CHECK_CAST ((obj), SP_TYPE_INKSCAPE, Inkscape))
-#define SP_INKSCAPE_CLASS(klass) (GTK_CHECK_CLASS_CAST ((klass), SP_TYPE_INKSCAPE, InkscapeClass))
-#define SP_IS_INKSCAPE(obj) (GTK_CHECK_TYPE ((obj), SP_TYPE_INKSCAPE))
-#define SP_IS_INKSCAPE_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), SP_TYPE_INKSCAPE))
+#define SP_INKSCAPE(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_INKSCAPE, Inkscape))
+#define SP_INKSCAPE_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), SP_TYPE_INKSCAPE, InkscapeClass))
+#define SP_IS_INKSCAPE(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_INKSCAPE))
+#define SP_IS_INKSCAPE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), SP_TYPE_INKSCAPE))
 
-#include "forward.h"
 #include "inkscape.h"
 
+class SPColor;
 namespace Inkscape { class Selection; }
 
 GType inkscape_get_type (void);
@@ -52,7 +53,7 @@ bool inkscape_remove_document (SPDocument *document);
 
 void inkscape_set_color (SPColor *color, float opacity);
 
-#endif
+#endif // SEEN_INKSCAPE_PRIVATE_H
 
 
 

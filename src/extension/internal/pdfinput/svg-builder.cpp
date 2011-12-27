@@ -1,4 +1,4 @@
- /** \file
+ /*
  * Native PDF import using libpoppler.
  * 
  * Authors:
@@ -37,7 +37,6 @@
 #include "io/stringstream.h"
 #include "io/base64stream.h"
 #include "display/nr-filter-utils.h"
-#include "libnr/nr-macros.h"
 #include "libnrtype/font-instance.h"
 
 #include "Function.h"
@@ -57,6 +56,7 @@ namespace Internal {
 
 #define TRACE(_args) IFTRACE(g_print _args)
 
+static double ttm[6] = {1, 0, 0, 1, 0, 0};	// temporary transform matrix
 
 /**
  * \struct SvgTransparencyGroup
@@ -110,19 +110,23 @@ SvgBuilder::~SvgBuilder() {
 }
 
 void SvgBuilder::_init() {
-    _in_text_object = false;
-    _need_font_update = true;
-    _invalidated_style = true;
     _font_style = NULL;
     _current_font = NULL;
+    _font_specification = NULL;
+    _font_scaling = 1;
+    _need_font_update = true;
+    _in_text_object = false;
+    _invalidated_style = true;
     _current_state = NULL;
+    _width = 0;
+    _height = 0;
 
     // Fill _availableFontNames (Bug LP #179589) (code cfr. FontLister)
     FamilyToStylesMap familyStyleMap;
     font_factory::Default()->GetUIFamiliesAndStyles(&familyStyleMap);
     for (FamilyToStylesMap::iterator iter = familyStyleMap.begin();
          iter != familyStyleMap.end();
-         iter++) {
+         ++iter) {
         _availableFontNames.push_back(iter->first.c_str());
     }
 
@@ -531,7 +535,7 @@ void SvgBuilder::setClipPath(GfxState *state, bool even_odd) {
     clip_path->appendChild(path);
     Inkscape::GC::release(path);
     // Append clipPath to defs and get id
-    SP_DOCUMENT_DEFS(_doc)->getRepr()->appendChild(clip_path);
+    _doc->getDefs()->getRepr()->appendChild(clip_path);
     gchar *urltext = g_strdup_printf ("url(#%s)", clip_path->attribute("id"));
     Inkscape::GC::release(clip_path);
     _container->setAttribute("clip-path", urltext);
@@ -562,6 +566,19 @@ bool SvgBuilder::getTransform(double *transform) {
  */
 void SvgBuilder::setTransform(double c0, double c1, double c2, double c3,
                               double c4, double c5) {
+    // do not remember the group which is a layer
+    if (_container->attribute("inkscape:groupmode") != NULL) {
+        ttm[0] = ttm[3] = 1.0;
+        ttm[1] = ttm[2] = ttm[4] = ttm[5] = 0.0;
+    }
+    else {
+        ttm[0] = c0;
+        ttm[1] = c1;
+        ttm[2] = c2;
+        ttm[3] = c3;
+        ttm[4] = c4;
+        ttm[5] = c5;
+    }
 
     // Avoid transforming a group with an already set clip-path
     if ( _container->attribute("clip-path") != NULL ) {
@@ -609,8 +626,31 @@ gchar *SvgBuilder::_createPattern(GfxPattern *pattern, GfxState *state, bool is_
     if ( pattern != NULL ) {
         if ( pattern->getType() == 2 ) {  // Shading pattern
             GfxShadingPattern *shading_pattern = (GfxShadingPattern*)pattern;
+            double *ptm;
+            double ittm[6];	// invert ttm
+            double m[6] = {1, 0, 0, 1, 0, 0};
+            double det;
+
+            // construct a (pattern space) -> (current space) transform matrix
+
+            ptm = shading_pattern->getMatrix();
+            det = ttm[0] * ttm[3] - ttm[1] * ttm[2];
+            if (det) {
+                ittm[0] =  ttm[3] / det;
+                ittm[1] = -ttm[1] / det;
+                ittm[2] = -ttm[2] / det;
+                ittm[3] =  ttm[0] / det;
+                ittm[4] = (ttm[2] * ttm[5] - ttm[3] * ttm[4]) / det;
+                ittm[5] = (ttm[1] * ttm[4] - ttm[0] * ttm[5]) / det;
+                m[0] = ptm[0] * ittm[0] + ptm[1] * ittm[2];
+                m[1] = ptm[0] * ittm[1] + ptm[1] * ittm[3];
+                m[2] = ptm[2] * ittm[0] + ptm[3] * ittm[2];
+                m[3] = ptm[2] * ittm[1] + ptm[3] * ittm[3];
+                m[4] = ptm[4] * ittm[0] + ptm[5] * ittm[2] + ittm[4];
+                m[5] = ptm[4] * ittm[1] + ptm[5] * ittm[3] + ittm[5];
+            }
             id = _createGradient(shading_pattern->getShading(),
-                                 shading_pattern->getMatrix(),
+                                 m,
                                  !is_stroke);
         } else if ( pattern->getType() == 1 ) {   // Tiling pattern
             id = _createTilingPattern((GfxTilingPattern*)pattern, state, is_stroke);
@@ -678,7 +718,7 @@ gchar *SvgBuilder::_createTilingPattern(GfxTilingPattern *tiling_pattern,
     delete pattern_builder;
 
     // Append the pattern to defs
-    SP_DOCUMENT_DEFS(_doc)->getRepr()->appendChild(pattern_node);
+    _doc->getDefs()->getRepr()->appendChild(pattern_node);
     gchar *id = g_strdup(pattern_node->attribute("id"));
     Inkscape::GC::release(pattern_node);
 
@@ -752,7 +792,7 @@ gchar *SvgBuilder::_createGradient(GfxShading *shading, double *matrix, bool for
         return NULL;
     }
 
-    Inkscape::XML::Node *defs = SP_DOCUMENT_DEFS(_doc)->getRepr();
+    Inkscape::XML::Node *defs = _doc->getDefs()->getRepr();
     defs->appendChild(gradient);
     gchar *id = g_strdup(gradient->attribute("id"));
     Inkscape::GC::release(gradient);
@@ -1298,7 +1338,7 @@ void SvgBuilder::_flushText() {
 	}
 
         glyphs_in_a_row++;
-        i++;
+        ++i;
     }
     _container->appendChild(text_node);
     Inkscape::GC::release(text_node);
@@ -1306,7 +1346,7 @@ void SvgBuilder::_flushText() {
     _glyphs.clear();
 }
 
-void SvgBuilder::beginString(GfxState *state, GooString *s) {
+void SvgBuilder::beginString(GfxState *state, GooString * /*s*/) {
     if (_need_font_update) {
         updateFont(state);
     }
@@ -1324,12 +1364,12 @@ void SvgBuilder::beginString(GfxState *state, GooString *s) {
 void SvgBuilder::addChar(GfxState *state, double x, double y,
                          double dx, double dy,
                          double originX, double originY,
-                         CharCode code, int nBytes, Unicode *u, int uLen) {
+                         CharCode /*code*/, int /*nBytes*/, Unicode *u, int uLen) {
 
 
     bool is_space = ( uLen == 1 && u[0] == 32 );
     // Skip beginning space
-    if ( is_space && _glyphs.size() < 1 ) {
+    if ( is_space && _glyphs.empty()) {
         Geom::Point delta(dx, dy);
          _text_position += delta;
          return;
@@ -1369,7 +1409,7 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     }
 
     // Copy current style if it has changed since the previous glyph
-    if (_invalidated_style || _glyphs.size() == 0 ) {
+    if (_invalidated_style || _glyphs.empty()) {
         new_glyph.style_changed = true;
         int render_mode = state->getRender();
         // Set style
@@ -1392,7 +1432,7 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     _glyphs.push_back(new_glyph);
 }
 
-void SvgBuilder::endString(GfxState *state) {
+void SvgBuilder::endString(GfxState * /*state*/) {
 }
 
 void SvgBuilder::beginTextObject(GfxState *state) {
@@ -1401,7 +1441,7 @@ void SvgBuilder::beginTextObject(GfxState *state) {
     _current_state = state;
 }
 
-void SvgBuilder::endTextObject(GfxState *state) {
+void SvgBuilder::endTextObject(GfxState * /*state*/) {
     _flushText();
     // TODO: clip if render_mode >= 4
     _in_text_object = false;
@@ -1445,7 +1485,7 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         return NULL;
     }
     // Set error handler
-    if (setjmp(png_ptr->jmpbuf)) {
+    if (setjmp(png_jmpbuf(png_ptr))) {
         png_destroy_write_struct(&png_ptr, &info_ptr);
         return NULL;
     }
@@ -1602,9 +1642,8 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
     sp_repr_set_svg_double(image_node, "width", 1);
     sp_repr_set_svg_double(image_node, "height", 1);
     // Set transformation
-    if (_is_top_level) {
+
         svgSetTransform(image_node, 1.0, 0.0, 0.0, -1.0, 0.0, 1.0);
-    }
 
     // Create href
     if (embed_image) {
@@ -1635,9 +1674,9 @@ Inkscape::XML::Node *SvgBuilder::_createMask(double width, double height) {
     sp_repr_set_svg_double(mask_node, "height", height);
     // Append mask to defs
     if (_is_top_level) {
-        SP_DOCUMENT_DEFS(_doc)->getRepr()->appendChild(mask_node);
+        _doc->getDefs()->getRepr()->appendChild(mask_node);
         Inkscape::GC::release(mask_node);
-        return SP_DOCUMENT_DEFS(_doc)->getRepr()->lastChild();
+        return _doc->getDefs()->getRepr()->lastChild();
     } else {    // Work around for renderer bug when mask isn't defined in pattern
         static int mask_count = 0;
         Inkscape::XML::Node *defs = _root->firstChild();
@@ -1657,7 +1696,7 @@ Inkscape::XML::Node *SvgBuilder::_createMask(double width, double height) {
     }
 }
 
-void SvgBuilder::addImage(GfxState *state, Stream *str, int width, int height,
+void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int height,
                           GfxImageColorMap *color_map, int *mask_colors) {
 
      Inkscape::XML::Node *image_node = _createImage(str, width, height, color_map, mask_colors);
@@ -1704,7 +1743,7 @@ void SvgBuilder::addImageMask(GfxState *state, Stream *str, int width, int heigh
     Inkscape::GC::release(rect);
 }
 
-void SvgBuilder::addMaskedImage(GfxState *state, Stream *str, int width, int height,
+void SvgBuilder::addMaskedImage(GfxState * /*state*/, Stream *str, int width, int height,
                                 GfxImageColorMap *color_map,
                                 Stream *mask_str, int mask_width, int mask_height,
                                 bool invert_mask) {
@@ -1737,7 +1776,7 @@ void SvgBuilder::addMaskedImage(GfxState *state, Stream *str, int width, int hei
     }
 }
     
-void SvgBuilder::addSoftMaskedImage(GfxState *state, Stream *str, int width, int height,
+void SvgBuilder::addSoftMaskedImage(GfxState * /*state*/, Stream *str, int width, int height,
                                     GfxImageColorMap *color_map,
                                     Stream *mask_str, int mask_width, int mask_height,
                                     GfxImageColorMap *mask_color_map) {
@@ -1768,8 +1807,8 @@ void SvgBuilder::addSoftMaskedImage(GfxState *state, Stream *str, int width, int
 /**
  * \brief Starts building a new transparency group
  */
-void SvgBuilder::pushTransparencyGroup(GfxState *state, double *bbox,
-                                       GfxColorSpace *blending_color_space,
+void SvgBuilder::pushTransparencyGroup(GfxState * /*state*/, double *bbox,
+                                       GfxColorSpace * /*blending_color_space*/,
                                        bool isolated, bool knockout,
                                        bool for_softmask) {
 
@@ -1789,7 +1828,7 @@ void SvgBuilder::pushTransparencyGroup(GfxState *state, double *bbox,
     _transp_group_stack = transpGroup;
 }
 
-void SvgBuilder::popTransparencyGroup(GfxState *state) {
+void SvgBuilder::popTransparencyGroup(GfxState * /*state*/) {
     // Restore node stack
     popNode();
 }
@@ -1797,7 +1836,7 @@ void SvgBuilder::popTransparencyGroup(GfxState *state) {
 /**
  * \brief Places the current transparency group into the current container
  */
-void SvgBuilder::paintTransparencyGroup(GfxState *state, double *bbox) {
+void SvgBuilder::paintTransparencyGroup(GfxState * /*state*/, double * /*bbox*/) {
     SvgTransparencyGroup *transpGroup = _transp_group_stack;
     _container->appendChild(transpGroup->container);
     Inkscape::GC::release(transpGroup->container);
@@ -1809,8 +1848,8 @@ void SvgBuilder::paintTransparencyGroup(GfxState *state, double *bbox) {
 /**
  * \brief Creates a mask using the current transparency group as its content
  */
-void SvgBuilder::setSoftMask(GfxState *state, double *bbox, bool alpha,
-                             Function *transfer_func, GfxColor *backdrop_color) {
+void SvgBuilder::setSoftMask(GfxState * /*state*/, double * /*bbox*/, bool /*alpha*/,
+                             Function * /*transfer_func*/, GfxColor * /*backdrop_color*/) {
 
     // Create mask
     Inkscape::XML::Node *mask_node = _createMask(1.0, 1.0);
@@ -1829,7 +1868,7 @@ void SvgBuilder::setSoftMask(GfxState *state, double *bbox, bool alpha,
     delete transpGroup;
 }
 
-void SvgBuilder::clearSoftMask(GfxState *state) {
+void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
     if (_state_stack.back().softmask) {
         _state_stack.back().softmask = NULL;
         popGroup();

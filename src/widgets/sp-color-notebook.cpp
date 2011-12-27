@@ -1,5 +1,3 @@
-#define __SP_COLOR_NOTEBOOK_C__
-
 /*
  * A notebook with RGB, CMYK, CMS, HSL, and Wheel pages
  *
@@ -37,6 +35,10 @@
 #include "../inkscape.h"
 #include "../document.h"
 #include "../profile-manager.h"
+#include "color-profile.h"
+#include "cms-system.h"
+
+using Inkscape::CMSSystem;
 
 struct SPColorNotebookTracker {
     const gchar* name;
@@ -62,7 +64,7 @@ static SPColorSelectorClass *parent_class;
 
 GType sp_color_notebook_get_type(void)
 {
-    static GtkType type = 0;
+    static GType type = 0;
     if (!type) {
         GTypeInfo info = {
             sizeof(SPColorNotebookClass),
@@ -102,7 +104,7 @@ sp_color_notebook_class_init (SPColorNotebookClass *klass)
 
 static void
 sp_color_notebook_switch_page(GtkNotebook *notebook,
-                              GtkNotebookPage *page,
+                              GtkWidget   *page,
                               guint page_num,
                               SPColorNotebook *colorbook)
 {
@@ -111,14 +113,14 @@ sp_color_notebook_switch_page(GtkNotebook *notebook,
         ColorNotebook* nb = (ColorNotebook*)(SP_COLOR_SELECTOR(colorbook)->base);
         nb->switchPage( notebook, page, page_num );
 
-        // remember the page we seitched to
+        // remember the page we switched to
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
         prefs->setInt("/colorselector/page", page_num);
     }
 }
 
 void ColorNotebook::switchPage(GtkNotebook*,
-                              GtkNotebookPage*,
+                              GtkWidget*,
                               guint page_num)
 {
     SPColorSelector* csel;
@@ -203,8 +205,6 @@ void ColorNotebook::init()
     GType *selector_types = 0;
     guint selector_type_count = 0;
 
-    GtkTooltips *tt = gtk_tooltips_new ();
-
     /* tempory hardcoding to get types loaded */
     SP_TYPE_COLOR_SCALES;
     SP_TYPE_COLOR_WHEEL_SELECTOR;
@@ -233,7 +233,7 @@ void ColorNotebook::init()
         if (!g_type_is_a (selector_types[i], SP_TYPE_COLOR_NOTEBOOK))
         {
             guint howmany = 1;
-            gpointer klass = gtk_type_class (selector_types[i]);
+            gpointer klass = g_type_class_ref (selector_types[i]);
             if ( klass && SP_IS_COLOR_SELECTOR_CLASS (klass) )
             {
                 SPColorSelectorClass *ck = SP_COLOR_SELECTOR_CLASS (klass);
@@ -296,7 +296,7 @@ void ColorNotebook::init()
                 GtkWidget *item = gtk_check_menu_item_new_with_label (_(entry->name));
                 gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (item), entry->enabledFull);
                 gtk_widget_show (item);
-                gtk_menu_append (menu, item);
+                gtk_menu_shell_append (GTK_MENU_SHELL(menu), item);
 
                 g_signal_connect (G_OBJECT (item), "activate",
                                   G_CALLBACK (sp_color_notebook_menuitem_response),
@@ -320,7 +320,7 @@ void ColorNotebook::init()
         // but first fix it so it remembers its settings in prefs and does not take that much space (entire vertical column!)
         //gtk_table_attach (GTK_TABLE (table), align, 2, 3, row, row + 1, GTK_FILL, GTK_FILL, XPAD, YPAD);
 
-        gtk_signal_connect_object(GTK_OBJECT(_btn), "event", GTK_SIGNAL_FUNC (sp_color_notebook_menu_handler), GTK_OBJECT(_csel));
+        g_signal_connect_swapped(G_OBJECT(_btn), "event", G_CALLBACK (sp_color_notebook_menu_handler), G_OBJECT(_csel));
         if ( !found )
         {
             gtk_widget_set_sensitive (_btn, FALSE);
@@ -336,24 +336,21 @@ void ColorNotebook::init()
     _box_colormanaged = gtk_event_box_new ();
     GtkWidget *colormanaged = gtk_image_new_from_icon_name ("color-management-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
     gtk_container_add (GTK_CONTAINER (_box_colormanaged), colormanaged);
-    GtkTooltips *tooltips_colormanaged = gtk_tooltips_new ();
-    gtk_tooltips_set_tip (tooltips_colormanaged, _box_colormanaged, _("Color Managed"), "");
+    gtk_widget_set_tooltip_text (_box_colormanaged, _("Color Managed"));
     gtk_widget_set_sensitive (_box_colormanaged, false);
     gtk_box_pack_start(GTK_BOX(rgbabox), _box_colormanaged, FALSE, FALSE, 2);
 
     _box_outofgamut = gtk_event_box_new ();
     GtkWidget *outofgamut = gtk_image_new_from_icon_name ("out-of-gamut-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
     gtk_container_add (GTK_CONTAINER (_box_outofgamut), outofgamut);
-    GtkTooltips *tooltips_outofgamut = gtk_tooltips_new ();
-    gtk_tooltips_set_tip (tooltips_outofgamut, _box_outofgamut, _("Out of gamut!"), "");
+    gtk_widget_set_tooltip_text (_box_outofgamut, _("Out of gamut!"));
     gtk_widget_set_sensitive (_box_outofgamut, false);
     gtk_box_pack_start(GTK_BOX(rgbabox), _box_outofgamut, FALSE, FALSE, 2);
 
     _box_toomuchink = gtk_event_box_new ();
     GtkWidget *toomuchink = gtk_image_new_from_icon_name ("too-much-ink-icon", GTK_ICON_SIZE_SMALL_TOOLBAR);
     gtk_container_add (GTK_CONTAINER (_box_toomuchink), toomuchink);
-    GtkTooltips *tooltips_toomuchink = gtk_tooltips_new ();
-    gtk_tooltips_set_tip (tooltips_toomuchink, _box_toomuchink, _("Too much ink!"), "");
+    gtk_widget_set_tooltip_text (_box_toomuchink, _("Too much ink!"));
     gtk_widget_set_sensitive (_box_toomuchink, false);
     gtk_box_pack_start(GTK_BOX(rgbabox), _box_toomuchink, FALSE, FALSE, 2);
 
@@ -368,7 +365,7 @@ void ColorNotebook::init()
     sp_dialog_defocus_on_enter (_rgbae);
     gtk_entry_set_max_length (GTK_ENTRY (_rgbae), 8);
     gtk_entry_set_width_chars (GTK_ENTRY (_rgbae), 8);
-    gtk_tooltips_set_tip (tt, _rgbae, _("Hexadecimal RGBA value of the color"), NULL);
+    gtk_widget_set_tooltip_text (_rgbae, _("Hexadecimal RGBA value of the color"));
     gtk_box_pack_start(GTK_BOX(rgbabox), _rgbae, FALSE, FALSE, 0);
     gtk_label_set_mnemonic_widget (GTK_LABEL(_rgbal), _rgbae);
 
@@ -388,10 +385,10 @@ void ColorNotebook::init()
     gtk_table_attach (GTK_TABLE (table), _p, 2, 3, row, row + 1, GTK_FILL, GTK_FILL, XPAD, YPAD);
 #endif
 
-    _switchId = g_signal_connect(GTK_OBJECT (_book), "switch-page",
-                                 GTK_SIGNAL_FUNC (sp_color_notebook_switch_page), SP_COLOR_NOTEBOOK(_csel));
+    _switchId = g_signal_connect(G_OBJECT (_book), "switch-page",
+                                 G_CALLBACK (sp_color_notebook_switch_page), SP_COLOR_NOTEBOOK(_csel));
 
-    _entryId = gtk_signal_connect (GTK_OBJECT (_rgbae), "changed", GTK_SIGNAL_FUNC (ColorNotebook::_rgbaEntryChangedHook), _csel);
+    _entryId = g_signal_connect (G_OBJECT (_rgbae), "changed", G_CALLBACK (ColorNotebook::_rgbaEntryChangedHook), _csel);
 }
 
 static void
@@ -436,7 +433,7 @@ sp_color_notebook_new (void)
 {
     SPColorNotebook *colorbook;
 
-    colorbook = (SPColorNotebook*)gtk_type_new (SP_TYPE_COLOR_NOTEBOOK);
+    colorbook = (SPColorNotebook*)g_object_new (SP_TYPE_COLOR_NOTEBOOK, NULL);
 
     return GTK_WIDGET (colorbook);
 }
@@ -489,9 +486,14 @@ void ColorNotebook::_rgbaEntryChanged(GtkEntry* entry)
     if (t) {
         Glib::ustring text = t;
         bool changed = false;
-        if (!text.empty() && text[0] == '#') {
+
+        // Here we deal with pasted colors with theformat '#RRGGBB' or 'RRGGBB'
+        // In those cases we keep (and so add) the current alpha value.
+        if (!text.empty()) {
             changed = true;
-            text.erase(0,1);
+            if (text[0] == '#') {
+                text.erase(0,1);
+            }
             if (text.size() == 6) {
                 // it was a standard RGB hex
                 unsigned int alph = SP_COLOR_F_TO_U(_alpha);
@@ -534,14 +536,14 @@ void ColorNotebook::_updateRgbaEntry( const SPColor& color, gfloat alpha )
     if (color.icc){
         Inkscape::ColorProfile* target_profile = SP_ACTIVE_DOCUMENT->profileManager->find(color.icc->colorProfile.c_str());
         if ( target_profile )
-            gtk_widget_set_sensitive (_box_outofgamut, target_profile->GamutCheck(color));
+            gtk_widget_set_sensitive(_box_outofgamut, target_profile->GamutCheck(color));
     }
 
     /* update too-much-ink icon */
     gtk_widget_set_sensitive (_box_toomuchink, false);
     if (color.icc){
         Inkscape::ColorProfile* prof = SP_ACTIVE_DOCUMENT->profileManager->find(color.icc->colorProfile.c_str());
-        if ( prof && ( (prof->getColorSpace() == icSigCmykData) || (prof->getColorSpace() == icSigCmyData) ) ) {
+        if ( prof && CMSSystem::isPrintColorSpace(prof) ) {
             gtk_widget_show(GTK_WIDGET(_box_toomuchink));
             double ink_sum = 0;
             for (unsigned int i=0; i<color.icc->colors.size(); i++){
@@ -653,10 +655,10 @@ GtkWidget* ColorNotebook::addPage(GType page_type, guint submode)
 //         g_message( "Hitting up for tab for '%s'", str );
         tab_label = gtk_label_new(_(str));
         gtk_notebook_append_page( GTK_NOTEBOOK (_book), page, tab_label );
-        gtk_signal_connect (GTK_OBJECT (page), "grabbed", GTK_SIGNAL_FUNC (_entryGrabbed), _csel);
-        gtk_signal_connect (GTK_OBJECT (page), "dragged", GTK_SIGNAL_FUNC (_entryDragged), _csel);
-        gtk_signal_connect (GTK_OBJECT (page), "released", GTK_SIGNAL_FUNC (_entryReleased), _csel);
-        gtk_signal_connect (GTK_OBJECT (page), "changed", GTK_SIGNAL_FUNC (_entryChanged), _csel);
+        g_signal_connect (G_OBJECT (page), "grabbed", G_CALLBACK (_entryGrabbed), _csel);
+        g_signal_connect (G_OBJECT (page), "dragged", G_CALLBACK (_entryDragged), _csel);
+        g_signal_connect (G_OBJECT (page), "released", G_CALLBACK (_entryReleased), _csel);
+        g_signal_connect (G_OBJECT (page), "changed", G_CALLBACK (_entryChanged), _csel);
     }
 
     return page;

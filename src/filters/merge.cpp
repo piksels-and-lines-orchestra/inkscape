@@ -1,5 +1,3 @@
-#define __SP_FEMERGE_CPP__
-
 /** \file
  * SVG <feMerge> implementation.
  *
@@ -23,6 +21,7 @@
 
 #include "merge.h"
 #include "mergenode.h"
+#include "display/nr-filter.h"
 #include "display/nr-filter-merge.h"
 
 /* FeMerge base class */

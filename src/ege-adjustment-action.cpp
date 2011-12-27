@@ -1,5 +1,3 @@
-
-
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
  *
  */
@@ -45,20 +43,7 @@
 #include <string.h>
 
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkversion.h>
-#include <gtk/gtktoolitem.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkhscale.h>
-#if GTK_CHECK_VERSION(2,12,0)
-#include <gtk/gtkscalebutton.h>
-#include <gtk/gtkstock.h>
-#endif /* GTK_CHECK_VERSION(2,12,0) */
-#include <gtk/gtkhbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmisc.h>
-#include <gtk/gtktoolbar.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkradiomenuitem.h>
 
 #include "widgets/icon.h"
 #include "icon-size.h"
@@ -87,17 +72,17 @@ static void egeAct_free_all_descriptions( EgeAdjustmentAction* action );
 
 
 static GtkActionClass* gParentClass = 0;
+static EgeCreateAdjWidgetCB gFactoryCb = 0;
 static GQuark gDataName = 0;
 
 enum {
     APPEARANCE_UNKNOWN = -1,
     APPEARANCE_NONE = 0,
-    APPEARANCE_FULL,    // label, then all choices represented by separate buttons
-    APPEARANCE_COMPACT, // label, then choices in a drop-down menu
-    APPEARANCE_MINIMAL, // no label, just choices in a drop-down menu
+    APPEARANCE_FULL,    /* label, then all choices represented by separate buttons */
+    APPEARANCE_COMPACT, /* label, then choices in a drop-down menu */
+    APPEARANCE_MINIMAL, /* no label, just choices in a drop-down menu */
 };
 
-#if GTK_CHECK_VERSION(2,12,0)
 /* TODO need to have appropriate icons setup for these: */
 static const gchar *floogles[] = {
     GTK_STOCK_REMOVE,
@@ -106,7 +91,6 @@ static const gchar *floogles[] = {
     GTK_STOCK_ABOUT,
     GTK_STOCK_GO_UP,
     0};
-#endif /* GTK_CHECK_VERSION(2,12,0) */
 
 typedef struct _EgeAdjustmentDescr EgeAdjustmentDescr;
 
@@ -119,7 +103,6 @@ struct _EgeAdjustmentDescr
 struct _EgeAdjustmentActionPrivate
 {
     GtkAdjustment* adj;
-    GtkTooltips* toolTips;
     GtkWidget* focusWidget;
     gdouble climbRate;
     guint digits;
@@ -195,6 +178,7 @@ static void ege_adjustment_action_class_init( EgeAdjustmentActionClass* klass )
 
         gDataName = g_quark_from_string("ege-adj-action");
 
+  
         objClass->finalize = ege_adjustment_action_finalize;
 
         objClass->get_property = ege_adjustment_action_get_property;
@@ -281,11 +265,15 @@ static void ege_adjustment_action_class_init( EgeAdjustmentActionClass* klass )
     }
 }
 
+void ege_adjustment_action_set_compact_tool_factory( EgeCreateAdjWidgetCB factoryCb )
+{
+    gFactoryCb = factoryCb;
+}
+
 static void ege_adjustment_action_init( EgeAdjustmentAction* action )
 {
     action->private_data = EGE_ADJUSTMENT_ACTION_GET_PRIVATE( action );
     action->private_data->adj = 0;
-    action->private_data->toolTips = 0;
     action->private_data->focusWidget = 0;
     action->private_data->climbRate = 0.0;
     action->private_data->digits = 2;
@@ -312,10 +300,11 @@ static void ege_adjustment_action_finalize( GObject* object )
 
     action = EGE_ADJUSTMENT_ACTION( object );
 
-    if ( action->private_data->format ) {
-        g_free( action->private_data->format );
-        action->private_data->format = 0;
-    }
+    // g_free(NULL) does nothing
+    g_free( action->private_data->format );
+    g_free( action->private_data->selfId );
+    g_free( action->private_data->appearance );
+    g_free( action->private_data->iconId );
 
     egeAct_free_all_descriptions( action );
 
@@ -381,11 +370,11 @@ static void ege_adjustment_action_get_property( GObject* obj, guint propId, GVal
 
         case PROP_ICON_ID:
             g_value_set_string( value, action->private_data->iconId );
-	    break;
+            break;
 
         case PROP_ICON_SIZE:
             g_value_set_int( value, action->private_data->iconSize );
-	    break;
+            break;
 
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID( obj, propId, pspec );
@@ -770,20 +759,18 @@ static GtkWidget* create_menu_item( GtkAction* action )
     if ( IS_EGE_ADJUSTMENT_ACTION(action) ) {
         EgeAdjustmentAction* act = EGE_ADJUSTMENT_ACTION( action );
         GValue value;
-        const gchar*  sss = 0;
         GtkWidget*  subby = 0;
 
         memset( &value, 0, sizeof(value) );
         g_value_init( &value, G_TYPE_STRING );
         g_object_get_property( G_OBJECT(action), "label", &value );
 
-        sss = g_value_get_string( &value );
-
-        item = gtk_menu_item_new_with_label( sss );
+        item = gtk_menu_item_new_with_label( g_value_get_string( &value ) );
 
         subby = create_popup_number_menu( act );
         gtk_menu_item_set_submenu( GTK_MENU_ITEM(item), subby );
         gtk_widget_show_all( subby );
+        g_value_unset( &value );
     } else {
         item = gParentClass->create_menu_item( action );
     }
@@ -793,7 +780,7 @@ static GtkWidget* create_menu_item( GtkAction* action )
 
 void value_changed_cb( GtkSpinButton* spin, EgeAdjustmentAction* act )
 {
-    if ( GTK_WIDGET_HAS_FOCUS( GTK_WIDGET(spin) ) ) {
+    if ( gtk_widget_has_focus( GTK_WIDGET(spin) ) ) {
         ege_adjustment_action_defocus( act );
     }
 }
@@ -816,8 +803,7 @@ static gboolean event_cb( EgeAdjustmentAction* act, GdkEvent* evt )
     return handled;
 }
 
-static gchar*
-slider_format_falue (GtkScale* scale, gdouble value, gchar *label)
+static gchar *slider_format_falue( GtkScale* scale, gdouble value, gchar *label )
 {
     (void)scale;
     return g_strdup_printf("%s %d", label, (int) round(value));
@@ -831,28 +817,29 @@ static GtkWidget* create_tool_item( GtkAction* action )
         EgeAdjustmentAction* act = EGE_ADJUSTMENT_ACTION( action );
         GtkWidget* spinbutton = 0;
         GtkWidget* hb = gtk_hbox_new( FALSE, 5 );
-
         GValue value;
         memset( &value, 0, sizeof(value) );
         g_value_init( &value, G_TYPE_STRING );
         g_object_get_property( G_OBJECT(action), "short_label", &value );
-        const gchar* sss = g_value_get_string( &value );
 
         if ( act->private_data->appearanceMode == APPEARANCE_FULL ) {
-	    // Slider
-	    spinbutton = gtk_hscale_new( act->private_data->adj);
+            /* Slider */
+            gchar *leakyForNow = g_value_dup_string( &value );
+            spinbutton = gtk_hscale_new( act->private_data->adj);
             gtk_widget_set_size_request(spinbutton, 100, -1);
-            gtk_scale_set_digits (GTK_SCALE(spinbutton), 0);
-            gtk_signal_connect(GTK_OBJECT(spinbutton), "format-value", GTK_SIGNAL_FUNC(slider_format_falue), (void *) sss);
+            gtk_scale_set_digits( GTK_SCALE(spinbutton), 0 );
+            g_signal_connect( G_OBJECT(spinbutton), "format-value", G_CALLBACK(slider_format_falue), leakyForNow );
 
-#if GTK_CHECK_VERSION(2,12,0)
         } else if ( act->private_data->appearanceMode == APPEARANCE_MINIMAL ) {
             spinbutton = gtk_scale_button_new( GTK_ICON_SIZE_MENU, 0, 100, 2, 0 );
             gtk_scale_button_set_adjustment( GTK_SCALE_BUTTON(spinbutton), act->private_data->adj );
             gtk_scale_button_set_icons( GTK_SCALE_BUTTON(spinbutton), floogles );
-#endif /* GTK_CHECK_VERSION(2,12,0) */
         } else {
-            spinbutton = gtk_spin_button_new( act->private_data->adj, act->private_data->climbRate, act->private_data->digits );
+            if ( gFactoryCb ) {
+                spinbutton = gFactoryCb( act->private_data->adj, act->private_data->climbRate, act->private_data->digits );
+            } else {
+                spinbutton = gtk_spin_button_new( act->private_data->adj, act->private_data->climbRate, act->private_data->digits );
+            }
         }
 
         item = GTK_WIDGET( gtk_tool_item_new() );
@@ -864,26 +851,24 @@ static GtkWidget* create_tool_item( GtkAction* action )
             g_object_get_property( G_OBJECT(action), "tooltip", &tooltip );
             const gchar* tipstr = g_value_get_string( &tooltip );
             if ( tipstr && *tipstr ) {
-                if ( !act->private_data->toolTips ) {
-                    act->private_data->toolTips = gtk_tooltips_new();
-                }
-                gtk_tooltips_set_tip( act->private_data->toolTips, spinbutton, tipstr, 0 );
+                gtk_widget_set_tooltip_text( spinbutton, tipstr );
             }
+            g_value_unset( &tooltip );
         }
 
         if ( act->private_data->appearanceMode != APPEARANCE_FULL ) {
-	    GtkWidget* filler1 = gtk_label_new(" ");
-	    gtk_box_pack_start( GTK_BOX(hb), filler1, FALSE, FALSE, 0 );
+            GtkWidget* filler1 = gtk_label_new(" ");
+            gtk_box_pack_start( GTK_BOX(hb), filler1, FALSE, FALSE, 0 );
 
-	    // Use an icon if available or use short-label
-	    if ( act->private_data->iconId && strcmp( act->private_data->iconId, "" ) != 0 ) {
+            /* Use an icon if available or use short-label */
+            if ( act->private_data->iconId && strcmp( act->private_data->iconId, "" ) != 0 ) {
                 GtkWidget* icon = sp_icon_new( act->private_data->iconSize, act->private_data->iconId );
                 gtk_box_pack_start( GTK_BOX(hb), icon, FALSE, FALSE, 0 );
-	    } else {
-                GtkWidget* lbl = gtk_label_new( sss ? sss : "wwww" );
+            } else {
+                GtkWidget* lbl = gtk_label_new( g_value_get_string( &value ) ? g_value_get_string( &value ) : "wwww" );
                 gtk_misc_set_alignment( GTK_MISC(lbl), 1.0, 0.5 );
                 gtk_box_pack_start( GTK_BOX(hb), lbl, FALSE, FALSE, 0 );
-	    }
+            }
         }
 
         if ( act->private_data->appearanceMode == APPEARANCE_FULL ) {
@@ -907,10 +892,8 @@ static GtkWidget* create_tool_item( GtkAction* action )
         g_signal_connect_swapped( G_OBJECT(spinbutton), "event", G_CALLBACK(event_cb), action );
         if ( act->private_data->appearanceMode == APPEARANCE_FULL ) {
             /* */
-#if GTK_CHECK_VERSION(2,12,0)
         } else if ( act->private_data->appearanceMode == APPEARANCE_MINIMAL ) {
             /* */
-#endif /* GTK_CHECK_VERSION(2,12,0) */
         } else {
             gtk_entry_set_width_chars( GTK_ENTRY(spinbutton), act->private_data->digits + 3 );
         }
@@ -921,6 +904,8 @@ static GtkWidget* create_tool_item( GtkAction* action )
         if ( act->private_data->toolPost ) {
             act->private_data->toolPost( item );
         }
+
+        g_value_unset( &value );
     } else {
         item = gParentClass->create_tool_item( action );
     }
@@ -954,10 +939,8 @@ gboolean focus_in_cb( GtkWidget *widget, GdkEventKey *event, gpointer data )
         EgeAdjustmentAction* action = EGE_ADJUSTMENT_ACTION( data );
         if ( GTK_IS_SPIN_BUTTON(widget) ) {
             action->private_data->lastVal = gtk_spin_button_get_value( GTK_SPIN_BUTTON(widget) );
-#if GTK_CHECK_VERSION(2,12,0)
         } else if ( GTK_IS_SCALE_BUTTON(widget) ) {
             action->private_data->lastVal = gtk_scale_button_get_value( GTK_SCALE_BUTTON(widget) );
-#endif /* GTK_CHECK_VERSION(2,12,0) */
         } else if (GTK_IS_RANGE(widget) ) {
             action->private_data->lastVal = gtk_range_get_value( GTK_RANGE(widget) );
         }
@@ -1005,7 +988,7 @@ static gboolean process_tab( GtkWidget* widget, int direction )
                             GList* subChildren = gtk_container_get_children( GTK_CONTAINER(child) );
                             if ( subChildren ) {
                                 GList* last = g_list_last(subChildren);
-                                if ( last && GTK_IS_SPIN_BUTTON(last->data) && GTK_WIDGET_IS_SENSITIVE( GTK_WIDGET(last->data) ) ) {
+                                if ( last && GTK_IS_SPIN_BUTTON(last->data) && gtk_widget_is_sensitive( GTK_WIDGET(last->data) ) ) {
                                     gtk_widget_grab_focus( GTK_WIDGET(last->data) );
                                     handled = TRUE;
                                     mid = 0; /* to stop loop */

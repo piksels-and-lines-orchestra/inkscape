@@ -1,6 +1,4 @@
-/**
- * \brief Selected style indicator (fill, stroke, opacity)
- *
+/*
  * Author:
  *   buliabyak@gmail.com
  *   Abhishek Sharma
@@ -14,7 +12,7 @@
 # include <config.h>
 #endif
 
-#include <gtk/gtkdnd.h>
+#include <gtk/gtk.h>
 
 #include "selected-style.h"
 
@@ -412,7 +410,7 @@ void
 SelectedStyle::setDesktop(SPDesktop *desktop)
 {
     _desktop = desktop;
-    gtk_object_set_data (GTK_OBJECT(_opacity_sb.gobj()), "dtw", _desktop->canvas);
+    g_object_set_data (G_OBJECT(_opacity_sb.gobj()), "dtw", _desktop->canvas);
 
     Inkscape::Selection *selection = sp_desktop_selection (desktop);
 
@@ -1092,7 +1090,7 @@ void SelectedStyle::opacity_1(void) {_opacity_sb.set_value(100);}
 void SelectedStyle::on_opacity_menu (Gtk::Menu *menu) {
 
     Glib::ListHandle<Gtk::Widget *> children = menu->get_children();
-    for (Glib::ListHandle<Gtk::Widget *>::iterator iter = children.begin(); iter != children.end(); iter++) {
+    for (Glib::ListHandle<Gtk::Widget *>::iterator iter = children.begin(); iter != children.end(); ++iter) {
         menu->remove(*(*iter));
     }
 

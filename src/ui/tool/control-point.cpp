@@ -1,5 +1,6 @@
-/** @file
- * Desktop-bound visual control object - implementation
+/**
+ * @file
+ * Desktop-bound visual control object - implementation.
  */
 /* Authors:
  *   Krzysztof Kosiński <tweenk.pl@gmail.com>
@@ -21,6 +22,7 @@
 #include "preferences.h"
 #include "ui/tool/control-point.h"
 #include "ui/tool/event-utils.h"
+#include "ui/tool/transform-handle-set.h"
 
 namespace Inkscape {
 namespace UI {
@@ -29,7 +31,7 @@ namespace UI {
 
 /**
  * @class ControlPoint
- * @brief Draggable point, the workhorse of on-canvas editing.
+ * Draggable point, the workhorse of on-canvas editing.
  *
  * Control points (formerly known as knots) are graphical representations of some significant
  * point in the drawing. The drawing can be changed by dragging the point and the things that are
@@ -436,6 +438,32 @@ bool ControlPoint::_eventHandler(GdkEvent *event)
     // update tips on modifier state change
     // TODO add ESC keybinding as drag cancel
     case GDK_KEY_PRESS:
+        switch (get_group0_keyval(&event->key))
+        {
+        case GDK_Tab:
+            {// Downcast from ControlPoint to TransformHandle, if possible
+             // This is an ugly hack; we should have the transform handle intercept the keystrokes itself
+            TransformHandle *th = dynamic_cast<TransformHandle*>(this);
+            if (th) {
+                th->getNextClosestPoint(false);
+                return true;
+            }
+            break;
+            }
+        case GDK_ISO_Left_Tab:
+            {// Downcast from ControlPoint to TransformHandle, if possible
+             // This is an ugly hack; we should have the transform handle intercept the keystrokes itself
+            TransformHandle *th = dynamic_cast<TransformHandle*>(this);
+            if (th) {
+                th->getNextClosestPoint(true);
+                return true;
+            }
+            break;
+            }
+        default:
+            break;
+        }
+        // Do not break here, to allow for updating tooltips and such
     case GDK_KEY_RELEASE: 
         if (mouseovered_point != this) return false;
         if (_drag_initiated) {
@@ -537,7 +565,7 @@ void ControlPoint::transferGrab(ControlPoint *prev_point, GdkEventMotion *event)
 }
 
 /**
- * @brief Change the state of the knot
+ * Change the state of the knot.
  * Alters the appearance of the knot to match one of the states: normal, mouseover
  * or clicked.
  */

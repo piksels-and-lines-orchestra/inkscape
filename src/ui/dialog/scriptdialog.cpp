@@ -1,5 +1,6 @@
-/** @file
- * @brief Dialog for executing and monitoring script execution
+/**
+ * @file
+ * Dialog for executing and monitoring script execution.
  */
 /* Author:  
  *   Bob Jamison
@@ -151,9 +152,7 @@ void ScriptDialogImpl::clear()
 /**
  * Execute the script in the dialog
  */
-void
-ScriptDialogImpl::execute(Inkscape::Extension::Script::InkscapeScript::ScriptLanguage
-lang)
+void ScriptDialogImpl::execute(Inkscape::Extension::Script::InkscapeScript::ScriptLanguage lang)
 {
     Glib::ustring script = scriptText.get_buffer()->get_text(true);
     Glib::ustring output;

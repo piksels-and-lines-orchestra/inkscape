@@ -12,10 +12,12 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include "sp-canvas-util.h"
+
 #include "sp-canvas-item.h"
+#include "sp-canvas.h"
+#include "sp-canvas-util.h"
 #include "sp-ctrlquadr.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "color.h"
 
 struct SPCtrlQuadr : public SPCanvasItem{
@@ -61,7 +63,7 @@ sp_ctrlquadr_class_init (SPCtrlQuadrClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     SPCanvasItemClass *item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass*)gtk_type_class (SP_TYPE_CANVAS_ITEM);
+    parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_ctrlquadr_destroy;
 
@@ -94,15 +96,13 @@ sp_ctrlquadr_render (SPCanvasItem *item, SPCanvasBuf *buf)
 {
     SPCtrlQuadr *cq = SP_CTRLQUADR (item);
 
-    //Geom::Rect area (Geom::Point(buf->rect.x0, buf->rect.y0), Geom::Point(buf->rect.x1, buf->rect.y1));
-
     if (!buf->ct)
         return;
 
     // RGB / BGR
     cairo_new_path(buf->ct);
 
-    Geom::Point min = Geom::Point(buf->rect.x0, buf->rect.y0);
+    Geom::Point min = buf->rect.min();
 
     Geom::Point p1 = (cq->p1 * cq->affine) - min;
     Geom::Point p2 = (cq->p2 * cq->affine) - min;

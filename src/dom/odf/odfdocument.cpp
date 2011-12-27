@@ -1,4 +1,4 @@
-/**
+/*
  *
  * This class contains an ODF Document.
  * Initially, we are just concerned with .odg content.xml + resources
@@ -110,7 +110,9 @@ void ImageData::setData(const std::vector<unsigned char> &buf)
 /**
  *
  */
-OdfDocument::OdfDocument()
+OdfDocument::OdfDocument() :
+    content(0),
+    images()
 {
 }
 

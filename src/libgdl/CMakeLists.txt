@@ -1,28 +1,49 @@
-IF(WIN32)
-SET(GDL_WIN
-gdl-win32.c
-)
-ENDIF(WIN32)
 
-SET(libgdl_SRC
-gdl-dock.c
-gdl-dock-bar.c
-gdl-dock-item.c
-gdl-dock-item-grip.c
-gdl-dock-master.c
-gdl-dock-notebook.c
-gdl-dock-object.c
-gdl-dock-paned.c
-gdl-dock-placeholder.c
-gdl-dock-tablabel.c
-gdl-i18n.c
-gdl-stock.c
-gdl-switcher.c
-gdl-tools.h
-libgdlmarshal.c
-libgdltypebuiltins.c
-${GDL_WIN}
+set(libgdl_SRC
+	gdl-dock-bar.c
+	gdl-dock-item-button-image.c
+	gdl-dock-item-grip.c
+	gdl-dock-item.c
+	gdl-dock-master.c
+	gdl-dock-notebook.c
+	gdl-dock-object.c
+	gdl-dock-paned.c
+	gdl-dock-placeholder.c
+	gdl-dock-tablabel.c
+	gdl-dock.c
+	gdl-i18n.c
+	gdl-switcher.c
+	gdl-tools.h
+	libgdlmarshal.c
+	libgdltypebuiltins.c
+
+
+	# -------
+	# Headers
+	gdl-dock-bar.h
+	gdl-dock-item-button-image.h
+	gdl-dock-item-grip.h
+	gdl-dock-item.h
+	gdl-dock-master.h
+	gdl-dock-notebook.h
+	gdl-dock-object.h
+	gdl-dock-paned.h
+	gdl-dock-placeholder.h
+	gdl-dock-tablabel.h
+	gdl-dock.h
+	gdl-i18n.h
+	gdl-stock-icons.h
+	gdl-switcher.h
+	gdl.h
+	libgdlmarshal.h
+	libgdltypebuiltins.h
 )
-ADD_LIBRARY(gdl STATIC ${libgdl_SRC})
-TARGET_LINK_LIBRARIES(gdl
-${INKSCAPE_LIBS})
+
+if(WIN32)
+	list(APPEND libgdl_SRC
+		gdl-win32.c
+		gdl-win32.h
+	)
+endif()
+
+add_inkscape_lib(gdl_LIB "${libgdl_SRC}")

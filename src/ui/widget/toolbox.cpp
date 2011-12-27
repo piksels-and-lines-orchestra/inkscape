@@ -1,6 +1,4 @@
-/**
- * \brief Toolbox Widget - A detachable toolbar for buttons and other widgets.
- *
+/*
  * Author:
  *   Derek P. Moore <derekm@hackunix.org>
  *
@@ -14,7 +12,7 @@
 #endif
 
 #include <gtkmm/radioaction.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include "ui/widget/toolbox.h"
 #include "path-prefix.h"
 

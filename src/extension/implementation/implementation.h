@@ -9,27 +9,46 @@
     important for implementing the extensions themselves.  This file
     contains the base class for all of that.
 */
-#ifndef __INKSCAPE_EXTENSION_IMPLEMENTATION_H__
-#define __INKSCAPE_EXTENSION_IMPLEMENTATION_H__
+#ifndef SEEN_INKSCAPE_EXTENSION_IMPLEMENTATION_H
+#define SEEN_INKSCAPE_EXTENSION_IMPLEMENTATION_H
 
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include <gdkmm/types.h>
 #include <gtkmm/widget.h>
 
-#include "forward.h"
-#include "extension/extension-forward.h"
-#include "libnr/nr-forward.h"
-#include "libnr/nr-point.h"
 #include "xml/node.h"
 #include <2geom/forward.h>
+#include <2geom/point.h>
+
+class SPDocument;
+class SPStyle;
 
 namespace Inkscape {
+
+namespace UI {
+namespace View {
+class View;
+} // namespace View
+} // namespace UI
+
 namespace Extension {
+
+class Effect;
+class Extension;
+class Input;
+class Output;
+class Print;
+
 namespace Implementation {
 
-/** \brief  A cache for the document and this implementation */
+/**
+ * A cache for the document and this implementation.
+ */
 class ImplementationDocumentCache {
-	/** \brief  The document that this instance is working on */
+
+	/**
+         * The document that this instance is working on.
+         */
 	Inkscape::UI::View::View * _view;
 public:
 	ImplementationDocumentCache (Inkscape::UI::View::View * view) :
@@ -48,96 +67,122 @@ public:
  */
 class Implementation {
 public:
-    /* ----- Constructor / destructor ----- */
+    // ----- Constructor / destructor -----
     Implementation() {}
     
     virtual ~Implementation() {}
 
-    /* ----- Basic functions for all Extension ----- */
-    virtual bool load(Inkscape::Extension::Extension *module);
+    // ----- Basic functions for all Extension -----
+    virtual bool load(Inkscape::Extension::Extension * /*module*/) { return true; }
 
-    virtual void unload(Inkscape::Extension::Extension *module);
-	virtual ImplementationDocumentCache * newDocCache (Inkscape::Extension::Extension * ext, Inkscape::UI::View::View * doc);
+    virtual void unload(Inkscape::Extension::Extension * /*module*/) {}
+
+    /**
+     * Create a new document cache object.
+     * This function just returns \c NULL.  Subclasses are likely
+     * to reimplement it to do something useful.
+     * @param  ext  The extension that is referencing us
+     * @param  doc  The document to create the cache of
+     * @return A new document cache that is valid as long as the document
+     *         is not changed.
+     */
+    virtual ImplementationDocumentCache * newDocCache (Inkscape::Extension::Extension * /*ext*/, Inkscape::UI::View::View * /*doc*/) { return NULL; }
 
     /** Verify any dependencies. */
-    virtual bool check(Inkscape::Extension::Extension *module);
+    virtual bool check(Inkscape::Extension::Extension * /*module*/) { return true; }
 
-    virtual bool cancelProcessing (void);
-	virtual void commitDocument (void);
+    virtual bool cancelProcessing () { return true; }
+    virtual void commitDocument () {}
 
-    /* ----- Input functions ----- */
+    // ----- Input functions -----
     /** Find out information about the file. */
     virtual Gtk::Widget *prefs_input(Inkscape::Extension::Input *module,
                              gchar const *filename);
 
-    virtual SPDocument *open(Inkscape::Extension::Input *module,
-                             gchar const *filename);
+    virtual SPDocument *open(Inkscape::Extension::Input * /*module*/,
+                             gchar const * /*filename*/) { return NULL; }
 
-    /* ----- Output functions ----- */
+    // ----- Output functions -----
     /** Find out information about the file. */
     virtual Gtk::Widget *prefs_output(Inkscape::Extension::Output *module);
-    virtual void save(Inkscape::Extension::Output *module, SPDocument *doc, gchar const *filename);
+    virtual void save(Inkscape::Extension::Output * /*module*/, SPDocument * /*doc*/, gchar const * /*filename*/) {}
 
-    /* ----- Effect functions ----- */
+    // ----- Effect functions -----
     /** Find out information about the file. */
     virtual Gtk::Widget * prefs_effect(Inkscape::Extension::Effect *module,
-	                                   Inkscape::UI::View::View * view,
-									   sigc::signal<void> * changeSignal,
-									   ImplementationDocumentCache * docCache);
-    virtual void effect(Inkscape::Extension::Effect *module,
-                        Inkscape::UI::View::View *document,
-						ImplementationDocumentCache * docCache);
+	                               Inkscape::UI::View::View *view,
+                                       sigc::signal<void> *changeSignal,
+                                       ImplementationDocumentCache *docCache);
+    virtual void effect(Inkscape::Extension::Effect * /*module*/,
+                        Inkscape::UI::View::View * /*document*/,
+                        ImplementationDocumentCache * /*docCache*/) {}
 
-    /* ----- Print functions ----- */
-    virtual unsigned setup(Inkscape::Extension::Print *module);
-    virtual unsigned set_preview(Inkscape::Extension::Print *module);
+    // ----- Print functions -----
+    virtual unsigned setup(Inkscape::Extension::Print * /*module*/) { return 0; }
+    virtual unsigned set_preview(Inkscape::Extension::Print * /*module*/) { return 0; }
 
-    virtual unsigned begin(Inkscape::Extension::Print *module,
-                           SPDocument *doc);
-    virtual unsigned finish(Inkscape::Extension::Print *module);
-    virtual bool     textToPath(Inkscape::Extension::Print *ext);
-    virtual bool     fontEmbedded(Inkscape::Extension::Print * ext);
+    virtual unsigned begin(Inkscape::Extension::Print * /*module*/,
+                           SPDocument * /*doc*/) { return 0; }
+    virtual unsigned finish(Inkscape::Extension::Print * /*module*/) { return 0; }
 
-    /* ----- Rendering methods ----- */
-    virtual unsigned bind(Inkscape::Extension::Print *module,
-                          Geom::Affine const *transform,
-                          float opacity);
-    virtual unsigned release(Inkscape::Extension::Print *module);
-    virtual unsigned comment(Inkscape::Extension::Print *module, const char * comment);
-    virtual unsigned fill(Inkscape::Extension::Print *module,
-                          Geom::PathVector const &pathv,
-                          Geom::Affine const *ctm,
-                          SPStyle const *style,
-                          NRRect const *pbox,
-                          NRRect const *dbox,
-                          NRRect const *bbox);
-    virtual unsigned stroke(Inkscape::Extension::Print *module,
-                            Geom::PathVector const &pathv,
-                            Geom::Affine const *transform,
-                            SPStyle const *style,
-                            NRRect const *pbox,
-                            NRRect const *dbox,
-                            NRRect const *bbox);
-    virtual unsigned image(Inkscape::Extension::Print *module,
-                           unsigned char *px,
-                           unsigned int w,
-                           unsigned int h,
-                           unsigned int rs,
-                           Geom::Affine const *transform,
-                           SPStyle const *style);
-    virtual unsigned text(Inkscape::Extension::Print *module,
-                          char const *text,
-                          Geom::Point p,
-                          SPStyle const *style);
-    virtual void     processPath(Inkscape::XML::Node * node);
+    /**
+     * Tell the printing engine whether text should be text or path.
+     * Default value is false because most printing engines will support
+     * paths more than they'll support text.  (at least they do today)
+     * \retval true  Render the text as a path
+     * \retval false Render text using the text function (above)
+     */
+    virtual bool     textToPath(Inkscape::Extension::Print * /*ext*/) { return false; }
+
+    /**
+     * Get "fontEmbedded" param, i.e. tell the printing engine whether fonts should be embedded.
+     * Only available for Adobe Type 1 fonts in EPS output as of now
+     * \retval true Fonts have to be embedded in the output so that the user might not need
+     *              to install fonts to have the interpreter read the document correctly
+     * \retval false Do not embed fonts
+     */
+    virtual bool     fontEmbedded(Inkscape::Extension::Print * /*ext*/) { return false; }
+
+    // ----- Rendering methods -----
+    virtual unsigned bind(Inkscape::Extension::Print * /*module*/,
+                          Geom::Affine const & /*transform*/,
+                          float /*opacity*/) { return 0; }
+    virtual unsigned release(Inkscape::Extension::Print * /*module*/) { return 0; }
+    virtual unsigned comment(Inkscape::Extension::Print * /*module*/, char const * /*comment*/) { return 0; }
+    virtual unsigned fill(Inkscape::Extension::Print * /*module*/,
+                          Geom::PathVector const & /*pathv*/,
+                          Geom::Affine const & /*ctm*/,
+                          SPStyle const * /*style*/,
+                          Geom::OptRect const & /*pbox*/,
+                          Geom::OptRect const & /*dbox*/,
+                          Geom::OptRect const & /*bbox*/) { return 0; }
+    virtual unsigned stroke(Inkscape::Extension::Print * /*module*/,
+                            Geom::PathVector const & /*pathv*/,
+                            Geom::Affine const & /*transform*/,
+                            SPStyle const * /*style*/,
+                            Geom::OptRect const & /*pbox*/,
+                            Geom::OptRect const & /*dbox*/,
+                            Geom::OptRect const & /*bbox*/) { return 0; }
+    virtual unsigned image(Inkscape::Extension::Print * /*module*/,
+                           unsigned char * /*px*/,
+                           unsigned int /*w*/,
+                           unsigned int /*h*/,
+                           unsigned int /*rs*/,
+                           Geom::Affine const & /*transform*/,
+                           SPStyle const * /*style*/) { return 0; }
+    virtual unsigned text(Inkscape::Extension::Print * /*module*/,
+                          char const * /*text*/,
+                          Geom::Point const & /*p*/,
+                          SPStyle const * /*style*/) { return 0; }
+    virtual void     processPath(Inkscape::XML::Node * /*node*/) {}
 };
 
 
-}  /* namespace Implementation */
-}  /* namespace Extension */
-}  /* namespace Inkscape */
+}  // namespace Implementation
+}  // namespace Extension
+}  // namespace Inkscape
 
-#endif /* __INKSCAPE_EXTENSION_IMPLEMENTATION_H__ */
+#endif // __INKSCAPE_EXTENSION_IMPLEMENTATION_H__
 
 /*
   Local Variables:

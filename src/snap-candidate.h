@@ -2,9 +2,10 @@
 #define SEEN_SNAP_CANDIDATE_H
 
 /**
- * \file snap-candidate.h
- * \brief some utility classes to store various kinds of snap candidates.
- *
+ * @file
+ * Some utility classes to store various kinds of snap candidates.
+ */
+/*
  * Authors:
  *   Diederik van Lierop <mail@diedenrezi.nl>
  *
@@ -16,7 +17,7 @@
 //#include "snapped-point.h"
 #include "snap-enums.h"
 
-struct SPItem; // forward declaration
+class SPItem; // forward declaration
 
 namespace Inkscape {
 
@@ -31,6 +32,7 @@ public:
         _source_num(source_num),
         _target_bbox(bbox)
     {
+        _line_starting_point = boost::optional<Geom::Point>();
     };
 
     SnapCandidatePoint(Geom::Point const &point, Inkscape::SnapSourceType const source, Inkscape::SnapTargetType const target)
@@ -40,6 +42,7 @@ public:
     {
         _source_num = -1;
         _target_bbox = Geom::OptRect();
+        _line_starting_point = boost::optional<Geom::Point>();
     }
 
     SnapCandidatePoint(Geom::Point const &point, Inkscape::SnapSourceType const source)
@@ -49,6 +52,17 @@ public:
         _source_num(-1)
     {
         _target_bbox = Geom::OptRect();
+        _line_starting_point = boost::optional<Geom::Point>();
+    }
+
+    SnapCandidatePoint(Geom::Point const &point, Inkscape::SnapSourceType const source, boost::optional<Geom::Point> starting_point)
+        : _point(point),
+        _source_type(source),
+        _target_type(Inkscape::SNAPTARGET_UNDEFINED),
+        _source_num(-1)
+    {
+        _target_bbox = Geom::OptRect();
+        _line_starting_point = starting_point;
     }
 
     inline Geom::Point const & getPoint() const {return _point;}
@@ -57,11 +71,16 @@ public:
     inline Inkscape::SnapTargetType getTargetType() const {return _target_type;}
     inline long getSourceNum() const {return _source_num;}
     void setSourceNum(long num) {_source_num = num;}
+    void setDistance(Geom::Coord dist) {_dist = dist;}
+    Geom::Coord getDistance() { return _dist;}
+    bool operator <(const SnapCandidatePoint &other) const { return _dist < other._dist; } // Needed for sorting the SnapCandidatePoints
     inline Geom::OptRect const getTargetBBox() const {return _target_bbox;}
+    boost::optional<Geom::Point> const & getStartingPoint() const {return _line_starting_point;}
 
 private:
     // Coordinates of the point
     Geom::Point _point;
+    boost::optional<Geom::Point> _line_starting_point; // For perpendicular or tangential snapping we need to know the starting point of a line
 
     // If this SnapCandidatePoint is a snap source, then _source_type must be defined. If it
     // is a snap target, then _target_type must be defined. If it's yet unknown whether it will
@@ -77,6 +96,9 @@ private:
     // If this is a target and it belongs to a bounding box, e.g. when the target type is
     // SNAPTARGET_BBOX_EDGE_MIDPOINT, then _target_bbox stores the relevant bounding box
     Geom::OptRect _target_bbox;
+
+    // For finding the snap candidate closest to the mouse pointer
+    Geom::Coord _dist;
 };
 
 class SnapCandidateItem
@@ -111,7 +133,5 @@ public:
     bool currently_being_edited; // true for the path that's currently being edited in the node tool (if any)
 
 };
-
 } // end of namespace Inkscape
-
 #endif /* !SEEN_SNAP_CANDIDATE_H */

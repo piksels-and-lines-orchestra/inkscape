@@ -5,6 +5,7 @@
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Edward Flick (EAF)
  *   Abhishek Sharma
+ *   Jon A. Cruz <jon@joncruz.org>
  *
  * Copyright (C) 1999-2005 Authors
  * Copyright (C) 2000-2001 Ximian, Inc.
@@ -20,38 +21,33 @@
 #include <png.h>
 
 #include <cstring>
+#include <algorithm>
 #include <string>
-#include <libnr/nr-matrix-fns.h>
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-translate-matrix-ops.h>
-#include <libnr/nr-scale-translate-ops.h>
-#include <libnr/nr-convert2geom.h>
-#include <2geom/rect.h>
-//#define GDK_PIXBUF_ENABLE_BACKEND 1
-//#include <gdk-pixbuf/gdk-pixbuf-io.h>
-#include "display/nr-arena-image.h"
-#include <display/curve.h>
 #include <glib/gstdio.h>
+#include <2geom/rect.h>
+#include <2geom/transforms.h>
+#include <glibmm/i18n.h>
 
+#include "display/drawing-image.h"
+#include "display/cairo-utils.h"
+#include "display/curve.h"
 //Added for preserveAspectRatio support -- EAF
 #include "enums.h"
 #include "attributes.h"
-
 #include "print.h"
 #include "brokenimage.xpm"
 #include "document.h"
 #include "sp-image.h"
 #include "sp-clippath.h"
-#include <glibmm/i18n.h>
 #include "xml/quote.h"
-#include <xml/repr.h>
+#include "xml/repr.h"
 #include "snap-candidate.h"
-#include "libnr/nr-matrix-fns.h"
 
 #include "io/sys.h"
 #if ENABLE_LCMS
-#include "color-profile-fns.h"
+#include "cms-system.h"
 #include "color-profile.h"
+#include <lcms.h>
 //#define DEBUG_LCMS
 #ifdef DEBUG_LCMS
 
@@ -62,7 +58,7 @@
 }
 
 #include "preferences.h"
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #endif // DEBUG_LCMS
 #endif // ENABLE_LCMS
 /*
@@ -84,17 +80,18 @@ static void sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags);
 static void sp_image_modified (SPObject *object, unsigned int flags);
 static Inkscape::XML::Node *sp_image_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static void sp_image_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+static Geom::OptRect sp_image_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 static void sp_image_print (SPItem * item, SPPrintContext *ctx);
 static gchar * sp_image_description (SPItem * item);
 static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
-static NRArenaItem *sp_image_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+static Inkscape::DrawingItem *sp_image_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
 static Geom::Affine sp_image_set_transform (SPItem *item, Geom::Affine const &xform);
 static void sp_image_set_curve(SPImage *image);
 
 
 static GdkPixbuf *sp_image_repr_read_image( time_t& modTime, gchar*& pixPath, const gchar *href, const gchar *absref, const gchar *base );
 static GdkPixbuf *sp_image_pixbuf_force_rgba (GdkPixbuf * pixbuf);
+static void sp_image_update_arenaitem (SPImage *img, Inkscape::DrawingImage *ai);
 static void sp_image_update_canvas_image (SPImage *image);
 static GdkPixbuf * sp_image_repr_read_dataURI (const gchar * uri_data);
 static GdkPixbuf * sp_image_repr_read_b64 (const gchar * uri_data);
@@ -107,7 +104,6 @@ extern "C"
     void user_read_data( png_structp png_ptr, png_bytep data, png_size_t length );
     void user_write_data( png_structp png_ptr, png_bytep data, png_size_t length );
     void user_flush_data( png_structp png_ptr );
-
 }
 
 
@@ -557,8 +553,7 @@ GdkPixbuf* pixbuf_new_from_file( const char *filename, GError **error )
 }
 }
 
-GType
-sp_image_get_type (void)
+GType sp_image_get_type(void)
 {
     static GType image_type = 0;
     if (!image_type) {
@@ -579,8 +574,7 @@ sp_image_get_type (void)
     return image_type;
 }
 
-static void
-sp_image_class_init (SPImageClass * klass)
+static void sp_image_class_init( SPImageClass * klass )
 {
     GObjectClass * gobject_class;
     SPObjectClass * sp_object_class;
@@ -614,15 +608,9 @@ static void sp_image_init( SPImage *image )
     image->width.unset();
     image->height.unset();
     image->aspect_align = SP_ASPECT_NONE;
-
-    image->trimx = 0;
-    image->trimy = 0;
-    image->trimwidth = 0;
-    image->trimheight = 0;
-    image->viewx = 0;
-    image->viewy = 0;
-    image->viewwidth = 0;
-    image->viewheight = 0;
+    image->clipbox = Geom::Rect();
+    image->sx = image->sy = 1.0;
+    image->ox = image->oy = 0.0;
 
     image->curve = NULL;
 
@@ -635,8 +623,7 @@ static void sp_image_init( SPImage *image )
     image->lastMod = 0;
 }
 
-static void
-sp_image_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *repr)
+static void sp_image_build( SPObject *object, SPDocument *document, Inkscape::XML::Node *repr )
 {
     if (((SPObjectClass *) parent_class)->build) {
         ((SPObjectClass *) parent_class)->build (object, document, repr);
@@ -654,8 +641,7 @@ sp_image_build (SPObject *object, SPDocument *document, Inkscape::XML::Node *rep
     document->addResource("image", object);
 }
 
-static void
-sp_image_release (SPObject *object)
+static void sp_image_release( SPObject *object )
 {
     SPImage *image = SP_IMAGE(object);
 
@@ -695,8 +681,7 @@ sp_image_release (SPObject *object)
     }
 }
 
-static void
-sp_image_set (SPObject *object, unsigned int key, const gchar *value)
+static void sp_image_set( SPObject *object, unsigned int key, const gchar *value )
 {
     SPImage *image = SP_IMAGE (object);
 
@@ -818,8 +803,7 @@ sp_image_set (SPObject *object, unsigned int key, const gchar *value)
     sp_image_set_curve(image); //creates a curve at the image's boundary for snapping
 }
 
-static void
-sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
+static void sp_image_update( SPObject *object, SPCtx *ctx, unsigned int flags )
 {
     SPImage *image = SP_IMAGE(object);
     SPDocument *doc = object->document;
@@ -866,9 +850,9 @@ sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
                         DEBUG_MESSAGE( lcmsFive, "in <image>'s sp_image_update. About to call colorprofile_get_handle()" );
 #endif // DEBUG_LCMS
                         guint profIntent = Inkscape::RENDERING_INTENT_UNKNOWN;
-                        cmsHPROFILE prof = Inkscape::colorprofile_get_handle( object->document,
-                                                                              &profIntent,
-                                                                              image->color_profile );
+                        cmsHPROFILE prof = Inkscape::CMSSystem::getHandle( object->document,
+                                                                           &profIntent,
+                                                                           image->color_profile );
                         if ( prof ) {
                             icProfileClassSignature profileClass = cmsGetDeviceClass( prof );
                             if ( profileClass != icSigNamedColorClass ) {
@@ -930,16 +914,38 @@ sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
                 }
 #endif // ENABLE_LCMS
                 image->pixbuf = pixbuf;
+                // convert to premultiplied native-endian ARGB for display with Cairo
+                convert_pixbuf_normal_to_argb32(image->pixbuf);
             }
         }
     }
+
+    if (image->pixbuf) {
+        /* fixme: We are slightly violating spec here (Lauris) */
+        if (!image->width._set) {
+            image->width.computed = gdk_pixbuf_get_width(image->pixbuf);
+        }
+        if (!image->height._set) {
+            image->height.computed = gdk_pixbuf_get_height(image->pixbuf);
+        }
+    }
+
+    Geom::Point p(image->x.computed, image->y.computed);
+    Geom::Point wh(image->width.computed, image->height.computed);
+    image->clipbox = Geom::Rect(p, p + wh);
+
+    image->ox = image->x.computed;
+    image->oy = image->y.computed;
+
+    int pixwidth = gdk_pixbuf_get_width (image->pixbuf);
+    int pixheight = gdk_pixbuf_get_height (image->pixbuf);
+
+    image->sx = image->width.computed / pixwidth;
+    image->sy = image->height.computed / pixheight;
+
     // preserveAspectRatio calculate bounds / clipping rectangle -- EAF
     if (image->pixbuf && (image->aspect_align != SP_ASPECT_NONE)) {
-        int imagewidth, imageheight;
-        double x,y;
-
-        imagewidth = gdk_pixbuf_get_width (image->pixbuf);
-        imageheight = gdk_pixbuf_get_height (image->pixbuf);
+        double x, y;
 
         switch (image->aspect_align) {
             case SP_ASPECT_XMIN_YMIN:
@@ -985,49 +991,24 @@ sp_image_update (SPObject *object, SPCtx *ctx, unsigned int flags)
         }
 
         if (image->aspect_clip == SP_ASPECT_SLICE) {
-            image->viewx = image->x.computed;
-            image->viewy = image->y.computed;
-            image->viewwidth = image->width.computed;
-            image->viewheight = image->height.computed;
-            if ((imagewidth*image->height.computed)>(image->width.computed*imageheight)) {
-                // Pixels aspect is wider than bounding box
-                image->trimheight = imageheight;
-                image->trimwidth = static_cast<int>(static_cast<double>(imageheight) * image->width.computed / image->height.computed);
-                image->trimy = 0;
-                image->trimx = static_cast<int>(static_cast<double>(imagewidth - image->trimwidth) * x);
-            } else {
-                // Pixels aspect is taller than bounding box
-                image->trimwidth = imagewidth;
-                image->trimheight = static_cast<int>(static_cast<double>(imagewidth) * image->height.computed / image->width.computed);
-                image->trimx = 0;
-                image->trimy = static_cast<int>(static_cast<double>(imageheight - image->trimheight) * y);
-            }
+            double scale = std::max(image->sx, image->sy);
+            image->sx = scale;
+            image->sy = scale;
         } else {
-            // Otherwise, assume SP_ASPECT_MEET
-            image->trimx = 0;
-            image->trimy = 0;
-            image->trimwidth = imagewidth;
-            image->trimheight = imageheight;
-            if ((imagewidth*image->height.computed)>(image->width.computed*imageheight)) {
-                // Pixels aspect is wider than bounding boz
-                image->viewwidth = image->width.computed;
-                image->viewheight = image->viewwidth * imageheight / imagewidth;
-                image->viewx=image->x.computed;
-                image->viewy=(image->height.computed - image->viewheight) * y + image->y.computed;
-            } else {
-                // Pixels aspect is taller than bounding box
-                image->viewheight = image->height.computed;
-                image->viewwidth = image->viewheight * imagewidth / imageheight;
-                image->viewy=image->y.computed;
-                image->viewx=(image->width.computed - image->viewwidth) * x + image->x.computed;
-            }
+            double scale = std::min(image->sx, image->sy);
+            image->sx = scale;
+            image->sy = scale;
         }
+
+        double vw = pixwidth * image->sx;
+        double vh = pixheight * image->sy;
+        image->ox += x * (image->width.computed - vw);
+        image->oy += y * (image->height.computed - vh);
     }
     sp_image_update_canvas_image ((SPImage *) object);
 }
 
-static void
-sp_image_modified (SPObject *object, unsigned int flags)
+static void sp_image_modified( SPObject *object, unsigned int flags )
 {
     SPImage *image = SP_IMAGE (object);
 
@@ -1036,14 +1017,14 @@ sp_image_modified (SPObject *object, unsigned int flags)
     }
 
     if (flags & SP_OBJECT_STYLE_MODIFIED_FLAG) {
-        for (SPItemView *v = SP_ITEM (image)->display; v != NULL; v = v->next) {
-            nr_arena_image_set_style (NR_ARENA_IMAGE (v->arenaitem), object->style);
+        for (SPItemView *v = image->display; v != NULL; v = v->next) {
+            Inkscape::DrawingImage *img = dynamic_cast<Inkscape::DrawingImage *>(v->arenaitem);
+            img->setStyle(object->style);
         }
     }
 }
 
-static Inkscape::XML::Node *
-sp_image_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags)
+static Inkscape::XML::Node *sp_image_write( SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XML::Node *repr, guint flags )
 {
     SPImage *image = SP_IMAGE (object);
 
@@ -1081,62 +1062,66 @@ sp_image_write (SPObject *object, Inkscape::XML::Document *xml_doc, Inkscape::XM
     return repr;
 }
 
-static void
-sp_image_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const /*flags*/)
+static Geom::OptRect sp_image_bbox( SPItem const *item,Geom::Affine const &transform, SPItem::BBoxType /*type*/ )
 {
     SPImage const &image = *SP_IMAGE(item);
+    Geom::OptRect bbox;
 
     if ((image.width.computed > 0.0) && (image.height.computed > 0.0)) {
-        double const x0 = image.x.computed;
-        double const y0 = image.y.computed;
-        double const x1 = x0 + image.width.computed;
-        double const y1 = y0 + image.height.computed;
-
-        nr_rect_union_pt(bbox, Geom::Point(x0, y0) * transform);
-        nr_rect_union_pt(bbox, Geom::Point(x1, y0) * transform);
-        nr_rect_union_pt(bbox, Geom::Point(x1, y1) * transform);
-        nr_rect_union_pt(bbox, Geom::Point(x0, y1) * transform);
+        bbox = Geom::Rect::from_xywh(image.x.computed, image.y.computed, image.width.computed, image.height.computed);
+        *bbox *= transform;
     }
+    return bbox;
 }
 
-static void
-sp_image_print (SPItem *item, SPPrintContext *ctx)
+static void sp_image_print( SPItem *item, SPPrintContext *ctx )
 {
     SPImage *image = SP_IMAGE(item);
 
     if (image->pixbuf && (image->width.computed > 0.0) && (image->height.computed > 0.0) ) {
-        guchar *px = gdk_pixbuf_get_pixels(image->pixbuf);
-        int w = gdk_pixbuf_get_width(image->pixbuf);
-        int h = gdk_pixbuf_get_height(image->pixbuf);
-        int rs = gdk_pixbuf_get_rowstride(image->pixbuf);
-        int pixskip = gdk_pixbuf_get_n_channels(image->pixbuf) * gdk_pixbuf_get_bits_per_sample(image->pixbuf) / 8;
+        GdkPixbuf *pb = gdk_pixbuf_copy(image->pixbuf);
+        convert_pixbuf_argb32_to_normal(pb);
 
-        Geom::Affine t;
+        guchar *px = gdk_pixbuf_get_pixels(pb);
+        int w = gdk_pixbuf_get_width(pb);
+        int h = gdk_pixbuf_get_height(pb);
+        int rs = gdk_pixbuf_get_rowstride(pb);
+        int pixskip = gdk_pixbuf_get_n_channels(pb) * gdk_pixbuf_get_bits_per_sample(pb) / 8;
+
         if (image->aspect_align == SP_ASPECT_NONE) {
-            /* fixme: (Lauris) */
+            Geom::Affine t;
             Geom::Translate tp(image->x.computed, image->y.computed);
             Geom::Scale s(image->width.computed, -image->height.computed);
             Geom::Translate ti(0.0, -1.0);
             t = s * tp;
             t = ti * t;
+            sp_print_image_R8G8B8A8_N(ctx, px, w, h, rs, t, item->style);
         } else { // preserveAspectRatio
-            Geom::Translate tp(image->viewx, image->viewy);
-            Geom::Scale s(image->viewwidth, -image->viewheight);
+            double vw = image->width.computed / image->sx;
+            double vh = image->height.computed / image->sy;
+
+            int trimwidth = std::min<int>(w, ceil(image->width.computed / vw * w));
+            int trimheight = std::min<int>(h, ceil(image->height.computed / vh * h));
+            int trimx = std::max<int>(0, floor((image->x.computed - image->ox) / vw * w));
+            int trimy = std::max<int>(0, floor((image->y.computed - image->oy) / vh * h));
+
+            double vx = std::max<double>(image->ox, image->x.computed);
+            double vy = std::max<double>(image->oy, image->y.computed);
+            double vcw = std::min<double>(image->width.computed, vw);
+            double vch = std::min<double>(image->height.computed, vh);
+
+            Geom::Affine t;
+            Geom::Translate tp(vx, vy);
+            Geom::Scale s(vcw, -vch);
             Geom::Translate ti(0.0, -1.0);
             t = s * tp;
             t = ti * t;
-        }
-
-        if (image->aspect_align == SP_ASPECT_NONE) {
-            sp_print_image_R8G8B8A8_N(ctx, px, w, h, rs, &t, item->style);
-        } else { // preserveAspectRatio
-            sp_print_image_R8G8B8A8_N(ctx, px + image->trimx*pixskip + image->trimy*rs, image->trimwidth, image->trimheight, rs, &t, item->style);
+            sp_print_image_R8G8B8A8_N(ctx, px + trimx*pixskip + trimy*rs, trimwidth, trimheight, rs, t, item->style);
         }
     }
 }
 
-static gchar *
-sp_image_description(SPItem *item)
+static gchar *sp_image_description( SPItem *item )
 {
     SPImage *image = SP_IMAGE(item);
     char *href_desc;
@@ -1159,37 +1144,12 @@ sp_image_description(SPItem *item)
     return ret;
 }
 
-static NRArenaItem *
-sp_image_show (SPItem *item, NRArena *arena, unsigned int /*key*/, unsigned int /*flags*/)
+static Inkscape::DrawingItem *sp_image_show( SPItem *item, Inkscape::Drawing &drawing, unsigned int /*key*/, unsigned int /*flags*/ )
 {
     SPImage * image = SP_IMAGE(item);
-    NRArenaItem *ai = NRArenaImage::create(arena);
+    Inkscape::DrawingImage *ai = new Inkscape::DrawingImage(drawing);
 
-    if (image->pixbuf) {
-        int pixskip = gdk_pixbuf_get_n_channels(image->pixbuf) * gdk_pixbuf_get_bits_per_sample(image->pixbuf) / 8;
-        int rs = gdk_pixbuf_get_rowstride(image->pixbuf);
-        nr_arena_image_set_style(NR_ARENA_IMAGE(ai), item->style);
-        if (image->aspect_align == SP_ASPECT_NONE) {
-            nr_arena_image_set_pixels(NR_ARENA_IMAGE(ai),
-                                       gdk_pixbuf_get_pixels(image->pixbuf),
-                                       gdk_pixbuf_get_width(image->pixbuf),
-                                       gdk_pixbuf_get_height(image->pixbuf),
-                                       rs);
-        } else { // preserveAspectRatio
-            nr_arena_image_set_pixels(NR_ARENA_IMAGE(ai),
-                                       gdk_pixbuf_get_pixels(image->pixbuf) + image->trimx*pixskip + image->trimy*rs,
-                                       image->trimwidth,
-                                       image->trimheight,
-                                       rs);
-        }
-    } else {
-        nr_arena_image_set_pixels(NR_ARENA_IMAGE(ai), NULL, 0, 0, 0);
-    }
-    if (image->aspect_align == SP_ASPECT_NONE) {
-        nr_arena_image_set_geometry(NR_ARENA_IMAGE(ai), image->x.computed, image->y.computed, image->width.computed, image->height.computed);
-    } else { // preserveAspectRatio
-        nr_arena_image_set_geometry(NR_ARENA_IMAGE(ai), image->viewx, image->viewy, image->viewwidth, image->viewheight);
-    }
+    sp_image_update_arenaitem(image, ai);
 
     return ai;
 }
@@ -1286,8 +1246,7 @@ GdkPixbuf *sp_image_repr_read_image( time_t& modTime, char*& pixPath, const gcha
     return pixbuf;
 }
 
-static GdkPixbuf *
-sp_image_pixbuf_force_rgba (GdkPixbuf * pixbuf)
+static GdkPixbuf *sp_image_pixbuf_force_rgba( GdkPixbuf * pixbuf )
 {
     GdkPixbuf* result;
     if (gdk_pixbuf_get_has_alpha(pixbuf)) {
@@ -1300,49 +1259,26 @@ sp_image_pixbuf_force_rgba (GdkPixbuf * pixbuf)
 }
 
 /* We assert that realpixbuf is either NULL or identical size to pixbuf */
-
 static void
-sp_image_update_canvas_image (SPImage *image)
+sp_image_update_arenaitem (SPImage *image, Inkscape::DrawingImage *ai)
+{
+    ai->setStyle(SP_OBJECT(image)->style);
+    ai->setARGB32Pixbuf(image->pixbuf);
+    ai->setOrigin(Geom::Point(image->ox, image->oy));
+    ai->setScale(image->sx, image->sy);
+    ai->setClipbox(image->clipbox);
+}
+
+static void sp_image_update_canvas_image(SPImage *image)
 {
     SPItem *item = SP_ITEM(image);
 
-    if (image->pixbuf) {
-        /* fixme: We are slightly violating spec here (Lauris) */
-        if (!image->width._set) {
-            image->width.computed = gdk_pixbuf_get_width(image->pixbuf);
-        }
-        if (!image->height._set) {
-            image->height.computed = gdk_pixbuf_get_height(image->pixbuf);
-        }
-    }
-
     for (SPItemView *v = item->display; v != NULL; v = v->next) {
-        int pixskip = gdk_pixbuf_get_n_channels(image->pixbuf) * gdk_pixbuf_get_bits_per_sample(image->pixbuf) / 8;
-        int rs = gdk_pixbuf_get_rowstride(image->pixbuf);
-        nr_arena_image_set_style(NR_ARENA_IMAGE(v->arenaitem), image->style);
-        if (image->aspect_align == SP_ASPECT_NONE) {
-            nr_arena_image_set_pixels(NR_ARENA_IMAGE(v->arenaitem),
-                                       gdk_pixbuf_get_pixels(image->pixbuf),
-                                       gdk_pixbuf_get_width(image->pixbuf),
-                                       gdk_pixbuf_get_height(image->pixbuf),
-                                       rs);
-            nr_arena_image_set_geometry(NR_ARENA_IMAGE(v->arenaitem),
-                                         image->x.computed, image->y.computed,
-                                         image->width.computed, image->height.computed);
-        } else { // preserveAspectRatio
-            nr_arena_image_set_pixels(NR_ARENA_IMAGE(v->arenaitem),
-                                       gdk_pixbuf_get_pixels(image->pixbuf) + image->trimx*pixskip + image->trimy*rs,
-                                       image->trimwidth,
-                                       image->trimheight,
-                                       rs);
-            nr_arena_image_set_geometry(NR_ARENA_IMAGE(v->arenaitem),
-                                         image->viewx, image->viewy,
-                                         image->viewwidth, image->viewheight);
-        }
+        sp_image_update_arenaitem(image, dynamic_cast<Inkscape::DrawingImage *>(v->arenaitem));
     }
 }
 
-static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const */*snapprefs*/)
+static void sp_image_snappoints( SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs )
 {
     /* An image doesn't have any nodes to snap, but still we want to be able snap one image
     to another. Therefore we will create some snappoints at the corner, similar to a rect. If
@@ -1357,17 +1293,19 @@ static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
         //far far away from the visible part from the clipped image
         //TODO Do return snappoints, but only when within visual bounding box
     } else {
-        // The image has not been clipped: return its corners, which might be rotated for example
-        SPImage &image = *SP_IMAGE(item);
-        double const x0 = image.x.computed;
-        double const y0 = image.y.computed;
-        double const x1 = x0 + image.width.computed;
-        double const y1 = y0 + image.height.computed;
-        Geom::Affine const i2d (item->i2d_affine ());
-        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y0) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
-        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
-        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y1) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
-        p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y0) * i2d, Inkscape::SNAPSOURCE_CORNER, Inkscape::SNAPTARGET_CORNER));
+        if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_IMG_CORNER)) {
+            // The image has not been clipped: return its corners, which might be rotated for example
+            SPImage &image = *SP_IMAGE(item);
+            double const x0 = image.x.computed;
+            double const y0 = image.y.computed;
+            double const x1 = x0 + image.width.computed;
+            double const y1 = y0 + image.height.computed;
+            Geom::Affine const i2d (item->i2dt_affine ());
+            p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y0) * i2d, Inkscape::SNAPSOURCE_IMG_CORNER, Inkscape::SNAPTARGET_IMG_CORNER));
+            p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x0, y1) * i2d, Inkscape::SNAPSOURCE_IMG_CORNER, Inkscape::SNAPTARGET_IMG_CORNER));
+            p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y1) * i2d, Inkscape::SNAPSOURCE_IMG_CORNER, Inkscape::SNAPTARGET_IMG_CORNER));
+            p.push_back(Inkscape::SnapCandidatePoint(Geom::Point(x1, y0) * i2d, Inkscape::SNAPSOURCE_IMG_CORNER, Inkscape::SNAPTARGET_IMG_CORNER));
+        }
     }
 }
 
@@ -1376,8 +1314,7 @@ static void sp_image_snappoints(SPItem const *item, std::vector<Inkscape::SnapCa
  * Transform x, y, set x, y, clear translation
  */
 
-static Geom::Affine
-sp_image_set_transform(SPItem *item, Geom::Affine const &xform)
+static Geom::Affine sp_image_set_transform( SPItem *item, Geom::Affine const &xform )
 {
     SPImage *image = SP_IMAGE(item);
 
@@ -1417,8 +1354,7 @@ sp_image_set_transform(SPItem *item, Geom::Affine const &xform)
     return ret;
 }
 
-static GdkPixbuf *
-sp_image_repr_read_dataURI (const gchar * uri_data)
+static GdkPixbuf *sp_image_repr_read_dataURI( const gchar * uri_data )
 {
     GdkPixbuf * pixbuf = NULL;
 
@@ -1474,8 +1410,7 @@ sp_image_repr_read_dataURI (const gchar * uri_data)
     return pixbuf;
 }
 
-static GdkPixbuf *
-sp_image_repr_read_b64 (const gchar * uri_data)
+static GdkPixbuf *sp_image_repr_read_b64( const gchar * uri_data )
 {
     GdkPixbuf * pixbuf = NULL;
 
@@ -1551,8 +1486,7 @@ sp_image_repr_read_b64 (const gchar * uri_data)
     return pixbuf;
 }
 
-static void
-sp_image_set_curve(SPImage *image)
+static void sp_image_set_curve( SPImage *image )
 {
     //create a curve at the image's boundary for snapping
     if ((image->height.computed < MAGIC_EPSILON_TOO) || (image->width.computed < MAGIC_EPSILON_TOO) || (image->clip_ref->getObject())) {
@@ -1560,10 +1494,8 @@ sp_image_set_curve(SPImage *image)
             image->curve = image->curve->unref();
         }
     } else {
-        NRRect rect;
-        sp_image_bbox(image, &rect, Geom::identity(), 0);
-        Geom::Rect rect2 = to_2geom(*rect.upgrade());
-        SPCurve *c = SPCurve::new_from_rect(rect2, true);
+        Geom::OptRect rect = sp_image_bbox(image, Geom::identity(), SPItem::VISUAL_BBOX);
+        SPCurve *c = SPCurve::new_from_rect(*rect, true);
 
         if (image->curve) {
             image->curve = image->curve->unref();
@@ -1580,8 +1512,7 @@ sp_image_set_curve(SPImage *image)
 /**
  * Return duplicate of curve (if any exists) or NULL if there is no curve
  */
-SPCurve *
-sp_image_get_curve (SPImage *image)
+SPCurve *sp_image_get_curve( SPImage *image )
 {
     SPCurve *result = 0;
     if (image->curve) {
@@ -1590,8 +1521,7 @@ sp_image_get_curve (SPImage *image)
     return result;
 }
 
-void
-sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring const &mime_in)
+void sp_embed_image( Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring const &mime_in )
 {
     Glib::ustring format, mime;
     if (mime_in == "image/jpeg") {
@@ -1602,8 +1532,8 @@ sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring con
         format = "png";
     }
 
-    gchar *data;
-    gsize length;
+    gchar *data = 0;
+    gsize length = 0;
     gdk_pixbuf_save_to_buffer(pb, &data, &length, format.data(), NULL, NULL);
 
     // Save base64 encoded data in image node
@@ -1614,7 +1544,8 @@ sp_embed_image(Inkscape::XML::Node *image_node, GdkPixbuf *pb, Glib::ustring con
     gchar *buffer = (gchar *) g_malloc(needed_size), *buf_work = buffer;
     buf_work += g_sprintf(buffer, "data:%s;base64,", mime.data());
 
-    gint state = 0, save = 0;
+    gint state = 0;
+    gint save = 0;
     gsize written = 0;
     written += g_base64_encode_step((guchar*) data, length, TRUE, buf_work, &state, &save);
     written += g_base64_encode_close(TRUE, buf_work + written, &state, &save);

@@ -2,9 +2,9 @@
  * @brief PowerStroke LPE effect, see lpe-powerstroke.cpp.
  */
 /* Authors:
- *   Johan Engelen <j.b.c.engelen@utwente.nl>
+ *   Johan Engelen <j.b.c.engelen@alumnus.utwente.nl>
  *
- * Copyright (C) 2010 Authors
+ * Copyright (C) 2010-2011 Authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -15,6 +15,7 @@
 #include "live_effects/effect.h"
 #include "live_effects/parameter/bool.h"
 #include "live_effects/parameter/powerstrokepointarray.h"
+#include "live_effects/parameter/enum.h"
 
 namespace Inkscape {
 namespace LivePathEffect {
@@ -24,13 +25,21 @@ public:
     LPEPowerStroke(LivePathEffectObject *lpeobject);
     virtual ~LPEPowerStroke();
 
-    virtual Geom::Piecewise<Geom::D2<Geom::SBasis> > doEffect_pwd2 (Geom::Piecewise<Geom::D2<Geom::SBasis> > const & pwd2_in);
+    virtual std::vector<Geom::Path> doEffect_path (std::vector<Geom::Path> const & path_in);
 
     virtual void doOnApply(SPLPEItem *lpeitem);
+
+    // methods called by path-manipulator upon edits
+    void adjustForNewPath(std::vector<Geom::Path> const & path_in);
 
 private:
     PowerStrokePointArrayParam offset_points;
     BoolParam sort_points;
+    EnumParam<unsigned> interpolator_type;
+    ScalarParam interpolator_beta;
+    EnumParam<unsigned> start_linecap_type;
+    EnumParam<unsigned> cusp_linecap_type;
+    EnumParam<unsigned> end_linecap_type;
 
     LPEPowerStroke(const LPEPowerStroke&);
     LPEPowerStroke& operator=(const LPEPowerStroke&);

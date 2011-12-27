@@ -1,19 +1,16 @@
 #ifndef SEEN_SP_COLOR_ICC_SELECTOR_H
 #define SEEN_SP_COLOR_ICC_SELECTOR_H
 
-#include <glib/gtypes.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkvbox.h>
+#include <glib.h>
+#include <gtk/gtk.h>
 
 #include "../color.h"
 #include "sp-color-slider.h"
 #include "sp-color-selector.h"
 
-#if ENABLE_LCMS
-#include "color-profile.h"
-#endif // ENABLE_LCMS
-
-
+namespace Inkscape {
+struct ColorProfile;
+}
 
 struct SPColorICCSelector;
 struct SPColorICCSelectorClass;
@@ -67,8 +64,6 @@ protected:
     GtkWidget* _sbtn; /* Spinbutton */
     GtkWidget* _label; /* Label */
 
-    GtkTooltips* _tt; /* tooltip container */
-
 #if ENABLE_LCMS
     std::string _profileName;
     Inkscape::ColorProfile* _prof;
@@ -85,10 +80,10 @@ private:
 
 
 #define SP_TYPE_COLOR_ICC_SELECTOR (sp_color_icc_selector_get_type ())
-#define SP_COLOR_ICC_SELECTOR(o) (GTK_CHECK_CAST ((o), SP_TYPE_COLOR_ICC_SELECTOR, SPColorICCSelector))
-#define SP_COLOR_ICC_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_CAST ((k), SP_TYPE_COLOR_ICC_SELECTOR, SPColorICCSelectorClass))
-#define SP_IS_COLOR_ICC_SELECTOR(o) (GTK_CHECK_TYPE ((o), SP_TYPE_COLOR_ICC_SELECTOR))
-#define SP_IS_COLOR_ICC_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), SP_TYPE_COLOR_ICC_SELECTOR))
+#define SP_COLOR_ICC_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_CAST ((o), SP_TYPE_COLOR_ICC_SELECTOR, SPColorICCSelector))
+#define SP_COLOR_ICC_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_CAST ((k), SP_TYPE_COLOR_ICC_SELECTOR, SPColorICCSelectorClass))
+#define SP_IS_COLOR_ICC_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), SP_TYPE_COLOR_ICC_SELECTOR))
+#define SP_IS_COLOR_ICC_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), SP_TYPE_COLOR_ICC_SELECTOR))
 
 struct SPColorICCSelector {
     SPColorSelector parent;

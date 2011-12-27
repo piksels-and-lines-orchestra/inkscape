@@ -1,6 +1,7 @@
-/** @file
- * @brief Controls bars for some of Inkscape's tools (for some tools,
- * they are in their own files)
+/**
+ * @file
+ * Controls bars for some of Inkscape's tools (for some tools,
+ * they are in their own files).
  */
 /* Authors:
  *   MenTaLguY <mental@rydia.net>
@@ -100,6 +101,7 @@
 #include "../verbs.h"
 #include "../widgets/button.h"
 #include "../widgets/spinbutton-events.h"
+#include "ui/widget/spinbutton.h"
 #include "../widgets/spw-utilities.h"
 #include "../widgets/widget-sizes.h"
 #include "../xml/attribute-record.h"
@@ -132,6 +134,7 @@ static void       sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainA
 static void       sp_tweak_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_zoom_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
+static void       sp_measure_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_star_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_arc_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 static void       sp_rect_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
@@ -173,6 +176,7 @@ static struct {
     { "SPTweakContext",    "tweak_tool",     SP_VERB_CONTEXT_TWEAK, SP_VERB_CONTEXT_TWEAK_PREFS },
     { "SPSprayContext",    "spray_tool",     SP_VERB_CONTEXT_SPRAY, SP_VERB_CONTEXT_SPRAY_PREFS },
     { "SPZoomContext",     "zoom_tool",      SP_VERB_CONTEXT_ZOOM, SP_VERB_CONTEXT_ZOOM_PREFS },
+    { "SPMeasureContext",  "measure_tool",   SP_VERB_CONTEXT_MEASURE, SP_VERB_CONTEXT_MEASURE_PREFS },
     { "SPRectContext",     "rect_tool",      SP_VERB_CONTEXT_RECT, SP_VERB_CONTEXT_RECT_PREFS },
     { "Box3DContext",      "3dbox_tool",     SP_VERB_CONTEXT_3DBOX, SP_VERB_CONTEXT_3DBOX_PREFS },
     { "SPArcContext",      "arc_tool",       SP_VERB_CONTEXT_ARC, SP_VERB_CONTEXT_ARC_PREFS },
@@ -210,6 +214,8 @@ static struct {
     { "SPSprayContext",   "spray_toolbox",   0, sp_spray_toolbox_prep,              "SprayToolbar",
       SP_VERB_INVALID, 0, 0},
     { "SPZoomContext",   "zoom_toolbox",   0, sp_zoom_toolbox_prep,              "ZoomToolbar",
+      SP_VERB_INVALID, 0, 0},
+    { "SPMeasureContext",   "measure_toolbox",   0, sp_measure_toolbox_prep,              "MeasureToolbar",
       SP_VERB_INVALID, 0, 0},
     { "SPStarContext",   "star_toolbox",   0, sp_star_toolbox_prep,              "StarToolbar",
       SP_VERB_CONTEXT_STAR_PREFS,   "/tools/shapes/star",     N_("Style of new stars")},
@@ -332,7 +338,6 @@ static gchar const * ui_descr =
         "  <toolbar name='SprayToolbar'>"
         "    <toolitem action='SprayModeAction' />"
         "    <separator />"
-        "    <separator />"
         "    <toolitem action='SprayWidthAction' />"
         "    <toolitem action='SprayPressureAction' />"
         "    <toolitem action='SprayPopulationAction' />"
@@ -359,6 +364,13 @@ static gchar const * ui_descr =
         "    <separator />"
         "    <toolitem action='ZoomPrev' />"
         "    <toolitem action='ZoomNext' />"
+        "  </toolbar>"
+
+        "  <toolbar name='MeasureToolbar'>"
+        "    <toolitem action='MeasureFontSizeAction' />"
+        "    <separator />"
+        "    <toolitem action='measure_units_label' />"
+        "    <toolitem action='MeasureUnitsAction' />"
         "  </toolbar>"
 
         "  <toolbar name='StarToolbar'>"
@@ -469,9 +481,9 @@ static gchar const * ui_descr =
         "  </toolbar>"
 
         "  <toolbar name='EraserToolbar'>"
-        "    <toolitem action='EraserWidthAction' />"
-        "    <separator />"
         "    <toolitem action='EraserModeAction' />"
+        "    <separator />"
+        "    <toolitem action='EraserWidthAction' />"
         "  </toolbar>"
 
         "  <toolbar name='TextToolbar'>"
@@ -548,11 +560,11 @@ static void update_commands_toolbox(SPDesktop *desktop, SPEventContext *eventcon
 
 static GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick( GtkWidget *t, Inkscape::IconSize size, SPButtonType type,
                                                                      Inkscape::Verb *verb, Inkscape::Verb *doubleclick_verb,
-                                                                     Inkscape::UI::View::View *view, GtkTooltips *tt);
+                                                                     Inkscape::UI::View::View *view);
 
 class VerbAction : public Gtk::Action {
 public:
-    static Glib::RefPtr<VerbAction> create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips);
+    static Glib::RefPtr<VerbAction> create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view);
 
     virtual ~VerbAction();
     virtual void set_active(bool active = true);
@@ -570,31 +582,29 @@ private:
     Inkscape::Verb* verb;
     Inkscape::Verb* verb2;
     Inkscape::UI::View::View *view;
-    GtkTooltips *tooltips;
     bool active;
 
-    VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips);
+    VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view);
 };
 
 
-Glib::RefPtr<VerbAction> VerbAction::create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips)
+Glib::RefPtr<VerbAction> VerbAction::create(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view)
 {
     Glib::RefPtr<VerbAction> result;
     SPAction *action = verb->get_action(view);
     if ( action ) {
         //SPAction* action2 = verb2 ? verb2->get_action(view) : 0;
-        result = Glib::RefPtr<VerbAction>(new VerbAction(verb, verb2, view, tooltips));
+        result = Glib::RefPtr<VerbAction>(new VerbAction(verb, verb2, view));
     }
 
     return result;
 }
 
-VerbAction::VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view, GtkTooltips *tooltips) :
+VerbAction::VerbAction(Inkscape::Verb* verb, Inkscape::Verb* verb2, Inkscape::UI::View::View *view) :
     Gtk::Action(Glib::ustring(verb->get_id()), Gtk::StockID(verb->get_image()), Glib::ustring(_(verb->get_name())), Glib::ustring(_(verb->get_tip()))),
     verb(verb),
     verb2(verb2),
     view(view),
-    tooltips(tooltips),
     active(false)
 {
 }
@@ -624,8 +634,7 @@ Gtk::Widget* VerbAction::create_tool_item_vfunc()
                                                                           SP_BUTTON_TYPE_TOGGLE,
                                                                           verb,
                                                                           verb2,
-                                                                          view,
-                                                                          tooltips );
+                                                                          view );
     if ( active ) {
         sp_button_toggle_set_down( SP_BUTTON(button), active);
     }
@@ -808,7 +817,7 @@ static void delete_prefspusher(GtkObject * /*obj*/, PrefPusher *watcher )
 
 GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick(GtkWidget *t, Inkscape::IconSize size, SPButtonType type,
                                                              Inkscape::Verb *verb, Inkscape::Verb *doubleclick_verb,
-                                                             Inkscape::UI::View::View *view, GtkTooltips *tt)
+                                                             Inkscape::UI::View::View *view)
 {
     SPAction *action = verb->get_action(view);
     if (!action) {
@@ -824,7 +833,7 @@ GtkWidget * sp_toolbox_button_new_from_verb_with_doubleclick(GtkWidget *t, Inksc
 
     /* fixme: Handle sensitive/unsensitive */
     /* fixme: Implement sp_button_new_from_action */
-    GtkWidget *b = sp_button_new(size, type, action, doubleclick_action, tt);
+    GtkWidget *b = sp_button_new(size, type, action, doubleclick_action);
     gtk_widget_show(b);
 
 
@@ -855,23 +864,6 @@ static void trigger_sp_action( GtkAction* /*act*/, gpointer user_data )
     }
 }
 
-static void sp_action_action_set_sensitive(SPAction * /*action*/, unsigned int sensitive, void *data)
-{
-    if ( data ) {
-        GtkAction* act = GTK_ACTION(data);
-        gtk_action_set_sensitive( act, sensitive );
-    }
-}
-
-static SPActionEventVector action_event_vector = {
-    {NULL},
-    NULL,
-    NULL,
-    sp_action_action_set_sensitive,
-    NULL,
-    NULL
-};
-
 static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::View::View* view, Inkscape::IconSize size )
 {
     GtkAction* act = 0;
@@ -881,10 +873,15 @@ static GtkAction* create_action_for_verb( Inkscape::Verb* verb, Inkscape::UI::Vi
     act = GTK_ACTION(inky);
     gtk_action_set_sensitive( act, targetAction->sensitive );
 
-    g_signal_connect( G_OBJECT(inky), "activate", GTK_SIGNAL_FUNC(trigger_sp_action), targetAction );
+    g_signal_connect( G_OBJECT(inky), "activate", G_CALLBACK(trigger_sp_action), targetAction );
 
-    SPAction*rebound = dynamic_cast<SPAction *>( nr_object_ref( dynamic_cast<NRObject *>(targetAction) ) );
-    nr_active_object_add_listener( (NRActiveObject *)rebound, (NRObjectEventVector *)&action_event_vector, sizeof(SPActionEventVector), inky );
+    // FIXME: memory leak: this is not unrefed anywhere
+    g_object_ref(G_OBJECT(targetAction));
+    g_object_set_data_full(G_OBJECT(inky), "SPAction", (void*) targetAction, (GDestroyNotify) &g_object_unref);
+    targetAction->signal_set_sensitive.connect(
+        sigc::bind<0>(
+            sigc::ptr_fun(&gtk_action_set_sensitive),
+            GTK_ACTION(inky)));
 
     return act;
 }
@@ -932,7 +929,7 @@ static Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* deskto
         SP_VERB_ZOOM_PAGE,
         SP_VERB_ZOOM_PAGE_WIDTH,
         SP_VERB_ZOOM_PREV,
-        SP_VERB_ZOOM_SELECTION,
+        SP_VERB_ZOOM_SELECTION
     };
 
     Inkscape::IconSize toolboxSize = ToolboxFactory::prefToSize("/toolbox/small");
@@ -959,9 +956,8 @@ static Glib::RefPtr<Gtk::ActionGroup> create_or_fetch_actions( SPDesktop* deskto
     }
 
     if ( !mainActions->get_action("ToolZoom") ) {
-        GtkTooltips *tt = gtk_tooltips_new();
         for ( guint i = 0; i < G_N_ELEMENTS(tools) && tools[i].type_name; i++ ) {
-            Glib::RefPtr<VerbAction> va = VerbAction::create(Inkscape::Verb::get(tools[i].verb), Inkscape::Verb::get(tools[i].doubleclick_verb), view, tt);
+            Glib::RefPtr<VerbAction> va = VerbAction::create(Inkscape::Verb::get(tools[i].verb), Inkscape::Verb::get(tools[i].doubleclick_verb), view);
             if ( va ) {
                 mainActions->add(va);
                 if ( i == 0 ) {
@@ -1053,6 +1049,14 @@ GtkWidget *ToolboxFactory::createSnapToolbox()
     return toolboxNewCommon( tb, BAR_SNAP, GTK_POS_LEFT );
 }
 
+static GtkWidget* createCustomSlider( GtkAdjustment *adjustment, gdouble climbRate, guint digits )
+{
+    Inkscape::UI::Widget::SpinButton *inkSpinner = new Inkscape::UI::Widget::SpinButton(*Glib::wrap(adjustment, true), climbRate, digits);
+    inkSpinner = Gtk::manage( inkSpinner );
+    GtkWidget *widget = GTK_WIDGET( inkSpinner->gobj() );
+    return widget;
+}
+
 static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        gchar const *label, gchar const *shortLabel, gchar const *tooltip,
                                                        Glib::ustring const &path, gdouble def,
@@ -1065,6 +1069,12 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
                                                        void (*callback)(GtkAdjustment *, GObject *),
                                                        gdouble climb = 0.1, guint digits = 3, double factor = 1.0 )
 {
+    static bool init = false;
+    if ( !init ) {
+        init = true;
+        ege_adjustment_action_set_compact_tool_factory( createCustomSlider );
+    }
+
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     GtkAdjustment* adj = GTK_ADJUSTMENT( gtk_adjustment_new( prefs->getDouble(path, def) * factor,
                                                              lower, upper, step, page, 0 ) );
@@ -1072,7 +1082,7 @@ static EgeAdjustmentAction * create_adjustment_action( gchar const *name,
         sp_unit_selector_add_adjustment( SP_UNIT_SELECTOR(us), adj );
     }
 
-    gtk_signal_connect( GTK_OBJECT(adj), "value-changed", GTK_SIGNAL_FUNC(callback), dataKludge );
+    g_signal_connect( G_OBJECT(adj), "value-changed", G_CALLBACK(callback), dataKludge );
 
     EgeAdjustmentAction* act = ege_adjustment_action_new( adj, name, label, tooltip, 0, climb, digits );
     if ( shortLabel ) {
@@ -1348,7 +1358,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeInsertAction",
                                           _("Insert node"),
                                           _("Insert new nodes into selected segments"),
-                                          INKSCAPE_ICON_NODE_ADD,
+                                          INKSCAPE_ICON("node-add"),
                                           secondarySize );
         g_object_set( inky, "short_label", _("Insert"), NULL );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_add), 0 );
@@ -1359,7 +1369,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeDeleteAction",
                                           _("Delete node"),
                                           _("Delete selected nodes"),
-                                          INKSCAPE_ICON_NODE_DELETE,
+                                          INKSCAPE_ICON("node-delete"),
                                           secondarySize );
         g_object_set( inky, "short_label", _("Delete"), NULL );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_delete), 0 );
@@ -1370,7 +1380,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeJoinAction",
                                           _("Join nodes"),
                                           _("Join selected nodes"),
-                                          INKSCAPE_ICON_NODE_JOIN,
+                                          INKSCAPE_ICON("node-join"),
                                           secondarySize );
         g_object_set( inky, "short_label", _("Join"), NULL );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_join), 0 );
@@ -1381,7 +1391,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeBreakAction",
                                           _("Break nodes"),
                                           _("Break path at selected nodes"),
-                                          INKSCAPE_ICON_NODE_BREAK,
+                                          INKSCAPE_ICON("node-break"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_break), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1392,7 +1402,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeJoinSegmentAction",
                                           _("Join with segment"),
                                           _("Join selected endnodes with a new segment"),
-                                          INKSCAPE_ICON_NODE_JOIN_SEGMENT,
+                                          INKSCAPE_ICON("node-join-segment"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_join_segment), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1402,7 +1412,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeDeleteSegmentAction",
                                           _("Delete segment"),
                                           _("Delete segment between two non-endpoint nodes"),
-                                          INKSCAPE_ICON_NODE_DELETE_SEGMENT,
+                                          INKSCAPE_ICON("node-delete-segment"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_delete_segment), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1412,7 +1422,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeCuspAction",
                                           _("Node Cusp"),
                                           _("Make selected nodes corner"),
-                                          INKSCAPE_ICON_NODE_TYPE_CUSP,
+                                          INKSCAPE_ICON("node-type-cusp"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_cusp), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1422,7 +1432,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeSmoothAction",
                                           _("Node Smooth"),
                                           _("Make selected nodes smooth"),
-                                          INKSCAPE_ICON_NODE_TYPE_SMOOTH,
+                                          INKSCAPE_ICON("node-type-smooth"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_smooth), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1432,7 +1442,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeSymmetricAction",
                                           _("Node Symmetric"),
                                           _("Make selected nodes symmetric"),
-                                          INKSCAPE_ICON_NODE_TYPE_SYMMETRIC,
+                                          INKSCAPE_ICON("node-type-symmetric"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_symmetrical), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1442,7 +1452,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeAutoAction",
                                           _("Node Auto"),
                                           _("Make selected nodes auto-smooth"),
-                                          INKSCAPE_ICON_NODE_TYPE_AUTO_SMOOTH,
+                                          INKSCAPE_ICON("node-type-auto-smooth"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_auto), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1452,7 +1462,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeLineAction",
                                           _("Node Line"),
                                           _("Make selected segments lines"),
-                                          INKSCAPE_ICON_NODE_SEGMENT_LINE,
+                                          INKSCAPE_ICON("node-segment-line"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_toline), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1462,7 +1472,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "NodeCurveAction",
                                           _("Node Curve"),
                                           _("Make selected segments curves"),
-                                          INKSCAPE_ICON_NODE_SEGMENT_CURVE,
+                                          INKSCAPE_ICON("node-segment-curve"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_tocurve), 0 );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1483,7 +1493,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkToggleAction* act = ink_toggle_action_new( "NodesShowHandlesAction",
                                                       _("Show Handles"),
                                                       _("Show Bezier handles of selected nodes"),
-                                                      INKSCAPE_ICON_SHOW_NODE_HANDLES,
+                                                      INKSCAPE_ICON("show-node-handles"),
                                                       secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
         PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/nodes/show_handles");
@@ -1494,7 +1504,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkToggleAction* act = ink_toggle_action_new( "NodesShowHelperpath",
                                                       _("Show Outline"),
                                                       _("Show path outline (without path effects)"),
-                                                      INKSCAPE_ICON_SHOW_PATH_OUTLINE,
+                                                      INKSCAPE_ICON("show-path-outline"),
                                                       secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
         PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/nodes/show_outline");
@@ -1506,7 +1516,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( verb->get_id(),
                                           verb->get_name(),
                                           verb->get_tip(),
-                                          INKSCAPE_ICON_PATH_EFFECT_PARAMETER_NEXT,
+                                          INKSCAPE_ICON("path-effect-parameter-next"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_node_path_edit_nextLPEparam), desktop );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -1517,7 +1527,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkToggleAction* inky = ink_toggle_action_new( "ObjectEditClipPathAction",
                                           _("Edit clipping paths"),
                                           _("Show clipping path(s) of selected object(s)"),
-                                          INKSCAPE_ICON_PATH_CLIP_EDIT,
+                                          INKSCAPE_ICON("path-clip-edit"),
                                           secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
         PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(inky), "/tools/nodes/edit_clipping_paths");
@@ -1528,7 +1538,7 @@ static void sp_node_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkToggleAction* inky = ink_toggle_action_new( "ObjectEditMaskPathAction",
                                           _("Edit masks"),
                                           _("Show mask(s) of selected object(s)"),
-                                          INKSCAPE_ICON_PATH_MASK_EDIT,
+                                          INKSCAPE_ICON("path-mask-edit"),
                                           secondarySize );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
         PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(inky), "/tools/nodes/edit_masks");
@@ -1612,6 +1622,63 @@ static void sp_zoom_toolbox_prep(SPDesktop * /*desktop*/, GtkActionGroup* /*main
 {
     // no custom GtkAction setup needed
 } // end of sp_zoom_toolbox_prep()
+
+static void
+sp_measure_fontsize_value_changed(GtkAdjustment *adj, GObject *tbl)
+{
+    SPDesktop *desktop = (SPDesktop *) g_object_get_data( tbl, "desktop" );
+
+    if (DocumentUndo::getUndoSensitive(sp_desktop_document(desktop))) {
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        prefs->setInt(Glib::ustring("/tools/measure/fontsize"), adj->value);
+    }
+}
+
+static void measure_unit_changed(GtkAction* /*act*/, GObject* tbl)
+{
+    UnitTracker* tracker = reinterpret_cast<UnitTracker*>(g_object_get_data(tbl, "tracker"));
+    SPUnit const *unit = tracker->getActiveUnit();
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    prefs->setInt("/tools/measure/unitid", unit->unit_id);
+}
+
+static void sp_measure_toolbox_prep(SPDesktop * desktop, GtkActionGroup* mainActions, GObject* holder)
+{
+    UnitTracker* tracker = new UnitTracker( SP_UNIT_ABSOLUTE | SP_UNIT_DEVICE );
+    tracker->setActiveUnit( sp_desktop_namedview(desktop)->doc_units );
+    g_object_set_data( holder, "tracker", tracker );
+
+    EgeAdjustmentAction *eact = 0;
+
+    /* Font Size */
+    {
+        eact = create_adjustment_action( "MeasureFontSizeAction",
+                                         _("Font Size"), _("Font Size:"),
+                                         _("The font size to be used in the measurement labels"),
+                                         "/tools/measure/fontsize", 0.0,
+                                         GTK_WIDGET(desktop->canvas), NULL, holder, FALSE, NULL,
+                                         10, 36, 1.0, 4.0,
+                                         0, 0, 0,
+                                         sp_measure_fontsize_value_changed);
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+    }
+
+
+    // units label
+    {
+        EgeOutputAction* act = ege_output_action_new( "measure_units_label", _("Units:"), _("The units to be used for the measurements"), 0 );
+        ege_output_action_set_use_markup( act, TRUE );
+        g_object_set( act, "visible-overflown", FALSE, NULL );
+        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
+    }
+
+    // units menu
+    {
+        GtkAction* act = tracker->createAction( "MeasureUnitsAction", _("Units:"), _("The units to be used for the measurements") );
+        g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(measure_unit_changed), (GObject*)holder );
+        gtk_action_group_add_action( mainActions, act );
+    }
+} // end of sp_measure_toolbox_prep()
 
 void ToolboxFactory::setToolboxDesktop(GtkWidget *toolbox, SPDesktop *desktop)
 {
@@ -1708,7 +1775,7 @@ static void setupToolboxCommon( GtkWidget *toolbox,
         GtkPositionType pos = static_cast<GtkPositionType>(GPOINTER_TO_INT(g_object_get_data( G_OBJECT(toolbox), HANDLE_POS_MARK )));
         orientation = ((pos == GTK_POS_LEFT) || (pos == GTK_POS_RIGHT)) ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL;
     }
-    gtk_toolbar_set_orientation(GTK_TOOLBAR(toolBar), orientation);
+    gtk_orientable_set_orientation (GTK_ORIENTABLE(toolBar), orientation);
     gtk_toolbar_set_show_arrow(GTK_TOOLBAR(toolBar), TRUE);
 
     g_object_set_data(G_OBJECT(toolBar), "desktop", NULL);
@@ -1727,7 +1794,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
 {
 #if DUMP_DETAILS
     g_message("Set orientation for %p to be %d", toolbox, orientation);
-    GType type = GTK_WIDGET_TYPE(toolbox);
+    GType type = G_OBJECT_TYPE(toolbox);
     g_message("        [%s]", g_type_name(type));
     g_message("             %p", g_object_get_data(G_OBJECT(toolbox), BAR_ID_KEY));
 #endif
@@ -1742,7 +1809,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
         GtkWidget* child = gtk_bin_get_child(GTK_BIN(toolbox));
         if (child) {
 #if DUMP_DETAILS
-            GType type2 = GTK_WIDGET_TYPE(child);
+            GType type2 = G_OBJECT_TYPE(child);
             g_message("            child    [%s]", g_type_name(type2));
 #endif // DUMP_DETAILS
 
@@ -1756,7 +1823,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
                     for (GList* curr = children; curr; curr = g_list_next(curr)) {
                         GtkWidget* child2 = GTK_WIDGET(curr->data);
 #if DUMP_DETAILS
-                        GType type3 = GTK_WIDGET_TYPE(child2);
+                        GType type3 = G_OBJECT_TYPE(child2);
                         g_message("                child2   [%s]", g_type_name(type3));
 #endif // DUMP_DETAILS
 
@@ -1766,12 +1833,12 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
                                 for (GList* curr2 = children2; curr2; curr2 = g_list_next(curr2)) {
                                     GtkWidget* child3 = GTK_WIDGET(curr2->data);
 #if DUMP_DETAILS
-                                    GType type4 = GTK_WIDGET_TYPE(child3);
+                                    GType type4 = G_OBJECT_TYPE(child3);
                                     g_message("                    child3   [%s]", g_type_name(type4));
 #endif // DUMP_DETAILS
                                     if (GTK_IS_TOOLBAR(child3)) {
                                         GtkToolbar* childBar = GTK_TOOLBAR(child3);
-                                        gtk_toolbar_set_orientation(childBar, orientation);
+                                        gtk_orientable_set_orientation(GTK_ORIENTABLE(childBar), orientation);
                                     }
                                 }
                                 g_list_free(children2);
@@ -1781,7 +1848,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
 
                         if (GTK_IS_TOOLBAR(child2)) {
                             GtkToolbar* childBar = GTK_TOOLBAR(child2);
-                            gtk_toolbar_set_orientation(childBar, orientation);
+                            gtk_orientable_set_orientation(GTK_ORIENTABLE(childBar), orientation);
                             if (GTK_IS_HANDLE_BOX(toolbox)) {
                                 handleBox = GTK_HANDLE_BOX(toolbox);
                             }
@@ -1800,7 +1867,7 @@ void ToolboxFactory::setOrientation(GtkWidget* toolbox, GtkOrientation orientati
                 }
             } else if (GTK_IS_TOOLBAR(child)) {
                 GtkToolbar* toolbar = GTK_TOOLBAR(child);
-                gtk_toolbar_set_orientation( toolbar, orientation );
+                gtk_orientable_set_orientation( GTK_ORIENTABLE(toolbar), orientation );
                 if (GTK_IS_HANDLE_BOX(toolbox)) {
                     handleBox = GTK_HANDLE_BOX(toolbox);
                 }
@@ -1824,6 +1891,7 @@ void setup_tool_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
         "    <toolitem action='ToolNode' />"
         "    <toolitem action='ToolTweak' />"
         "    <toolitem action='ToolZoom' />"
+        "    <toolitem action='ToolMeasure' />"
 
         "   <!-- Shapes -->"
         "    <toolitem action='ToolRect' />"
@@ -2066,71 +2134,83 @@ static void toggle_snap_callback(GtkToggleAction *act, gpointer data) //data poi
             dt->toggleSnapGlobal();
             break;
         case SP_ATTR_INKSCAPE_SNAP_BBOX:
-            v = nv->snap_manager.snapprefs.getSnapModeBBox();
+            v = nv->snap_manager.snapprefs.isTargetSnappable(Inkscape::SNAPTARGET_BBOX_CATEGORY);
             sp_repr_set_boolean(repr, "inkscape:snap-bbox", !v);
             break;
-        case SP_ATTR_INKSCAPE_BBOX_PATHS:
-            v = nv->snap_manager.snapprefs.getSnapToBBoxPath();
+        case SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_BBOX_EDGE);
             sp_repr_set_boolean(repr, "inkscape:bbox-paths", !v);
             break;
-        case SP_ATTR_INKSCAPE_BBOX_NODES:
-            v = nv->snap_manager.snapprefs.getSnapToBBoxNode();
+        case SP_ATTR_INKSCAPE_SNAP_BBOX_CORNER:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_BBOX_CORNER);
             sp_repr_set_boolean(repr, "inkscape:bbox-nodes", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_NODES:
-            v = nv->snap_manager.snapprefs.getSnapModeNode();
+        case SP_ATTR_INKSCAPE_SNAP_NODE:
+            v = nv->snap_manager.snapprefs.isTargetSnappable(Inkscape::SNAPTARGET_NODE_CATEGORY);
             sp_repr_set_boolean(repr, "inkscape:snap-nodes", !v);
             break;
-        case SP_ATTR_INKSCAPE_OBJECT_PATHS:
-            v = nv->snap_manager.snapprefs.getSnapToItemPath();
+        case SP_ATTR_INKSCAPE_SNAP_PATH:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH);
             sp_repr_set_boolean(repr, "inkscape:object-paths", !v);
             break;
-        case SP_ATTR_INKSCAPE_OBJECT_NODES:
-            v = nv->snap_manager.snapprefs.getSnapToItemNode();
+        case SP_ATTR_INKSCAPE_SNAP_PATH_CLIP:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH_CLIP);
+            sp_repr_set_boolean(repr, "inkscape:snap-path-clip", !v);
+            break;
+        case SP_ATTR_INKSCAPE_SNAP_PATH_MASK:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH_MASK);
+            sp_repr_set_boolean(repr, "inkscape:snap-path-mask", !v);
+            break;
+        case SP_ATTR_INKSCAPE_SNAP_NODE_CUSP:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_NODE_CUSP);
             sp_repr_set_boolean(repr, "inkscape:object-nodes", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_SMOOTH_NODES:
-            v = nv->snap_manager.snapprefs.getSnapSmoothNodes();
+        case SP_ATTR_INKSCAPE_SNAP_NODE_SMOOTH:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_NODE_SMOOTH);
             sp_repr_set_boolean(repr, "inkscape:snap-smooth-nodes", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_INTERS_PATHS:
-            v = nv->snap_manager.snapprefs.getSnapIntersectionCS();
+        case SP_ATTR_INKSCAPE_SNAP_PATH_INTERSECTION:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH_INTERSECTION);
             sp_repr_set_boolean(repr, "inkscape:snap-intersection-paths", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_CENTER:
-            v = nv->snap_manager.snapprefs.getIncludeItemCenter();
+        case SP_ATTR_INKSCAPE_SNAP_OTHERS:
+            v = nv->snap_manager.snapprefs.isTargetSnappable(Inkscape::SNAPTARGET_OTHERS_CATEGORY);
+            sp_repr_set_boolean(repr, "inkscape:snap-others", !v);
+            break;
+        case SP_ATTR_INKSCAPE_SNAP_ROTATION_CENTER:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_ROTATION_CENTER);
             sp_repr_set_boolean(repr, "inkscape:snap-center", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_GRIDS:
-            v = nv->snap_manager.snapprefs.getSnapToGrids();
+        case SP_ATTR_INKSCAPE_SNAP_GRID:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_GRID);
             sp_repr_set_boolean(repr, "inkscape:snap-grids", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_TO_GUIDES:
-            v = nv->snap_manager.snapprefs.getSnapToGuides();
+        case SP_ATTR_INKSCAPE_SNAP_GUIDE:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_GUIDE);
             sp_repr_set_boolean(repr, "inkscape:snap-to-guides", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_PAGE:
-            v = nv->snap_manager.snapprefs.getSnapToPageBorder();
+        case SP_ATTR_INKSCAPE_SNAP_PAGE_BORDER:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PAGE_BORDER);
             sp_repr_set_boolean(repr, "inkscape:snap-page", !v);
             break;
-            /*case SP_ATTR_INKSCAPE_SNAP_INTERS_GRIDGUIDE:
-              v = nv->snap_manager.snapprefs.getSnapIntersectionGG();
-              sp_repr_set_boolean(repr, "inkscape:snap-intersection-grid-guide", !v);
-              break;*/
-        case SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINTS:
-            v = nv->snap_manager.snapprefs.getSnapLineMidpoints();
+        case SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINT:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_LINE_MIDPOINT);
             sp_repr_set_boolean(repr, "inkscape:snap-midpoints", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINTS:
-            v = nv->snap_manager.snapprefs.getSnapObjectMidpoints();
+        case SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINT:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_OBJECT_MIDPOINT);
             sp_repr_set_boolean(repr, "inkscape:snap-object-midpoints", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINTS:
-            v = nv->snap_manager.snapprefs.getSnapBBoxEdgeMidpoints();
+        case SP_ATTR_INKSCAPE_SNAP_TEXT_BASELINE:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_TEXT_BASELINE);
+            sp_repr_set_boolean(repr, "inkscape:snap-text-baseline", !v);
+            break;
+        case SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINT:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_BBOX_EDGE_MIDPOINT);
             sp_repr_set_boolean(repr, "inkscape:snap-bbox-edge-midpoints", !v);
             break;
-        case SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINTS:
-            v = nv->snap_manager.snapprefs.getSnapBBoxMidpoints();
+        case SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINT:
+            v = nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_BBOX_MIDPOINT);
             sp_repr_set_boolean(repr, "inkscape:snap-bbox-midpoints", !v);
             break;
         default:
@@ -2165,8 +2245,11 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
         "    <toolitem action='ToggleSnapToItemNode' />"
         "    <toolitem action='ToggleSnapToSmoothNodes' />"
         "    <toolitem action='ToggleSnapToFromLineMidpoints' />"
+        "    <separator />"
+        "    <toolitem action='ToggleSnapFromOthers' />"
         "    <toolitem action='ToggleSnapToFromObjectCenters' />"
         "    <toolitem action='ToggleSnapToFromRotationCenter' />"
+        "    <toolitem action='ToggleSnapToFromTextBaseline' />"
         "    <separator />"
         "    <toolitem action='ToggleSnapToPageBorder' />"
         "    <toolitem action='ToggleSnapToGrids' />"
@@ -2184,7 +2267,7 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
         //       For example, this action could be based on the verb(+action) + PrefsPusher.
         Inkscape::Verb* verb = Inkscape::Verb::get(SP_VERB_TOGGLE_SNAPPING);
         InkToggleAction* act = ink_toggle_action_new(verb->get_id(),
-                                                     verb->get_name(), verb->get_tip(), INKSCAPE_ICON_SNAP, secondarySize,
+                                                     verb->get_name(), verb->get_tip(), INKSCAPE_ICON("snap"), secondarySize,
                                                      SP_ATTR_INKSCAPE_SNAP_GLOBAL);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
@@ -2193,7 +2276,7 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapFromBBoxCorner",
-                                                     _("Bounding box"), _("Snap bounding box corners"), INKSCAPE_ICON_SNAP_BOUNDING_BOX,
+                                                     _("Bounding box"), _("Snap bounding boxes"), INKSCAPE_ICON("snap"),
                                                      secondarySize, SP_ATTR_INKSCAPE_SNAP_BBOX);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
@@ -2203,7 +2286,7 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToBBoxPath",
                                                      _("Bounding box edges"), _("Snap to edges of a bounding box"),
-                                                     INKSCAPE_ICON_SNAP_BOUNDING_BOX_EDGES, secondarySize, SP_ATTR_INKSCAPE_BBOX_PATHS);
+                                                     INKSCAPE_ICON("snap-bounding-box-edges"), secondarySize, SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2211,8 +2294,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToBBoxNode",
-                                                     _("Bounding box corners"), _("Snap to bounding box corners"),
-                                                     INKSCAPE_ICON_SNAP_BOUNDING_BOX_CORNERS, secondarySize, SP_ATTR_INKSCAPE_BBOX_NODES);
+                                                     _("Bounding box corners"), _("Snap bounding box corners"),
+                                                     INKSCAPE_ICON("snap-bounding-box-corners"), secondarySize, SP_ATTR_INKSCAPE_SNAP_BBOX_CORNER);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2220,9 +2303,9 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToFromBBoxEdgeMidpoints",
-                                                     _("BBox Edge Midpoints"), _("Snap from and to midpoints of bounding box edges"),
-                                                     INKSCAPE_ICON_SNAP_BOUNDING_BOX_MIDPOINTS, secondarySize,
-                                                     SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINTS);
+                                                     _("BBox Edge Midpoints"), _("Snap midpoints of bounding box edges"),
+                                                     INKSCAPE_ICON("snap-bounding-box-midpoints"), secondarySize,
+                                                     SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINT);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2230,8 +2313,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToFromBBoxCenters",
-                                                     _("BBox Centers"), _("Snapping from and to centers of bounding boxes"),
-                                                     INKSCAPE_ICON_SNAP_BOUNDING_BOX_CENTER, secondarySize, SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINTS);
+                                                     _("BBox Centers"), _("Snapping centers of bounding boxes"),
+                                                     INKSCAPE_ICON("snap-bounding-box-center"), secondarySize, SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINT);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2239,7 +2322,7 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapFromNode",
-                                                     _("Nodes"), _("Snap nodes or handles"), INKSCAPE_ICON_SNAP_NODES, secondarySize, SP_ATTR_INKSCAPE_SNAP_NODES);
+                                                     _("Nodes"), _("Snap nodes, paths, and handles"), INKSCAPE_ICON("snap"), secondarySize, SP_ATTR_INKSCAPE_SNAP_NODE);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2247,8 +2330,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToItemPath",
-                                                     _("Paths"), _("Snap to paths"), INKSCAPE_ICON_SNAP_NODES_PATH, secondarySize,
-                                                     SP_ATTR_INKSCAPE_OBJECT_PATHS);
+                                                     _("Paths"), _("Snap to paths"), INKSCAPE_ICON("snap-nodes-path"), secondarySize,
+                                                     SP_ATTR_INKSCAPE_SNAP_PATH);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2257,7 +2340,7 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToPathIntersections",
                                                      _("Path intersections"), _("Snap to path intersections"),
-                                                     INKSCAPE_ICON_SNAP_NODES_INTERSECTION, secondarySize, SP_ATTR_INKSCAPE_SNAP_INTERS_PATHS);
+                                                     INKSCAPE_ICON("snap-nodes-intersection"), secondarySize, SP_ATTR_INKSCAPE_SNAP_PATH_INTERSECTION);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2265,8 +2348,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToItemNode",
-                                                     _("To nodes"), _("Snap to cusp nodes"), INKSCAPE_ICON_SNAP_NODES_CUSP, secondarySize,
-                                                     SP_ATTR_INKSCAPE_OBJECT_NODES);
+                                                     _("To nodes"), _("Snap cusp nodes, incl. rectangle corners"), INKSCAPE_ICON("snap-nodes-cusp"), secondarySize,
+                                                     SP_ATTR_INKSCAPE_SNAP_NODE_CUSP);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2274,8 +2357,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToSmoothNodes",
-                                                     _("Smooth nodes"), _("Snap to smooth nodes"), INKSCAPE_ICON_SNAP_NODES_SMOOTH,
-                                                     secondarySize, SP_ATTR_INKSCAPE_SNAP_SMOOTH_NODES);
+                                                     _("Smooth nodes"), _("Snap smooth nodes, incl. quadrant points of ellipses"), INKSCAPE_ICON("snap-nodes-smooth"),
+                                                     secondarySize, SP_ATTR_INKSCAPE_SNAP_NODE_SMOOTH);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2283,8 +2366,16 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToFromLineMidpoints",
-                                                     _("Line Midpoints"), _("Snap from and to midpoints of line segments"),
-                                                     INKSCAPE_ICON_SNAP_NODES_MIDPOINT, secondarySize, SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINTS);
+                                                     _("Line Midpoints"), _("Snap midpoints of line segments"),
+                                                     INKSCAPE_ICON("snap-nodes-midpoint"), secondarySize, SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINT);
+
+        gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
+    }
+
+    {
+        InkToggleAction* act = ink_toggle_action_new("ToggleSnapFromOthers",
+                                                     _("Others"), _("Snap other points (centers, guide origins, gradient handles, etc.)"), INKSCAPE_ICON("snap"), secondarySize, SP_ATTR_INKSCAPE_SNAP_OTHERS);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2292,8 +2383,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToFromObjectCenters",
-                                                     _("Object Centers"), _("Snap from and to centers of objects"),
-                                                     INKSCAPE_ICON_SNAP_NODES_CENTER, secondarySize, SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINTS);
+                                                     _("Object Centers"), _("Snap centers of objects"),
+                                                     INKSCAPE_ICON("snap-nodes-center"), secondarySize, SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINT);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2301,17 +2392,27 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToFromRotationCenter",
-                                                     _("Rotation Centers"), _("Snap from and to an item's rotation center"),
-                                                     INKSCAPE_ICON_SNAP_NODES_ROTATION_CENTER, secondarySize, SP_ATTR_INKSCAPE_SNAP_CENTER);
+                                                     _("Rotation Centers"), _("Snap an item's rotation center"),
+                                                     INKSCAPE_ICON("snap-nodes-rotation-center"), secondarySize, SP_ATTR_INKSCAPE_SNAP_ROTATION_CENTER);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
     }
 
     {
+        InkToggleAction* act = ink_toggle_action_new("ToggleSnapToFromTextBaseline",
+                                                     _("Text baseline"), _("Snap text anchors and baselines"),
+                                                     INKSCAPE_ICON("snap-text-baseline"), secondarySize, SP_ATTR_INKSCAPE_SNAP_TEXT_BASELINE);
+
+        gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
+        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
+    }
+
+
+    {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToPageBorder",
-                                                     _("Page border"), _("Snap to the page border"), INKSCAPE_ICON_SNAP_PAGE,
-                                                     secondarySize, SP_ATTR_INKSCAPE_SNAP_PAGE);
+                                                     _("Page border"), _("Snap to the page border"), INKSCAPE_ICON("snap-page"),
+                                                     secondarySize, SP_ATTR_INKSCAPE_SNAP_PAGE_BORDER);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2319,8 +2420,8 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToGrids",
-                                                     _("Grids"), _("Snap to grids"), INKSCAPE_ICON_GRID_RECTANGULAR, secondarySize,
-                                                     SP_ATTR_INKSCAPE_SNAP_GRIDS);
+                                                     _("Grids"), _("Snap to grids"), INKSCAPE_ICON("grid-rectangular"), secondarySize,
+                                                     SP_ATTR_INKSCAPE_SNAP_GRID);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
@@ -2328,22 +2429,12 @@ void setup_snap_toolbox(GtkWidget *toolbox, SPDesktop *desktop)
 
     {
         InkToggleAction* act = ink_toggle_action_new("ToggleSnapToGuides",
-                                                     _("Guides"), _("Snap to guides"), INKSCAPE_ICON_GUIDES, secondarySize,
-                                                     SP_ATTR_INKSCAPE_SNAP_TO_GUIDES);
+                                                     _("Guides"), _("Snap guides"), INKSCAPE_ICON("guides"), secondarySize,
+                                                     SP_ATTR_INKSCAPE_SNAP_GUIDE);
 
         gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
     }
-
-    /*{
-      InkToggleAction* act = ink_toggle_action_new("ToggleSnapToGridGuideIntersections",
-      _("Grid/guide intersections"), _("Snap to intersections of a grid with a guide"),
-      INKSCAPE_ICON_SNAP_GRID_GUIDE_INTERSECTIONS, secondarySize,
-      SP_ATTR_INKSCAPE_SNAP_INTERS_GRIDGUIDE);
-
-      gtk_action_group_add_action( mainActions->gobj(), GTK_ACTION( act ) );
-      g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(toggle_snap_callback), toolbox );
-      }*/
 
     setupToolboxCommon( toolbox, desktop, descr,
                         "/ui/SnapToolbar",
@@ -2397,10 +2488,11 @@ void ToolboxFactory::updateSnapToolbox(SPDesktop *desktop, SPEventContext * /*ev
     Glib::RefPtr<Gtk::Action> act7 = mainActions->get_action("ToggleSnapToItemNode");
     Glib::RefPtr<Gtk::Action> act8 = mainActions->get_action("ToggleSnapToSmoothNodes");
     Glib::RefPtr<Gtk::Action> act9 = mainActions->get_action("ToggleSnapToFromLineMidpoints");
-    Glib::RefPtr<Gtk::Action> act10 = mainActions->get_action("ToggleSnapToFromObjectCenters");
+    Glib::RefPtr<Gtk::Action> act10 = mainActions->get_action("ToggleSnapFromOthers");
+    Glib::RefPtr<Gtk::Action> act10b = mainActions->get_action("ToggleSnapToFromObjectCenters");
     Glib::RefPtr<Gtk::Action> act11 = mainActions->get_action("ToggleSnapToFromRotationCenter");
+    Glib::RefPtr<Gtk::Action> act11b = mainActions->get_action("ToggleSnapToFromTextBaseline");
     Glib::RefPtr<Gtk::Action> act12 = mainActions->get_action("ToggleSnapToPageBorder");
-    //Glib::RefPtr<Gtk::Action> act13 = mainActions->get_action("ToggleSnapToGridGuideIntersections");
     Glib::RefPtr<Gtk::Action> act14 = mainActions->get_action("ToggleSnapToGrids");
     Glib::RefPtr<Gtk::Action> act15 = mainActions->get_action("ToggleSnapToGuides");
 
@@ -2417,47 +2509,50 @@ void ToolboxFactory::updateSnapToolbox(SPDesktop *desktop, SPEventContext * /*ev
     bool const c1 = nv->snap_manager.snapprefs.getSnapEnabledGlobally();
     gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act1->gobj()), c1);
 
-    bool const c2 = nv->snap_manager.snapprefs.getSnapModeBBox();
+    bool const c2 = nv->snap_manager.snapprefs.isTargetSnappable(SNAPTARGET_BBOX_CATEGORY);
     gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act2->gobj()), c2);
     gtk_action_set_sensitive(GTK_ACTION(act2->gobj()), c1);
 
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act3->gobj()), nv->snap_manager.snapprefs.getSnapToBBoxPath());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act3->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(SNAPTARGET_BBOX_EDGE));
     gtk_action_set_sensitive(GTK_ACTION(act3->gobj()), c1 && c2);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act4->gobj()), nv->snap_manager.snapprefs.getSnapToBBoxNode());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act4->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(SNAPTARGET_BBOX_CORNER));
     gtk_action_set_sensitive(GTK_ACTION(act4->gobj()), c1 && c2);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act4b->gobj()), nv->snap_manager.snapprefs.getSnapBBoxEdgeMidpoints());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act4b->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(SNAPTARGET_BBOX_EDGE_MIDPOINT));
     gtk_action_set_sensitive(GTK_ACTION(act4b->gobj()), c1 && c2);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act4c->gobj()), nv->snap_manager.snapprefs.getSnapBBoxMidpoints());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act4c->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(SNAPTARGET_BBOX_MIDPOINT));
     gtk_action_set_sensitive(GTK_ACTION(act4c->gobj()), c1 && c2);
 
-    bool const c3 = nv->snap_manager.snapprefs.getSnapModeNode();
+    bool const c3 = nv->snap_manager.snapprefs.isTargetSnappable(SNAPTARGET_NODE_CATEGORY);
     gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act5->gobj()), c3);
     gtk_action_set_sensitive(GTK_ACTION(act5->gobj()), c1);
 
-    bool const c4 = nv->snap_manager.snapprefs.getSnapToItemPath();
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act6->gobj()), c4);
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act6->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH));
     gtk_action_set_sensitive(GTK_ACTION(act6->gobj()), c1 && c3);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act6b->gobj()), nv->snap_manager.snapprefs.getSnapIntersectionCS());
-    gtk_action_set_sensitive(GTK_ACTION(act6b->gobj()), c1 && c3 && c4);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act7->gobj()), nv->snap_manager.snapprefs.getSnapToItemNode());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act6b->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PATH_INTERSECTION));
+    gtk_action_set_sensitive(GTK_ACTION(act6b->gobj()), c1 && c3);
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act7->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_NODE_CUSP));
     gtk_action_set_sensitive(GTK_ACTION(act7->gobj()), c1 && c3);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act8->gobj()), nv->snap_manager.snapprefs.getSnapSmoothNodes());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act8->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_NODE_SMOOTH));
     gtk_action_set_sensitive(GTK_ACTION(act8->gobj()), c1 && c3);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act9->gobj()), nv->snap_manager.snapprefs.getSnapLineMidpoints());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act9->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_LINE_MIDPOINT));
     gtk_action_set_sensitive(GTK_ACTION(act9->gobj()), c1 && c3);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act10->gobj()), nv->snap_manager.snapprefs.getSnapObjectMidpoints());
-    gtk_action_set_sensitive(GTK_ACTION(act10->gobj()), c1 && c3);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act11->gobj()), nv->snap_manager.snapprefs.getIncludeItemCenter());
-    gtk_action_set_sensitive(GTK_ACTION(act11->gobj()), c1 && c3);
 
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act12->gobj()), nv->snap_manager.snapprefs.getSnapToPageBorder());
+    bool const c5 = nv->snap_manager.snapprefs.isTargetSnappable(SNAPTARGET_OTHERS_CATEGORY);
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act10->gobj()), c5);
+    gtk_action_set_sensitive(GTK_ACTION(act10->gobj()), c1);
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act10b->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
+    gtk_action_set_sensitive(GTK_ACTION(act10b->gobj()), c1 && c5);
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act11->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_ROTATION_CENTER));
+    gtk_action_set_sensitive(GTK_ACTION(act11->gobj()), c1 && c5);
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act11b->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_TEXT_BASELINE));
+    gtk_action_set_sensitive(GTK_ACTION(act11b->gobj()), c1 && c5);
+
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act12->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_PAGE_BORDER));
     gtk_action_set_sensitive(GTK_ACTION(act12->gobj()), c1);
-    //gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act13->gobj()), nv->snap_manager.snapprefs.getSnapIntersectionGG());
-    //gtk_action_set_sensitive(GTK_ACTION(act13->gobj()), c1);
 
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act14->gobj()), nv->snap_manager.snapprefs.getSnapToGrids());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act14->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_GRID));
     gtk_action_set_sensitive(GTK_ACTION(act14->gobj()), c1);
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act15->gobj()), nv->snap_manager.snapprefs.getSnapToGuides());
+    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act15->gobj()), nv->snap_manager.snapprefs.isSnapButtonEnabled(Inkscape::SNAPTARGET_GUIDE));
     gtk_action_set_sensitive(GTK_ACTION(act15->gobj()), c1);
 
 
@@ -2481,8 +2576,8 @@ void ToolboxFactory::showAuxToolbox(GtkWidget *toolbox_toplevel)
 static GtkWidget *sp_empty_toolbox_new(SPDesktop *desktop)
 {
     GtkWidget *tbl = gtk_toolbar_new();
-    gtk_object_set_data(GTK_OBJECT(tbl), "dtw", desktop->canvas);
-    gtk_object_set_data(GTK_OBJECT(tbl), "desktop", desktop);
+    g_object_set_data(G_OBJECT(tbl), "dtw", desktop->canvas);
+    g_object_set_data(G_OBJECT(tbl), "desktop", desktop);
 
     gtk_widget_show_all(tbl);
     sp_set_font_size_smaller (tbl);
@@ -2729,10 +2824,10 @@ static void star_tb_event_attr_changed(Inkscape::XML::Node *repr, gchar const *n
     bool isFlatSided = prefs->getBool("/tools/shapes/star/isflatsided", true);
 
     if (!strcmp(name, "inkscape:randomized")) {
-        adj = GTK_ADJUSTMENT( gtk_object_get_data(GTK_OBJECT(tbl), "randomized") );
+        adj = GTK_ADJUSTMENT( g_object_get_data(G_OBJECT(tbl), "randomized") );
         gtk_adjustment_set_value(adj, sp_repr_get_double_attribute(repr, "inkscape:randomized", 0.0));
     } else if (!strcmp(name, "inkscape:rounded")) {
-        adj = GTK_ADJUSTMENT( gtk_object_get_data(GTK_OBJECT(tbl), "rounded") );
+        adj = GTK_ADJUSTMENT( g_object_get_data(G_OBJECT(tbl), "rounded") );
         gtk_adjustment_set_value(adj, sp_repr_get_double_attribute(repr, "inkscape:rounded", 0.0));
     } else if (!strcmp(name, "inkscape:flatsided")) {
         GtkAction* prop_action = GTK_ACTION( g_object_get_data(G_OBJECT(tbl), "prop_action") );
@@ -2746,7 +2841,7 @@ static void star_tb_event_attr_changed(Inkscape::XML::Node *repr, gchar const *n
             gtk_action_set_sensitive( prop_action, FALSE );
         }
     } else if ((!strcmp(name, "sodipodi:r1") || !strcmp(name, "sodipodi:r2")) && (!isFlatSided) ) {
-        adj = (GtkAdjustment*)gtk_object_get_data(GTK_OBJECT(tbl), "proportion");
+        adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(tbl), "proportion");
         gdouble r1 = sp_repr_get_double_attribute(repr, "sodipodi:r1", 1.0);
         gdouble r2 = sp_repr_get_double_attribute(repr, "sodipodi:r2", 1.0);
         if (r2 < r1) {
@@ -2755,7 +2850,7 @@ static void star_tb_event_attr_changed(Inkscape::XML::Node *repr, gchar const *n
             gtk_adjustment_set_value(adj, r1/r2);
         }
     } else if (!strcmp(name, "sodipodi:sides")) {
-        adj = (GtkAdjustment*)gtk_object_get_data(GTK_OBJECT(tbl), "magnitude");
+        adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(tbl), "magnitude");
         gtk_adjustment_set_value(adj, sp_repr_get_int_attribute(repr, "sodipodi:sides", 0));
     }
 
@@ -2869,7 +2964,7 @@ void sp_toolbox_add_label(GtkWidget *tbl, gchar const *title, bool wide)
     } else {
         gtk_box_pack_start(GTK_BOX(tbl), boxl, FALSE, FALSE, 0);
     }
-    gtk_object_set_data(GTK_OBJECT(tbl), "mode_label", l);
+    g_object_set_data(G_OBJECT(tbl), "mode_label", l);
 }
 
 
@@ -2898,14 +2993,14 @@ static void sp_star_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
             gtk_list_store_set( model, &iter,
                                 0, _("Polygon"),
                                 1, _("Regular polygon (with one handle) instead of a star"),
-                                2, INKSCAPE_ICON_DRAW_POLYGON,
+                                2, INKSCAPE_ICON("draw-polygon"),
                                 -1 );
 
             gtk_list_store_append( model, &iter );
             gtk_list_store_set( model, &iter,
                                 0, _("Star"),
                                 1, _("Star instead of a regular polygon (with one handle)"),
-                                2, INKSCAPE_ICON_DRAW_STAR,
+                                2, INKSCAPE_ICON("draw-star"),
                                 -1 );
 
             EgeSelectOneAction* act = ege_select_one_action_new( "FlatAction", (""), (""), NULL, GTK_TREE_MODEL(model) );
@@ -3328,7 +3423,7 @@ static void sp_rect_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         InkAction* inky = ink_action_new( "RectResetAction",
                                           _("Not rounded"),
                                           _("Make corners sharp"),
-                                          INKSCAPE_ICON_RECTANGLE_MAKE_CORNERS_SHARP,
+                                          INKSCAPE_ICON("rectangle-make-corners-sharp"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_rtb_defaults), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -3375,7 +3470,7 @@ static void box3d_set_button_and_adjustment(Persp3D *persp,
         gtk_action_set_sensitive(act, TRUE);
 
         double angle = persp3d_get_infinite_angle(persp, axis);
-        if (angle != NR_HUGE) { // FIXME: We should catch this error earlier (don't show the spinbutton at all)
+        if (angle != Geom::infinity()) { // FIXME: We should catch this error earlier (don't show the spinbutton at all)
             gtk_adjustment_set_value(adj, box3d_normalize_angle(angle));
         }
     } else {
@@ -3401,21 +3496,21 @@ static void box3d_resync_toolbar(Inkscape::XML::Node *persp_repr, GObject *data)
         return;
     }
     {
-        adj = GTK_ADJUSTMENT(gtk_object_get_data(GTK_OBJECT(tbl), "box3d_angle_x"));
+        adj = GTK_ADJUSTMENT(g_object_get_data(G_OBJECT(tbl), "box3d_angle_x"));
         act = GTK_ACTION(g_object_get_data(G_OBJECT(tbl), "box3d_angle_x_action"));
         tact = &INK_TOGGLE_ACTION(g_object_get_data(G_OBJECT(tbl), "box3d_vp_x_state_action"))->action;
 
         box3d_set_button_and_adjustment(persp, Proj::X, adj, act, tact);
     }
     {
-        adj = GTK_ADJUSTMENT(gtk_object_get_data(GTK_OBJECT(tbl), "box3d_angle_y"));
+        adj = GTK_ADJUSTMENT(g_object_get_data(G_OBJECT(tbl), "box3d_angle_y"));
         act = GTK_ACTION(g_object_get_data(G_OBJECT(tbl), "box3d_angle_y_action"));
         tact = &INK_TOGGLE_ACTION(g_object_get_data(G_OBJECT(tbl), "box3d_vp_y_state_action"))->action;
 
         box3d_set_button_and_adjustment(persp, Proj::Y, adj, act, tact);
     }
     {
-        adj = GTK_ADJUSTMENT(gtk_object_get_data(GTK_OBJECT(tbl), "box3d_angle_z"));
+        adj = GTK_ADJUSTMENT(g_object_get_data(G_OBJECT(tbl), "box3d_angle_z"));
         act = GTK_ACTION(g_object_get_data(G_OBJECT(tbl), "box3d_angle_z_action"));
         tact = &INK_TOGGLE_ACTION(g_object_get_data(G_OBJECT(tbl), "box3d_vp_z_state_action"))->action;
 
@@ -3615,7 +3710,7 @@ static void box3d_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, 
                                                       // Translators: VP is short for 'vanishing point'
                                                       _("State of VP in X direction"),
                                                       _("Toggle VP in X direction between 'finite' and 'infinite' (=parallel)"),
-                                                      INKSCAPE_ICON_PERSPECTIVE_PARALLEL,
+                                                      INKSCAPE_ICON("perspective-parallel"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
         g_object_set_data( holder, "box3d_vp_x_state_action", act );
@@ -3654,7 +3749,7 @@ static void box3d_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, 
                                                       // Translators: VP is short for 'vanishing point'
                                                       _("State of VP in Y direction"),
                                                       _("Toggle VP in Y direction between 'finite' and 'infinite' (=parallel)"),
-                                                      INKSCAPE_ICON_PERSPECTIVE_PARALLEL,
+                                                      INKSCAPE_ICON("perspective-parallel"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
         g_object_set_data( holder, "box3d_vp_y_state_action", act );
@@ -3693,7 +3788,7 @@ static void box3d_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, 
                                                       // Translators: VP is short for 'vanishing point'
                                                       _("State of VP in Z direction"),
                                                       _("Toggle VP in Z direction between 'finite' and 'infinite' (=parallel)"),
-                                                      INKSCAPE_ICON_PERSPECTIVE_PARALLEL,
+                                                      INKSCAPE_ICON("perspective-parallel"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
         g_object_set_data( holder, "box3d_vp_z_state_action", act );
@@ -3782,15 +3877,15 @@ static void sp_spl_tb_defaults(GtkWidget * /*widget*/, GtkObject *obj)
     gdouble exp = 1.0;
     gdouble t0 = 0.0;
 
-    adj = (GtkAdjustment*)gtk_object_get_data(obj, "revolution");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(obj), "revolution");
     gtk_adjustment_set_value(adj, rev);
     gtk_adjustment_value_changed(adj);
 
-    adj = (GtkAdjustment*)gtk_object_get_data(obj, "expansion");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(obj), "expansion");
     gtk_adjustment_set_value(adj, exp);
     gtk_adjustment_value_changed(adj);
 
-    adj = (GtkAdjustment*)gtk_object_get_data(obj, "t0");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(obj), "t0");
     gtk_adjustment_set_value(adj, t0);
     gtk_adjustment_value_changed(adj);
 
@@ -3816,13 +3911,13 @@ static void spiral_tb_event_attr_changed(Inkscape::XML::Node *repr,
     g_object_set_data(G_OBJECT(tbl), "freeze", GINT_TO_POINTER(TRUE));
 
     GtkAdjustment *adj;
-    adj = (GtkAdjustment*)gtk_object_get_data(GTK_OBJECT(tbl), "revolution");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(tbl), "revolution");
     gtk_adjustment_set_value(adj, (sp_repr_get_double_attribute(repr, "sodipodi:revolution", 3.0)));
 
-    adj = (GtkAdjustment*)gtk_object_get_data(GTK_OBJECT(tbl), "expansion");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(tbl), "expansion");
     gtk_adjustment_set_value(adj, (sp_repr_get_double_attribute(repr, "sodipodi:expansion", 1.0)));
 
-    adj = (GtkAdjustment*)gtk_object_get_data(GTK_OBJECT(tbl), "t0");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(tbl), "t0");
     gtk_adjustment_set_value(adj, (sp_repr_get_double_attribute(repr, "sodipodi:t0", 0.0)));
 
     g_object_set_data(G_OBJECT(tbl), "freeze", GINT_TO_POINTER(FALSE));
@@ -3995,14 +4090,14 @@ static void sp_add_freehand_mode_toggle(GtkActionGroup* mainActions, GObject* ho
             gtk_list_store_set( model, &iter,
                                 0, _("Bezier"),
                                 1, _("Create regular Bezier path"),
-                                2, INKSCAPE_ICON_PATH_MODE_BEZIER,
+                                2, INKSCAPE_ICON("path-mode-bezier"),
                                 -1 );
 
             gtk_list_store_append( model, &iter );
             gtk_list_store_set( model, &iter,
                                 0, _("Spiro"),
                                 1, _("Create Spiro path"),
-                                2, INKSCAPE_ICON_PATH_MODE_SPIRO,
+                                2, INKSCAPE_ICON("path-mode-spiro"),
                                 -1 );
 
             if (!tool_is_pencil) {
@@ -4010,14 +4105,14 @@ static void sp_add_freehand_mode_toggle(GtkActionGroup* mainActions, GObject* ho
                 gtk_list_store_set( model, &iter,
                                     0, _("Zigzag"),
                                     1, _("Create a sequence of straight line segments"),
-                                    2, INKSCAPE_ICON_PATH_MODE_POLYLINE,
+                                    2, INKSCAPE_ICON("path-mode-polyline"),
                                     -1 );
 
                 gtk_list_store_append( model, &iter );
                 gtk_list_store_set( model, &iter,
                                     0, _("Paraxial"),
                                     1, _("Create a sequence of paraxial line segments"),
-                                    2, INKSCAPE_ICON_PATH_MODE_POLYLINE_PARAXIAL,
+                                    2, INKSCAPE_ICON("path-mode-polyline-paraxial"),
                                     -1 );
             }
 
@@ -4047,7 +4142,7 @@ static void freehand_change_shape(EgeSelectOneAction* act, GObject *dataKludge) 
 }
 
 /**
- * \brief Generate the list of freehand advanced shape option entries.
+ * Generate the list of freehand advanced shape option entries.
  */
 static GList * freehand_shape_dropdown_items_list() {
     GList *glist = NULL;
@@ -4107,7 +4202,7 @@ static void sp_pencil_tb_defaults(GtkWidget * /*widget*/, GtkObject *obj)
     // fixme: make settable
     gdouble tolerance = 4;
 
-    adj = (GtkAdjustment*)gtk_object_get_data(obj, "tolerance");
+    adj = (GtkAdjustment*)g_object_get_data(G_OBJECT(obj), "tolerance");
     gtk_adjustment_set_value(adj, tolerance);
     gtk_adjustment_value_changed(adj);
 
@@ -4313,91 +4408,91 @@ static void sp_tweak_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         gtk_list_store_set( model, &iter,
                             0, _("Move mode"),
                             1, _("Move objects in any direction"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_PUSH,
+                            2, INKSCAPE_ICON("object-tweak-push"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Move in/out mode"),
                             1, _("Move objects towards cursor; with Shift from cursor"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_ATTRACT,
+                            2, INKSCAPE_ICON("object-tweak-attract"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Move jitter mode"),
                             1, _("Move objects in random directions"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_RANDOMIZE,
+                            2, INKSCAPE_ICON("object-tweak-randomize"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Scale mode"),
                             1, _("Shrink objects, with Shift enlarge"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_SHRINK,
+                            2, INKSCAPE_ICON("object-tweak-shrink"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Rotate mode"),
                             1, _("Rotate objects, with Shift counterclockwise"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_ROTATE,
+                            2, INKSCAPE_ICON("object-tweak-rotate"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Duplicate/delete mode"),
                             1, _("Duplicate objects, with Shift delete"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_DUPLICATE,
+                            2, INKSCAPE_ICON("object-tweak-duplicate"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Push mode"),
                             1, _("Push parts of paths in any direction"),
-                            2, INKSCAPE_ICON_PATH_TWEAK_PUSH,
+                            2, INKSCAPE_ICON("path-tweak-push"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Shrink/grow mode"),
                             1, _("Shrink (inset) parts of paths; with Shift grow (outset)"),
-                            2, INKSCAPE_ICON_PATH_TWEAK_SHRINK,
+                            2, INKSCAPE_ICON("path-tweak-shrink"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Attract/repel mode"),
                             1, _("Attract parts of paths towards cursor; with Shift from cursor"),
-                            2, INKSCAPE_ICON_PATH_TWEAK_ATTRACT,
+                            2, INKSCAPE_ICON("path-tweak-attract"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Roughen mode"),
                             1, _("Roughen parts of paths"),
-                            2, INKSCAPE_ICON_PATH_TWEAK_ROUGHEN,
+                            2, INKSCAPE_ICON("path-tweak-roughen"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Color paint mode"),
                             1, _("Paint the tool's color upon selected objects"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_PAINT,
+                            2, INKSCAPE_ICON("object-tweak-paint"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Color jitter mode"),
                             1, _("Jitter the colors of selected objects"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_JITTER_COLOR,
+                            2, INKSCAPE_ICON("object-tweak-jitter-color"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Blur mode"),
                             1, _("Blur selected objects more; with Shift, blur less"),
-                            2, INKSCAPE_ICON_OBJECT_TWEAK_BLUR,
+                            2, INKSCAPE_ICON("object-tweak-blur"),
                             -1 );
 
 
@@ -4522,7 +4617,7 @@ static void sp_tweak_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         InkToggleAction* act = ink_toggle_action_new( "TweakPressureAction",
                                                       _("Pressure"),
                                                       _("Use the pressure of the input device to alter the force of tweak action"),
-                                                      INKSCAPE_ICON_DRAW_USE_PRESSURE,
+                                                      INKSCAPE_ICON("draw-use-pressure"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
         g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_tweak_pressure_state_changed), NULL);
@@ -4552,12 +4647,6 @@ static void sp_spray_standard_deviation_value_changed( GtkAdjustment *adj, GObje
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     prefs->setDouble( "/tools/spray/standard_deviation", adj->value );
-}
-
-static void sp_spray_pressure_state_changed( GtkToggleAction *act, gpointer /*data*/ )
-{
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    prefs->setBool("/tools/spray/usepressure", gtk_toggle_action_get_active(act));
 }
 
 static void sp_spray_mode_changed( EgeSelectOneAction *act, GObject * /*tbl*/ )
@@ -4609,10 +4698,10 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
 
     {
         /* Mean */
-        gchar const* labels[] = {_("(minimum mean)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum mean)")};
-        gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
+        gchar const* labels[] = {_("(default)"), 0, 0, 0, 0, 0, 0, _("(maximum mean)")};
+        gdouble values[] = {0, 5, 10, 20, 30, 50, 70, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayMeanAction",
-                                                              _("Focus"), _("Focus:"), _("0 to spray a spot. Increase to enlarge the ring radius."),
+                                                              _("Focus"), _("Focus:"), _("0 to spray a spot; increase to enlarge the ring radius"),
                                                               "/tools/spray/mean", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-mean",
                                                               0, 100, 1.0, 10.0,
@@ -4625,13 +4714,10 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
 
     {
         /* Standard_deviation */
-        gchar const* labels[] = {_("(minimum scatter)"), 0, 0, _("(default)"), 0, 0, 0, _("(maximum scatter)")};
+        gchar const* labels[] = {_("(minimum scatter)"), 0, 0, 0, 0, 0, _("(default)"), _("(maximum scatter)")};
         gdouble values[] = {1, 5, 10, 20, 30, 50, 70, 100};
-
-        //TRANSLATORS: only translate "string" in "context|string".
-        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayStandard_deviationAction",
-                                                              Q_("Toolbox|Scatter"), Q_("Toolbox|Scatter:"), _("Increase to scatter sprayed objects."),
+                                                              C_("Spray tool", "Scatter"), C_("Spray tool", "Scatter:"), _("Increase to scatter sprayed objects"),
                                                               "/tools/spray/standard_deviation", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-standard_deviation",
                                                               1, 100, 1.0, 10.0,
@@ -4651,21 +4737,21 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
         gtk_list_store_set( model, &iter,
                             0, _("Spray with copies"),
                             1, _("Spray copies of the initial selection"),
-                            2, INKSCAPE_ICON_SPRAY_COPY_MODE,
+                            2, INKSCAPE_ICON("spray-mode-copy"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Spray with clones"),
                             1, _("Spray clones of the initial selection"),
-                            2, INKSCAPE_ICON_SPRAY_CLONE_MODE,
+                            2, INKSCAPE_ICON("spray-mode-clone"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Spray single path"),
                             1, _("Spray objects in a single path"),
-                            2, INKSCAPE_ICON_SPRAY_UNION_MODE,
+                            2, INKSCAPE_ICON("spray-mode-union"),
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "SprayModeAction", _("Mode"), (""), NULL, GTK_TREE_MODEL(model) );
@@ -4688,11 +4774,11 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     }
 
     {   /* Population */
-        gchar const* labels[] = {_("(low population)"), 0, 0, _("(default)"), 0, 0, _("(high population)")};
-        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
+        gchar const* labels[] = {_("(low population)"), 0, 0, 0, _("(default)"), 0, _("(high population)")};
+        gdouble values[] = {5, 20, 35, 50, 70, 85, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayPopulationAction",
                                                               _("Amount"), _("Amount:"),
-                                                              _("Adjusts the number of items sprayed per clic."),
+                                                              _("Adjusts the number of items sprayed per click"),
                                                               "/tools/spray/population", 70,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-population",
                                                               1, 100, 1.0, 10.0,
@@ -4708,21 +4794,22 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     {
         InkToggleAction* act = ink_toggle_action_new( "SprayPressureAction",
                                                       _("Pressure"),
-                                                      _("Use the pressure of the input device to alter the amount of sprayed objects."),
+                                                      _("Use the pressure of the input device to alter the amount of sprayed objects"),
                                                       "use_pressure",
                                                       Inkscape::ICON_SIZE_DECORATION );
-        gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
-        g_signal_connect_after( G_OBJECT(act), "toggled", G_CALLBACK(sp_spray_pressure_state_changed), NULL);
-        gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), prefs->getBool("/tools/spray/usepressure", true) );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
+        PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/spray/usepressure");
+        g_signal_connect(holder, "destroy", G_CALLBACK(delete_prefspusher), pusher);
+
     }
 
     {   /* Rotation */
-        gchar const* labels[] = {_("(low rotation variation)"), 0, 0, _("(default)"), 0, 0, _("(high rotation variation)")};
-        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
+        gchar const* labels[] = {_("(default)"), 0, 0, 0, 0, 0, 0, _("(high rotation variation)")};
+        gdouble values[] = {0, 10, 25, 35, 50, 60, 80, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayRotationAction",
                                                               _("Rotation"), _("Rotation:"),
                                                               // xgettext:no-c-format
-                                                              _("Variation of the rotation of the sprayed objects. 0% for the same rotation than the original object."),
+                                                              _("Variation of the rotation of the sprayed objects; 0% for the same rotation than the original object"),
                                                               "/tools/spray/rotation_variation", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-rotation",
                                                               0, 100, 1.0, 10.0,
@@ -4735,15 +4822,12 @@ static void sp_spray_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainAction
     }
 
     {   /* Scale */
-        gchar const* labels[] = {_("(low scale variation)"), 0, 0, _("(default)"), 0, 0, _("(high scale variation)")};
-        gdouble values[] = {10, 25, 35, 50, 60, 80, 100};
-
-        //TRANSLATORS: only translate "string" in "context|string".
-        // For more details, see http://developer.gnome.org/doc/API/2.0/glib/glib-I18N.html#Q-:CAPS
+        gchar const* labels[] = {_("(default)"), 0, 0, 0, 0, 0, 0, _("(high scale variation)")};
+        gdouble values[] = {0, 10, 25, 35, 50, 60, 80, 100};
         EgeAdjustmentAction *eact = create_adjustment_action( "SprayScaleAction",
-                                                              Q_("Toolbox|Scale"), Q_("Toolbox|Scale:"),
+                                                              C_("Spray tool", "Scale"), C_("Spray tool", "Scale:"),
                                                               // xgettext:no-c-format
-                                                              _("Variation in the scale of the sprayed objects. 0% for the same scale than the original object."),
+                                                              _("Variation in the scale of the sprayed objects; 0% for the same scale than the original object"),
                                                               "/tools/spray/scale_variation", 0,
                                                               GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "spray-scale",
                                                               0, 100, 1.0, 10.0,
@@ -5233,7 +5317,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
             InkToggleAction* act = ink_toggle_action_new( "TraceAction",
                                                           _("Trace Background"),
                                                           _("Trace the lightness of the background by the width of the pen (white - minimum width, black - maximum width)"),
-                                                          INKSCAPE_ICON_DRAW_TRACE_BACKGROUND,
+                                                          INKSCAPE_ICON("draw-trace-background"),
                                                           Inkscape::ICON_SIZE_DECORATION );
             gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
             PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/calligraphic/tracebackground", update_presets_list, holder);
@@ -5246,7 +5330,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
             InkToggleAction* act = ink_toggle_action_new( "PressureAction",
                                                           _("Pressure"),
                                                           _("Use the pressure of the input device to alter the width of the pen"),
-                                                          INKSCAPE_ICON_DRAW_USE_PRESSURE,
+                                                          INKSCAPE_ICON("draw-use-pressure"),
                                                           Inkscape::ICON_SIZE_DECORATION );
             gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
             PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/calligraphic/usepressure", update_presets_list, holder);
@@ -5259,7 +5343,7 @@ static void sp_calligraphy_toolbox_prep(SPDesktop *desktop, GtkActionGroup* main
             InkToggleAction* act = ink_toggle_action_new( "TiltAction",
                                                           _("Tilt"),
                                                           _("Use the tilt of the input device to alter the angle of the pen's nib"),
-                                                          INKSCAPE_ICON_DRAW_USE_TILT,
+                                                          INKSCAPE_ICON("draw-use-tilt"),
                                                           Inkscape::ICON_SIZE_DECORATION );
             gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
             PrefPusher *pusher = new PrefPusher(GTK_TOGGLE_ACTION(act), "/tools/calligraphic/usetilt", update_presets_list, holder);
@@ -5587,14 +5671,14 @@ static void sp_arc_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions,
         gtk_list_store_set( model, &iter,
                             0, _("Closed arc"),
                             1, _("Switch to segment (closed shape with two radii)"),
-                            2, INKSCAPE_ICON_DRAW_ELLIPSE_SEGMENT,
+                            2, INKSCAPE_ICON("draw-ellipse-segment"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Open Arc"),
                             1, _("Switch to arc (unclosed shape)"),
-                            2, INKSCAPE_ICON_DRAW_ELLIPSE_ARC,
+                            2, INKSCAPE_ICON("draw-ellipse-arc"),
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "ArcOpenAction", (""), (""), NULL, GTK_TREE_MODEL(model) );
@@ -5618,7 +5702,7 @@ static void sp_arc_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions,
         InkAction* inky = ink_action_new( "ArcResetAction",
                                           _("Make whole"),
                                           _("Make the shape a whole ellipse, not arc or segment"),
-                                          INKSCAPE_ICON_DRAW_ELLIPSE_WHOLE,
+                                          INKSCAPE_ICON("draw-ellipse-whole"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_arctb_defaults), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -5863,7 +5947,7 @@ static void lpetool_toggle_set_bbox(GtkToggleAction *act, gpointer data)
     SPDesktop *desktop = static_cast<SPDesktop *>(data);
     Inkscape::Selection *selection = desktop->selection;
 
-    Geom::OptRect bbox = selection->bounds();
+    Geom::OptRect bbox = selection->visualBounds();
 
     if (bbox) {
         Geom::Point A(bbox->min());
@@ -6118,23 +6202,6 @@ static void sp_erasertb_mode_changed( EgeSelectOneAction *act, GObject *tbl )
 static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder)
 {
     {
-        /* Width */
-        gchar const* labels[] = {_("(hairline)"), 0, 0, 0, _("(default)"), 0, 0, 0, 0, _("(broad stroke)")};
-        gdouble values[] = {1, 3, 5, 10, 15, 20, 30, 50, 75, 100};
-        EgeAdjustmentAction *eact = create_adjustment_action( "EraserWidthAction",
-                                                              _("Pen Width"), _("Width:"),
-                                                              _("The width of the eraser pen (relative to the visible canvas area)"),
-                                                              "/tools/eraser/width", 15,
-                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-eraser",
-                                                              1, 100, 1.0, 10.0,
-                                                              labels, values, G_N_ELEMENTS(labels),
-                                                              sp_erc_width_value_changed, 1, 0);
-        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
-        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
-        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
-    }
-
-    {
         GtkListStore* model = gtk_list_store_new( 3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING );
 
         GtkTreeIter iter;
@@ -6142,17 +6209,18 @@ static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActio
         gtk_list_store_set( model, &iter,
                             0, _("Delete"),
                             1, _("Delete objects touched by the eraser"),
-                            2, INKSCAPE_ICON_DRAW_ERASER_DELETE_OBJECTS,
+                            2, INKSCAPE_ICON("draw-eraser-delete-objects"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Cut"),
                             1, _("Cut out from objects"),
-                            2, INKSCAPE_ICON_PATH_DIFFERENCE,
+                            2, INKSCAPE_ICON("path-difference"),
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "EraserModeAction", (""), (""), NULL, GTK_TREE_MODEL(model) );
+        g_object_set( act, "short_label", _("Mode:"), NULL );
         gtk_action_group_add_action( mainActions, GTK_ACTION(act) );
         g_object_set_data( holder, "eraser_mode_action", act );
 
@@ -6167,6 +6235,23 @@ static void sp_eraser_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActio
         gint eraserMode = prefs->getBool("/tools/eraser/mode") ? 1 : 0;
         ege_select_one_action_set_active( act, eraserMode );
         g_signal_connect_after( G_OBJECT(act), "changed", G_CALLBACK(sp_erasertb_mode_changed), holder );
+    }
+
+    {
+        /* Width */
+        gchar const* labels[] = {_("(hairline)"), 0, 0, 0, _("(default)"), 0, 0, 0, 0, _("(broad stroke)")};
+        gdouble values[] = {1, 3, 5, 10, 15, 20, 30, 50, 75, 100};
+        EgeAdjustmentAction *eact = create_adjustment_action( "EraserWidthAction",
+                                                              _("Pen Width"), _("Width:"),
+                                                              _("The width of the eraser pen (relative to the visible canvas area)"),
+                                                              "/tools/eraser/width", 15,
+                                                              GTK_WIDGET(desktop->canvas), NULL, holder, TRUE, "altx-eraser",
+                                                              1, 100, 1.0, 10.0,
+                                                              labels, values, G_N_ELEMENTS(labels),
+                                                              sp_erc_width_value_changed, 1, 0);
+        ege_adjustment_action_set_appearance( eact, TOOLBAR_SLIDER_HINT );
+        gtk_action_group_add_action( mainActions, GTK_ACTION(eact) );
+        gtk_action_set_sensitive( GTK_ACTION(eact), TRUE );
     }
 
 }
@@ -6255,6 +6340,20 @@ static void cell_data_func(GtkCellLayout * /*cell_layout*/,
 }
 
 // Font family
+//
+// In most cases we should just be able to set the new family name
+// but there may be cases where a font family doesn't follow the
+// standard naming pattern. To handle those cases, we do a song and
+// dance to use Pango to find the best match. To do that we start
+// with the old "fontSpec" (which is the returned string from
+// pango_font_description_to_string() with the size unset). This
+// has the form "[family-list] [style-options]" where the
+// family-list is a comma separated list of font-family names
+// (optionally terminated by a comma). An example would be
+// "DejaVu Sans, Sans Bold". Only a "fontSpec" containing a
+// single font-family will work with Pango's best match routine.
+// If we can't obtain a good "fontSpec", we then resort to blindly
+// changing the font-family.
 static void sp_text_fontfamily_value_changed( Ink_ComboBoxEntry_Action *act, GObject *tbl )
 {
 #ifdef DEBUG_TEXT
@@ -6279,6 +6378,9 @@ static void sp_text_fontfamily_value_changed( Ink_ComboBoxEntry_Action *act, GOb
     int result_fontspec = sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_FONT_SPECIFICATION);
 
     Glib::ustring fontSpec = query->text->font_specification.set ?  query->text->font_specification.value : "";
+#ifdef DEBUG_TEXT
+    std::cout << "  fontSpec from query :" << fontSpec << ":" << std::endl;
+#endif
 
     // If that didn't work, try to get font spec from style
     if (fontSpec.empty()) {
@@ -6294,90 +6396,90 @@ static void sp_text_fontfamily_value_changed( Ink_ComboBoxEntry_Action *act, GOb
             fontSpec = font_factory::Default()->ConstructFontSpecification(fontFromStyle);
             fontFromStyle->Unref();
         }
+
 #ifdef DEBUG_TEXT
-        std::cout << "  Fontspec not defined, reconstructed from style :" << fontSpec << ":" << std::endl;
+        std::cout << "  fontSpec empty, try from style" << std::endl;
+        std::cout << "           from style :" << fontSpec << ":" << std::endl;
         sp_print_font( query );
 #endif
+
     }
 
-    // And if that didn't work use default
-    if( fontSpec.empty() ) {
+    // And if that didn't work use default. DO WE REALLY WANT TO DO THIS?
+    if ( fontSpec.empty() ) {
+
         sp_style_read_from_prefs(query, "/tools/text");
-#ifdef DEBUG_TEXT
-        std::cout << "    read style from prefs:" << std::endl;
-        sp_print_font( query );
-#endif
+
         // Construct a new font specification if it does not yet exist
         font_instance * fontFromStyle = font_factory::Default()->FaceFromStyle(query);
-        if( fontFromStyle ) {
+        if ( fontFromStyle ) {
             fontSpec = font_factory::Default()->ConstructFontSpecification(fontFromStyle);
             fontFromStyle->Unref();
         }
+
 #ifdef DEBUG_TEXT
-        std::cout << "  Fontspec not defined, reconstructed from style :" << fontSpec << ":" << std::endl;
+        std::cout << "  fontSpec empty, trying from prefs" << std::endl;
+        std::cout << "           from prefs :" << fontSpec << ":" << std::endl;
         sp_print_font( query );
 #endif
     }
 
+    // Now we have a font specification, replace family.
+    Glib::ustring  newFontSpec = "";
     SPCSSAttr *css = sp_repr_css_attr_new ();
-    if (!fontSpec.empty()) {
 
-        // Now we have a font specification, replace family.
-        Glib::ustring  newFontSpec = font_factory::Default()->ReplaceFontSpecificationFamily(fontSpec, family);
+    if (!fontSpec.empty()) newFontSpec = font_factory::Default()->ReplaceFontSpecificationFamily(fontSpec, family);
 
 #ifdef DEBUG_TEXT
-        std::cout << "  New FontSpec from ReplaceFontSpecificationFamily :" << newFontSpec << ":" << std::endl;
+    std::cout << "  New FontSpec from ReplaceFontSpecificationFamily :" << newFontSpec << ":" << std::endl;
 #endif
 
-        if (!newFontSpec.empty()) {
+    if (!fontSpec.empty() && !newFontSpec.empty() ) {
 
-            if (fontSpec != newFontSpec) {
+        if (fontSpec != newFontSpec) {
 
-                font_instance *font = font_factory::Default()->FaceFromFontSpecification(newFontSpec.c_str());
+            font_instance *font = font_factory::Default()->FaceFromFontSpecification(newFontSpec.c_str());
 
-                if (font) {
-                    sp_repr_css_set_property (css, "-inkscape-font-specification", newFontSpec.c_str());
+            if (font) {
+                sp_repr_css_set_property (css, "-inkscape-font-specification", newFontSpec.c_str());
 
-                    // Set all the these just in case they were altered when finding the best
-                    // match for the new family and old style...
+                // Set all the these just in case they were altered when finding the best
+                // match for the new family and old style...  Unnecessary?
 
-                    gchar c[256];
+                gchar c[256];
 
-                    font->Family(c, 256);
+                font->Family(c, 256);
 
-                    sp_repr_css_set_property (css, "font-family", c);
+                sp_repr_css_set_property (css, "font-family", c);
 
-                    font->Attribute( "weight", c, 256);
-                    sp_repr_css_set_property (css, "font-weight", c);
+                font->Attribute( "weight", c, 256);
+                sp_repr_css_set_property (css, "font-weight", c);
 
-                    font->Attribute("style", c, 256);
-                    sp_repr_css_set_property (css, "font-style", c);
+                font->Attribute("style", c, 256);
+                sp_repr_css_set_property (css, "font-style", c);
 
-                    font->Attribute("stretch", c, 256);
-                    sp_repr_css_set_property (css, "font-stretch", c);
+                font->Attribute("stretch", c, 256);
+                sp_repr_css_set_property (css, "font-stretch", c);
 
-                    font->Attribute("variant", c, 256);
-                    sp_repr_css_set_property (css, "font-variant", c);
+                font->Attribute("variant", c, 256);
+                sp_repr_css_set_property (css, "font-variant", c);
 
-                    font->Unref();
-                }
+                font->Unref();
+            } else {
+                g_warning(_("Failed to find font matching: %s\n"), newFontSpec.c_str());
             }
+        }   
+    } else {
 
-        } else {
+        // Either old font does not exist on system or ReplaceFontSpecificationFamily() failed.
+        // Blindly fall back to setting the family to text in the font-family chooser.
 
-            // newFontSpec empty
-            // If the old font on selection (or default) does not exist on the system,
-            // or the new font family does not exist,
-            // ReplaceFontSpecificationFamily does not work. In that case we fall back to blindly
-            // setting the family reported by the family chooser.
-
-            // g_print ("fallback setting family: %s\n", family);
-            sp_repr_css_set_property (css, "-inkscape-font-specification", family);
-            sp_repr_css_set_property (css, "font-family", family);
-            // Shoud we set other css font attributes?
-        }
-
-    }  // fontSpec not empty or not
+#ifdef DEBUG_TEXT
+        std::cout << "  Failed to find new font, blindly setting family: " << family << std::endl;
+#endif
+        sp_repr_css_set_property (css, "-inkscape-font-specification", family);
+        sp_repr_css_set_property (css, "font-family", family);
+    }
 
     // If querying returned nothing, update default style.
     if (result_fontspec == QUERY_STYLE_NOTHING)
@@ -6494,7 +6596,7 @@ static void sp_text_style_changed( InkToggleAction* act, GObject *tbl )
         sp_desktop_query_style (SP_ACTIVE_DESKTOP, query, QUERY_STYLE_PROPERTY_FONTNUMBERS);
 
         font_instance * fontFromStyle = font_factory::Default()->FaceFromStyle(query);
-        if( fontFromStyle ) {
+        if ( fontFromStyle ) {
             fontSpec = font_factory::Default()->ConstructFontSpecification(fontFromStyle);
             fontFromStyle->Unref();
         }
@@ -6511,67 +6613,51 @@ static void sp_text_style_changed( InkToggleAction* act, GObject *tbl )
         case 0:
         {
             // Bold
-            if (!fontSpec.empty()) {
+            if (!fontSpec.empty())  newFontSpec = font_factory::Default()->FontSpecificationSetBold(fontSpec, active);
+            if ( !fontSpec.empty() && !newFontSpec.empty() ) {
 
-                newFontSpec = font_factory::Default()->FontSpecificationSetBold(fontSpec, active);
-
-                if (!newFontSpec.empty()) {
-
-                    // Set weight if we found font.
-                    font_instance * font = font_factory::Default()->FaceFromFontSpecification(newFontSpec.c_str());
-                    if (font) {
-                        gchar c[256];
-                        font->Attribute( "weight", c, 256);
-                        sp_repr_css_set_property (css, "font-weight", c);
-                        font->Unref();
-                        font = NULL;
-                    }
-                    nochange = false;
+                // Set weight using new font if found.
+                font_instance * font = font_factory::Default()->FaceFromFontSpecification(newFontSpec.c_str());
+                if (font) {
+                    gchar c[256];
+                    font->Attribute( "weight", c, 256);
+                    sp_repr_css_set_property (css, "font-weight", c);
+                    font->Unref();
+                    font = NULL;
                 }
+                nochange = false;
+            } else {
+
+                // Blindly set weight.
+                sp_repr_css_set_property (css, "font-weight", (active == 0 ? "normal" : "bold") );
             }
-            // Reset button if no change.
-            // The reset code didn't work in 0.47 and doesn't here... one must prevent an infinite loop
-            /*
-            if(nochange) {
-                gtk_action_block_activate( GTK_ACTION(act) );
-                gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), !active );
-                gtk_action_unblock_activate( GTK_ACTION(act) );
-            }
-            */
             break;
         }
 
         case 1:
         {
             // Italic/Oblique
-            if (!fontSpec.empty()) {
+            if (!fontSpec.empty()) newFontSpec = font_factory::Default()->FontSpecificationSetItalic(fontSpec, active);
 
-                newFontSpec = font_factory::Default()->FontSpecificationSetItalic(fontSpec, active);
+            if ( !fontSpec.empty() && !newFontSpec.empty() ) {
 
-                if (!newFontSpec.empty()) {
-
-                    // Don't even set the italic/oblique if the font didn't exist on the system
-                    if( active ) {
-                        if( newFontSpec.find( "Italic" ) != Glib::ustring::npos ) {
-                            sp_repr_css_set_property (css, "font-style", "italic");
-                        } else {
-                            sp_repr_css_set_property (css, "font-style", "oblique");
-                        }
+                // Don't even set the italic/oblique if the font didn't exist on the system
+                if ( active ) {
+                    if ( newFontSpec.find( "Italic" ) != Glib::ustring::npos ) {
+                        sp_repr_css_set_property (css, "font-style", "italic");
                     } else {
-                        sp_repr_css_set_property (css, "font-style", "normal");
+                        sp_repr_css_set_property (css, "font-style", "oblique");
                     }
-                    nochange = false;
+                } else {
+                    sp_repr_css_set_property (css, "font-style", "normal");
                 }
+                nochange = false;
+
+            } else {
+
+                // Blindly set style.
+                sp_repr_css_set_property (css, "font-style", (active == 0 ? "normal" : "italic") );
             }
-            // Reset button if no change.
-            // The reset code didn't work in 0.47... one must prevent an infinite loop
-            /*
-            if(nochange) {
-                gtk_action_block_activate( GTK_ACTION(act) );
-                gtk_toggle_action_set_active( GTK_TOGGLE_ACTION(act), !active );
-                gtk_action_unblock_activate( GTK_ACTION(act) );
-            }
-            */
             break;
         }
     }
@@ -6702,15 +6788,14 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
             unsigned writing_mode = item->style->writing_mode.value;
             // below, variable names suggest horizontal move, but we check the writing direction
             // and move in the corresponding axis
-            int axis;
+            Geom::Dim2 axis;
             if (writing_mode == SP_CSS_WRITING_MODE_LR_TB || writing_mode == SP_CSS_WRITING_MODE_RL_TB) {
-                axis = NR::X;
+                axis = Geom::X;
             } else {
-                axis = NR::Y;
+                axis = Geom::Y;
             }
 
-            Geom::OptRect bbox
-                  = item->getBounds(Geom::identity(), SPItem::GEOMETRIC_BBOX);
+            Geom::OptRect bbox = item->geometricBounds();
             if (!bbox)
                 continue;
             double width = bbox->dimensions()[axis];
@@ -6759,7 +6844,7 @@ static void sp_text_align_mode_changed( EgeSelectOneAction *act, GObject *tbl )
                 }
             }
             Geom::Point XY = SP_TEXT(item)->attributes.firstXY();
-            if (axis == NR::X) {
+            if (axis == Geom::X) {
                 XY = XY + Geom::Point (move, 0);
             } else {
                 XY = XY + Geom::Point (0, move);
@@ -7122,7 +7207,7 @@ static void sp_text_orientation_mode_changed( EgeSelectOneAction *act, GObject *
  * This function sets up the text-tool tool-controls, setting the entry boxes
  * etc. to the values from the current selection or the default if no selection.
  * It is called whenever a text selection is changed, including stepping cursor
- * through text.
+ * through text, or setting focus to text.
  */
 static void sp_text_toolbox_selection_changed(Inkscape::Selection */*selection*/, GObject *tbl)
 {
@@ -7647,14 +7732,14 @@ static void sp_text_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions
         gtk_list_store_set( model, &iter,
                             0, _("Horizontal"),
                             1, _("Horizontal text"),
-                            2, INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL,
+                            2, INKSCAPE_ICON("format-text-direction-horizontal"),
                             -1 );
 
         gtk_list_store_append( model, &iter );
         gtk_list_store_set( model, &iter,
                             0, _("Vertical"),
                             1, _("Vertical text"),
-                            2, INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL,
+                            2, INKSCAPE_ICON("format-text-direction-vertical"),
                             -1 );
 
         EgeSelectOneAction* act = ege_select_one_action_new( "TextOrientationAction", // Name
@@ -7946,7 +8031,7 @@ static void sp_connector_orthogonal_toggled( GtkToggleAction* act, GObject *tbl 
 
         if (cc_item_is_connector(item)) {
             item->setAttribute( "inkscape:connector-type",
-                    value, false);
+                    value, NULL);
             item->avoidRef->handleSettingChange();
             modmade = true;
         }
@@ -7995,7 +8080,7 @@ static void connector_curvature_changed(GtkAdjustment *adj, GObject* tbl)
 
         if (cc_item_is_connector(item)) {
             item->setAttribute( "inkscape:connector-curvature",
-                    value, false);
+                    value, NULL);
             item->avoidRef->handleSettingChange();
             modmade = true;
         }
@@ -8111,7 +8196,7 @@ static void connector_tb_event_attr_changed(Inkscape::XML::Node *repr,
 
     if ( !g_object_get_data(G_OBJECT(tbl), "freeze")
          && (strcmp(name, "inkscape:connector-spacing") == 0) ) {
-        GtkAdjustment *adj = static_cast<GtkAdjustment*>(gtk_object_get_data(GTK_OBJECT(tbl), "spacing"));
+        GtkAdjustment *adj = static_cast<GtkAdjustment*>(g_object_get_data(G_OBJECT(tbl), "spacing"));
         gdouble spacing = defaultConnSpacing;
         sp_repr_get_double(repr, "inkscape:connector-spacing", &spacing);
 
@@ -8175,7 +8260,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkToggleAction* act = ink_toggle_action_new( "ConnectorEditModeAction",
                                                       _("EditMode"),
                                                       _("Switch between connection point editing and connector drawing mode"),
-                                                      INKSCAPE_ICON_CONNECTOR_EDIT,
+                                                      INKSCAPE_ICON("connector-edit"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
 
@@ -8190,7 +8275,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkAction* inky = ink_action_new( "ConnectorAvoidAction",
                                           _("Avoid"),
                                           _("Make connectors avoid selected objects"),
-                                          INKSCAPE_ICON_CONNECTOR_AVOID,
+                                          INKSCAPE_ICON("connector-avoid"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_path_set_avoid), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -8200,7 +8285,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkAction* inky = ink_action_new( "ConnectorIgnoreAction",
                                           _("Ignore"),
                                           _("Make connectors ignore selected objects"),
-                                          INKSCAPE_ICON_CONNECTOR_IGNORE,
+                                          INKSCAPE_ICON("connector-ignore"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_path_set_ignore), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -8211,7 +8296,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkToggleAction* act = ink_toggle_action_new( "ConnectorOrthogonalAction",
                                                       _("Orthogonal"),
                                                       _("Make connector orthogonal or polyline"),
-                                                      INKSCAPE_ICON_CONNECTOR_ORTHOGONAL,
+                                                      INKSCAPE_ICON("connector-orthogonal"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
 
@@ -8249,7 +8334,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkAction* inky = ink_action_new( "ConnectorGraphAction",
                                           _("Graph"),
                                           _("Nicely arrange selected connector network"),
-                                          INKSCAPE_ICON_DISTRIBUTE_GRAPH,
+                                          INKSCAPE_ICON("distribute-graph"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_graph_layout), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -8272,7 +8357,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkToggleAction* act = ink_toggle_action_new( "ConnectorDirectedAction",
                                                       _("Downwards"),
                                                       _("Make connectors with end-markers (arrows) point downwards"),
-                                                      INKSCAPE_ICON_DISTRIBUTE_GRAPH_DIRECTED,
+                                                      INKSCAPE_ICON("distribute-graph-directed"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
 
@@ -8288,7 +8373,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkToggleAction* act = ink_toggle_action_new( "ConnectorOverlapAction",
                                                       _("Remove overlaps"),
                                                       _("Do not allow overlapping shapes"),
-                                                      INKSCAPE_ICON_DISTRIBUTE_REMOVE_OVERLAPS,
+                                                      INKSCAPE_ICON("distribute-remove-overlaps"),
                                                       Inkscape::ICON_SIZE_DECORATION );
         gtk_action_group_add_action( mainActions, GTK_ACTION( act ) );
 
@@ -8304,7 +8389,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkAction* inky = ink_action_new( "ConnectorNewConnPointAction",
                                           _("New connection point"),
                                           _("Add a new connection point to the currently selected item"),
-                                          INKSCAPE_ICON_CONNECTOR_NEW_CONNPOINT,
+                                          INKSCAPE_ICON("connector-new-connpoint"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_new_connection_point), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -8316,7 +8401,7 @@ static void sp_connector_toolbox_prep( SPDesktop *desktop, GtkActionGroup* mainA
         InkAction* inky = ink_action_new( "ConnectorRemoveConnPointAction",
                                           _("Remove connection point"),
                                           _("Remove the currently selected connection point"),
-                                          INKSCAPE_ICON_CONNECTOR_REMOVE_CONNPOINT,
+                                          INKSCAPE_ICON("connector-remove-connpoint"),
                                           secondarySize );
         g_signal_connect_after( G_OBJECT(inky), "activate", G_CALLBACK(sp_connector_remove_connection_point), holder );
         gtk_action_group_add_action( mainActions, GTK_ACTION(inky) );
@@ -8367,7 +8452,9 @@ static void paintbucket_offset_changed(GtkAdjustment *adj, GObject *tbl)
     SPUnit const *unit = tracker->getActiveUnit();
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
-    prefs->setDouble("/tools/paintbucket/offset", (gdouble)sp_units_get_pixels(adj->value, *unit));
+    // Don't adjust the offset value because we're saving the
+    // unit and it'll be correctly handled on load.
+    prefs->setDouble("/tools/paintbucket/offset", (gdouble)adj->value);
     prefs->setString("/tools/paintbucket/offsetunits", sp_unit_get_abbreviation(unit));
 }
 

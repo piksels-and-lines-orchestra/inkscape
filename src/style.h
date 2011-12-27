@@ -16,13 +16,12 @@
  */
 
 #include "color.h"
-#include "forward.h"
 #include "sp-marker-loc.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
 #include "uri-references.h"
 #include "uri.h"
-#include "sp-paint-server.h"
+#include "sp-paint-server-reference.h"
 
 #include <stddef.h>
 #include <sigc++/connection.h>
@@ -206,21 +205,24 @@ enum {
     SP_BASELINE_SHIFT_PERCENTAGE
 };
 
-#define SP_FONT_SIZE ((1 << 24) - 1)
-
+/*
+Not used anymore, originally for SPIFontSize
 #define SP_F8_16_TO_FLOAT(v) ((gdouble) (v) / (1 << 16))
 #define SP_F8_16_FROM_FLOAT(v) ((int) ((v) * ((1 << 16) + 0.9999)))
+*/
 
 #define SP_STYLE_FLAG_IFSET (1 << 0)
 #define SP_STYLE_FLAG_IFDIFF (1 << 1)
 #define SP_STYLE_FLAG_ALWAYS (1 << 2)
 
-/// Fontsize type internal to SPStyle.
+/// Fontsize type internal to SPStyle (also used by libnrtype/Layout-TNG-Input.cpp).
 struct SPIFontSize {
     unsigned set : 1;
     unsigned inherit : 1;
     unsigned type : 2;
-    unsigned value : 24;
+    unsigned unit : 4;
+    unsigned literal: 4;
+    float value;
     float computed;
 };
 
@@ -327,8 +329,10 @@ struct SPStyle {
     unsigned cursor_set : 1;
     unsigned overflow_set : 1;
     unsigned clip_path_set : 1;
-    unsigned clip_rule_set : 1;
     unsigned mask_set : 1;
+
+    /** clip-rule: 0 nonzero, 1 evenodd */
+    SPIEnum clip_rule;
 
     /** display */
     SPIEnum display;
@@ -344,6 +348,10 @@ struct SPStyle {
 
     /** color */
     SPIPaint color;
+    /** color-interpolation */
+    SPIEnum color_interpolation;
+    /** color-interpolation-filters */
+    SPIEnum color_interpolation_filters;
 
     /** fill */
     SPIPaint fill;
@@ -572,6 +580,12 @@ enum SPCSSDisplay {
 enum SPEnableBackground {
     SP_CSS_BACKGROUND_ACCUMULATE,
     SP_CSS_BACKGROUND_NEW
+};
+
+enum SPColorInterpolation {
+    SP_CSS_COLOR_INTERPOLATION_AUTO,
+    SP_CSS_COLOR_INTERPOLATION_SRGB,
+    SP_CSS_COLOR_INTERPOLATION_LINEARRGB
 };
 
 /// An SPTextStyle has a refcount, a font family, and a font name.

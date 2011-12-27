@@ -1,7 +1,7 @@
-#ifndef __SP_GUIDE_CONSTRAINT_H__
-#define __SP_GUIDE_CONSTRAINT_H__
+#ifndef SEEN_SP_GUIDE_CONSTRAINT_H
+#define SEEN_SP_GUIDE_CONSTRAINT_H
 
-#include <forward.h>
+class SPGuide;
 
 class SPGuideConstraint {
 public:
@@ -10,7 +10,8 @@ public:
 
 public:
     explicit SPGuideConstraint() :
-        g(static_cast<SPGuide *>(0))
+        g(static_cast<SPGuide *>(0)),
+        snappoint_ix(0)
     { }
 
     explicit SPGuideConstraint(SPGuide *g, int snappoint_ix) :
@@ -29,7 +30,7 @@ public:
 };
 
 
-#endif /* !__SP_GUIDE_CONSTRAINT_H__ */
+#endif // SEEN_SP_GUIDE_CONSTRAINT_H
 
 
 /*

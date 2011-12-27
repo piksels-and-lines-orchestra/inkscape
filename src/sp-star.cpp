@@ -19,6 +19,7 @@
 
 #include <cstring>
 #include <string>
+#include <glib.h>
 #include <glibmm/i18n.h>
 
 #include "svg/svg.h"
@@ -175,7 +176,7 @@ sp_star_set (SPObject *object, unsigned int key, const gchar *value)
     case SP_ATTR_SODIPODI_SIDES:
         if (value) {
             star->sides = atoi (value);
-            star->sides = NR_CLAMP(star->sides, 3, 1024);
+            star->sides = CLAMP(star->sides, 3, 1024);
         } else {
             star->sides = 5;
         }
@@ -439,6 +440,7 @@ sp_star_set_shape (SPShape *shape)
             Geom::PathVector pv = sp_svg_read_pathv(shape->getRepr()->attribute("d"));
             SPCurve *cold = new SPCurve(pv);
             shape->setCurveInsync( cold, TRUE);
+            shape->setCurveBeforeLPE(cold);
             cold->unref();
         }
         return;
@@ -509,6 +511,7 @@ sp_star_set_shape (SPShape *shape)
     /* Reset the shape'scurve to the "original_curve"
      * This is very important for LPEs to work properly! (the bbox might be recalculated depending on the curve in shape)*/
     shape->setCurveInsync( c, TRUE);
+    shape->setCurveBeforeLPE( c );
     if (sp_lpe_item_has_path_effect(SP_LPE_ITEM(shape)) && sp_lpe_item_path_effects_enabled(SP_LPE_ITEM(shape))) {
         SPCurve *c_lpe = c->copy();
         bool success = sp_lpe_item_perform_path_effect(SP_LPE_ITEM (shape), c_lpe);
@@ -526,13 +529,13 @@ sp_star_position_set (SPStar *star, gint sides, Geom::Point center, gdouble r1, 
     g_return_if_fail (star != NULL);
     g_return_if_fail (SP_IS_STAR (star));
 
-    star->sides = NR_CLAMP(sides, 3, 1024);
+    star->sides = CLAMP(sides, 3, 1024);
     star->center = center;
     star->r[0] = MAX (r1, 0.001);
     if (isflat == false) {
-        star->r[1] = NR_CLAMP(r2, 0.0, star->r[0]);
+        star->r[1] = CLAMP(r2, 0.0, star->r[0]);
     } else {
-        star->r[1] = NR_CLAMP( r1*cos(M_PI/sides) ,0.0, star->r[0] );
+        star->r[1] = CLAMP( r1*cos(M_PI/sides) ,0.0, star->r[0] );
     }
     star->arg[0] = arg1;
     star->arg[1] = arg2;
@@ -545,22 +548,17 @@ sp_star_position_set (SPStar *star, gint sides, Geom::Point center, gdouble r1, 
 static void sp_star_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs)
 {
     // We will determine the star's midpoint ourselves, instead of trusting on the base class
-    // Therefore setSnapObjectMidpoints() is set to false temporarily
+    // Therefore snapping to object midpoints is temporarily disabled
     Inkscape::SnapPreferences local_snapprefs = *snapprefs;
-    local_snapprefs.setSnapObjectMidpoints(false);
+    local_snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_OBJECT_MIDPOINT, false);
 
     if (((SPItemClass *) parent_class)->snappoints) {
         ((SPItemClass *) parent_class)->snappoints (item, p, &local_snapprefs);
     }
 
-    // Help enforcing strict snapping, i.e. only return nodes when we're snapping nodes to nodes or a guide to nodes
-    if (!(snapprefs->getSnapModeNode() || snapprefs->getSnapModeGuide())) {
-        return;
-    }
-
-    if (snapprefs->getSnapObjectMidpoints()) {
-        Geom::Affine const i2d (item->i2d_affine ());
-        p.push_back(Inkscape::SnapCandidatePoint(SP_STAR(item)->center * i2d,Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_OBJECT_MIDPOINT)) {
+        Geom::Affine const i2dt (item->i2dt_affine ());
+        p.push_back(Inkscape::SnapCandidatePoint(SP_STAR(item)->center * i2dt,Inkscape::SNAPSOURCE_OBJECT_MIDPOINT, Inkscape::SNAPTARGET_OBJECT_MIDPOINT));
     }
 }
 

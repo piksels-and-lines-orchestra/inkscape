@@ -1,9 +1,7 @@
-#ifndef __EXTENSION_INTERNAL_PDFINPUT_SVGBUILDER_H__
-#define __EXTENSION_INTERNAL_PDFINPUT_SVGBUILDER_H__
+#ifndef SEEN_EXTENSION_INTERNAL_PDFINPUT_SVGBUILDER_H
+#define SEEN_EXTENSION_INTERNAL_PDFINPUT_SVGBUILDER_H
 
- /** \file
- * SVG representation creator using libpoppler.
- *
+/*
  * Authors:
  *   miklos erdelyi
  *
@@ -49,7 +47,7 @@ class XRef;
 class SPCSSAttr;
 
 #include <vector>
-#include <glib/gtypes.h>
+#include <glib.h>
 
 namespace Inkscape {
 namespace Extension {
@@ -58,8 +56,7 @@ namespace Internal {
 struct SvgTransparencyGroup;
 
 /**
- * \struct SvgGraphicsState
- * Holds information about the current softmask and group depth.
+ * Holds information about the current softmask and group depth for use of libpoppler.
  * Could be later used to store other graphics state parameters so that we could
  * emit only the differences in style settings from the parent state.
  */
@@ -69,7 +66,6 @@ struct SvgGraphicsState {
 };
 
 /**
- * \struct SvgGlyph
  * Holds information about glyphs added by PdfParser which haven't been added
  * to the document yet.
  */
@@ -89,10 +85,7 @@ struct SvgGlyph {
 };
 
 /**
- * \class SvgBuilder
- *
- * Builds the inner SVG representation from the calls of PdfParser
- *
+ * Builds the inner SVG representation using libpoppler from the calls of PdfParser.
  */
 class SvgBuilder {
 public:
@@ -228,15 +221,18 @@ private:
     Inkscape::XML::Node *_root;  // Root node from the point of view of this SvgBuilder
     Inkscape::XML::Node *_container; // Current container (group/pattern/mask)
     Inkscape::XML::Node *_preferences;  // Preferences container node
-    double _width, _height;       // Document size in px
+    double _width;       // Document size in px
+    double _height;       // Document size in px
 };
 
 
-} } } /* namespace Inkscape, Extension, Internal */
+} // namespace Internal
+} // namespace Extension
+} // namespace Inkscape
 
-#endif /* HAVE_POPPLER */
+#endif // HAVE_POPPLER
 
-#endif /* __EXTENSION_INTERNAL_PDFINPUT_SVGBUILDER_H__ */
+#endif // SEEN_EXTENSION_INTERNAL_PDFINPUT_SVGBUILDER_H
 
 /*
   Local Variables:

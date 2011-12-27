@@ -584,7 +584,7 @@ void SioxImage::assign(const SioxImage &other)
 /**
  * Write the image to a PPM file
  */
-bool SioxImage::writePPM(const std::string fileName)
+bool SioxImage::writePPM(const std::string &fileName)
 {
 
     FILE *f = fopen(fileName.c_str(), "wb");
@@ -736,19 +736,33 @@ const float Siox::CERTAIN_BACKGROUND_CONFIDENCE=0.0f;
 /**
  *  Construct a Siox engine
  */
-Siox::Siox()
+Siox::Siox() :
+    sioxObserver(0),
+    keepGoing(true),
+    width(0),
+    height(0),
+    pixelCount(0),
+    image(0),
+    cm(0),
+    labelField(0)
 {
-    sioxObserver = NULL;
     init();
 }
 
 /**
  *  Construct a Siox engine
  */
-Siox::Siox(SioxObserver *observer)
+Siox::Siox(SioxObserver *observer) :
+    sioxObserver(observer),
+    keepGoing(true),
+    width(0),
+    height(0),
+    pixelCount(0),
+    image(0),
+    cm(0),
+    labelField(0)
 {
     init();
-    sioxObserver = observer;
 }
 
 
@@ -1011,7 +1025,7 @@ SioxImage Siox::extractForeground(const SioxImage &originalImage,
                     }
                 tupel.minFgDist  = minFg;
                 tupel.indexMinFg = minIndex;
-                if (fgSignature.size() == 0)
+                if (fgSignature.empty())
                     {
                     isBackground = (minBg <= clusterSize);
                     // remove next line to force behaviour of old algorithm
@@ -1414,7 +1428,7 @@ int Siox::depthFirstSearch(int startPos,
         }
 
 
-    while (pixelsToVisit.size() > 0)
+    while (!pixelsToVisit.empty())
         {
         int pos = pixelsToVisit[pixelsToVisit.size() - 1];
         pixelsToVisit.erase(pixelsToVisit.end() - 1);
@@ -1486,7 +1500,7 @@ void Siox::fillColorRegions()
         // int componentSize = 1;
         pixelsToVisit.push_back(i);
         // depth first search to fill region
-        while (pixelsToVisit.size() > 0)
+        while (!pixelsToVisit.empty())
             {
             int pos = pixelsToVisit[pixelsToVisit.size() - 1];
             pixelsToVisit.erase(pixelsToVisit.end() - 1);

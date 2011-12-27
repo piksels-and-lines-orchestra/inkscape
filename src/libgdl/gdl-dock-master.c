@@ -27,10 +27,11 @@
 
 #include "gdl-i18n.h"
 
-#include "gdl-tools.h"
 #include "gdl-dock-master.h"
 #include "gdl-dock.h"
 #include "gdl-dock-item.h"
+#include "gdl-dock-notebook.h"
+#include "gdl-switcher.h"
 #include "libgdlmarshal.h"
 #include "libgdltypebuiltins.h"
 #ifdef WIN32
@@ -40,7 +41,6 @@
 /* ----- Private prototypes ----- */
 
 static void     gdl_dock_master_class_init    (GdlDockMasterClass *klass);
-static void     gdl_dock_master_instance_init (GdlDockMaster      *master);
 
 static void     gdl_dock_master_dispose       (GObject            *g_object);
 static void     gdl_dock_master_set_property  (GObject            *object,
@@ -126,7 +126,7 @@ static guint master_signals [LAST_SIGNAL] = { 0 };
 
 /* ----- Private interface ----- */
 
-GDL_CLASS_BOILERPLATE (GdlDockMaster, gdl_dock_master, GObject, G_TYPE_OBJECT);
+G_DEFINE_TYPE (GdlDockMaster, gdl_dock_master, G_TYPE_OBJECT);
 
 static void
 gdl_dock_master_class_init (GdlDockMasterClass *klass)
@@ -187,7 +187,7 @@ gdl_dock_master_class_init (GdlDockMasterClass *klass)
 }
 
 static void
-gdl_dock_master_instance_init (GdlDockMaster *master)
+gdl_dock_master_init (GdlDockMaster *master)
 {
     master->dock_objects = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                   g_free, NULL);
@@ -262,6 +262,7 @@ ht_foreach_build_slist (gpointer  key,
                         gpointer  value,
                         GSList  **slist)
 {
+    (void)key;
     *slist = g_slist_prepend (*slist, value);
 }
 
@@ -320,7 +321,7 @@ gdl_dock_master_dispose (GObject *g_object)
         master->_priv = NULL;
     }
 
-    GDL_CALL_PARENT (G_OBJECT_CLASS, dispose, (g_object));
+    G_OBJECT_CLASS (gdl_dock_master_parent_class)->dispose (g_object);
 }
 
 static void 
@@ -481,6 +482,7 @@ gdl_dock_master_drag_motion (GdlDockItem *item,
     GdlDockMaster  *master;
     GdlDockRequest  my_request, *request;
     GdkWindow      *window;
+    GdkWindow      *widget_window;
     gint            win_x, win_y;
     gint            x, y;
     GdlDock        *dock = NULL;
@@ -505,15 +507,17 @@ gdl_dock_master_drag_motion (GdlDockItem *item,
         if (GTK_IS_WIDGET (widget)) {
             while (widget && (!GDL_IS_DOCK (widget) || 
 	           GDL_DOCK_OBJECT_GET_MASTER (widget) != master))
-                widget = widget->parent;
+                widget = gtk_widget_get_parent (widget);
             if (widget) {
                 gint win_w, win_h;
                 
+                widget_window = gtk_widget_get_window (widget);
+
                 /* verify that the pointer is still in that dock
                    (the user could have moved it) */
-                gdk_window_get_geometry (widget->window,
+                gdk_window_get_geometry (widget_window,
                                          NULL, NULL, &win_w, &win_h, NULL);
-                gdk_window_get_origin (widget->window, &win_x, &win_y);
+                gdk_window_get_origin (widget_window, &win_x, &win_y);
                 if (root_x >= win_x && root_x < win_x + win_w &&
                     root_y >= win_y && root_y < win_y + win_h)
                     dock = GDL_DOCK (widget);
@@ -522,9 +526,11 @@ gdl_dock_master_drag_motion (GdlDockItem *item,
     }
 
     if (dock) {
+        GdkWindow *dock_window = gtk_widget_get_window (GTK_WIDGET (dock));
+
         /* translate root coordinates into dock object coordinates
            (i.e. widget coordinates) */
-        gdk_window_get_origin (GTK_WIDGET (dock)->window, &win_x, &win_y);
+        gdk_window_get_origin (dock_window, &win_x, &win_y);
         x = root_x - win_x;
         y = root_y - win_y;
         may_dock = gdl_dock_object_dock_request (GDL_DOCK_OBJECT (dock),
@@ -535,10 +541,12 @@ gdl_dock_master_drag_motion (GdlDockItem *item,
 
         /* try to dock the item in all the docks in the ring in turn */
         for (l = master->toplevel_docks; l; l = l->next) {
+            GdkWindow *dock_window;
             dock = GDL_DOCK (l->data);
+            dock_window = gtk_widget_get_window (GTK_WIDGET (dock));
             /* translate root coordinates into dock object coordinates
                (i.e. widget coordinates) */
-            gdk_window_get_origin (GTK_WIDGET (dock)->window, &win_x, &win_y);
+            gdk_window_get_origin (dock_window, &win_x, &win_y);
             x = root_x - win_x;
             y = root_y - win_y;
             may_dock = gdl_dock_object_dock_request (GDL_DOCK_OBJECT (dock),
@@ -718,7 +726,11 @@ item_dock_cb (GdlDockObject    *object,
               gpointer          user_data)
 {
     GdlDockMaster *master = user_data;
-    
+
+    (void)object;
+    (void)position;
+    (void)other_data;
+
     g_return_if_fail (requestor && GDL_IS_DOCK_OBJECT (requestor));
     g_return_if_fail (master && GDL_IS_DOCK_MASTER (master));
 
@@ -740,6 +752,8 @@ item_detach_cb (GdlDockObject *object,
 {
     GdlDockMaster *master = user_data;
     
+    (void)recursive;
+
     g_return_if_fail (object && GDL_IS_DOCK_OBJECT (object));
     g_return_if_fail (master && GDL_IS_DOCK_MASTER (master));
 
@@ -760,6 +774,8 @@ item_notify_cb (GdlDockObject *object,
     gint locked = COMPUTE_LOCKED (master);
     gboolean item_locked;
     
+    (void)pspec;
+
     g_object_get (object, "locked", &item_locked, NULL);
 
     if (item_locked) {
@@ -798,8 +814,7 @@ gdl_dock_master_add (GdlDockMaster *master,
                        master, object, object->name, found_object);
         }
         else {
-            g_object_ref (object);
-            gtk_object_sink (GTK_OBJECT (object));
+            g_object_ref_sink (object);
             g_hash_table_insert (master->dock_objects, g_strdup (object->name), object);
         }
     }

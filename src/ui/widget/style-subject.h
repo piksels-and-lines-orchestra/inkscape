@@ -1,17 +1,17 @@
 /**
- * \brief Abstraction for different style widget operands
- *
+ * @file
+ * Abstraction for different style widget operands.
+ */
+/*
  * Copyright (C) 2007 MenTaLguY <mental@rydia.net>
  *
  * Released under GNU GPL.  Read the file 'COPYING' for more information.
  */
-
 #ifndef SEEN_INKSCAPE_UI_WIDGET_STYLE_SUBJECT_H
 #define SEEN_INKSCAPE_UI_WIDGET_STYLE_SUBJECT_H
 
 #include "util/glib-list-iterators.h"
 #include <boost/optional.hpp>
-#include "libnr/nr-rect.h"
 #include <2geom/rect.h>
 #include "sp-item.h"
 #include <stddef.h>
@@ -45,7 +45,7 @@ public:
 
     virtual iterator begin() = 0;
     virtual iterator end() { return iterator(NULL); }
-    virtual Geom::OptRect getBounds(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX) = 0;
+    virtual Geom::OptRect getBounds(SPItem::BBoxType type) = 0;
     virtual int queryStyle(SPStyle *query, int property) = 0;
     virtual void setCSS(SPCSSAttr *css) = 0;
 
@@ -68,7 +68,7 @@ public:
     ~Selection();
 
     virtual iterator begin();
-    virtual Geom::OptRect getBounds(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
+    virtual Geom::OptRect getBounds(SPItem::BBoxType type);
     virtual int queryStyle(SPStyle *query, int property);
     virtual void setCSS(SPCSSAttr *css);
 
@@ -89,7 +89,7 @@ public:
     ~CurrentLayer();
 
     virtual iterator begin();
-    virtual Geom::OptRect getBounds(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
+    virtual Geom::OptRect getBounds(SPItem::BBoxType type);
     virtual int queryStyle(SPStyle *query, int property);
     virtual void setCSS(SPCSSAttr *css);
 
@@ -111,7 +111,7 @@ private:
 }
 }
 
-#endif
+#endif // SEEN_INKSCAPE_UI_WIDGET_STYLE_SUBJECT_H
 
 /*
   Local Variables:

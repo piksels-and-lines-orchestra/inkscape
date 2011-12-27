@@ -296,18 +296,20 @@ Effect::effect (Inkscape::UI::View::View * doc)
 void
 Effect::set_last_effect (Effect * in_effect)
 {
-    gchar const * verb_id = in_effect->get_verb()->get_id();
-    gchar const * help_id_prefix = "org.inkscape.help.";
+    if (in_effect) {
+        gchar const * verb_id = in_effect->get_verb()->get_id();
+        gchar const * help_id_prefix = "org.inkscape.help.";
 
-    // We don't want these "effects" to register as the last effect,
-    // this wouldn't be helpful to the user who selects a real effect,
-    // then goes to the help file (implemented as an effect), then goes
-    // back to the effect, only to see it written over by the help file
-    // selection.
+        // We don't want these "effects" to register as the last effect,
+        // this wouldn't be helpful to the user who selects a real effect,
+        // then goes to the help file (implemented as an effect), then goes
+        // back to the effect, only to see it written over by the help file
+        // selection.
 
-    // This snippet should fix this bug:
-    // https://bugs.launchpad.net/inkscape/+bug/600671
-    if (strncmp(verb_id, help_id_prefix, strlen(help_id_prefix)) == 0) return;
+        // This snippet should fix this bug:
+        // https://bugs.launchpad.net/inkscape/+bug/600671
+        if (strncmp(verb_id, help_id_prefix, strlen(help_id_prefix)) == 0) return;
+    }
 
     if (in_effect == NULL) {
         Inkscape::Verb::get(SP_VERB_EFFECT_LAST)->sensitive(NULL, false);
@@ -324,7 +326,7 @@ Effect::set_last_effect (Effect * in_effect)
 Inkscape::XML::Node *
 Effect::find_menu (Inkscape::XML::Node * menustruct, const gchar *name)
 {
-    if (menustruct == NULL) return false;
+    if (menustruct == NULL) return NULL;
     for (Inkscape::XML::Node * child = menustruct;
             child != NULL;
             child = child->next()) {
@@ -355,21 +357,15 @@ Effect::set_pref_dialog (PrefDialog * prefdialog)
     return;
 }
 
-/** \brief  Create an action for a \c EffectVerb
-    \param  view  Which view the action should be created for
-    \return The built action.
-
-    Calls \c make_action_helper with the \c vector.
-*/
 SPAction *
 Effect::EffectVerb::make_action (Inkscape::UI::View::View * view)
 {
-    return make_action_helper(view, &vector, static_cast<void *>(this));
+    return make_action_helper(view, &perform, static_cast<void *>(this));
 }
 
 /** \brief  Decode the verb code and take appropriate action */
 void
-Effect::EffectVerb::perform( SPAction *action, void * data, void */*pdata*/ )
+Effect::EffectVerb::perform( SPAction *action, void * data )
 {
     Inkscape::UI::View::View * current_view = sp_action_get_view(action);
 //  SPDocument * current_document = current_view->doc;
@@ -387,14 +383,6 @@ Effect::EffectVerb::perform( SPAction *action, void * data, void */*pdata*/ )
 
     return;
 }
-
-/**
- * Action vector to define functions called if a staticly defined file verb
- * is called.
- */
-SPActionEventVector Effect::EffectVerb::vector =
-            {{NULL}, Effect::EffectVerb::perform, NULL, NULL, NULL, NULL};
-
 
 } }  /* namespace Inkscape, Extension */
 

@@ -1,5 +1,6 @@
-/** @file
- * @brief Legacy interface to main application
+/**
+ * @file
+ * Legacy interface to main application.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -25,10 +26,6 @@
 # define HAS_PROC_SELF_EXE  //to get path of executable
 #else
 
-// For now to get at is_os_wide().
-# include "extension/internal/win32.h"
-using Inkscape::Extension::Internal::PrintWin32;
-
 #define _WIN32_IE 0x0400
 //#define HAS_SHGetSpecialFolderPath
 #define HAS_SHGetSpecialFolderLocation
@@ -40,8 +37,7 @@ using Inkscape::Extension::Internal::PrintWin32;
 #include <glib/gstdio.h>
 #include <glib.h>
 #include <glibmm/i18n.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #include <gtkmm/messagedialog.h>
 #include <signal.h>
 #include <string>
@@ -59,6 +55,7 @@ using Inkscape::Extension::Internal::PrintWin32;
 #include "io/sys.h"
 #include "message-stack.h"
 #include "preferences.h"
+#include "resource-manager.h"
 #include "selection.h"
 #include "ui/dialog/debug.h"
 #include "xml/repr.h"
@@ -90,6 +87,10 @@ enum {
 /*################################
 # FORWARD DECLARATIONS
 ################################*/
+
+namespace Inkscape {
+class ApplicationClass;
+}
 
 static void inkscape_class_init (Inkscape::ApplicationClass *klass);
 static void inkscape_init (SPObject *object);
@@ -189,7 +190,7 @@ inkscape_class_init (Inkscape::ApplicationClass * klass)
                                G_SIGNAL_RUN_FIRST,
                                G_STRUCT_OFFSET (Inkscape::ApplicationClass, modify_selection),
                                NULL, NULL,
-                               g_cclosure_marshal_VOID__UINT_POINTER,
+                               gtk_marshal_VOID__POINTER_UINT,
                                G_TYPE_NONE, 2,
                                G_TYPE_POINTER, G_TYPE_UINT);
     inkscape_signals[CHANGE_SELECTION] = g_signal_new ("change_selection",
@@ -441,11 +442,7 @@ void inkscape_autosave_init()
         // Turn on autosave
         guint32 timeout = prefs->getInt("/options/autosave/interval", 10) * 60;
         // g_debug("options.autosave.interval = %d", prefs->getInt("/options/autosave/interval", 10));
-#if GLIB_CHECK_VERSION(2,14,0)
         autosave_timeout_id = g_timeout_add_seconds(timeout, inkscape_autosave, NULL);
-#else
-        autosave_timeout_id = g_timeout_add(timeout * 1000, inkscape_autosave, NULL);
-#endif
     }
 }
 
@@ -820,6 +817,7 @@ inkscape_application_init (const gchar *argv0, gboolean use_gui)
         inkscape_load_menus(inkscape);
         Inkscape::DeviceManager::getManager().loadConfig();
     }
+    Inkscape::ResourceManager::getManager();
 
     /* set language for user interface according setting in preferences */
     Glib::ustring ui_language = prefs->getString("/ui/language");
@@ -875,23 +873,31 @@ gboolean inkscape_use_gui()
  *  Menus management
  *
  */
-bool inkscape_load_menus (Inkscape::Application */*inkscape*/)
+bool inkscape_load_menus( Inkscape::Application * inkscape )
 {
-    // TODO fix that fn is being leaked
     gchar *fn = profile_path(MENUS_FILE);
-    gchar *menus_xml = NULL;
+    gchar *menus_xml = 0;
     gsize len = 0;
 
-    if (g_file_get_contents(fn, &menus_xml, &len, NULL)) {
-        // load the menus_xml file
-        INKSCAPE->menus = sp_repr_read_mem(menus_xml, len, NULL);
-        g_free(menus_xml);
-        if (INKSCAPE->menus) {
-            return true;
-        }
+    if ( inkscape != inkscape_get_instance() ) {
+        g_warning("BAD BAD BAD THINGS");
     }
-    INKSCAPE->menus = sp_repr_read_mem(menus_skeleton, MENUS_SKELETON_SIZE, NULL);
-    return (INKSCAPE->menus != 0);
+
+    if ( g_file_get_contents(fn, &menus_xml, &len, NULL) ) {
+        // load the menus_xml file
+        inkscape->menus = sp_repr_read_mem(menus_xml, len, NULL);
+
+        g_free(menus_xml);
+        menus_xml = 0;
+    }
+    g_free(fn);
+    fn = 0;
+
+    if ( !inkscape->menus ) {
+        inkscape->menus = sp_repr_read_mem(menus_skeleton, MENUS_SKELETON_SIZE, NULL);
+    }
+
+    return (inkscape->menus != 0);
 }
 
 
@@ -1346,24 +1352,18 @@ profile_path(const char *filename)
             if ( SHGetSpecialFolderLocation( NULL, CSIDL_APPDATA, &pidl ) == NOERROR ) {
                 gchar * utf8Path = NULL;
 
-                if ( PrintWin32::is_os_wide() ) {
+                {
                     wchar_t pathBuf[MAX_PATH+1];
                     g_assert(sizeof(wchar_t) == sizeof(gunichar2));
 
                     if ( SHGetPathFromIDListW( pidl, pathBuf ) ) {
                         utf8Path = g_utf16_to_utf8( (gunichar2*)(&pathBuf[0]), -1, NULL, NULL, NULL );
                     }
-                } else {
-                    char pathBuf[MAX_PATH+1];
-
-                    if ( SHGetPathFromIDListA( pidl, pathBuf ) ) {
-                        utf8Path = g_filename_to_utf8( pathBuf, -1, NULL, NULL, NULL );
-                    }
                 }
 
                 if ( utf8Path ) {
                     if (!g_utf8_validate(utf8Path, -1, NULL)) {
-                        g_warning( "SHGetPathFromIDList%c() resulted in invalid UTF-8", (PrintWin32::is_os_wide() ? 'W' : 'A') );
+                        g_warning( "SHGetPathFromIDListW() resulted in invalid UTF-8");
                         g_free( utf8Path );
                         utf8Path = 0;
                     } else {

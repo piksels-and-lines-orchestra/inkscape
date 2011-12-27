@@ -439,7 +439,7 @@ spdc_attach_selection(SPDrawContext *dc, Inkscape::Selection */*sel*/)
         /* Curve list */
         /* We keep it in desktop coordinates to eliminate calculation errors */
         SPCurve *norm = sp_path_get_curve_for_edit (SP_PATH(item));
-        norm->transform((dc->white_item)->i2d_affine());
+        norm->transform((dc->white_item)->i2dt_affine());
         g_return_if_fail( norm != NULL );
         dc->white_curves = g_slist_reverse(norm->split());
         norm->unref();
@@ -477,6 +477,7 @@ void spdc_endpoint_snap_rotation(SPEventContext const *const ec, Geom::Point &p,
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     unsigned const snaps = abs(prefs->getInt("/options/rotationsnapsperpi/value", 12));
+
     SnapManager &m = SP_EVENT_CONTEXT_DESKTOP(ec)->namedview->snap_manager;
     m.setup(SP_EVENT_CONTEXT_DESKTOP(ec));
 
@@ -500,7 +501,7 @@ void spdc_endpoint_snap_rotation(SPEventContext const *const ec, Geom::Point &p,
 }
 
 
-void spdc_endpoint_snap_free(SPEventContext const * const ec, Geom::Point& p, guint const /*state*/)
+void spdc_endpoint_snap_free(SPEventContext const * const ec, Geom::Point& p, boost::optional<Geom::Point> &start_point, guint const /*state*/)
 {
     SPDesktop *dt = SP_EVENT_CONTEXT_DESKTOP(ec);
     SnapManager &m = dt->namedview->snap_manager;
@@ -510,7 +511,7 @@ void spdc_endpoint_snap_free(SPEventContext const * const ec, Geom::Point& p, gu
     // TODO: Allow snapping to the stationary parts of the item, and only ignore the last segment
 
     m.setup(dt, true, selection->singleItem());
-    m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_NODE_HANDLE);
+    m.freeSnapReturnByRef(p, Inkscape::SNAPSOURCE_NODE_HANDLE, start_point);
     m.unSetup();
 }
 
@@ -820,7 +821,7 @@ void spdc_create_single_dot(SPEventContext *ec, Geom::Point const &pt, char cons
        current stroke width, multiplied by the amount specified in the preferences */
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
 
-    Geom::Affine const i2d (item->i2d_affine ());
+    Geom::Affine const i2d (item->i2dt_affine ());
     Geom::Point pp = pt;
     double rad = 0.5 * prefs->getDouble(tool_path + "/dot-size", 3.0);
     if (event_state & GDK_MOD1_MASK) {

@@ -16,17 +16,31 @@
 
 #include "sp-canvas-item.h"
 
-struct SPItem;
-struct SPDesktop;
+class SPItem;
+class SPDesktop;
 
 #define SP_TYPE_CANVASTEXT (sp_canvastext_get_type ())
-#define SP_CANVASTEXT(obj) (GTK_CHECK_CAST ((obj), SP_TYPE_CANVASTEXT, SPCanvasText))
-#define SP_IS_CANVASTEXT(obj) (GTK_CHECK_TYPE ((obj), SP_TYPE_CANVASTEXT))
+#define SP_CANVASTEXT(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), SP_TYPE_CANVASTEXT, SPCanvasText))
+#define SP_IS_CANVASTEXT(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SP_TYPE_CANVASTEXT))
+
+enum CanvasTextAnchorPositionEnum {
+    TEXT_ANCHOR_CENTER,
+    TEXT_ANCHOR_TOP,
+    TEXT_ANCHOR_BOTTOM,
+    TEXT_ANCHOR_LEFT,
+    TEXT_ANCHOR_RIGHT,
+    TEXT_ANCHOR_ZERO
+};
 
 struct SPCanvasText : public SPCanvasItem {
     SPItem *item;  // the item to which this line belongs in some sense; may be NULL for some users
     guint32 rgba;
     guint32 rgba_stroke;
+    guint32 rgba_background;
+    bool outline;
+    bool background;
+    CanvasTextAnchorPositionEnum anchor_position;
+
     SPDesktop *desktop; // the desktop to which this text is attached; needed for coordinate transforms (TODO: these should be eliminated)
 
     gchar* text;
@@ -38,7 +52,7 @@ struct SPCanvasText : public SPCanvasItem {
 };
 struct SPCanvasTextClass : public SPCanvasItemClass{};
 
-GtkType sp_canvastext_get_type (void);
+GType sp_canvastext_get_type (void);
 
 SPCanvasItem *sp_canvastext_new(SPCanvasGroup *parent, SPDesktop *desktop, Geom::Point pos, gchar const *text);
 
@@ -51,6 +65,7 @@ void sp_canvastext_set_fontsize (SPCanvasText *ct, double size);
 void sp_canvastext_set_anchor (SPCanvasText *ct, double anchor_x, double anchor_y);
 
 #endif // SEEN_SP_CANVASTEXT_H
+
 
 
 /*

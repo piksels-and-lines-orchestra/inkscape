@@ -1,9 +1,7 @@
 #ifndef SEEN_TOOLBOX_H
 #define SEEN_TOOLBOX_H
 
-/**
- * \brief Main toolbox
- *
+/*
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Frank Felfe <innerspace@iname.com>
@@ -15,16 +13,20 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gtk/gtkstyle.h>
-#include <gtk/gtktooltips.h>
+#include <gtk/gtk.h>
 #include <glibmm/ustring.h>
 
-#include "forward.h"
 #include "icon-size.h"
+
+class SPDesktop;
+class SPEventContext;
 
 namespace Inkscape {
 namespace UI {
 
+/**
+ * Main toolbox source.
+ */
 class ToolboxFactory
 {
 public:

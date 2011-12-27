@@ -1,8 +1,11 @@
-/**
+﻿/**
  * \file
- * \brief  Horizontal and Vertical Line Segment
- *
- * Copyright 2008  Marco Cecchetti <mrcekets at gmail.com>
+ * \brief  Horizontal and vertical line segment
+ *//*
+ * Authors:
+ *   Marco Cecchetti <mrcekets at gmail.com>
+ *   Krzysztof Kosiński <tweenk.pl@gmail.com>
+ * Copyright 2008-2011 Authors
  *
  * This library is free software; you can redistribute it and/or
  * modify it either under the terms of the GNU Lesser General Public
@@ -28,13 +31,10 @@
  * the specific language governing rights and limitations.
  */
 
-
-#ifndef _2GEOM_HVLINESEGMENT_H_
-#define _2GEOM_HVLINESEGMENT_H_
-
+#ifndef LIB2GEOM_SEEN_HVLINESEGMENT_H
+#define LIB2GEOM_SEEN_HVLINESEGMENT_H
 
 #include <2geom/bezier-curve.h>
-
 
 namespace Geom
 {
@@ -44,6 +44,7 @@ class AxisLineSegment : public LineSegment
 {
 public:
     static const Dim2 other_axis = static_cast<Dim2>((axis + 1) % 2);
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
     virtual void setInitial(Point const &p) {
         Point f = finalPoint();
         f[axis] = p[axis];
@@ -95,27 +96,22 @@ public:
     }
     virtual Point pointAt(Coord t) const {
         if ( t < 0 || t > 1 )
-            THROW_RANGEERROR("HLineSegment: Time value out of range");
-        Coord x = initialPoint()[axis] + t * (finalPoint()[axis] - initialPoint()[axis]);
-        Point ret(x, initialPoint()[other_axis]);
+            THROW_RANGEERROR("AxisLineSegment: Time value out of range");
+        Point ret = initialPoint() + t * (finalPoint() - initialPoint());
         return ret;
     }
     virtual Coord valueAt(Coord t, Dim2 d) const {
         if ( t < 0 || t > 1 )
-            THROW_RANGEERROR("HLineSegment: Time value out of range");
+            THROW_RANGEERROR("AxisLineSegment: Time value out of range");
         if (d != axis) return initialPoint()[other_axis];
         return initialPoint()[axis] + t * (finalPoint()[axis] - initialPoint()[axis]);
     }
-
-    /**
-    *  The size of the returned vector equals n+1.
-    */
     virtual std::vector<Point> pointAndDerivatives(Coord t, unsigned n) const {
         std::vector<Point> result;
         result.push_back(pointAt(t));
         if (n > 0) {
-            Coord x = finalPoint()[axis] - initialPoint()[axis];
-            result.push_back( Point(x, 0) );
+            Point der = finalPoint() - initialPoint();
+            result.push_back( der );
         }
         if (n > 1) {
             /* higher order derivatives are zero,
@@ -124,6 +120,7 @@ public:
         }
         return result;
     }
+#endif
 protected:
     AxisLineSegment(Point const &p0, Point const &p1) : LineSegment(p0, p1) {}
     AxisLineSegment() {}
@@ -171,6 +168,7 @@ public:
         return result;
     }
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
     virtual Curve* duplicate() const { return new HLineSegment(*this); }
     virtual Curve *portion(Coord f, Coord t) const {
         Point ip = pointAt(f);
@@ -195,6 +193,7 @@ public:
         Coord x = finalPoint()[X] - initialPoint()[X];
         return new HLineSegment(x, x, 0);
     }
+#endif
 };  // end class HLineSegment
 
 
@@ -241,6 +240,7 @@ public:
         return result;
     }
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
     virtual Curve *duplicate() const { return new VLineSegment(*this); }
     virtual Curve *portion(Coord f, Coord t) const {
         Point ip = pointAt(f);
@@ -264,13 +264,12 @@ public:
         Coord y = finalPoint()[Y] - initialPoint()[Y];
         return new VLineSegment(0, y, y);
     }
+#endif
 }; // end class VLineSegment
 
 }  // end namespace Geom
 
-
-#endif // _2GEOM_HVLINESEGMENT_H_
-
+#endif // LIB2GEOM_SEEN_HVLINESEGMENT_H
 
 /*
   Local Variables:

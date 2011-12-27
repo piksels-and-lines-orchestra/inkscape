@@ -1,9 +1,6 @@
 #ifndef INKSCAPE_UI_VIEW_VIEW_H
 #define INKSCAPE_UI_VIEW_VIEW_H
-
-/** \file
- * Abstract base class for all SVG document views
- *
+/*
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Ralf Stephan <ralf@ark.in-berlin.de>
@@ -14,14 +11,13 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gdk/gdktypes.h>
+#include <gdk/gdk.h>
 #include <stddef.h>
 #include <sigc++/connection.h>
 #include "message.h"
 #include "gc-managed.h"
 #include "gc-finalized.h"
 #include "gc-anchored.h"
-#include <libnr/nr-forward.h>
 #include <2geom/forward.h>
 
 /**
@@ -65,7 +61,7 @@ namespace Inkscape {
 /**
  * View is an abstract base class of all UI document views.  This
  * includes both the editing window and the SVG preview, but does not
- * include the non-UI RGBA buffer-based NRArena nor the XML editor or
+ * include the non-UI RGBA buffer-based Inkscape::Drawing nor the XML editor or
  * similar views.  The View base class has very little functionality of
  * its own.
  */
@@ -76,6 +72,10 @@ class View : public GC::Managed<>,
 public:
 
     View();
+
+    /**
+     * Deletes and nulls all View message stacks and disconnects it from signals.
+     */
     virtual ~View();
 
     void close() { _close(); }
@@ -114,6 +114,16 @@ protected:
     Inkscape::MessageContext *_tips_message_context;
 
     virtual void _close();
+
+    /**
+     * Disconnects the view from the document signals, connects the view 
+     * to a new one, and emits the _document_set_signal on the view.
+     *
+     * This is code comon to all subclasses and called from their
+     * setDocument() methods after they are done.
+     * 
+     * @param doc The new document to connect the view to.
+     */
     virtual void setDocument(SPDocument *doc);
 
     sigc::signal<void,double,double>   _position_set_signal;

@@ -1,5 +1,6 @@
-/** @file
- * @brief Filter Effects dialog
+/**
+ * @file
+ * Filter Effects dialog.
  */
 /* Authors:
  *   Nicholas Bishop <nicholasbishop@gmail.org>
@@ -24,7 +25,7 @@
 #include <gtkmm/paned.h>
 #include <gtkmm/scale.h>
 #include <gtkmm/scrolledwindow.h>
-#include <gtkmm/spinbutton.h>
+#include "ui/widget/spinbutton.h"
 #include <gtkmm/stock.h>
 #include <gtkmm/tooltips.h>
 #include <glibmm/i18n.h>
@@ -48,13 +49,13 @@
 #include "filters/convolvematrix.h"
 #include "filters/displacementmap.h"
 #include "filters/distantlight.h"
+#include "filters/gaussian-blur.h"
 #include "filters/merge.h"
 #include "filters/mergenode.h"
 #include "filters/offset.h"
 #include "filters/pointlight.h"
 #include "filters/spotlight.h"
 #include "sp-filter-primitive.h"
-#include "sp-gaussian-blur.h"
 
 #include "style.h"
 #include "svg/svg-color.h"
@@ -133,12 +134,12 @@ private:
     const Glib::ustring _true_val, _false_val;
 };
 
-class SpinButtonAttr : public Gtk::SpinButton, public AttrWidget
+class SpinButtonAttr : public Inkscape::UI::Widget::SpinButton, public AttrWidget
 {
 public:
     SpinButtonAttr(double lower, double upper, double step_inc,
                    double climb_rate, int digits, const SPAttributeEnum a, double def, char* tip_text)
-        : Gtk::SpinButton(climb_rate, digits),
+        : Inkscape::UI::Widget::SpinButton(climb_rate, digits),
           AttrWidget(a, def)
     {
         if (tip_text) _tt.set_tip(*this, tip_text);
@@ -248,12 +249,12 @@ public:
         pack_start(_s2, false, false);
     }
 
-    Gtk::SpinButton& get_spinbutton1()
+    Inkscape::UI::Widget::SpinButton& get_spinbutton1()
     {
         return _s1;
     }
 
-    Gtk::SpinButton& get_spinbutton2()
+    Inkscape::UI::Widget::SpinButton& get_spinbutton2()
     {
         return _s2;
     }
@@ -285,7 +286,7 @@ public:
 
     }
 private:
-    Gtk::SpinButton _s1, _s2;
+    Inkscape::UI::Widget::SpinButton _s1, _s2;
 };
 
 class ColorButton : public Gtk::ColorButton, public AttrWidget
@@ -965,10 +966,10 @@ public:
         _settings.add_spinslider(0, SP_ATTR_ELEVATION, _("Elevation"), 0, 360, 1, 1, 0, _("Direction angle for the light source on the YZ plane, in degrees"));
 
         _settings.type(LIGHT_POINT);
-        _settings.add_multispinbutton(/*default x:*/ (double) 0, /*default y:*/ (double) 0, /*default z:*/ (double) 0, SP_ATTR_X, SP_ATTR_Y, SP_ATTR_Z, _("Location"), -99999, 99999, 1, 100, 0, _("X coordinate"), _("Y coordinate"), _("Z coordinate"));
+        _settings.add_multispinbutton(/*default x:*/ (double) 0, /*default y:*/ (double) 0, /*default z:*/ (double) 0, SP_ATTR_X, SP_ATTR_Y, SP_ATTR_Z, _("Location:"), -99999, 99999, 1, 100, 0, _("X coordinate"), _("Y coordinate"), _("Z coordinate"));
 
         _settings.type(LIGHT_SPOT);
-        _settings.add_multispinbutton(/*default x:*/ (double) 0, /*default y:*/ (double) 0, /*default z:*/ (double) 0, SP_ATTR_X, SP_ATTR_Y, SP_ATTR_Z, _("Location"), -99999, 99999, 1, 100, 0, _("X coordinate"), _("Y coordinate"), _("Z coordinate"));
+        _settings.add_multispinbutton(/*default x:*/ (double) 0, /*default y:*/ (double) 0, /*default z:*/ (double) 0, SP_ATTR_X, SP_ATTR_Y, SP_ATTR_Z, _("Location:"), -99999, 99999, 1, 100, 0, _("X coordinate"), _("Y coordinate"), _("Z coordinate"));
         _settings.add_multispinbutton(/*default x:*/ (double) 0, /*default y:*/ (double) 0, /*default z:*/ (double) 0,
                                       SP_ATTR_POINTSATX, SP_ATTR_POINTSATY, SP_ATTR_POINTSATZ,
                                       _("Points At"), -99999, 99999, 1, 100, 0, _("X coordinate"), _("Y coordinate"), _("Z coordinate"));
@@ -1378,7 +1379,8 @@ void FilterEffectsDialog::FilterModifier::rename_filter()
 
 FilterEffectsDialog::CellRendererConnection::CellRendererConnection()
     : Glib::ObjectBase(typeid(CellRendererConnection)),
-      _primitive(*this, "primitive", 0)
+      _primitive(*this, "primitive", 0),
+      _text_width(0)
 {}
 
 Glib::PropertyProxy<void*> FilterEffectsDialog::CellRendererConnection::property_primitive()
@@ -2270,7 +2272,7 @@ void FilterEffectsDialog::init_settings_widgets()
     _settings->type(NR_FILTER_TURBULENCE);
 //    _settings->add_checkbutton(false, SP_ATTR_STITCHTILES, _("Stitch Tiles"), "stitch", "noStitch");
     _settings->add_combo(TURBULENCE_TURBULENCE, SP_ATTR_TYPE, _("Type:"), TurbulenceTypeConverter, _("Indicates whether the filter primitive should perform a noise or turbulence function."));
-    _settings->add_dualspinslider(SP_ATTR_BASEFREQUENCY, _("Base Frequency:"), 0, 0.4, 0.001, 0.01, 3);
+    _settings->add_dualspinslider(SP_ATTR_BASEFREQUENCY, _("Base Frequency:"), 0, 1, 0.001, 0.01, 3);
     _settings->add_spinslider(1, SP_ATTR_NUMOCTAVES, _("Octaves:"), 1, 10, 1, 1, 0);
     _settings->add_spinslider(0, SP_ATTR_SEED, _("Seed:"), 0, 1000, 1, 1, 0, _("The starting number for the pseudo random number generator."));
 }

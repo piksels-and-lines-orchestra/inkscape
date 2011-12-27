@@ -1,5 +1,5 @@
-/**
- * \brief Inkscape Preferences dialog
+/*
+ * Inkscape Preferences dialog.
  *
  * Authors:
  *   Marco Scholten
@@ -227,7 +227,6 @@ void PrefSpinButton::init(Glib::ustring const &prefs_path,
 
     this->set_range (lower, upper);
     this->set_increments (step_increment, 0);
-    this->set_numeric();
     this->set_value (value);
     this->set_width_chars(6);
     if (is_int)
@@ -253,6 +252,45 @@ void PrefSpinButton::on_value_changed()
         } else {
             prefs->setDouble(_prefs_path, this->get_value());
         }
+    }
+}
+
+void PrefSpinUnit::init(Glib::ustring const &prefs_path,
+              double lower, double upper, double step_increment,
+              double default_value, UnitType unit_type, Glib::ustring const &default_unit)
+{
+    _prefs_path = prefs_path;
+    _is_percent = (unit_type == UNIT_TYPE_DIMENSIONLESS);
+
+    resetUnitType(unit_type);
+    setUnit(default_unit);
+    setRange (lower, upper); /// @fixme  this disregards changes of units
+    setIncrements (step_increment, 0);
+    if (step_increment < 0.1) {
+        setDigits(4);
+    } else {
+        setDigits(2);
+    }
+
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    double value = prefs->getDoubleLimited(prefs_path, default_value, lower, upper);
+    Glib::ustring unitstr = prefs->getUnit(prefs_path);
+    if (unitstr.length() == 0) {
+        unitstr = default_unit;
+        // write the assumed unit to preferences:
+        prefs->setDoubleUnit(_prefs_path, value, unitstr);
+    }
+    setValue(value, unitstr);
+
+    signal_value_changed().connect_notify(sigc::mem_fun(*this, &PrefSpinUnit::on_my_value_changed));
+}
+
+void PrefSpinUnit::on_my_value_changed()
+{
+    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+    if (getWidget()->is_visible()) //only take action if user changed value
+    {
+        prefs->setDoubleUnit(_prefs_path, getValue(getUnit().abbr), getUnit().abbr);
     }
 }
 
@@ -545,10 +583,6 @@ void PrefCombo::init(Glib::ustring const &prefs_path,
     this->set_active(row);
 }
 
-/**
-    initialize a combo box
-    second form uses strings as key values
-*/
 void PrefCombo::init(Glib::ustring const &prefs_path,
                      Glib::ustring labels[], Glib::ustring values[], int num_items, Glib::ustring default_value)
 {

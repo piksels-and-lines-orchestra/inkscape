@@ -1,10 +1,6 @@
 #ifndef SEEN_RUBBERBAND_H
 #define SEEN_RUBBERBAND_H
-
-/**
- * \file src/rubberband.h
- * \brief Rubberbanding selector
- *
+/*
  * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Carl Hetherington <inkscape@carlh.net>
@@ -14,7 +10,6 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include "forward.h"
 #include <boost/optional.hpp>
 #include <vector>
 #include <2geom/point.h>
@@ -22,9 +17,10 @@
 
 /* fixme: do multidocument safe */
 
-class CtrlRect;
-class SPCanvasItem;
-class SPCurve;
+class  CtrlRect;
+struct SPCanvasItem;
+class  SPCurve;
+class  SPDesktop;
 
 enum {
     RUBBERBAND_MODE_RECT,
@@ -34,6 +30,9 @@ enum {
 namespace Inkscape
 {
 
+/**
+ * Rubberbanding selector.
+ */
 class Rubberband
 {
 public:

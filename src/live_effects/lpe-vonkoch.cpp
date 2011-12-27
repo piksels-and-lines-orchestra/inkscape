@@ -43,16 +43,16 @@ VonKochRefPathParam::param_readSVGValue(const gchar * strvalue)
 
 LPEVonKoch::LPEVonKoch(LivePathEffectObject *lpeobject) :
     Effect(lpeobject),
-    nbgenerations(_("Nb of generations:"), _("Depth of the recursion --- keep low!!"), "nbgenerations", &wr, this, 1),
+    nbgenerations(_("N_r of generations:"), _("Depth of the recursion --- keep low!!"), "nbgenerations", &wr, this, 1),
     generator(_("Generating path:"), _("Path whose segments define the iterated transforms"), "generator", &wr, this, "M0,0 L30,0 M0,10 L10,10 M 20,10 L30,10"),
-    similar_only(_("Use uniform transforms only"), _("2 consecutive segments are used to reverse/preserve orientation only (otherwise, they define a general transform)."), "similar_only", &wr, this, false),
-    drawall(_("Draw all generations"), _("If unchecked, draw only the last generation"), "drawall", &wr, this, true),
+    similar_only(_("_Use uniform transforms only"), _("2 consecutive segments are used to reverse/preserve orientation only (otherwise, they define a general transform)."), "similar_only", &wr, this, false),
+    drawall(_("Dra_w all generations"), _("If unchecked, draw only the last generation"), "drawall", &wr, this, true),
     //,draw_boxes(_("Display boxes"), _("Display boxes instead of paths only"), "draw_boxes", &wr, this, true)
     ref_path(_("Reference segment:"), _("The reference segment. Defaults to the horizontal midline of the bbox."), "ref_path", &wr, this, "M0,0 L10,0"),
     //refA(_("Ref Start"), _("Left side middle of the reference box"), "refA", &wr, this),
     //refB(_("Ref End"), _("Right side middle of the reference box"), "refB", &wr, this),
     //FIXME: a path is used here instead of 2 points to work around path/point param incompatibility bug.
-    maxComplexity(_("Max complexity:"), _("Disable effect if the output is too complex"), "maxComplexity", &wr, this, 1000)
+    maxComplexity(_("_Max complexity:"), _("Disable effect if the output is too complex"), "maxComplexity", &wr, this, 1000)
 {
     //FIXME: a path is used here instead of 2 points to work around path/point param incompatibility bug.
     registerParameter( dynamic_cast<Parameter *>(&ref_path) );
@@ -66,9 +66,9 @@ LPEVonKoch::LPEVonKoch(LivePathEffectObject *lpeobject) :
     //registerParameter( dynamic_cast<Parameter *>(&draw_boxes) );
 
     nbgenerations.param_make_integer();
-    nbgenerations.param_set_range(0, NR_HUGE);
+    nbgenerations.param_set_range(0, Geom::infinity());
     maxComplexity.param_make_integer();
-    maxComplexity.param_set_range(0, NR_HUGE);
+    maxComplexity.param_set_range(0, Geom::infinity());
 }
 
 LPEVonKoch::~LPEVonKoch()
@@ -83,7 +83,7 @@ LPEVonKoch::doEffect_path (std::vector<Geom::Path> const & path_in)
 
     std::vector<Geom::Path> generating_path = generator.get_pathvector();
     
-    if (generating_path.size()==0) {
+    if (generating_path.empty()) {
         return path_in;
     }
 
@@ -124,7 +124,7 @@ LPEVonKoch::doEffect_path (std::vector<Geom::Path> const & path_in)
         }
     }
 
-    if (transforms.size()==0){
+    if (transforms.empty()){
         return path_in;
     }
 
@@ -247,7 +247,7 @@ LPEVonKoch::doBeforeEffect (SPLPEItem *lpeitem)
     
     std::vector<Geom::Path> paths = ref_path.get_pathvector();
     Geom::Point A,B;
-    if (paths.size()==0||paths.front().size()==0){
+    if (paths.empty()||paths.front().size()==0){
         //FIXME: a path is used as ref instead of 2 points to work around path/point param incompatibility bug.
         //refA.param_setValue( Geom::Point(boundingbox_X.min(), boundingbox_Y.middle()) );
         //refB.param_setValue( Geom::Point(boundingbox_X.max(), boundingbox_Y.middle()) );

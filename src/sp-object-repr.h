@@ -12,7 +12,6 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include "forward.h"
 #include "sp-object.h"
 namespace Inkscape {
 namespace XML {
@@ -21,7 +20,10 @@ class Node;
 }
 
 
-SPObject * sp_object_repr_build_tree (SPDocument *document, Inkscape::XML::Node *repr);
+/**
+ * Construct an SPRoot and all its descendents from the given repr.
+ */
+SPRoot *sp_object_repr_build_tree(SPDocument *document, Inkscape::XML::Node *repr);
 
 GType sp_repr_type_lookup (Inkscape::XML::Node *repr);
 

@@ -10,7 +10,7 @@
  */
 
 #include <string.h>
-#include <glib/gstrfuncs.h>
+#include <glib.h>
 #include <cstring>
 #include <string>
 #include "message-stack.h"
@@ -60,6 +60,12 @@ void MessageStack::cancel(MessageId id) {
             break;
         }
     }
+}
+
+MessageId MessageStack::flash(MessageType type, Glib::ustring const &message)
+{
+    MessageId id = flash( type, message.c_str() );
+    return id;
 }
 
 MessageId MessageStack::flash(MessageType type, gchar const *message) {

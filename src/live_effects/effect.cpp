@@ -100,7 +100,6 @@ const Util::EnumData<EffectType> LPETypeData[] = {
     {PATH_LENGTH,           N_("Path length"),             "path_length"},
     {PERP_BISECTOR,         N_("Perpendicular bisector"),  "perp_bisector"},
     {PERSPECTIVE_PATH,      N_("Perspective path"),        "perspective_path"},
-    {POWERSTROKE,           N_("Power stroke"),            "powerstroke"},
     {COPY_ROTATE,           N_("Rotate copies"),           "copy_rotate"},
     {RECURSIVE_SKELETON,    N_("Recursive skeleton"),      "recursive_skeleton"},
     {TANGENT_TO_CURVE,      N_("Tangent to curve"),        "tangent_to_curve"},
@@ -121,7 +120,8 @@ const Util::EnumData<EffectType> LPETypeData[] = {
     {ROUGH_HATCHES,         N_("Hatches (rough)"),         "rough_hatches"},
     {SKETCH,                N_("Sketch"),                  "sketch"},
     {RULER,                 N_("Ruler"),                   "ruler"},
-/* 0.49 */
+/* 0.49 ?*/
+    {POWERSTROKE,           N_("[Unstable!] Power stroke"), "powerstroke"},
 };
 const Util::EnumDataConverter<EffectType> LPETypeConverter(LPETypeData, sizeof(LPETypeData)/sizeof(*LPETypeData));
 
@@ -262,7 +262,7 @@ void Effect::createAndApply(const char* name, SPDocument *doc, SPItem *item)
     Inkscape::XML::Node *repr = xml_doc->createElement("inkscape:path-effect");
     repr->setAttribute("effect", name);
 
-    SP_DOCUMENT_DEFS(doc)->getRepr()->addChild(repr, NULL); // adds to <defs> and assigns the 'id' attribute
+    doc->getDefs()->getRepr()->addChild(repr, NULL); // adds to <defs> and assigns the 'id' attribute
     const gchar * repr_id = repr->attribute("id");
     Inkscape::GC::release(repr);
 
@@ -436,7 +436,7 @@ Effect::readallParameters(Inkscape::XML::Node * repr)
             param->param_set_default();
         }
 
-        it++;
+        ++it;
     }
 }
 
@@ -572,7 +572,7 @@ Effect::newWidget(Gtk::Tooltips * tooltips)
             }
         }
 
-        it++;
+        ++it;
     }
 
     return dynamic_cast<Gtk::Widget *>(vbox);
@@ -604,7 +604,7 @@ Effect::getParameter(const char * key)
             return param;
         }
 
-        it++;
+        ++it;
     }
 
     return NULL;
@@ -671,7 +671,7 @@ void
 Effect::transform_multiply(Geom::Affine const& postmul, bool set)
 {
     // cycle through all parameters. Most parameters will not need transformation, but path and point params do.
-    for (std::vector<Parameter *>::iterator it = param_vector.begin(); it != param_vector.end(); it++) {
+    for (std::vector<Parameter *>::iterator it = param_vector.begin(); it != param_vector.end(); ++it) {
         Parameter * param = *it;
         param->param_transform_multiply(postmul, set);
     }

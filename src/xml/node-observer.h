@@ -18,9 +18,8 @@
 #ifndef SEEN_INKSCAPE_XML_NODE_OBSERVER_H
 #define SEEN_INKSCAPE_XML_NODE_OBSERVER_H
 
-#include <glib/gquark.h>
+#include <glib.h>
 #include "util/share.h"
-#include "xml/xml-forward.h"
 
 #ifndef INK_UNUSED
 #define INK_UNUSED(x) ((void)(x))
@@ -28,6 +27,8 @@
 
 namespace Inkscape {
 namespace XML {
+
+class Node;
 
 /**
  * @brief Interface for XML node observers

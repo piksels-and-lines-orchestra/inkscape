@@ -28,7 +28,6 @@
 #endif
 
 #include <2geom/affine.h>
-#include <libnr/nr-matrix-fns.h>
 #include <libnrtype/FontFactory.h>
 #include <libnrtype/font-instance.h>
 #include <libnrtype/font-style-to-pos.h>
@@ -36,7 +35,7 @@
 #include <glibmm/i18n.h>
 #include "svg/svg.h"
 #include "svg/stringstream.h"
-#include "display/nr-arena-glyphs.h"
+#include "display/drawing-text.h"
 #include "attributes.h"
 #include "document.h"
 #include "desktop-handles.h"
@@ -72,8 +71,8 @@ static void sp_text_update (SPObject *object, SPCtx *ctx, guint flags);
 static void sp_text_modified (SPObject *object, guint flags);
 static Inkscape::XML::Node *sp_text_write (SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-static void sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
-static NRArenaItem *sp_text_show (SPItem *item, NRArena *arena, unsigned key, unsigned flags);
+static Geom::OptRect sp_text_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
+static Inkscape::DrawingItem *sp_text_show (SPItem *item, Inkscape::Drawing &drawing, unsigned key, unsigned flags);
 static void sp_text_hide (SPItem *item, unsigned key);
 static char *sp_text_description (SPItem *item);
 static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
@@ -249,13 +248,13 @@ static void sp_text_update(SPObject *object, SPCtx *ctx, guint flags)
         /* fixme: So check modification flag everywhere immediate state is used */
         text->rebuildLayout();
 
-        NRRect paintbox;
-        text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
+        Geom::OptRect paintbox = text->geometricBounds();
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
-            text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
-            nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
+            Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
+            text->_clearFlow(g);
+            g->setStyle(object->style);
             // pass the bbox of the text object as paintbox (used for paintserver fills)
-            text->layout.show(NR_ARENA_GROUP(v->arenaitem), &paintbox);
+            text->layout.show(g, paintbox);
         }
     }
 }
@@ -271,18 +270,18 @@ static void sp_text_modified(SPObject *object, guint flags)
         cflags |= SP_OBJECT_PARENT_MODIFIED_FLAG;
     }
 
-    // FIXME: all that we need to do here is nr_arena_glyphs_[group_]set_style, to set the changed
-    // style, but there's no easy way to access the arena glyphs or glyph groups corresponding to a
-    // text object. Therefore we do here the same as in _update, that is, destroy all arena items
+    // FIXME: all that we need to do here is to call setStyle, to set the changed
+    // style, but there's no easy way to access the drawing glyphs or texts corresponding to a
+    // text object. Therefore we do here the same as in _update, that is, destroy all items
     // and create new ones. This is probably quite wasteful.
     if (flags & ( SP_OBJECT_STYLE_MODIFIED_FLAG )) {
         SPText *text = SP_TEXT (object);
-        NRRect paintbox;
-        text->invoke_bbox( &paintbox, Geom::identity(), TRUE);
+        Geom::OptRect paintbox = text->geometricBounds();
         for (SPItemView* v = text->display; v != NULL; v = v->next) {
-            text->_clearFlow(NR_ARENA_GROUP(v->arenaitem));
-            nr_arena_group_set_style(NR_ARENA_GROUP(v->arenaitem), object->style);
-            text->layout.show(NR_ARENA_GROUP(v->arenaitem), &paintbox);
+            Inkscape::DrawingGroup *g = dynamic_cast<Inkscape::DrawingGroup *>(v->arenaitem);
+            text->_clearFlow(g);
+            g->setStyle(object->style);
+            text->layout.show(g, paintbox);
         }
     }
 
@@ -362,42 +361,31 @@ static Inkscape::XML::Node *sp_text_write(SPObject *object, Inkscape::XML::Docum
     return repr;
 }
 
-static void
-sp_text_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const /*flags*/)
+static Geom::OptRect
+sp_text_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type)
 {
-    SP_TEXT(item)->layout.getBoundingBox(bbox, transform);
+    Geom::OptRect bbox = SP_TEXT(item)->layout.bounds(transform);
 
-    // Add stroke width
-    SPStyle* style = item->style;
-    if (!style->stroke.isNone()) {
-        double const scale = transform.descrim();
-        if ( fabs(style->stroke_width.computed * scale) > 0.01 ) { // sinon c'est 0=oon veut pas de bord
-            double const width = MAX(0.125, style->stroke_width.computed * scale);
-            if ( fabs(bbox->x1 - bbox->x0) > -0.00001 && fabs(bbox->y1 - bbox->y0) > -0.00001 ) {
-                bbox->x0-=0.5*width;
-                bbox->x1+=0.5*width;
-                bbox->y0-=0.5*width;
-                bbox->y1+=0.5*width;
-            }
-        }
+    // FIXME this code is incorrect
+    if (bbox && type == SPItem::VISUAL_BBOX && !item->style->stroke.isNone()) {
+        double scale = transform.descrim();
+        bbox->expandBy(0.5 * item->style->stroke_width.computed * scale);
     }
+    return bbox;
 }
 
 
-static NRArenaItem *
-sp_text_show(SPItem *item, NRArena *arena, unsigned /* key*/, unsigned /*flags*/)
+static Inkscape::DrawingItem *
+sp_text_show(SPItem *item, Inkscape::Drawing &drawing, unsigned /* key*/, unsigned /*flags*/)
 {
     SPText *group = (SPText *) item;
 
-    NRArenaGroup *flowed = NRArenaGroup::create(arena);
-    nr_arena_group_set_transparent (flowed, FALSE);
-
-    nr_arena_group_set_style(flowed, group->style);
+    Inkscape::DrawingGroup *flowed = new Inkscape::DrawingGroup(drawing);
+    flowed->setPickChildren(false);
+    flowed->setStyle(group->style);
 
     // pass the bbox of the text object as paintbox (used for paintserver fills)
-    NRRect paintbox;
-    item->invoke_bbox( &paintbox, Geom::identity(), TRUE);
-    group->layout.show(flowed, &paintbox);
+    group->layout.show(flowed, group->geometricBounds());
 
     return flowed;
 }
@@ -442,15 +430,17 @@ static char * sp_text_description(SPItem *item)
     return ret;
 }
 
-static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const */*snapprefs*/)
+static void sp_text_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs)
 {
-    // Choose a point on the baseline for snapping from or to, with the horizontal position
-    // of this point depending on the text alignment (left vs. right)
-    Inkscape::Text::Layout const *layout = te_get_layout((SPItem *) item);
-    if (layout != NULL && layout->outputExists()) {
-        boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
-        if (pt) {
-            p.push_back(Inkscape::SnapCandidatePoint((*pt) * item->i2d_affine(), Inkscape::SNAPSOURCE_TEXT_BASELINE, Inkscape::SNAPTARGET_TEXT_BASELINE));
+    if (snapprefs->isTargetSnappable(Inkscape::SNAPTARGET_TEXT_BASELINE)) {
+        // Choose a point on the baseline for snapping from or to, with the horizontal position
+        // of this point depending on the text alignment (left vs. right)
+        Inkscape::Text::Layout const *layout = te_get_layout((SPItem *) item);
+        if (layout != NULL && layout->outputExists()) {
+            boost::optional<Geom::Point> pt = layout->baselineAnchorPoint();
+            if (pt) {
+                p.push_back(Inkscape::SnapCandidatePoint((*pt) * item->i2dt_affine(), Inkscape::SNAPSOURCE_TEXT_ANCHOR, Inkscape::SNAPTARGET_TEXT_ANCHOR));
+            }
         }
     }
 }
@@ -507,18 +497,15 @@ sp_text_set_transform (SPItem *item, Geom::Affine const &xform)
 static void
 sp_text_print (SPItem *item, SPPrintContext *ctx)
 {
-    NRRect     pbox, dbox, bbox;
     SPText *group = SP_TEXT (item);
+    Geom::OptRect pbox, bbox, dbox;
 
-    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
-    item->getBboxDesktop (&bbox);
-    dbox.x0 = 0.0;
-    dbox.y0 = 0.0;
-    dbox.x1 = item->document->getWidth();
-    dbox.y1 = item->document->getHeight();
-    Geom::Affine const ctm (item->i2d_affine());
+    pbox = item->geometricBounds();
+    bbox = item->desktopVisualBounds();
+    dbox = Geom::Rect::from_xywh(Geom::Point(0,0), item->document->getDimensions());
+    Geom::Affine const ctm (item->i2dt_affine());
 
-    group->layout.print(ctx,&pbox,&dbox,&bbox,ctm);
+    group->layout.print(ctx,pbox,dbox,bbox,ctm);
 }
 
 /*
@@ -624,7 +611,7 @@ void SPText::_adjustFontsizeRecursive(SPItem *item, double ex, bool is_root)
 {
     SPStyle *style = item->style;
 
-    if (style && !NR_DF_TEST_CLOSE (ex, 1.0, NR_EPSILON)) {
+    if (style && !Geom::are_near(ex, 1.0)) {
         if (!style->font_size.set && is_root) {
             style->font_size.set = 1;
         }
@@ -661,17 +648,9 @@ void SPText::_adjustCoordsRecursive(SPItem *item, Geom::Affine const &m, double 
 }
 
 
-void SPText::_clearFlow(NRArenaGroup *in_arena)
+void SPText::_clearFlow(Inkscape::DrawingGroup *in_arena)
 {
-    nr_arena_item_request_render (in_arena);
-    for (NRArenaItem *child = in_arena->children; child != NULL; ) {
-        NRArenaItem *nchild = child->next;
-
-        nr_arena_glyphs_group_clear(NR_ARENA_GLYPHS_GROUP(child));
-        nr_arena_item_remove_child (in_arena, child);
-
-        child=nchild;
-    }
+    in_arena->clearChildren();
 }
 
 

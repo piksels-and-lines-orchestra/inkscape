@@ -1,5 +1,6 @@
-/** @file
- * @brief Main UI stuff
+/**
+ * @file
+ * Main UI stuff.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -56,10 +57,6 @@
 #include "message-context.h"
 #include "ui/uxmanager.h"
 
-// Added for color drag-n-drop
-#if ENABLE_LCMS
-#include "lcms.h"
-#endif // ENABLE_LCMS
 #include "display/sp-canvas.h"
 #include "color.h"
 #include "svg/svg-color.h"
@@ -129,24 +126,11 @@ static void sp_ui_drag_leave( GtkWidget *widget,
                               GdkDragContext *drag_context,
                               guint event_time,
                               gpointer user_data );
-static void sp_ui_menu_item_set_sensitive(SPAction *action,
-                                          unsigned int sensitive,
-                                          void *data);
-static void sp_ui_menu_item_set_name(SPAction *action,
-                                     Glib::ustring name,
-                                     void *data);
+static void sp_ui_menu_item_set_name(GtkWidget *data,
+                                     Glib::ustring const &name);
 static void sp_recent_open(GtkRecentChooser *, gpointer);
 
 static void injectRenamedIcons();
-
-SPActionEventVector menu_item_event_vector = {
-    {NULL},
-    NULL,
-    NULL, /* set_active */
-    sp_ui_menu_item_set_sensitive, /* set_sensitive */
-    NULL, /* set_shortcut */
-    sp_ui_menu_item_set_name /* set_name */
-};
 
 static const int MIN_ONSCREEN_DISTANCE = 50;
 
@@ -216,9 +200,7 @@ sp_create_window(SPViewWidget *vw, gboolean editable)
             }
         }
 
-    } else {
-        gtk_window_set_policy(GTK_WINDOW(win->gobj()), TRUE, TRUE, TRUE);
-    }
+    } 
 
     if ( completeDropTargets == 0 || completeDropTargetsCount == 0 )
     {
@@ -458,7 +440,7 @@ sp_ui_menu_append_item( GtkMenu *menu, gchar const *stock,
         g_signal_connect( G_OBJECT(item), "deselect", G_CALLBACK(sp_ui_menu_deselect), NULL);
     }
 
-    gtk_menu_append(GTK_MENU(menu), item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     return item;
 
@@ -514,7 +496,6 @@ sp_ui_menu_append_item_from_verb(GtkMenu *menu, Inkscape::Verb *verb, Inkscape::
         unsigned int shortcut;
 
         action = verb->get_action(view);
-
         if (!action) return NULL;
 
         shortcut = sp_shortcut_get_primary(verb);
@@ -548,7 +529,15 @@ sp_ui_menu_append_item_from_verb(GtkMenu *menu, Inkscape::Verb *verb, Inkscape::
             gtk_container_add((GtkContainer *) item, name_lbl);
         }
 
-        nr_active_object_add_listener((NRActiveObject *)action, (NRObjectEventVector *)&menu_item_event_vector, sizeof(SPActionEventVector), item);
+        action->signal_set_sensitive.connect(
+            sigc::bind<0>(
+                sigc::ptr_fun(&gtk_widget_set_sensitive),
+                item));
+        action->signal_set_name.connect(
+            sigc::bind<0>(
+                sigc::ptr_fun(&sp_ui_menu_item_set_name),
+                item));
+
         if (!action->sensitive) {
             gtk_widget_set_sensitive(item, FALSE);
         }
@@ -564,7 +553,7 @@ sp_ui_menu_append_item_from_verb(GtkMenu *menu, Inkscape::Verb *verb, Inkscape::
     }
 
     gtk_widget_show(item);
-    gtk_menu_append(GTK_MENU(menu), item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     return item;
 
@@ -640,11 +629,9 @@ static void taskToggled(GtkCheckMenuItem *menuitem, gpointer userData)
 
 
 /**
- *  \brief Callback function to update the status of the radio buttons in the View -> Display mode menu (Normal, No Filters, Outline) and Color display mode
+ * Callback function to update the status of the radio buttons in the View -> Display mode menu (Normal, No Filters, Outline) and Color display mode.
  */
-
-static gboolean
-update_view_menu(GtkWidget *widget, GdkEventExpose */*event*/, gpointer user_data)
+static gboolean update_view_menu(GtkWidget *widget, GdkEventExpose */*event*/, gpointer user_data)
 {
     SPAction *action = (SPAction *) user_data;
     g_assert(action->id != NULL);
@@ -652,7 +639,7 @@ update_view_menu(GtkWidget *widget, GdkEventExpose */*event*/, gpointer user_dat
     Inkscape::UI::View::View *view = (Inkscape::UI::View::View *) g_object_get_data(G_OBJECT(widget), "view");
     SPDesktop *dt = static_cast<SPDesktop*>(view);
     Inkscape::RenderMode mode = dt->getMode();
-    Inkscape::ColorRenderMode colormode = dt->getColorMode();
+    Inkscape::ColorMode colormode = dt->getColorMode();
 
     bool new_state = false;
     if (!strcmp(action->id, "ViewModeNormal")) {
@@ -662,11 +649,11 @@ update_view_menu(GtkWidget *widget, GdkEventExpose */*event*/, gpointer user_dat
     } else if (!strcmp(action->id, "ViewModeOutline")) {
         new_state = mode == Inkscape::RENDERMODE_OUTLINE;
     } else if (!strcmp(action->id, "ViewColorModeNormal")) {
-        new_state = colormode == Inkscape::COLORRENDERMODE_NORMAL;
+        new_state = colormode == Inkscape::COLORMODE_NORMAL;
     } else if (!strcmp(action->id, "ViewColorModeGrayscale")) {
-        new_state = colormode == Inkscape::COLORRENDERMODE_GRAYSCALE;
+        new_state = colormode == Inkscape::COLORMODE_GRAYSCALE;
     } else if (!strcmp(action->id, "ViewColorModePrintColorsPreview")) {
-        new_state = colormode == Inkscape::COLORRENDERMODE_PRINT_COLORS_PREVIEW;
+        new_state = colormode == Inkscape::COLORMODE_PRINT_COLORS_PREVIEW;
     } else {
         g_warning("update_view_menu does not handle this verb");
     }
@@ -722,7 +709,6 @@ sp_ui_menu_append_check_item_from_verb(GtkMenu *menu, Inkscape::UI::View::View *
         gtk_container_add((GtkContainer *) item, l);
     }
 #if 0
-    nr_active_object_add_listener((NRActiveObject *)action, (NRObjectEventVector *)&menu_item_event_vector, sizeof(SPActionEventVector), item);
     if (!action->sensitive) {
         gtk_widget_set_sensitive(item, FALSE);
     }
@@ -776,12 +762,20 @@ sp_menu_append_new_templates(GtkWidget *menu, Inkscape::UI::View::View *view)
 
             if (dir) {
                 for (gchar const *file = g_dir_read_name(dir); file != NULL; file = g_dir_read_name(dir)) {
-                    if (!g_str_has_suffix(file, ".svg") && !g_str_has_suffix(file, ".svgz"))
+                    if (!g_str_has_suffix(file, ".svg") && !g_str_has_suffix(file, ".svgz")) {
                         continue; // skip non-svg files
+                    }
 
-                    gchar *basename = g_path_get_basename(file);
-                    if (g_str_has_suffix(basename, ".svg") && g_str_has_prefix(basename, "default."))
-                        continue; // skip default.*.svg (i.e. default.svg and translations) - it's in the menu already
+                    {
+                        gchar *basename = g_path_get_basename(file);
+                        if (g_str_has_suffix(basename, ".svg") && g_str_has_prefix(basename, "default.")) {
+                            g_free(basename);
+                            basename = 0;
+                            continue; // skip default.*.svg (i.e. default.svg and translations) - it's in the menu already
+                        }
+                        g_free(basename);
+                        basename = 0;
+                    }
 
                     gchar const *filepath = g_build_filename(dirname, file, NULL);
                     gchar *dupfile = g_strndup(file, strlen(file) - 4);
@@ -821,11 +815,11 @@ sp_ui_checkboxes_menus(GtkMenu *m, Inkscape::UI::View::View *view)
 {
     //sp_ui_menu_append_check_item_from_verb(m, view, _("_Menu"), _("Show or hide the menu bar"), "menu",
     //                                       checkitem_toggled, checkitem_update, 0);
-    sp_ui_menu_append_check_item_from_verb(m, view, _("Commands Bar"), _("Show or hide the Commands bar (under the menu)"), "commands",
+    sp_ui_menu_append_check_item_from_verb(m, view, _("_Commands Bar"), _("Show or hide the Commands bar (under the menu)"), "commands",
                                            checkitem_toggled, checkitem_update, 0);
-    sp_ui_menu_append_check_item_from_verb(m, view, _("Snap Controls Bar"), _("Show or hide the snapping controls"), "snaptoolbox",
+    sp_ui_menu_append_check_item_from_verb(m, view, _("Sn_ap Controls Bar"), _("Show or hide the snapping controls"), "snaptoolbox",
                                            checkitem_toggled, checkitem_update, 0);
-    sp_ui_menu_append_check_item_from_verb(m, view, _("Tool Controls Bar"), _("Show or hide the Tool Controls bar"), "toppanel",
+    sp_ui_menu_append_check_item_from_verb(m, view, _("T_ool Controls Bar"), _("Show or hide the Tool Controls bar"), "toppanel",
                                            checkitem_toggled, checkitem_update, 0);
     sp_ui_menu_append_check_item_from_verb(m, view, _("_Toolbox"), _("Show or hide the main toolbox (on the left)"), "toolbox",
                                            checkitem_toggled, checkitem_update, 0);
@@ -872,7 +866,9 @@ void addTaskMenuItems(GtkMenu *menu, Inkscape::UI::View::View *view)
 }
 
 
-/** @brief Observer that updates the recent list's max document count */
+/**
+ * Observer that updates the recent list's max document count.
+ */
 class MaxRecentObserver : public Inkscape::Preferences::Observer {
 public:
     MaxRecentObserver(GtkWidget *recent_menu) :
@@ -888,23 +884,24 @@ private:
     GtkWidget *_rm;
 };
 
-/** \brief  This function turns XML into a menu
-    \param  menus  This is the XML that defines the menu
-    \param  menu   Menu to be added to
-    \param  view   The View that this menu is being built for
-
-    This function is realitively simple as it just goes through the XML
-    and parses the individual elements.  In the case of a submenu, it
-    just calls itself recursively.  Because it is only reasonable to have
-    a couple of submenus, it is unlikely this will go more than two or
-    three times.
-
-    In the case of an unrecognized verb, a menu item is made to identify
-    the verb that is missing, and display that.  The menu item is also made
-    insensitive.
-*/
-void
-sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI::View::View *view)
+/**
+ * This function turns XML into a menu.
+ *
+ *  This function is realitively simple as it just goes through the XML
+ *  and parses the individual elements.  In the case of a submenu, it
+ *  just calls itself recursively.  Because it is only reasonable to have
+ *  a couple of submenus, it is unlikely this will go more than two or
+ *  three times.
+ *
+ *  In the case of an unrecognized verb, a menu item is made to identify
+ *  the verb that is missing, and display that.  The menu item is also made
+ *  insensitive.
+ *
+ * @param  menus  This is the XML that defines the menu
+ * @param  menu   Menu to be added to
+ * @param  view   The View that this menu is being built for
+ */
+void sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI::View::View *view)
 {
     if (menus == NULL) return;
     if (menu == NULL)  return;
@@ -947,7 +944,7 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
                 GtkWidget *item = gtk_menu_item_new_with_label(string);
                 gtk_widget_set_sensitive(item, false);
                 gtk_widget_show(item);
-                gtk_menu_append(GTK_MENU(menu), item);
+                gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
             }
             continue;
         }
@@ -958,7 +955,7 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
              || !strcmp(menu_pntr->name(), "seperator")) {
             GtkWidget *item = gtk_separator_menu_item_new();
             gtk_widget_show(item);
-            gtk_menu_append(GTK_MENU(menu), item);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
             continue;
         }
         if (!strcmp(menu_pntr->name(), "template-list")) {
@@ -987,7 +984,7 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
             GtkWidget *recent_item = gtk_menu_item_new_with_mnemonic(_("Open _Recent"));
             gtk_menu_item_set_submenu(GTK_MENU_ITEM(recent_item), recent_menu);
 
-            gtk_menu_append(GTK_MENU(menu), GTK_WIDGET(recent_item));
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), GTK_WIDGET(recent_item));
             // this will just sit and update the list's item count
             static MaxRecentObserver *mro = new MaxRecentObserver(recent_menu);
             prefs->addObserver(*mro);
@@ -1004,15 +1001,16 @@ sp_ui_build_dyn_menus(Inkscape::XML::Node *menus, GtkWidget *menu, Inkscape::UI:
     }
 }
 
-/** \brief  Build the main tool bar
-    \param  view  View to build the bar for
-
-    Currently the main tool bar is built as a dynamic XML menu using
-    \c sp_ui_build_dyn_menus.  This function builds the bar, and then
-    pass it to get items attached to it.
-*/
-GtkWidget *
-sp_ui_main_menubar(Inkscape::UI::View::View *view)
+/**
+ * Build the main tool bar.
+ *
+ * Currently the main tool bar is built as a dynamic XML menu using
+ * \c sp_ui_build_dyn_menus.  This function builds the bar, and then
+ * pass it to get items attached to it.
+ *
+ * @param  view  View to build the bar for
+ */
+GtkWidget *sp_ui_main_menubar(Inkscape::UI::View::View *view)
 {
     GtkWidget *mbar = gtk_menu_bar_new();
 
@@ -1259,7 +1257,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                 ( !item->style->stroke.isNone() ?
                                   desktop->current_zoom() *
                                   item->style->stroke_width.computed *
-                                  to_2geom(item->i2d_affine()).descrim() * 0.5
+                                  item->i2dt_affine().descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 
@@ -1362,7 +1360,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
                                 ( !item->style->stroke.isNone() ?
                                   desktop->current_zoom() *
                                   item->style->stroke_width.computed *
-                                  to_2geom(item->i2d_affine()).descrim() * 0.5
+                                  item->i2dt_affine().descrim() * 0.5
                                   : 0.0)
                                 + prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
 
@@ -1423,7 +1421,7 @@ sp_ui_drag_data_received(GtkWidget *widget,
             // move to mouse pointer
             {
                 sp_desktop_document(desktop)->ensureUpToDate();
-                Geom::OptRect sel_bbox = selection->bounds();
+                Geom::OptRect sel_bbox = selection->visualBounds();
                 if (sel_bbox) {
                     Geom::Point m( desktop->point() - sel_bbox->midpoint() );
                     sp_selection_move_relative(selection, m, false);
@@ -1585,13 +1583,7 @@ sp_ui_overwrite_file(gchar const *filename)
 }
 
 static void
-sp_ui_menu_item_set_sensitive(SPAction */*action*/, unsigned int sensitive, void *data)
-{
-    return gtk_widget_set_sensitive(GTK_WIDGET(data), sensitive);
-}
-
-static void
-sp_ui_menu_item_set_name(SPAction */*action*/, Glib::ustring name, void *data)
+sp_ui_menu_item_set_name(GtkWidget *data, Glib::ustring const &name)
 {
     void *child = GTK_BIN (data)->child;
     //child is either

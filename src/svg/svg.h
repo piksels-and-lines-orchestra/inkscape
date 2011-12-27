@@ -11,13 +11,12 @@
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
-#include <glib/gtypes.h>
+#include <glib.h>
 #include <vector>
 #include <cstring>
 #include <string>
 
 #include "svg/svg-length.h"
-#include "libnr/nr-forward.h"
 #include <2geom/forward.h>
 
 /* Generic */

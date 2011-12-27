@@ -18,13 +18,18 @@
 #ifndef SEEN_INKSCAPE_XML_NODE_H
 #define SEEN_INKSCAPE_XML_NODE_H
 
-#include <glib/gtypes.h>
+#include <glib.h>
 #include "gc-anchored.h"
 #include "util/list.h"
-#include "xml/xml-forward.h"
 
 namespace Inkscape {
 namespace XML {
+
+struct AttributeRecord;
+struct Document;
+class  Event;
+class  NodeObserver;
+struct NodeEventVector;
 
 /**
  * @brief Enumeration containing all supported node types.

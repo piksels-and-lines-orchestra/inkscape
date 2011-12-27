@@ -1,7 +1,8 @@
-#ifndef __STYLESHEETS_H__
-#define __STYLESHEETS_H__
+#ifndef SEEN_STYLESHEETS_H
+#define SEEN_STYLESHEETS_H
 
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -9,7 +10,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -120,14 +122,17 @@ public:
      */
     virtual void deleteMedium(const DOMString& oldMedium)
                               throw (dom::DOMException)
-        {
+    {
         std::vector<DOMString>::iterator iter;
-        for (iter=items.begin() ; iter!=items.end() ; iter++)
-            {
-            if (*iter == oldMedium)
-                items.erase(iter);
+        for (iter=items.begin() ; iter!=items.end() ; ){
+            if (*iter == oldMedium){
+                iter = items.erase(iter);
+            }
+            else{
+                ++iter;
             }
         }
+    }
 
     /**
      * Adds the medium newMedium to the end of the list. If the newMedium
@@ -584,7 +589,7 @@ protected:
 }  //namespace org
 
 
-#endif   /* __STYLESHEETS_H__ */
+#endif // SEEN_STYLESHEETS_H
 /*#########################################################################
 ## E N D    O F    F I L E
 #########################################################################*/

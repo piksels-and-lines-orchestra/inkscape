@@ -1,6 +1,3 @@
-/** @file
- * @brief  Stroke style dialog
- */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Bryce Harrington <brycehar@bryceharrington.org>
@@ -20,7 +17,7 @@
 
 #define noSP_SS_VERBOSE
 
-#include <glib/gmem.h>
+#include <glib.h>
 #include <gtk/gtk.h>
 #include <glibmm/i18n.h>
 
@@ -28,8 +25,7 @@
 #include "desktop-style.h"
 #include "dialogs/dialog-events.h"
 #include "display/canvas-bpath.h" // for SP_STROKE_LINEJOIN_*
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing.h"
 #include "document-private.h"
 #include "gradient-chemistry.h"
 #include "helper/stock-items.h"
@@ -55,6 +51,7 @@
 #include "widgets/paint-selector.h"
 #include "widgets/sp-widget.h"
 #include "widgets/spw-utilities.h"
+#include "ui/widget/spinbutton.h"
 #include "xml/repr.h"
 
 #include "stroke-style.h"
@@ -152,12 +149,13 @@ sp_stroke_radio_button(Gtk::RadioButton *tb, char const *icon,
 static Gtk::Image *
 sp_marker_prev_new(unsigned psize, gchar const *mname,
                    SPDocument *source, SPDocument *sandbox,
-                   gchar const *menu_id, NRArena const * /*arena*/, unsigned /*visionkey*/, NRArenaItem *root)
+                   gchar const *menu_id, Inkscape::Drawing &drawing, unsigned /*visionkey*/)
 {
     // Retrieve the marker named 'mname' from the source SVG document
     SPObject const *marker = source->getObjectById(mname);
-    if (marker == NULL)
+    if (marker == NULL) {
         return NULL;
+    }
 
     // Create a copy repr of the marker with id="sample"
     Inkscape::XML::Document *xml_doc = sandbox->getReprDoc();
@@ -167,8 +165,9 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
     // Replace the old sample in the sandbox by the new one
     Inkscape::XML::Node *defsrepr = sandbox->getObjectById("defs")->getRepr();
     SPObject *oldmarker = sandbox->getObjectById("sample");
-    if (oldmarker)
+    if (oldmarker) {
         oldmarker->deleteObject(false);
+    }
     defsrepr->appendChild(mrepr);
     Inkscape::GC::release(mrepr);
 
@@ -182,12 +181,13 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
     sandbox->getRoot()->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
     sandbox->ensureUpToDate();
 
-    if (object == NULL || !SP_IS_ITEM(object))
+    if (object == NULL || !SP_IS_ITEM(object)) {
         return NULL; // sandbox broken?
+    }
 
+    SPItem *item = SP_ITEM(object);
     // Find object's bbox in document
-    Geom::Affine const i2doc(SP_ITEM(object)->i2doc_affine());
-    Geom::OptRect dbox = SP_ITEM(object)->getBounds(i2doc);
+    Geom::OptRect dbox = item->documentVisualBounds();
 
     if (!dbox) {
         return NULL;
@@ -203,7 +203,7 @@ sp_marker_prev_new(unsigned psize, gchar const *mname,
     Glib::RefPtr<Gdk::Pixbuf> pixbuf = Glib::wrap(svg_preview_cache.get_preview_from_cache(key));
 
     if (!pixbuf) {
-        pixbuf = Glib::wrap(render_pixbuf(root, sf, *dbox, psize));
+        pixbuf = Glib::wrap(render_pixbuf(drawing, sf, *dbox, psize));
         svg_preview_cache.set_preview_in_cache(key, pixbuf->gobj());
     }
 
@@ -224,7 +224,7 @@ ink_marker_list_get (SPDocument *source)
         return NULL;
 
     GSList *ml   = NULL;
-    SPDefs *defs = (SPDefs *) SP_DOCUMENT_DEFS (source);
+    SPDefs *defs = source->getDefs();
     for ( SPObject *child = defs->firstChild(); child; child = child->getNext() )
     {
         if (SP_IS_MARKER(child)) {
@@ -243,9 +243,9 @@ static void
 sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPDocument *sandbox, gchar const *menu_id)
 {
     // Do this here, outside of loop, to speed up preview generation:
-    NRArena const *arena = NRArena::create();
+    Inkscape::Drawing drawing;
     unsigned const visionkey = SPItem::display_key_new(1);
-    NRArenaItem *root =  SP_ITEM(sandbox->getRoot())->invoke_show((NRArena *) arena, visionkey, SP_ITEM_SHOW_DISPLAY);
+    drawing.setRoot(sandbox->getRoot()->invoke_show(drawing, visionkey, SP_ITEM_SHOW_DISPLAY));
 
     for (; marker_list != NULL; marker_list = marker_list->next) {
         Inkscape::XML::Node *repr = reinterpret_cast<SPItem *>(marker_list->data)->getRepr();
@@ -266,7 +266,7 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
 
         // generate preview
 
-        Gtk::Image *prv = sp_marker_prev_new (22, markid, source, sandbox, menu_id, arena, visionkey, root);
+        Gtk::Image *prv = sp_marker_prev_new (22, markid, source, sandbox, menu_id, drawing, visionkey);
         prv->show();
         hb->pack_start(*prv, false, false, 6);
 
@@ -283,19 +283,14 @@ sp_marker_menu_build (Gtk::Menu *m, GSList *marker_list, SPDocument *source, SPD
         m->append(*i);
     }
 
-    SP_ITEM(sandbox->getRoot())->invoke_hide(visionkey);
-    nr_object_unref((NRObject *) arena);
+    sandbox->getRoot()->invoke_hide(visionkey);
 }
 
 /**
- * sp_marker_list_from_doc()
- *
- * \brief Pick up all markers from source, except those that are in
- * current_doc (if non-NULL), and add items to the m menu
- *
+ * Pick up all markers from source, except those that are in
+ * current_doc (if non-NULL), and add items to the m menu.
  */
-static void
-sp_marker_list_from_doc (Gtk::Menu *m, SPDocument * /*current_doc*/, SPDocument *source, SPDocument * /*markers_doc*/, SPDocument *sandbox, gchar const *menu_id)
+static void sp_marker_list_from_doc(Gtk::Menu *m, SPDocument * /*current_doc*/, SPDocument *source, SPDocument * /*markers_doc*/, SPDocument *sandbox, gchar const *menu_id)
 {
     GSList *ml = ink_marker_list_get(source);
     GSList *clean_ml = NULL;
@@ -612,7 +607,7 @@ static gboolean stroke_width_set_unit(SPUnitSelector *,
 
         gdouble average = stroke_average_width (objects);
 
-        if (average == NR_HUGE || average == 0)
+        if (average == Geom::infinity() || average == 0)
             return FALSE;
 
         a->set_value (100.0 * w / average);
@@ -641,11 +636,9 @@ static gboolean stroke_width_set_unit(SPUnitSelector *,
 
 
 /**
- * \brief  Creates a new widget for the line stroke style.
- *
+ * Creates a new widget for the line stroke style.
  */
-Gtk::Container *
-sp_stroke_style_line_widget_new(void)
+Gtk::Container *sp_stroke_style_line_widget_new(void)
 {
     Gtk::Widget *us;
     SPDashSelector *ds;
@@ -653,7 +646,7 @@ sp_stroke_style_line_widget_new(void)
     Gtk::Container *spw;
     Gtk::Table *t;
     Gtk::Adjustment *a;
-    Gtk::SpinButton *sb;
+    Inkscape::UI::Widget::SpinButton *sb;
     Gtk::RadioButton *tb;
     Gtk::HBox *f, *hb;
 
@@ -688,7 +681,7 @@ sp_stroke_style_line_widget_new(void)
 
     a = new Gtk::Adjustment(1.0, 0.0, 1000.0, 0.1, 10.0, 0.0);
     spw->set_data("width", a);
-    sb = new Gtk::SpinButton(*a, 0.1, 3);
+    sb = new Inkscape::UI::Widget::SpinButton(*a, 0.1, 3);
     tt->set_tip(*sb, _("Stroke width"));
     sb->show();
     spw_label(t, C_("Stroke width", "_Width:"), 0, i, sb);
@@ -720,7 +713,7 @@ sp_stroke_style_line_widget_new(void)
 
     tb = NULL;
 
-    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON_STROKE_JOIN_MITER,
+    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON("stroke-join-miter"),
                                 hb, spw, "join", "miter");
 
     // TRANSLATORS: Miter join: joining lines with a sharp (pointed) corner.
@@ -729,7 +722,7 @@ sp_stroke_style_line_widget_new(void)
     tt->set_tip(*tb, _("Miter join"));
     spw->set_data("miter join", tb);
 
-    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON_STROKE_JOIN_ROUND,
+    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON("stroke-join-round"),
                                 hb, spw, "join", "round");
 
 
@@ -739,7 +732,7 @@ sp_stroke_style_line_widget_new(void)
     tt->set_tip(*tb, _("Round join"));
     spw->set_data("round join", tb);
 
-    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON_STROKE_JOIN_BEVEL,
+    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON("stroke-join-bevel"),
                                 hb, spw, "join", "bevel");
 
 
@@ -765,7 +758,7 @@ sp_stroke_style_line_widget_new(void)
     a = new Gtk::Adjustment(4.0, 0.0, 100.0, 0.1, 10.0, 0.0);
     spw->set_data("miterlimit", a);
 
-    sb = new Gtk::SpinButton(*a, 0.1, 2);
+    sb = new Inkscape::UI::Widget::SpinButton(*a, 0.1, 2);
     tt->set_tip(*sb, _("Maximum length of the miter (in units of stroke width)"));
     sb->show();
     spw_label(t, _("Miter _limit:"), 0, i, sb);
@@ -786,7 +779,7 @@ sp_stroke_style_line_widget_new(void)
 
     tb = NULL;
 
-    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON_STROKE_CAP_BUTT,
+    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON("stroke-cap-butt"),
                                 hb, spw, "cap", "butt");
     spw->set_data("cap butt", tb);
 
@@ -794,7 +787,7 @@ sp_stroke_style_line_widget_new(void)
     //  of the line; the ends of the line are square
     tt->set_tip(*tb, _("Butt cap"));
 
-    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON_STROKE_CAP_ROUND,
+    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON("stroke-cap-round"),
                                 hb, spw, "cap", "round");
     spw->set_data("cap round", tb);
 
@@ -802,7 +795,7 @@ sp_stroke_style_line_widget_new(void)
     //  line; the ends of the line are rounded
     tt->set_tip(*tb, _("Round cap"));
 
-    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON_STROKE_CAP_SQUARE,
+    tb = sp_stroke_radio_button(tb, INKSCAPE_ICON("stroke-cap-square"),
                                 hb, spw, "cap", "square");
     spw->set_data("cap square", tb);
 
@@ -948,13 +941,13 @@ sp_jointype_set (Gtk::Container *spw, unsigned const jointype)
     Gtk::RadioButton *tb = NULL;
     switch (jointype) {
         case SP_STROKE_LINEJOIN_MITER:
-            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_JOIN_MITER));
+            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-join-miter")));
             break;
         case SP_STROKE_LINEJOIN_ROUND:
-            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_JOIN_ROUND));
+            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-join-round")));
             break;
         case SP_STROKE_LINEJOIN_BEVEL:
-            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_JOIN_BEVEL));
+            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-join-bevel")));
             break;
         default:
             break;
@@ -971,13 +964,13 @@ sp_captype_set (Gtk::Container *spw, unsigned const captype)
     Gtk::RadioButton *tb = NULL;
     switch (captype) {
         case SP_STROKE_LINECAP_BUTT:
-            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_CAP_BUTT));
+            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-cap-butt")));
             break;
         case SP_STROKE_LINECAP_ROUND:
-            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_CAP_ROUND));
+            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-cap-round")));
             break;
         case SP_STROKE_LINECAP_SQUARE:
-            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_CAP_SQUARE));
+            tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-cap-square")));
             break;
         default:
             break;
@@ -1057,8 +1050,8 @@ sp_stroke_style_line_update(Gtk::Container *spw, Inkscape::Selection *sel)
         tb = static_cast<Gtk::RadioButton *>(spw->get_data("bevel join"));
         tb->set_sensitive(enabled);
 
-        Gtk::SpinButton* sb = NULL;
-        sb = static_cast<Gtk::SpinButton *>(spw->get_data("miterlimit_sb"));
+        Inkscape::UI::Widget::SpinButton* sb = NULL;
+        sb = static_cast<Inkscape::UI::Widget::SpinButton *>(spw->get_data("miterlimit_sb"));
         sb->set_sensitive(enabled);
 
         tb = static_cast<Gtk::RadioButton *>(spw->get_data("cap butt"));
@@ -1264,14 +1257,13 @@ sp_stroke_style_line_dash_changed(Gtk::Container *spw)
 }
 
 /**
- * \brief  This routine handles toggle events for buttons in the stroke style
- *         dialog.
+ * This routine handles toggle events for buttons in the stroke style dialog.
+ *
  * When activated, this routine gets the data for the various widgets, and then
  * calls the respective routines to update css properties, etc.
  *
  */
-static void
-sp_stroke_style_any_toggled(Gtk::ToggleButton *tb, Gtk::Container *spw)
+static void sp_stroke_style_any_toggled(Gtk::ToggleButton *tb, Gtk::Container *spw)
 {
     if (spw->get_data("update")) {
         return;
@@ -1324,16 +1316,16 @@ sp_stroke_style_set_join_buttons(Gtk::Container *spw, Gtk::ToggleButton *active)
 {
     Gtk::RadioButton *tb;
 
-    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_JOIN_MITER));
+    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-join-miter")));
     tb->set_active(active == tb);
 
     Gtk::SpinButton *ml = static_cast<Gtk::SpinButton *>(spw->get_data("miterlimit_sb"));
     ml->set_sensitive(active == tb);
 
-    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_JOIN_ROUND));
+    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-join-round")));
     tb->set_active(active == tb);
 
-    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_JOIN_BEVEL));
+    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-join-bevel")));
     tb->set_active(active == tb);
 }
 
@@ -1345,11 +1337,11 @@ sp_stroke_style_set_cap_buttons(Gtk::Container *spw, Gtk::ToggleButton *active)
 {
     Gtk::RadioButton *tb;
 
-    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_CAP_BUTT));
+    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-cap-butt")));
     tb->set_active(active == tb);
-    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_CAP_ROUND));
+    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-cap-round")));
     tb->set_active(active == tb);
-    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON_STROKE_CAP_SQUARE));
+    tb = static_cast<Gtk::RadioButton *>(spw->get_data(INKSCAPE_ICON("stroke-cap-square")));
     tb->set_active(active == tb);
 }
 

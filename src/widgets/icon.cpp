@@ -17,21 +17,25 @@
 #endif
 
 #include <cstring>
-#include <glib/gmem.h>
+#include <glib.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 #include <gtkmm.h>
 #include <gdkmm/pixbuf.h>
 #include <glibmm/fileutils.h>
+#include <2geom/transforms.h>
 
 #include "path-prefix.h"
 #include "preferences.h"
 #include "inkscape.h"
 #include "document.h"
 #include "sp-item.h"
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
+#include "display/cairo-utils.h"
+#include "display/drawing-context.h"
+#include "display/drawing-item.h"
+#include "display/drawing.h"
 #include "io/sys.h"
+#include "sp-root.h"
 
 #include "icon.h"
 
@@ -88,7 +92,7 @@ struct IconImpl {
 
     static std::list<gchar*> &icons_svg_paths();
     static guchar *load_svg_pixels(std::list<Glib::ustring> const &names,
-                                   unsigned lsize, unsigned psize);
+                                   unsigned psize, unsigned &stride);
 
     static std::string fileEscape( std::string const & str );
  
@@ -176,7 +180,7 @@ void IconImpl::classInit(SPIconClass *klass)
 
 void IconImpl::init(SPIcon *icon)
 {
-    GTK_WIDGET_FLAGS(icon) |= GTK_NO_WINDOW;
+    gtk_widget_set_has_window (GTK_WIDGET (icon), FALSE);
     icon->lsize = Inkscape::ICON_SIZE_BUTTON;
     icon->psize = 0;
     icon->name = 0;
@@ -224,14 +228,14 @@ void IconImpl::sizeAllocate(GtkWidget *widget, GtkAllocation *allocation)
 {
     widget->allocation = *allocation;
 
-    if (GTK_WIDGET_DRAWABLE(widget)) {
+    if (gtk_widget_is_drawable(widget)) {
         gtk_widget_queue_draw(widget);
     }
 }
 
 int IconImpl::expose(GtkWidget *widget, GdkEventExpose *event)
 {
-    if ( GTK_WIDGET_DRAWABLE(widget) ) {
+    if ( gtk_widget_is_drawable(widget) ) {
         SPIcon *icon = SP_ICON(widget);
         if ( !icon->pb ) {
             fetchPixbuf( icon );
@@ -995,13 +999,13 @@ void IconImpl::paint(SPIcon *icon, GdkRectangle const */*area*/)
     bool unref_image = false;
 
     /* copied from the expose function of GtkImage */
-    if (GTK_WIDGET_STATE (icon) != GTK_STATE_NORMAL && image) {
+    if (gtk_widget_get_state (GTK_WIDGET(icon)) != GTK_STATE_NORMAL && image) {
         GtkIconSource *source = gtk_icon_source_new();
         gtk_icon_source_set_pixbuf(source, icon->pb);
         gtk_icon_source_set_size(source, GTK_ICON_SIZE_SMALL_TOOLBAR); // note: this is boilerplate and not used
         gtk_icon_source_set_size_wildcarded(source, FALSE);
         image = gtk_style_render_icon (widget.style, source, gtk_widget_get_direction(&widget),
-            (GtkStateType) GTK_WIDGET_STATE(&widget), (GtkIconSize)-1, &widget, "gtk-image");
+            (GtkStateType) gtk_widget_get_state(&widget), (GtkIconSize)-1, &widget, "gtk-image");
         gtk_icon_source_free(source);
         unref_image = true;
     }
@@ -1071,9 +1075,24 @@ GdkPixbuf *IconImpl::loadPixmap(gchar const *name, unsigned /*lsize*/, unsigned 
     return pb;
 }
 
-// takes doc, root, icon, and icon name to produce pixels
-extern "C" guchar *sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
-                                     gchar const *name, unsigned psize )
+static Geom::IntRect round_rect(Geom::Rect const &r)
+{
+    using Geom::X;
+    using Geom::Y;
+    Geom::IntPoint a, b;
+    a[X] = round(r.left());
+    a[Y] = round(r.top());
+    b[X] = round(r.right());
+    b[Y] = round(r.bottom());
+    Geom::IntRect ret(a, b);
+    return ret;
+}
+
+// takes doc, drawing, icon, and icon name to produce pixels
+extern "C" guchar *
+sp_icon_doc_icon( SPDocument *doc, Inkscape::Drawing &drawing,
+                  gchar const *name, unsigned psize,
+                  unsigned &stride)
 {
     bool const dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpSvg");
     guchar *px = NULL;
@@ -1081,9 +1100,9 @@ extern "C" guchar *sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
     if (doc) {
         SPObject *object = doc->getObjectById(name);
         if (object && SP_IS_ITEM(object)) {
-            /* Find bbox in document */
-            Geom::Affine const i2doc(SP_ITEM(object)->i2doc_affine());
-            Geom::OptRect dbox = SP_ITEM(object)->getBounds(i2doc);
+            SPItem *item = SP_ITEM(object);
+            // Find bbox in document
+            Geom::OptRect dbox = item->documentVisualBounds();
 
             if ( object->parent == NULL )
             {
@@ -1093,28 +1112,21 @@ extern "C" guchar *sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
 
             /* This is in document coordinates, i.e. pixels */
             if ( dbox ) {
-                NRGC gc(NULL);
                 /* Update to renderable state */
                 double sf = 1.0;
-                nr_arena_item_set_transform(root, (Geom::Affine)Geom::Scale(sf, sf));
-                gc.transform.setIdentity();
-                nr_arena_item_invoke_update( root, NULL, &gc,
-                                             NR_ARENA_ITEM_STATE_ALL,
-                                             NR_ARENA_ITEM_STATE_NONE );
+                drawing.root()->setTransform(Geom::Scale(sf));
+                drawing.update();
                 /* Item integer bbox in points */
-                NRRectL ibox;
-                ibox.x0 = (int) floor(sf * dbox->min()[Geom::X] + 0.5);
-                ibox.y0 = (int) floor(sf * dbox->min()[Geom::Y] + 0.5);
-                ibox.x1 = (int) floor(sf * dbox->max()[Geom::X] + 0.5);
-                ibox.y1 = (int) floor(sf * dbox->max()[Geom::Y] + 0.5);
+                // NOTE: previously, each rect coordinate was rounded using floor(c + 0.5)
+                Geom::IntRect ibox = round_rect(*dbox);
 
                 if ( dump ) {
-                    g_message( "   box    --'%s'  (%f,%f)-(%f,%f)", name, (double)ibox.x0, (double)ibox.y0, (double)ibox.x1, (double)ibox.y1 );
+                    g_message( "   box    --'%s'  (%f,%f)-(%f,%f)", name, (double)ibox.left(), (double)ibox.top(), (double)ibox.right(), (double)ibox.bottom() );
                 }
 
                 /* Find button visible area */
-                int width = ibox.x1 - ibox.x0;
-                int height = ibox.y1 - ibox.y0;
+                int width = ibox.width();
+                int height = ibox.height();
 
                 if ( dump ) {
                     g_message( "   vis    --'%s'  (%d,%d)", name, width, height );
@@ -1128,68 +1140,58 @@ extern "C" guchar *sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
                         }
                         sf = (double)psize / (double)block;
 
-                        nr_arena_item_set_transform(root, (Geom::Affine)Geom::Scale(sf, sf));
-                        gc.transform.setIdentity();
-                        nr_arena_item_invoke_update( root, NULL, &gc,
-                                                     NR_ARENA_ITEM_STATE_ALL,
-                                                     NR_ARENA_ITEM_STATE_NONE );
-                        /* Item integer bbox in points */
-                        ibox.x0 = (int) floor(sf * dbox->min()[Geom::X] + 0.5);
-                        ibox.y0 = (int) floor(sf * dbox->min()[Geom::Y] + 0.5);
-                        ibox.x1 = (int) floor(sf * dbox->max()[Geom::X] + 0.5);
-                        ibox.y1 = (int) floor(sf * dbox->max()[Geom::Y] + 0.5);
+                        drawing.root()->setTransform(Geom::Scale(sf));
+                        drawing.update();
 
+                        ibox = round_rect(*dbox * Geom::Scale(sf));
                         if ( dump ) {
-                            g_message( "   box2   --'%s'  (%f,%f)-(%f,%f)", name, (double)ibox.x0, (double)ibox.y0, (double)ibox.x1, (double)ibox.y1 );
+                            g_message( "   box2   --'%s'  (%f,%f)-(%f,%f)", name, (double)ibox.left(), (double)ibox.top(), (double)ibox.right(), (double)ibox.bottom() );
                         }
 
                         /* Find button visible area */
-                        width = ibox.x1 - ibox.x0;
-                        height = ibox.y1 - ibox.y0;
+                        width = ibox.width();
+                        height = ibox.height();
                         if ( dump ) {
                             g_message( "   vis2   --'%s'  (%d,%d)", name, width, height );
                         }
                     }
                 }
 
+                Geom::IntPoint pdim(psize, psize);
                 int dx, dy;
                 //dx = (psize - width) / 2;
                 //dy = (psize - height) / 2;
                 dx=dy=psize;
                 dx=(dx-width)/2; // watch out for psize, since 'unsigned'-'signed' can cause problems if the result is negative
                 dy=(dy-height)/2;
-                NRRectL area;
-                area.x0 = ibox.x0 - dx;
-                area.y0 = ibox.y0 - dy;
-                area.x1 = area.x0 + psize;
-                area.y1 = area.y0 + psize;
+                Geom::IntRect area = Geom::IntRect::from_xywh(ibox.min() - Geom::IntPoint(dx,dy), pdim);
                 /* Actual renderable area */
-                NRRectL ua;
-                ua.x0 = MAX(ibox.x0, area.x0);
-                ua.y0 = MAX(ibox.y0, area.y0);
-                ua.x1 = MIN(ibox.x1, area.x1);
-                ua.y1 = MIN(ibox.y1, area.y1);
+                Geom::IntRect ua = *Geom::intersect(ibox, area);
 
                 if ( dump ) {
-                    g_message( "   area   --'%s'  (%f,%f)-(%f,%f)", name, (double)area.x0, (double)area.y0, (double)area.x1, (double)area.y1 );
-                    g_message( "   ua     --'%s'  (%f,%f)-(%f,%f)", name, (double)ua.x0, (double)ua.y0, (double)ua.x1, (double)ua.y1 );
+                    g_message( "   area   --'%s'  (%f,%f)-(%f,%f)", name, (double)area.left(), (double)area.top(), (double)area.right(), (double)area.bottom() );
+                    g_message( "   ua     --'%s'  (%f,%f)-(%f,%f)", name, (double)ua.left(), (double)ua.top(), (double)ua.right(), (double)ua.bottom() );
                 }
+
+                stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, psize);
+
                 /* Set up pixblock */
-                px = g_new(guchar, 4 * psize * psize);
-                memset(px, 0x00, 4 * psize * psize);
+                px = g_new(guchar, stride * psize);
+                memset(px, 0x00, stride * psize);
+
                 /* Render */
-                NRPixBlock B;
-                nr_pixblock_setup_extern( &B, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                                          ua.x0, ua.y0, ua.x1, ua.y1,
-                                          px + 4 * psize * (ua.y0 - area.y0) +
-                                          4 * (ua.x0 - area.x0),
-                                          4 * psize, FALSE, FALSE );
-                nr_arena_item_invoke_render(NULL, root, &ua, &B,
-                                             NR_ARENA_ITEM_RENDER_NO_CACHE );
-                nr_pixblock_release(&B);
+                cairo_surface_t *s = cairo_image_surface_create_for_data(px,
+                    CAIRO_FORMAT_ARGB32, psize, psize, stride);
+                Inkscape::DrawingContext ct(s, ua.min());
+
+                drawing.render(ct, ua);
+                cairo_surface_destroy(s);
+
+                // convert to GdkPixbuf format
+                convert_pixels_argb32_to_pixbuf(px, psize, psize, stride);
 
                 if ( Inkscape::Preferences::get()->getBool("/debug/icons/overlaySvg") ) {
-                    IconImpl::overlayPixels( px, psize, psize, 4 * psize, 0x00, 0x00, 0xff );
+                    IconImpl::overlayPixels( px, psize, psize, stride, 0x00, 0x00, 0xff );
                 }
             }
         }
@@ -1203,9 +1205,21 @@ extern "C" guchar *sp_icon_doc_icon( SPDocument *doc, NRArenaItem *root,
 class SVGDocCache
 {
 public:
-    SVGDocCache( SPDocument *doc, NRArenaItem *root ) : doc(doc), root(root) {}
+    SVGDocCache( SPDocument *doc )
+        : doc(doc)
+        , visionkey(SPItem::display_key_new(1))
+    {
+        doc->doRef();
+        doc->ensureUpToDate();
+        drawing.setRoot(doc->getRoot()->invoke_show(drawing, visionkey, SP_ITEM_SHOW_DISPLAY ));
+    }
+    ~SVGDocCache() {
+        doc->getRoot()->invoke_hide(visionkey);
+        doc->doUnref();
+    }
     SPDocument *doc;
-    NRArenaItem *root;
+    Inkscape::Drawing drawing;
+    unsigned visionkey;
 };
 
 static std::map<Glib::ustring, SVGDocCache *> doc_cache;
@@ -1245,7 +1259,7 @@ std::list<gchar*> &IconImpl::icons_svg_paths()
 
 // this function renders icons from icons.svg and returns the pixels.
 guchar *IconImpl::load_svg_pixels(std::list<Glib::ustring> const &names,
-                                  unsigned /*lsize*/, unsigned psize)
+                                  unsigned psize, unsigned &stride)
 {
     bool const dump = Inkscape::Preferences::get()->getBool("/debug/icons/dumpSvg");
     std::list<gchar *> &sources = icons_svg_paths();
@@ -1272,27 +1286,14 @@ guchar *IconImpl::load_svg_pixels(std::list<Glib::ustring> const &names,
                 if ( dump ) {
                     g_message("Loaded icon file %s", doc_filename);
                 }
-                // prep the document
-                doc->ensureUpToDate();
-
-                // Create new arena
-                NRArena *arena = NRArena::create();
-
-                // Create ArenaItem and set transform
-                unsigned visionkey = SPItem::display_key_new(1);
-                // fixme: Memory manage root if needed (Lauris)
-                // This needs to be fixed indeed; this leads to a memory leak of a few megabytes these days
-                // because shapes are being rendered which are not being freed
-                NRArenaItem *root = SP_ITEM(doc->getRoot())->invoke_show( arena, visionkey, SP_ITEM_SHOW_DISPLAY );
-
                 // store into the cache
-                info = new SVGDocCache(doc, root);
+                info = new SVGDocCache(doc);
                 doc_cache[key] = info;
             }
         }
         if (info) {
             for (std::list<Glib::ustring>::const_iterator it = names.begin(); !px && (it != names.end()); ++it ) {
-                px = sp_icon_doc_icon( info->doc, info->root, it->c_str(), psize );
+                px = sp_icon_doc_icon( info->doc, info->drawing, it->c_str(), psize, stride );
             }
         }
     }
@@ -1416,10 +1417,11 @@ bool IconImpl::prerenderIcon(gchar const *name, GtkIconSize lsize, unsigned psiz
                         g_message("load_svg_pixels([%s] = %s, %d, %d)", name, legacyNames[name].c_str(), lsize, psize);
                     }
                 }
-                guchar* px = load_svg_pixels(names, lsize, psize);
+                unsigned stride;
+                guchar* px = load_svg_pixels(names, psize, stride);
                 if (px) {
                     GdkPixbuf* pb = gdk_pixbuf_new_from_data( px, GDK_COLORSPACE_RGB, TRUE, 8,
-                                                              psize, psize, psize * 4,
+                                                              psize, psize, stride,
                                                               reinterpret_cast<GdkPixbufDestroyNotify>(g_free), NULL );
                     pb_cache[key] = pb;
                     addToIconSet(pb, name, lsize, psize);
@@ -1457,10 +1459,11 @@ GdkPixbuf *IconImpl::loadSvg(std::list<Glib::ustring> const &names, GtkIconSize 
     // did we already load this icon at this scale/size?
     GdkPixbuf* pb = get_cached_pixbuf(key);
     if (!pb) {
-        guchar *px = load_svg_pixels(names, lsize, psize);
+        unsigned stride;
+        guchar *px = load_svg_pixels(names, psize, stride);
         if (px) {
             pb = gdk_pixbuf_new_from_data(px, GDK_COLORSPACE_RGB, TRUE, 8,
-                                          psize, psize, psize * 4,
+                                          psize, psize, stride,
                                           (GdkPixbufDestroyNotify)g_free, NULL);
             pb_cache[key] = pb;
             addToIconSet(pb, names.begin()->c_str(), lsize, psize);

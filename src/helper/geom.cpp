@@ -1,6 +1,6 @@
 #define INKSCAPE_HELPER_GEOM_CPP
 
-/**
+/*
  * Specific geometry functions for Inkscape, not provided my lib2geom.
  *
  * Author:
@@ -22,13 +22,10 @@
 #include <2geom/rect.h>
 #include <2geom/coord.h>
 #include <2geom/sbasis-to-bezier.h>
-#include <libnr/nr-convert2geom.h>
 #include <glibmm.h>
 
 using Geom::X;
 using Geom::Y;
-
-#define NR_HUGE   1e18
 
 //#################################################################################
 // BOUNDING BOX CALCULATIONS
@@ -423,7 +420,7 @@ pathv_matrix_point_bbox_wind_distance (Geom::PathVector const & pathv, Geom::Aff
 {
     if (pathv.empty()) {
         if (wind) *wind = 0;
-        if (dist) *dist = NR_HUGE;
+        if (dist) *dist = Geom::infinity();
         return;
     }
 
@@ -513,15 +510,15 @@ namespace Geom {
 
 bool transform_equalp(Geom::Affine const &m0, Geom::Affine const &m1, Geom::Coord const epsilon) {
     return
-        NR_DF_TEST_CLOSE(m0[0], m1[0], epsilon) &&
-        NR_DF_TEST_CLOSE(m0[1], m1[1], epsilon) &&
-        NR_DF_TEST_CLOSE(m0[2], m1[2], epsilon) &&
-        NR_DF_TEST_CLOSE(m0[3], m1[3], epsilon);
+        Geom::are_near(m0[0], m1[0], epsilon) &&
+        Geom::are_near(m0[1], m1[1], epsilon) &&
+        Geom::are_near(m0[2], m1[2], epsilon) &&
+        Geom::are_near(m0[3], m1[3], epsilon);
 }
 
 
 bool translate_equalp(Geom::Affine const &m0, Geom::Affine const &m1, Geom::Coord const epsilon) {
-    return NR_DF_TEST_CLOSE(m0[4], m1[4], epsilon) && NR_DF_TEST_CLOSE(m0[5], m1[5], epsilon);
+    return Geom::are_near(m0[4], m1[4], epsilon) && Geom::are_near(m0[5], m1[5], epsilon);
 }
 
 

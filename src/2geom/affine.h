@@ -1,7 +1,8 @@
-/** \file
- *  \brief 3x3 affine transformation matrix.
+/** 
+ * \file
+ * \brief 3x3 affine transformation matrix.
  *//*
- * Main authors:
+ * Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com> (Original NRAffine definition and related macros)
  *   Nathan Hurst <njh@mail.csse.monash.edu.au> (Geom::Affine class version of the above)
  *   Michael G. Sloan <mgsloan@gmail.com> (reorganization and additions)
@@ -10,8 +11,8 @@
  * This code is in public domain.
  */
 
-#ifndef SEEN_LIB2GEOM_MATRIX_H
-#define SEEN_LIB2GEOM_MATRIX_H
+#ifndef SEEN_LIB2GEOM_AFFINE_H
+#define SEEN_LIB2GEOM_AFFINE_H
 
 #include <boost/operators.hpp>
 #include <2geom/forward.h>
@@ -64,7 +65,8 @@ class Affine
     , MultipliableNoncommutative< Affine, Rotate
     , MultipliableNoncommutative< Affine, HShear
     , MultipliableNoncommutative< Affine, VShear
-      > > > > > > >
+    , MultipliableNoncommutative< Affine, Zoom
+      > > > > > > > >
 {
     Coord _c[6];
 public:
@@ -112,6 +114,7 @@ public:
     Affine &operator*=(Rotate const &r);
     Affine &operator*=(HShear const &h);
     Affine &operator*=(VShear const &v);
+    Affine &operator*=(Zoom const &);
     /// @}
 
     bool operator==(Affine const &o) const {
@@ -197,9 +200,8 @@ inline std::ostream &operator<< (std::ostream &out_file, const Geom::Affine &m) 
     return out_file;
 }
 
-/** Given a matrix m such that unit_circle = m*x, this returns the
- * quadratic form x*A*x = 1.
- * @relates Affine */
+// Affine factories
+Affine from_basis(const Point x_basis, const Point y_basis, const Point offset=Point(0,0));
 Affine elliptic_quadratic_form(Affine const &m);
 
 /** Given a matrix (ignoring the translation) this returns the eigen
@@ -211,9 +213,6 @@ public:
     Eigen(Affine const &m);
     Eigen(double M[2][2]);
 };
-
-// Affine factories
-Affine from_basis(const Point x_basis, const Point y_basis, const Point offset=Point(0,0));
 
 /** @brief Create an identity matrix.
  * This is a convenience function identical to Affine::identity(). */
@@ -236,9 +235,11 @@ inline Affine Affine::identity() {
     return ret; // allow NRVO
 }
 
-} /* namespace Geom */
+bool are_near(Affine const &a1, Affine const &a2, Coord eps=EPSILON);
 
-#endif /* !__Geom_MATRIX_H__ */
+} // end namespace Geom
+
+#endif // LIB2GEOM_SEEN_AFFINE_H
 
 /*
   Local Variables:

@@ -13,11 +13,7 @@
  */
 
 #include <vector>
-
-#include "filters/merge.h"
 #include "display/nr-filter-primitive.h"
-#include "display/nr-filter-slot.h"
-#include "display/nr-filter-units.h"
 
 namespace Inkscape {
 namespace Filters {
@@ -28,7 +24,10 @@ public:
     static FilterPrimitive *create();
     virtual ~FilterMerge();
 
-    virtual int render(FilterSlot &slot, FilterUnits const &units);
+    virtual void render_cairo(FilterSlot &);
+    virtual bool can_handle_affine(Geom::Affine const &);
+    virtual double complexity(Geom::Affine const &ctm);
+    virtual bool uses_background();
 
     virtual void set_input(int input);
     virtual void set_input(int input, int slot);

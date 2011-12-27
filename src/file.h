@@ -1,5 +1,5 @@
-#ifndef __SP_FILE_H__
-#define __SP_FILE_H__
+#ifndef SEEN_SP_FILE_H
+#define SEEN_SP_FILE_H
 
 /*
  * File/Print operations
@@ -16,12 +16,11 @@
  */
 
 #include <gtkmm.h>
-#include <glib/gslist.h>
-#include <gtk/gtkwidget.h>
+#include <glib.h>
+#include <gtk/gtk.h>
 
-#include "ui/dialog/ocaldialogs.h"
-#include "extension/extension-forward.h"
 #include "extension/system.h"
+#include "ui/dialog/ocaldialogs.h"
 
 struct SPDesktop;
 struct SPDocument;
@@ -130,7 +129,7 @@ void sp_file_import (Gtk::Window &parentWindow);
 /**
  * Imports a resource
  */
-void file_import(SPDocument *in_doc, const Glib::ustring &uri,
+SPObject* file_import(SPDocument *in_doc, const Glib::ustring &uri,
                  Inkscape::Extension::Extension *key);
 
 /*######################
@@ -189,11 +188,6 @@ would be useful as instance methods
  */
 void sp_file_print (Gtk::Window& parentWindow);
 
-/**
- *
- */
-void sp_file_print_preview (gpointer object, gpointer data);
-
 /*#####################
 ## U T I L I T Y
 #####################*/
@@ -204,7 +198,7 @@ void sp_file_print_preview (gpointer object, gpointer data);
 void sp_file_vacuum ();
 
 
-#endif
+#endif // SEEN_SP_FILE_H
 
 
 /*

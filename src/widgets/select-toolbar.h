@@ -14,9 +14,8 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gtk/gtkactiongroup.h>
-#include <gtk/gtkstyle.h>
-struct SPDesktop;
+#include <gtk/gtk.h>
+class SPDesktop;
 
 void sp_select_toolbox_prep(SPDesktop *desktop, GtkActionGroup* mainActions, GObject* holder);
 

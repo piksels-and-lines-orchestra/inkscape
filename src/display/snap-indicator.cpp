@@ -1,4 +1,4 @@
-/** \file
+/*
  * Provides a class that shows a temporary indicator on the canvas of where the snap was, and what kind of snap
  *
  * Authors:
@@ -102,6 +102,15 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const &p, bool pre_snap
             case SNAPTARGET_PATH_INTERSECTION:
                 target_name = _("path intersection");
                 break;
+            case SNAPTARGET_PATH_GUIDE_INTERSECTION:
+                target_name = _("guide-path intersection");
+                break;
+            case SNAPTARGET_PATH_CLIP:
+                target_name = _("clip-path");
+                break;
+            case SNAPTARGET_PATH_MASK:
+                target_name = _("mask-path");
+                break;
             case SNAPTARGET_BBOX_CORNER:
                 target_name = _("bounding box corner");
                 break;
@@ -120,9 +129,6 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const &p, bool pre_snap
             case SNAPTARGET_ROTATION_CENTER:
                 target_name = _("object rotation center");
                 break;
-            case SNAPTARGET_HANDLE:
-                target_name = _("handle");
-                break;
             case SNAPTARGET_BBOX_EDGE_MIDPOINT:
                 target_name = _("bounding box side midpoint");
                 break;
@@ -132,17 +138,15 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const &p, bool pre_snap
             case SNAPTARGET_PAGE_CORNER:
                 target_name = _("page corner");
                 break;
-            case SNAPTARGET_CONVEX_HULL_CORNER:
-                target_name = _("convex hull corner");
-                break;
             case SNAPTARGET_ELLIPSE_QUADRANT_POINT:
                 target_name = _("quadrant point");
                 break;
-            case SNAPTARGET_CENTER:
-                target_name = _("center");
-                break;
-            case SNAPTARGET_CORNER:
+            case SNAPTARGET_RECT_CORNER:
+            case SNAPTARGET_IMG_CORNER:
                 target_name = _("corner");
+                break;
+            case SNAPTARGET_TEXT_ANCHOR:
+                target_name = _("text anchor");
                 break;
             case SNAPTARGET_TEXT_BASELINE:
                 target_name = _("text baseline");
@@ -206,14 +210,12 @@ SnapIndicator::set_new_snaptarget(Inkscape::SnappedPoint const &p, bool pre_snap
             case SNAPSOURCE_ELLIPSE_QUADRANT_POINT:
                 source_name = _("Quadrant point");
                 break;
-            case SNAPSOURCE_CENTER:
-                source_name = _("Center");
-                break;
-            case SNAPSOURCE_CORNER:
+            case SNAPSOURCE_RECT_CORNER:
+            case SNAPSOURCE_IMG_CORNER:
                 source_name = _("Corner");
                 break;
-            case SNAPSOURCE_TEXT_BASELINE:
-                source_name = _("Text baseline");
+            case SNAPSOURCE_TEXT_ANCHOR:
+                source_name = _("Text anchor");
                 break;
             case SNAPSOURCE_GRID_PITCH:
                 source_name = _("Multiple of grid spacing");
@@ -308,7 +310,7 @@ SnapIndicator::set_new_snapsource(Inkscape::SnapCandidatePoint const &p)
 {
     remove_snapsource();
 
-    g_assert(_desktop != NULL);
+    g_assert(_desktop != NULL); // If this fails, then likely setup() has not been called on the snap manager (see snap.cpp -> setup())
 
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     bool value = prefs->getBool("/options/snapindicator/value", true);
@@ -330,6 +332,25 @@ SnapIndicator::set_new_snapsource(Inkscape::SnapCandidatePoint const &p)
 }
 
 void
+SnapIndicator::set_new_debugging_point(Geom::Point const &p)
+{
+    g_assert(_desktop != NULL);
+    SPCanvasItem * canvasitem = sp_canvas_item_new( sp_desktop_tempgroup (_desktop),
+                                                    SP_TYPE_CTRL,
+                                                    "anchor", GTK_ANCHOR_CENTER,
+                                                    "size", 10.0,
+                                                    "fill_color", 0x00ff00ff,
+                                                    "stroked", FALSE,
+                                                    "mode", SP_KNOT_MODE_XOR,
+                                                    "shape", SP_KNOT_SHAPE_DIAMOND,
+                                                    NULL );
+
+    SP_CTRL(canvasitem)->moveto(p);
+    _debugging_points.push_back(_desktop->add_temporary_canvasitem(canvasitem, 5000));
+
+}
+
+void
 SnapIndicator::remove_snapsource()
 {
     if (_snapsource) {
@@ -337,6 +358,16 @@ SnapIndicator::remove_snapsource()
         _snapsource = NULL;
     }
 }
+
+void
+SnapIndicator::remove_debugging_points()
+{
+    for (std::list<TemporaryItem *>::const_iterator i = _debugging_points.begin(); i != _debugging_points.end(); ++i) {
+        _desktop->remove_temporary_canvasitem(*i);
+    }
+    _debugging_points.clear();
+}
+
 
 } //namespace Display
 } /* namespace Inkscape */

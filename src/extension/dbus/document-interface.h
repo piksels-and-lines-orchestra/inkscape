@@ -115,10 +115,17 @@ gchar*
 document_interface_line (DocumentInterface *object, int x, int y, 
                               int x2, int y2, GError **error);
 
-gboolean
+gchar* 
 document_interface_text (DocumentInterface *object, int x, int y, 
                          gchar *text, GError **error);
-                         
+gboolean
+document_interface_set_text (DocumentInterface *object, gchar *name,
+                             gchar *text, GError **error);
+gboolean
+document_interface_text_apply_style (DocumentInterface *object, gchar *name,
+                                     int start_pos, int end_pos,  gchar *style, gchar *styleval,
+                                     GError **error);
+
 gchar *
 document_interface_image (DocumentInterface *object, int x, int y, 
                           gchar *filename, GError **error);
@@ -151,6 +158,16 @@ document_interface_document_set_css (DocumentInterface *object,
 gboolean 
 document_interface_document_resize_to_fit_selection (DocumentInterface *object,
                                                      GError **error);
+gboolean
+document_interface_document_set_display_area (DocumentInterface *object,
+                                              double x0,
+                                              double y0,
+                                              double x1,
+                                              double y1,
+                                              double border,
+                                              GError **error);
+GArray *
+document_interface_document_get_display_area (DocumentInterface *object);
 
 /****************************************************************************
      OBJECT FUNCTIONS
@@ -401,6 +418,18 @@ document_interface_layer_previous (DocumentInterface *object, GError **error);
 DocumentInterface *document_interface_new (void);
 GType document_interface_get_type (void);
 
+extern DocumentInterface *fugly;
+gboolean dbus_send_ping (SPDesktop* desk,     SPItem *item);
+
+gboolean
+document_interface_get_children (DocumentInterface *object,  char *name, char ***out, GError **error);
+
+gchar* 
+document_interface_get_parent (DocumentInterface *object,  char *name, GError **error);
+
+gchar*
+document_interface_import (DocumentInterface *object, 
+                           gchar *filename, GError **error);
 
 G_END_DECLS
 

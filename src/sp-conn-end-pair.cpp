@@ -212,19 +212,19 @@ SPConnEndPair::getAttachedItems(SPItem *h2attItem[2]) const {
     }
 }
 
-void
-SPConnEndPair::getEndpoints(Geom::Point endPts[]) const {
+void SPConnEndPair::getEndpoints(Geom::Point endPts[]) const
+{
     SPCurve *curve = _path->original_curve ? _path->original_curve : _path->curve;
-    SPItem *h2attItem[2];
+    SPItem *h2attItem[2] = {0};
     getAttachedItems(h2attItem);
-    Geom::Affine i2d = SP_ITEM(_path)->i2doc_affine();
+    Geom::Affine i2d = _path->i2doc_affine();
 
     for (unsigned h = 0; h < 2; ++h) {
         if ( h2attItem[h] ) {
             g_assert(h2attItem[h]->avoidRef);
             endPts[h] = h2attItem[h]->avoidRef->getConnectionPointPos(_connEnd[h]->type, _connEnd[h]->id);
         }
-        else
+        else if (!curve->is_empty())
         {
             if (h == 0) {
                 endPts[h] = *(curve->first_point())*i2d;
@@ -407,7 +407,7 @@ SPConnEndPair::reroutePathFromLibavoid(void)
 
     recreateCurve( curve, _connRef, _connCurvature );
 
-    Geom::Affine doc2item = SP_ITEM(_path)->i2doc_affine().inverse();
+    Geom::Affine doc2item = _path->i2doc_affine().inverse();
     curve->transform(doc2item);
 
     return true;

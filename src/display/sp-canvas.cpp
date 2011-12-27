@@ -1,4 +1,4 @@
-/** \file
+/*
  * Port of GnomeCanvas for Inkscape needs
  *
  * Authors:
@@ -15,44 +15,32 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include "config.h"
+# include <config.h>
 #endif
 
-#include <libnr/nr-pixblock.h>
-
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkversion.h>
-
+#include <gtk/gtk.h>
 #include <gtkmm.h>
 
 #include "helper/sp-marshal.h"
 #include <helper/recthull.h>
+#include <2geom/affine.h>
 #include "display/sp-canvas.h"
 #include "display/sp-canvas-group.h"
-#include <2geom/affine.h>
-#include "libnr/nr-convex-hull.h"
 #include "preferences.h"
 #include "inkscape.h"
 #include "sodipodi-ctrlrect.h"
-#if ENABLE_LCMS
-#include "color-profile-fns.h"
-#endif // ENABLE_LCMS
+#include "cms-system.h"
 #include "display/rendermode.h"
-#include "libnr/nr-blit.h"
-#include "display/inkscape-cairo.h"
+#include "display/cairo-utils.h"
 #include "debug/gdk-event-latency-tracker.h"
 #include "desktop.h"
 #include "sp-namedview.h"
 
 using Inkscape::Debug::GdkEventLatencyTracker;
 
-// GTK_CHECK_VERSION returns false on failure
-#define HAS_GDK_EVENT_REQUEST_MOTIONS GTK_CHECK_VERSION(2, 12, 0)
-
 // gtk_check_version returns non-NULL on failure
 static bool const HAS_BROKEN_MOTION_HINTS =
-  true || gtk_check_version(2, 12, 0) != NULL || !HAS_GDK_EVENT_REQUEST_MOTIONS;
+  true || gtk_check_version(2, 12, 0) != NULL;
 
 // Define this to visualize the regions to be redrawn
 //#define DEBUG_REDRAW 1;
@@ -178,15 +166,15 @@ sp_canvas_item_init (SPCanvasItem *item)
  * Constructs new SPCanvasItem on SPCanvasGroup.
  */
 SPCanvasItem *
-sp_canvas_item_new (SPCanvasGroup *parent, GtkType type, gchar const *first_arg_name, ...)
+sp_canvas_item_new (SPCanvasGroup *parent, GType type, gchar const *first_arg_name, ...)
 {
     va_list args;
 
     g_return_val_if_fail (parent != NULL, NULL);
     g_return_val_if_fail (SP_IS_CANVAS_GROUP (parent), NULL);
-    g_return_val_if_fail (gtk_type_is_a (type, sp_canvas_item_get_type ()), NULL);
+    g_return_val_if_fail (g_type_is_a (type, sp_canvas_item_get_type ()), NULL);
 
-    SPCanvasItem *item = SP_CANVAS_ITEM (gtk_type_new (type));
+    SPCanvasItem *item = SP_CANVAS_ITEM (g_object_new (type, NULL));
 
     va_start (args, first_arg_name);
     sp_canvas_item_construct (item, parent, first_arg_name, args);
@@ -320,7 +308,7 @@ sp_canvas_item_invoke_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **a
     if (SP_CANVAS_ITEM_GET_CLASS (item)->point)
         return SP_CANVAS_ITEM_GET_CLASS (item)->point (item, p, actual_item);
 
-    return NR_HUGE;
+    return Geom::infinity();
 }
 
 /**
@@ -542,7 +530,7 @@ sp_canvas_item_grab (SPCanvasItem *item, guint event_mask, GdkCursor *cursor, gu
 {
     g_return_val_if_fail (item != NULL, -1);
     g_return_val_if_fail (SP_IS_CANVAS_ITEM (item), -1);
-    g_return_val_if_fail (GTK_WIDGET_MAPPED (item->canvas), -1);
+    g_return_val_if_fail (gtk_widget_get_mapped (GTK_WIDGET (item->canvas)), -1);
 
     if (item->canvas->grabbed_item)
         return -1;
@@ -633,7 +621,7 @@ sp_canvas_item_grab_focus (SPCanvasItem *item)
 {
     g_return_if_fail (item != NULL);
     g_return_if_fail (SP_IS_CANVAS_ITEM (item));
-    g_return_if_fail (GTK_WIDGET_CAN_FOCUS (GTK_WIDGET (item->canvas)));
+    g_return_if_fail (gtk_widget_get_can_focus (GTK_WIDGET (item->canvas)));
 
     SPCanvasItem *focused_item = item->canvas->focused_item;
 
@@ -700,6 +688,7 @@ static void sp_canvas_group_destroy (GtkObject *object);
 static void sp_canvas_group_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned int flags);
 static double sp_canvas_group_point (SPCanvasItem *item, Geom::Point p, SPCanvasItem **actual_item);
 static void sp_canvas_group_render (SPCanvasItem *item, SPCanvasBuf *buf);
+static void sp_canvas_group_viewbox_changed (SPCanvasItem *item, Geom::IntRect const &new_area);
 
 static SPCanvasItemClass *group_parent_class;
 
@@ -736,13 +725,14 @@ sp_canvas_group_class_init (SPCanvasGroupClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     SPCanvasItemClass *item_class = (SPCanvasItemClass *) klass;
 
-    group_parent_class = (SPCanvasItemClass*)gtk_type_class (sp_canvas_item_get_type ());
+    group_parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_canvas_group_destroy;
 
     item_class->update = sp_canvas_group_update;
     item_class->render = sp_canvas_group_render;
     item_class->point = sp_canvas_group_point;
+    item_class->viewbox_changed = sp_canvas_group_viewbox_changed;
 }
 
 /**
@@ -875,13 +865,27 @@ sp_canvas_group_render (SPCanvasItem *item, SPCanvasBuf *buf)
     for (GList *list = group->items; list; list = list->next) {
         SPCanvasItem *child = (SPCanvasItem *)list->data;
         if (child->flags & SP_CANVAS_ITEM_VISIBLE) {
-            if ((child->x1 < buf->rect.x1) &&
-                (child->y1 < buf->rect.y1) &&
-                (child->x2 > buf->rect.x0) &&
-                (child->y2 > buf->rect.y0)) {
+            if ((child->x1 < buf->rect.right()) &&
+                (child->y1 < buf->rect.bottom()) &&
+                (child->x2 > buf->rect.left()) &&
+                (child->y2 > buf->rect.top())) {
                 if (SP_CANVAS_ITEM_GET_CLASS (child)->render)
                     SP_CANVAS_ITEM_GET_CLASS (child)->render (child, buf);
             }
+        }
+    }
+}
+
+static void
+sp_canvas_group_viewbox_changed (SPCanvasItem *item, Geom::IntRect const &new_area)
+{
+    SPCanvasGroup *group = SP_CANVAS_GROUP (item);
+    
+    for (GList *list = group->items; list; list = list->next) {
+        SPCanvasItem *child = (SPCanvasItem *)list->data;
+        if (child->flags & SP_CANVAS_ITEM_VISIBLE) {
+            if (SP_CANVAS_ITEM_GET_CLASS (child)->viewbox_changed)
+                SP_CANVAS_ITEM_GET_CLASS (child)->viewbox_changed (child, new_area);
         }
     }
 }
@@ -893,7 +897,7 @@ static void
 group_add (SPCanvasGroup *group, SPCanvasItem *item)
 {
     gtk_object_ref (GTK_OBJECT (item));
-    gtk_object_sink (GTK_OBJECT (item));
+    g_object_ref_sink (item);
 
     if (!group->items) {
         group->items = g_list_append (group->items, item);
@@ -958,8 +962,8 @@ static gint sp_canvas_focus_out (GtkWidget *widget, GdkEventFocus *event);
 static GtkWidgetClass *canvas_parent_class;
 
 static void sp_canvas_resize_tiles(SPCanvas* canvas, int nl, int nt, int nr, int nb);
-static void sp_canvas_dirty_rect(SPCanvas* canvas, int nl, int nt, int nr, int nb);
-static void sp_canvas_mark_rect(SPCanvas* canvas, int nl, int nt, int nr, int nb, uint8_t val);
+static void sp_canvas_dirty_rect(SPCanvas* canvas, Geom::IntRect const &area);
+static void sp_canvas_mark_rect(SPCanvas* canvas, Geom::IntRect const &area, uint8_t val);
 static int do_update (SPCanvas *canvas);
 
 /**
@@ -998,7 +1002,7 @@ sp_canvas_class_init (SPCanvasClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     GtkWidgetClass *widget_class = (GtkWidgetClass *) klass;
 
-    canvas_parent_class = (GtkWidgetClass *)gtk_type_class (GTK_TYPE_WIDGET);
+    canvas_parent_class = (GtkWidgetClass *)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_canvas_destroy;
 
@@ -1025,20 +1029,20 @@ sp_canvas_class_init (SPCanvasClass *klass)
 static void
 sp_canvas_init (SPCanvas *canvas)
 {
-    GTK_WIDGET_UNSET_FLAGS (canvas, GTK_NO_WINDOW);
-    GTK_WIDGET_UNSET_FLAGS (canvas, GTK_DOUBLE_BUFFERED);
-    GTK_WIDGET_SET_FLAGS (canvas, GTK_CAN_FOCUS);
+    gtk_widget_set_has_window (GTK_WIDGET (canvas), TRUE);
+    gtk_widget_set_double_buffered (GTK_WIDGET (canvas), FALSE);
+    gtk_widget_set_can_focus (GTK_WIDGET (canvas), TRUE);
 
     canvas->pick_event.type = GDK_LEAVE_NOTIFY;
     canvas->pick_event.crossing.x = 0;
     canvas->pick_event.crossing.y = 0;
 
     /* Create the root item as a special case */
-    canvas->root = SP_CANVAS_ITEM (gtk_type_new (sp_canvas_group_get_type ()));
+    canvas->root = SP_CANVAS_ITEM (g_object_new (sp_canvas_group_get_type (), NULL));
     canvas->root->canvas = canvas;
 
     gtk_object_ref (GTK_OBJECT (canvas->root));
-    gtk_object_sink (GTK_OBJECT (canvas->root));
+    g_object_ref_sink (canvas->root);
 
     canvas->need_repick = TRUE;
 
@@ -1056,7 +1060,7 @@ sp_canvas_init (SPCanvas *canvas)
 
 #if ENABLE_LCMS
     canvas->enable_cms_display_adj = false;
-    canvas->cms_key = new Glib::ustring("");
+    new (&canvas->cms_key) Glib::ustring("");
 #endif // ENABLE_LCMS
 
     canvas->is_scrolling = false;
@@ -1069,7 +1073,7 @@ static void
 remove_idle (SPCanvas *canvas)
 {
     if (canvas->idle_id) {
-        gtk_idle_remove (canvas->idle_id);
+        g_source_remove (canvas->idle_id);
         canvas->idle_id = 0;
     }
 }
@@ -1115,7 +1119,9 @@ sp_canvas_destroy (GtkObject *object)
     }
 
     shutdown_transients (canvas);
-
+#if ENABLE_LCMS
+    canvas->cms_key.~ustring();
+#endif
     if (GTK_OBJECT_CLASS (canvas_parent_class)->destroy)
         (* GTK_OBJECT_CLASS (canvas_parent_class)->destroy) (object);
 }
@@ -1134,7 +1140,7 @@ static void track_latency(GdkEvent const *event) {
 GtkWidget *
 sp_canvas_new_aa (void)
 {
-    SPCanvas *canvas = (SPCanvas *)gtk_type_new (sp_canvas_get_type ());
+    SPCanvas *canvas = (SPCanvas *)g_object_new (sp_canvas_get_type (), NULL);
 
     return (GtkWidget *) canvas;
 }
@@ -1145,8 +1151,6 @@ sp_canvas_new_aa (void)
 static void
 sp_canvas_realize (GtkWidget *widget)
 {
-    SPCanvas *canvas = SP_CANVAS (widget);
-
     GdkWindowAttr attributes;
     attributes.window_type = GDK_WINDOW_CHILD;
     attributes.x = widget->allocation.x;
@@ -1181,9 +1185,7 @@ sp_canvas_realize (GtkWidget *widget)
 
     widget->style = gtk_style_attach (widget->style, widget->window);
 
-    GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
-
-    canvas->pixmap_gc = gdk_gc_new (SP_CANVAS_WINDOW (canvas));
+    gtk_widget_set_realized (widget, TRUE);
 }
 
 /**
@@ -1199,9 +1201,6 @@ sp_canvas_unrealize (GtkWidget *widget)
     canvas->focused_item = NULL;
 
     shutdown_transients (canvas);
-
-    gdk_gc_destroy (canvas->pixmap_gc);
-    canvas->pixmap_gc = NULL;
 
     if (GTK_WIDGET_CLASS (canvas_parent_class)->unrealize)
         (* GTK_WIDGET_CLASS (canvas_parent_class)->unrealize) (widget);
@@ -1227,8 +1226,16 @@ sp_canvas_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 {
     SPCanvas *canvas = SP_CANVAS (widget);
 
+    Geom::IntRect old_area = Geom::IntRect::from_xywh(canvas->x0, canvas->y0,
+        widget->allocation.width, widget->allocation.height);
+    Geom::IntRect new_area = Geom::IntRect::from_xywh(canvas->x0, canvas->y0,
+        allocation->width, allocation->height);
+
     /* Schedule redraw of new region */
     sp_canvas_resize_tiles(canvas,canvas->x0,canvas->y0,canvas->x0+allocation->width,canvas->y0+allocation->height);
+    if (SP_CANVAS_ITEM_GET_CLASS (canvas->root)->viewbox_changed)
+        SP_CANVAS_ITEM_GET_CLASS (canvas->root)->viewbox_changed (canvas->root, new_area);
+    
     if (allocation->width > widget->allocation.width) {
         sp_canvas_request_redraw (canvas,
                                   canvas->x0 + widget->allocation.width,
@@ -1246,7 +1253,7 @@ sp_canvas_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 
     widget->allocation = *allocation;
 
-    if (GTK_WIDGET_REALIZED (widget)) {
+    if (gtk_widget_get_realized (widget)) {
         gdk_window_move_resize (widget->window,
                                 widget->allocation.x, widget->allocation.y,
                                 widget->allocation.width, widget->allocation.height);
@@ -1365,7 +1372,7 @@ emit_event (SPCanvas *canvas, GdkEvent *event)
 
     while (item && !finished) {
         gtk_object_ref (GTK_OBJECT (item));
-        gtk_signal_emit (GTK_OBJECT (item), item_signals[ITEM_EVENT], &ev, &finished);
+        g_signal_emit (G_OBJECT (item), item_signals[ITEM_EVENT], 0, &ev, &finished);
         SPCanvasItem *parent = item->parent;
         gtk_object_unref (GTK_OBJECT (item));
         item = parent;
@@ -1473,9 +1480,6 @@ pick_current_item (SPCanvas *canvas, GdkEvent *event)
         && (canvas->current_item != NULL)
         && !canvas->left_grabbed_item) {
         GdkEvent new_event;
-        SPCanvasItem *item;
-
-        item = canvas->current_item;
 
         new_event = canvas->pick_event;
         new_event.type = GDK_LEAVE_NOTIFY;
@@ -1599,9 +1603,7 @@ sp_canvas_scroll (GtkWidget *widget, GdkEventScroll *event)
 
 static inline void request_motions(GdkWindow *w, GdkEventMotion *event) {
     gdk_window_get_pointer(w, NULL, NULL, NULL);
-#if HAS_GDK_EVENT_REQUEST_MOTIONS
     gdk_event_request_motions(event);
-#endif
 }
 
 /**
@@ -1618,7 +1620,7 @@ sp_canvas_motion (GtkWidget *widget, GdkEventMotion *event)
     if (event->window != SP_CANVAS_WINDOW (canvas))
         return FALSE;
 
-    if (canvas->pixmap_gc == NULL) // canvas being deleted
+    if (canvas->root == NULL) // canvas being deleted
         return FALSE;
 
     canvas->state = event->state;
@@ -1631,143 +1633,99 @@ sp_canvas_motion (GtkWidget *widget, GdkEventMotion *event)
     return status;
 }
 
-static void
-sp_canvas_paint_single_buffer (SPCanvas *canvas, int x0, int y0, int x1, int y1, int draw_x1, int draw_y1, int draw_x2, int draw_y2, int sw)
+static void sp_canvas_paint_single_buffer(SPCanvas *canvas, Geom::IntRect const &paint_rect, Geom::IntRect const &canvas_rect, int /*sw*/)
 {
     GtkWidget *widget = GTK_WIDGET (canvas);
 
-    SPCanvasBuf buf;
-    if (canvas->rendermode != Inkscape::RENDERMODE_OUTLINE) {
-        buf.buf = nr_pixelstore_256K_new (FALSE, 0);
-    } else {
-        buf.buf = nr_pixelstore_1M_new (FALSE, 0);
-    }
-
     // Mark the region clean
-    sp_canvas_mark_rect(canvas, x0, y0, x1, y1, 0);
+    sp_canvas_mark_rect(canvas, paint_rect, 0);
 
-    buf.buf_rowstride = sw * 4;
-    buf.rect.x0 = x0;
-    buf.rect.y0 = y0;
-    buf.rect.x1 = x1;
-    buf.rect.y1 = y1;
-    buf.visible_rect.x0 = draw_x1;
-    buf.visible_rect.y0 = draw_y1;
-    buf.visible_rect.x1 = draw_x2;
-    buf.visible_rect.y1 = draw_y2;
-    GdkColor *color = &widget->style->bg[GTK_STATE_NORMAL];
-    buf.bg_color = (((color->red & 0xff00) << 8)
-                    | (color->green & 0xff00)
-                    | (color->blue >> 8));
+    SPCanvasBuf buf;
+    buf.buf = NULL;
+    buf.buf_rowstride = 0;
+    buf.rect = paint_rect;
+    buf.visible_rect = canvas_rect;
     buf.is_empty = true;
+    //buf.ct = gdk_cairo_create(widget->window);
 
-    buf.ct = nr_create_cairo_context_canvasbuf (&(buf.visible_rect), &buf);
+    /*
+    cairo_t *xctt = gdk_cairo_create(widget->window);
+    cairo_translate(xctt, paint_rect.left() - canvas->x0, paint_rect.top() - canvas->y0);
+    cairo_set_source_rgb(xctt, 1,0,0);
+    cairo_rectangle(xctt, 0, 0, paint_rect.width(), paint_rect.height());
+    cairo_fill(xctt);
+    cairo_destroy(xctt);
+    //*/
+
+    // create temporary surface
+    cairo_surface_t *imgs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, paint_rect.width(), paint_rect.height());
+    buf.ct = cairo_create(imgs);
+    //cairo_translate(buf.ct, -x0, -y0);
+
+    // fix coordinates, clip all drawing to the tile and clear the background
+    //cairo_translate(buf.ct, paint_rect.left() - canvas->x0, paint_rect.top() - canvas->y0);
+    //cairo_rectangle(buf.ct, 0, 0, paint_rect.width(), paint_rect.height());
+    //cairo_set_line_width(buf.ct, 3);
+    //cairo_set_source_rgba(buf.ct, 1.0, 0.0, 0.0, 0.1);
+    //cairo_stroke_preserve(buf.ct);
+    //cairo_clip(buf.ct);
+
+    gdk_cairo_set_source_color(buf.ct, &widget->style->bg[GTK_STATE_NORMAL]);
+    cairo_set_operator(buf.ct, CAIRO_OPERATOR_SOURCE);
+    //cairo_rectangle(buf.ct, 0, 0, paint_rect.width(), paint_rec.height());
+    cairo_paint(buf.ct);
+    cairo_set_operator(buf.ct, CAIRO_OPERATOR_OVER);
 
     if (canvas->root->flags & SP_CANVAS_ITEM_VISIBLE) {
         SP_CANVAS_ITEM_GET_CLASS (canvas->root)->render (canvas->root, &buf);
     }
 
-#if ENABLE_LCMS
-    cmsHTRANSFORM transf = 0;
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-    bool fromDisplay = prefs->getBool( "/options/displayprofile/from_display");
-    if ( fromDisplay ) {
-        transf = Inkscape::colorprofile_get_display_per( canvas->cms_key ? *(canvas->cms_key) : "" );
-    } else {
-        transf = Inkscape::colorprofile_get_display_transform();
-    }
-#endif // ENABLE_LCMS
+    // output to X
+    cairo_destroy(buf.ct);
 
-    if (buf.is_empty) {
 #if ENABLE_LCMS
-        if ( transf && canvas->enable_cms_display_adj ) {
-            cmsDoTransform( transf, &buf.bg_color, &buf.bg_color, 1 );
+    if (canvas->enable_cms_display_adj) {
+        cmsHTRANSFORM transf = 0;
+        Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+        bool fromDisplay = prefs->getBool( "/options/displayprofile/from_display");
+        if ( fromDisplay ) {
+            transf = Inkscape::CMSSystem::getDisplayPer( canvas->cms_key );
+        } else {
+            transf = Inkscape::CMSSystem::getDisplayTransform();
         }
-#endif // ENABLE_LCMS
-        gdk_rgb_gc_set_foreground (canvas->pixmap_gc, buf.bg_color);
-        gdk_draw_rectangle (SP_CANVAS_WINDOW (canvas),
-                            canvas->pixmap_gc,
-                            TRUE,
-                            x0 - canvas->x0, y0 - canvas->y0,
-                            x1 - x0, y1 - y0);
-    } else {
-
-#if ENABLE_LCMS
-        if ( transf && canvas->enable_cms_display_adj ) {
-            for ( gint yy = 0; yy < (y1 - y0); yy++ ) {
-                guchar* p = buf.buf + (buf.buf_rowstride * yy);
-                cmsDoTransform( transf, p, p, (x1 - x0) );
+        
+        if (transf) {
+            cairo_surface_flush(imgs);
+            unsigned char *px = cairo_image_surface_get_data(imgs);
+            int stride = cairo_image_surface_get_stride(imgs);
+            for (int i=0; i<paint_rect.height(); ++i) {
+                unsigned char *row = px + i*stride;
+                Inkscape::CMSSystem::doTransform(transf, row, row, paint_rect.width());
             }
+            cairo_surface_mark_dirty(imgs);
         }
+    }
 #endif // ENABLE_LCMS
 
-// Now we only need to output the prepared pixmap to the actual screen, and this define chooses one
-// of the two ways to do it. The cairo way is direct and straightforward, but unfortunately
-// noticeably slower. I asked Carl Worth but he was unable so far to suggest any specific reason
-// for this slowness. So, for now we use the oldish method: squeeze out 32bpp buffer to 24bpp and
-// use gdk_draw_rgb_image_dithalign, for unfortunately gdk can only handle 24 bpp, which cairo
-// cannot handle at all. Still, this way is currently faster even despite the blit with squeeze.
+    cairo_t *xct = gdk_cairo_create(widget->window);
+    cairo_translate(xct, paint_rect.left() - canvas->x0, paint_rect.top() - canvas->y0);
+    cairo_rectangle(xct, 0, 0, paint_rect.width(), paint_rect.height());
+    cairo_clip(xct);
+    cairo_set_source_surface(xct, imgs, 0, 0);
+    cairo_set_operator(xct, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(xct);
+    cairo_destroy(xct);
+    cairo_surface_destroy(imgs);
 
-///#define CANVAS_OUTPUT_VIA_CAIRO
-
-#ifdef CANVAS_OUTPUT_VIA_CAIRO
-
-        buf.cst = cairo_image_surface_create_for_data (
-            buf.buf,
-            CAIRO_FORMAT_ARGB32,  // unpacked, i.e. 32 bits! one byte is unused
-            x1 - x0, y1 - y0,
-            buf.buf_rowstride
-            );
-        cairo_t *window_ct = gdk_cairo_create(SP_CANVAS_WINDOW (canvas));
-        cairo_set_source_surface (window_ct, buf.cst, x0 - canvas->x0, y0 - canvas->y0);
-        cairo_paint (window_ct);
-        cairo_destroy (window_ct);
-        cairo_surface_finish (buf.cst);
-        cairo_surface_destroy (buf.cst);
-
-#else
-
-        NRPixBlock b3;
-        nr_pixblock_setup_fast (&b3, NR_PIXBLOCK_MODE_R8G8B8, x0, y0, x1, y1, TRUE);
-
-        NRPixBlock b4;
-        nr_pixblock_setup_extern (&b4, NR_PIXBLOCK_MODE_R8G8B8A8P, x0, y0, x1, y1,
-                                  buf.buf,
-                                  buf.buf_rowstride,
-                                  FALSE, FALSE);
-
-        // this does the 32->24 squishing, using an assembler routine:
-        nr_blit_pixblock_pixblock (&b3, &b4);
-
-        gdk_draw_rgb_image_dithalign (SP_CANVAS_WINDOW (canvas),
-                                      canvas->pixmap_gc,
-                                      x0 - canvas->x0, y0 - canvas->y0,
-                                      x1 - x0, y1 - y0,
-                                      GDK_RGB_DITHER_MAX,
-                                      NR_PIXBLOCK_PX(&b3),
-                                      sw * 3,
-                                      x0 - canvas->x0, y0 - canvas->y0);
-
-        nr_pixblock_release (&b3);
-        nr_pixblock_release (&b4);
-#endif
-    }
-
-    cairo_surface_t *cst = cairo_get_target(buf.ct);
-    cairo_destroy (buf.ct);
-    cairo_surface_finish (cst);
-    cairo_surface_destroy (cst);
-
-    if (canvas->rendermode != Inkscape::RENDERMODE_OUTLINE) {
-        nr_pixelstore_256K_free (buf.buf);
-    } else {
-        nr_pixelstore_1M_free (buf.buf);
-    }
+    //cairo_surface_t *cst = cairo_get_target(buf.ct);
+    //cairo_destroy (buf.ct);
+    //cairo_surface_finish (cst);
+    //cairo_surface_destroy (cst);
 }
 
 struct PaintRectSetup {
     SPCanvas* canvas;
-    NRRectL big_rect;
+    Geom::IntRect big_rect;
     GTimeVal start_time;
     int max_pixels;
     Geom::Point mouse_loc;
@@ -1780,7 +1738,7 @@ struct PaintRectSetup {
  * @return true if the drawing completes
  */
 static int
-sp_canvas_paint_rect_internal (PaintRectSetup const *setup, NRRectL this_rect)
+sp_canvas_paint_rect_internal (PaintRectSetup const *setup, Geom::IntRect const &this_rect)
 {
     GTimeVal now;
     g_get_current_time (&now);
@@ -1815,23 +1773,29 @@ sp_canvas_paint_rect_internal (PaintRectSetup const *setup, NRRectL this_rect)
     }
 
     // Find the optimal buffer dimensions
-    int bw = this_rect.x1 - this_rect.x0;
-    int bh = this_rect.y1 - this_rect.y0;
+    int bw = this_rect.width();
+    int bh = this_rect.height();
     if ((bw < 1) || (bh < 1))
         return 0;
 
     if (bw * bh < setup->max_pixels) {
         // We are small enough
+        /*GdkRectangle r;
+        r.x = this_rect.x0 - setup->canvas->x0;
+        r.y = this_rect.y0 - setup->canvas->y0;
+        r.width = this_rect.x1 - this_rect.x0;
+        r.height = this_rect.y1 - this_rect.y0;
+
+        GdkWindow *window = GTK_WIDGET(setup->canvas)->window;
+        gdk_window_begin_paint_rect(window, &r);*/
+
         sp_canvas_paint_single_buffer (setup->canvas,
-                                       this_rect.x0, this_rect.y0,
-                                       this_rect.x1, this_rect.y1,
-                                       setup->big_rect.x0, setup->big_rect.y0,
-                                       setup->big_rect.x1, setup->big_rect.y1, bw);
+                                       this_rect, setup->big_rect, bw);
+        //gdk_window_end_paint(window);
         return 1;
     }
 
-    NRRectL lo = this_rect;
-    NRRectL hi = this_rect;
+    Geom::IntRect lo, hi;
 
 /*
 This test determines the redraw strategy:
@@ -1849,13 +1813,12 @@ faster.
 The default for now is the strips mode.
 */
     if (bw < bh || bh < 2 * TILE_SIZE) {
-        // to correctly calculate the mean of two ints, we need to sum them into a larger int type
-        int mid = ((long long) this_rect.x0 + (long long) this_rect.x1) / 2;
+        int mid = this_rect[Geom::X].middle();
         // Make sure that mid lies on a tile boundary
         mid = (mid / TILE_SIZE) * TILE_SIZE;
 
-        lo.x1 = mid;
-        hi.x0 = mid;
+        lo = Geom::IntRect(this_rect.left(), this_rect.top(), mid, this_rect.bottom());
+        hi = Geom::IntRect(mid, this_rect.top(), this_rect.right(), this_rect.bottom());
 
         if (setup->mouse_loc[Geom::X] < mid) {
             // Always paint towards the mouse first
@@ -1866,13 +1829,12 @@ The default for now is the strips mode.
                 && sp_canvas_paint_rect_internal(setup, lo);
         }
     } else {
-        // to correctly calculate the mean of two ints, we need to sum them into a larger int type
-        int mid = ((long long) this_rect.y0 + (long long) this_rect.y1) / 2;
+        int mid = this_rect[Geom::Y].middle();
         // Make sure that mid lies on a tile boundary
         mid = (mid / TILE_SIZE) * TILE_SIZE;
 
-        lo.y1 = mid;
-        hi.y0 = mid;
+        lo = Geom::IntRect(this_rect.left(), this_rect.top(), this_rect.right(), mid);
+        hi = Geom::IntRect(this_rect.left(), mid, this_rect.right(), this_rect.bottom());
 
         if (setup->mouse_loc[Geom::Y] < mid) {
             // Always paint towards the mouse first
@@ -1896,32 +1858,19 @@ sp_canvas_paint_rect (SPCanvas *canvas, int xx0, int yy0, int xx1, int yy1)
 {
     g_return_val_if_fail (!canvas->need_update, false);
 
-    NRRectL rect;
-    rect.x0 = xx0;
-    rect.x1 = xx1;
-    rect.y0 = yy0;
-    rect.y1 = yy1;
+    Geom::IntRect canvas_rect = Geom::IntRect::from_xywh(canvas->x0, canvas->y0,
+        GTK_WIDGET (canvas)->allocation.width, GTK_WIDGET (canvas)->allocation.height);
+    Geom::IntRect paint_rect(xx0, yy0, xx1, yy1);
 
-    // Clip rect-to-draw by the current visible area
-    rect.x0 = MAX (rect.x0, canvas->x0);
-    rect.y0 = MAX (rect.y0, canvas->y0);
-    rect.x1 = MIN (rect.x1, canvas->x0/*draw_x1*/ + GTK_WIDGET (canvas)->allocation.width);
-    rect.y1 = MIN (rect.y1, canvas->y0/*draw_y1*/ + GTK_WIDGET (canvas)->allocation.height);
+    Geom::OptIntRect area = paint_rect & canvas_rect;
+    if (!area || area->hasZeroArea()) return 0;
 
-#ifdef DEBUG_REDRAW
-    // paint the area to redraw yellow
-    gdk_rgb_gc_set_foreground (canvas->pixmap_gc, 0xFFFF00);
-    gdk_draw_rectangle (SP_CANVAS_WINDOW (canvas),
-                        canvas->pixmap_gc,
-                        TRUE,
-                        rect.x0 - canvas->x0, rect.y0 - canvas->y0,
-                        rect.x1 - rect.x0, rect.y1 - rect.y0);
-#endif
+    paint_rect = *area;
 
     PaintRectSetup setup;
 
     setup.canvas = canvas;
-    setup.big_rect = rect;
+    setup.big_rect = paint_rect;
 
     // Save the mouse location
     gint x, y;
@@ -1942,7 +1891,7 @@ sp_canvas_paint_rect (SPCanvas *canvas, int xx0, int yy0, int xx1, int yy1)
     g_get_current_time(&(setup.start_time));
 
     // Go
-    return sp_canvas_paint_rect_internal(&setup, rect);
+    return sp_canvas_paint_rect_internal(&setup, paint_rect);
 }
 
 /**
@@ -1974,7 +1923,7 @@ sp_canvas_expose (GtkWidget *widget, GdkEventExpose *event)
 {
     SPCanvas *canvas = SP_CANVAS (widget);
 
-    if (!GTK_WIDGET_DRAWABLE (widget) ||
+    if (!gtk_widget_is_drawable (widget) ||
         (event->window != SP_CANVAS_WINDOW (canvas)))
         return FALSE;
 
@@ -1983,14 +1932,11 @@ sp_canvas_expose (GtkWidget *widget, GdkEventExpose *event)
     gdk_region_get_rectangles (event->region, &rects, &n_rects);
 
     for (int i = 0; i < n_rects; i++) {
-        NRRectL rect;
+        Geom::IntRect r = Geom::IntRect::from_xywh(
+            rects[i].x + canvas->x0, rects[i].y + canvas->y0,
+            rects[i].width, rects[i].height);
 
-        rect.x0 = rects[i].x + canvas->x0;
-        rect.y0 = rects[i].y + canvas->y0;
-        rect.x1 = rect.x0 + rects[i].width;
-        rect.y1 = rect.y0 + rects[i].height;
-
-        sp_canvas_request_redraw (canvas, rect.x0, rect.y0, rect.x1, rect.y1);
+        sp_canvas_request_redraw (canvas, r.left(), r.top(), r.right(), r.bottom());
     }
 
     if (n_rects > 0)
@@ -2029,7 +1975,7 @@ sp_canvas_crossing (GtkWidget *widget, GdkEventCrossing *event)
 static gint
 sp_canvas_focus_in (GtkWidget *widget, GdkEventFocus *event)
 {
-    GTK_WIDGET_SET_FLAGS (widget, GTK_HAS_FOCUS);
+    gtk_widget_grab_focus (widget);
 
     SPCanvas *canvas = SP_CANVAS (widget);
 
@@ -2046,8 +1992,6 @@ sp_canvas_focus_in (GtkWidget *widget, GdkEventFocus *event)
 static gint
 sp_canvas_focus_out (GtkWidget *widget, GdkEventFocus *event)
 {
-    GTK_WIDGET_UNSET_FLAGS (widget, GTK_HAS_FOCUS);
-
     SPCanvas *canvas = SP_CANVAS (widget);
 
     if (canvas->focused_item)
@@ -2117,7 +2061,7 @@ paint (SPCanvas *canvas)
 static int
 do_update (SPCanvas *canvas)
 {
-    if (!canvas->root || !canvas->pixmap_gc) // canvas may have already be destroyed by closing desktop during interrupted display!
+    if (!canvas->root) // canvas may have already be destroyed by closing desktop during interrupted display!
         return TRUE;
         
     if (canvas->drawing_disabled)
@@ -2130,7 +2074,7 @@ do_update (SPCanvas *canvas)
     }
 
     /* Paint if able to */
-    if (GTK_WIDGET_DRAWABLE (canvas)) {
+    if (gtk_widget_is_drawable ( GTK_WIDGET (canvas))) {
             return paint (canvas);
     }
 
@@ -2174,7 +2118,8 @@ add_idle (SPCanvas *canvas)
     if (canvas->idle_id != 0)
         return;
 
-    canvas->idle_id = gtk_idle_add_priority (sp_canvas_update_priority, idle_handler, canvas);
+    canvas->idle_id = g_idle_add_full (sp_canvas_update_priority, idle_handler, 
+		    canvas, NULL);
 }
 
 /**
@@ -2203,25 +2148,29 @@ sp_canvas_scroll_to (SPCanvas *canvas, double cx, double cy, unsigned int clear,
     int dx = ix - canvas->x0; // dx and dy specify the displacement (scroll) of the
     int dy = iy - canvas->y0; // canvas w.r.t its previous position
 
+    Geom::IntRect old_area = canvas->getViewboxIntegers();
+    Geom::IntRect new_area = old_area + Geom::IntPoint(dx, dy);
+    
     canvas->dx0 = cx; // here the 'd' stands for double, not delta!
     canvas->dy0 = cy;
     canvas->x0 = ix;
     canvas->y0 = iy;
 
     sp_canvas_resize_tiles (canvas, canvas->x0, canvas->y0, canvas->x0+canvas->widget.allocation.width, canvas->y0+canvas->widget.allocation.height);
+    if (SP_CANVAS_ITEM_GET_CLASS (canvas->root)->viewbox_changed)
+        SP_CANVAS_ITEM_GET_CLASS (canvas->root)->viewbox_changed (canvas->root, new_area);
 
     if (!clear) {
         // scrolling without zoom; redraw only the newly exposed areas
         if ((dx != 0) || (dy != 0)) {
             canvas->is_scrolling = is_scrolling;
-            if (GTK_WIDGET_REALIZED (canvas)) {
+            if (gtk_widget_get_realized (GTK_WIDGET (canvas))) {
                 gdk_window_scroll (SP_CANVAS_WINDOW (canvas), -dx, -dy);
             }
         }
     } else {
         // scrolling as part of zoom; do nothing here - the next do_update will perform full redraw
     }
-
 }
 
 /**
@@ -2256,30 +2205,21 @@ sp_canvas_request_update (SPCanvas *canvas)
 void
 sp_canvas_request_redraw (SPCanvas *canvas, int x0, int y0, int x1, int y1)
 {
-    NRRectL bbox;
-    NRRectL visible;
-    NRRectL clip;
-
     g_return_if_fail (canvas != NULL);
     g_return_if_fail (SP_IS_CANVAS (canvas));
 
-    if (!GTK_WIDGET_DRAWABLE (canvas)) return;
+    if (!gtk_widget_is_drawable ( GTK_WIDGET (canvas))) return;
     if ((x0 >= x1) || (y0 >= y1)) return;
 
-    bbox.x0 = x0;
-    bbox.y0 = y0;
-    bbox.x1 = x1;
-    bbox.y1 = y1;
-
-    visible.x0 = canvas->x0;
-    visible.y0 = canvas->y0;
-    visible.x1 = visible.x0 + GTK_WIDGET (canvas)->allocation.width;
-    visible.y1 = visible.y0 + GTK_WIDGET (canvas)->allocation.height;
-
-    nr_rect_l_intersect (&clip, &bbox, &visible);
-
-    sp_canvas_dirty_rect(canvas, clip.x0, clip.y0, clip.x1, clip.y1);
-    add_idle (canvas);
+    Geom::IntRect bbox(x0, y0, x1, y1);
+    Geom::IntRect canvas_rect = Geom::IntRect::from_xywh(canvas->x0, canvas->y0,
+        GTK_WIDGET (canvas)->allocation.width, GTK_WIDGET (canvas)->allocation.height);
+    
+    Geom::OptIntRect clip = bbox & canvas_rect;
+    if (clip) {
+        sp_canvas_dirty_rect(canvas, *clip);
+        add_idle (canvas);
+    }
 }
 
 /**
@@ -2354,13 +2294,15 @@ Geom::Rect SPCanvas::getViewbox() const
 }
 
 /**
- * Return canvas window coordinates as IRect (a rectangle defined by integers).
+ * Return canvas window coordinates as integer rectangle.
  */
-NR::IRect SPCanvas::getViewboxIntegers() const
+Geom::IntRect SPCanvas::getViewboxIntegers() const
 {
     GtkWidget const *w = GTK_WIDGET(this);
-    return NR::IRect(NR::IPoint(x0, y0),
-                    NR::IPoint(x0 + w->allocation.width, y0 + w->allocation.height));
+    Geom::IntRect ret;
+    ret.setMin(Geom::IntPoint(x0, y0));
+    ret.setMax(Geom::IntPoint(x0 + w->allocation.width, y0 + w->allocation.height));
+    return ret;
 }
 
 inline int sp_canvas_tile_floor(int x)
@@ -2415,24 +2357,21 @@ static void sp_canvas_resize_tiles(SPCanvas* canvas, int nl, int nt, int nr, int
 /*
  * Helper that queues a canvas rectangle for redraw
  */
-static void sp_canvas_dirty_rect(SPCanvas* canvas, int nl, int nt, int nr, int nb) {
+static void sp_canvas_dirty_rect(SPCanvas* canvas, Geom::IntRect const &area) {
     canvas->need_redraw = TRUE;
 
-    sp_canvas_mark_rect(canvas, nl, nt, nr, nb, 1);
+    sp_canvas_mark_rect(canvas, area, 1);
 }
 
 /**
  * Helper that marks specific canvas rectangle as clean (val == 0) or dirty (otherwise)
  */
-void sp_canvas_mark_rect(SPCanvas* canvas, int nl, int nt, int nr, int nb, uint8_t val)
+void sp_canvas_mark_rect(SPCanvas* canvas, Geom::IntRect const &area, uint8_t val)
 {
-    if ( nl >= nr || nt >= nb ) {
-        return;
-    }
-    int tl=sp_canvas_tile_floor(nl);
-    int tt=sp_canvas_tile_floor(nt);
-    int tr=sp_canvas_tile_ceil(nr);
-    int tb=sp_canvas_tile_ceil(nb);
+    int tl=sp_canvas_tile_floor(area.left());
+    int tt=sp_canvas_tile_floor(area.top());
+    int tr=sp_canvas_tile_ceil(area.right());
+    int tb=sp_canvas_tile_ceil(area.bottom());
     if ( tl >= canvas->tRight || tr <= canvas->tLeft || tt >= canvas->tBottom || tb <= canvas->tTop ) return;
     if ( tl < canvas->tLeft ) tl=canvas->tLeft;
     if ( tr > canvas->tRight ) tr=canvas->tRight;

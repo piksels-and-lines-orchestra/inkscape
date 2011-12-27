@@ -1,6 +1,4 @@
-/** \file
- *
- *
+/*
  * Authors:
  *   Johan Engelen <j.b.c.engelen@utwente.nl>
  *   bulia byak <buliabyak@users.sf.net>
@@ -72,7 +70,7 @@ RegisteredCheckButton::setActive (bool b)
     setProgrammatically = true;
     set_active (b);
     //The slave button is greyed out if the master button is unchecked
-    for (std::list<Gtk::Widget*>::const_iterator i = _slavewidgets.begin(); i != _slavewidgets.end(); i++) {
+    for (std::list<Gtk::Widget*>::const_iterator i = _slavewidgets.begin(); i != _slavewidgets.end(); ++i) {
         (*i)->set_sensitive(b);
     }
     setProgrammatically = false;
@@ -92,7 +90,7 @@ RegisteredCheckButton::on_toggled()
 
     write_to_xml(get_active() ? "true" : "false");
     //The slave button is greyed out if the master button is unchecked
-    for (std::list<Gtk::Widget*>::const_iterator i = _slavewidgets.begin(); i != _slavewidgets.end(); i++) {
+    for (std::list<Gtk::Widget*>::const_iterator i = _slavewidgets.begin(); i != _slavewidgets.end(); ++i) {
         (*i)->set_sensitive(get_active());
     }
 
@@ -632,13 +630,7 @@ RegisteredVector::setValue(Geom::Point const & p, Geom::Point const & origin)
     _origin = origin;
 }
 
-/**
- * Changes the widgets text to polar coordinates. The SVG output will still be a normal carthesian vector.
- * Careful: when calling getValue(), the return value's X-coord will be the angle, Y-value will be the distance/length. 
- * After changing the coords type (polar/non-polar), the value has to be reset (setValue).
- */
-void
-RegisteredVector::setPolarCoords(bool polar_coords)
+void RegisteredVector::setPolarCoords(bool polar_coords)
 {
     _polar_coords = polar_coords;
     if (polar_coords) {

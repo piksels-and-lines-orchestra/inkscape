@@ -1,5 +1,6 @@
-/** @file
- * @brief Text editing dialog
+/**
+ * @file
+ * Text editing dialog.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@ximian.com>
@@ -177,18 +178,14 @@ sp_text_edit_dialog (void)
         wd.stop = 0;
         g_signal_connect ( G_OBJECT (INKSCAPE), "activate_desktop", G_CALLBACK (sp_transientize_callback), &wd );
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "event", GTK_SIGNAL_FUNC (sp_dialog_event_handler), dlg );
+        g_signal_connect ( G_OBJECT (dlg), "event", G_CALLBACK (sp_dialog_event_handler), dlg );
 
-        gtk_signal_connect ( GTK_OBJECT (dlg), "destroy", G_CALLBACK (sp_text_edit_dialog_destroy), dlg );
-        gtk_signal_connect ( GTK_OBJECT (dlg), "delete_event", G_CALLBACK (sp_text_edit_dialog_delete), dlg );
+        g_signal_connect ( G_OBJECT (dlg), "destroy", G_CALLBACK (sp_text_edit_dialog_destroy), dlg );
+        g_signal_connect ( G_OBJECT (dlg), "delete_event", G_CALLBACK (sp_text_edit_dialog_delete), dlg );
         g_signal_connect ( G_OBJECT (INKSCAPE), "shut_down", G_CALLBACK (sp_text_edit_dialog_delete), dlg );
 
         g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_hide", G_CALLBACK (sp_dialog_hide), dlg );
         g_signal_connect ( G_OBJECT (INKSCAPE), "dialogs_unhide", G_CALLBACK (sp_dialog_unhide), dlg );
-
-        gtk_window_set_policy (GTK_WINDOW (dlg), TRUE, TRUE, FALSE);
-
-        GtkTooltips *tt = gtk_tooltips_new();
 
         // box containing the notebook and the bottom buttons
         GtkWidget *mainvb = gtk_vbox_new (FALSE, 0);
@@ -203,7 +200,7 @@ sp_text_edit_dialog (void)
 
         // Font tab
         {
-            GtkWidget *l = gtk_label_new (_("Font"));
+            GtkWidget *l = gtk_label_new_with_mnemonic (_("_Font"));
             GtkWidget *vb = gtk_vbox_new (FALSE, VB_MARGIN);
             gtk_container_set_border_width (GTK_CONTAINER (vb), VB_MARGIN);
             gtk_notebook_append_page (GTK_NOTEBOOK (nb), vb, l);
@@ -240,7 +237,7 @@ sp_text_edit_dialog (void)
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_LEFT, GTK_ICON_SIZE_LARGE_TOOLBAR );
                         GtkWidget *b = group = gtk_radio_button_new (NULL);
-                        gtk_tooltips_set_tip (tt, b, _("Align lines left"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Align lines left"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg);
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE );
@@ -253,9 +250,9 @@ sp_text_edit_dialog (void)
                     {
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_CENTER, GTK_ICON_SIZE_LARGE_TOOLBAR );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
                         /* TRANSLATORS: `Center' here is a verb. */
-                        gtk_tooltips_set_tip (tt, b, _("Center lines"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Center lines"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -268,8 +265,8 @@ sp_text_edit_dialog (void)
                     {
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_RIGHT, GTK_ICON_SIZE_LARGE_TOOLBAR );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
-                        gtk_tooltips_set_tip (tt, b, _("Align lines right"), NULL);
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
+                        gtk_widget_set_tooltip_text (b, _("Align lines right"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -282,8 +279,8 @@ sp_text_edit_dialog (void)
                     {
                         // TODO - replace with Inkscape-specific call
                         GtkWidget *px = gtk_image_new_from_stock ( GTK_STOCK_JUSTIFY_FILL, GTK_ICON_SIZE_LARGE_TOOLBAR );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
-                        gtk_tooltips_set_tip (tt, b, _("Justify lines"), NULL);
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
+                        gtk_widget_set_tooltip_text (b, _("Justify lines"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
@@ -303,29 +300,29 @@ sp_text_edit_dialog (void)
                     // horizontal
                     {
                         GtkWidget *px = sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                                                      INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL );
+                                                      INKSCAPE_ICON("format-text-direction-horizontal") );
                         GtkWidget *b = group = gtk_radio_button_new (NULL);
-                        gtk_tooltips_set_tip (tt, b, _("Horizontal text"), NULL);
+                        gtk_widget_set_tooltip_text (b, _("Horizontal text"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
                         gtk_container_add (GTK_CONTAINER (b), px);
                         gtk_box_pack_start (GTK_BOX (row), b, FALSE, FALSE, 0);
-                        g_object_set_data (G_OBJECT (dlg), INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL, b);
+                        g_object_set_data (G_OBJECT (dlg), INKSCAPE_ICON("format-text-direction-horizontal"), b);
                     }
 
                     // vertical
                     {
                         GtkWidget *px = sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                                                      INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL );
-                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_group (GTK_RADIO_BUTTON (group)));
-                        gtk_tooltips_set_tip (tt, b, _("Vertical text"), NULL);
+                                                      INKSCAPE_ICON("format-text-direction-vertical") );
+                        GtkWidget *b = gtk_radio_button_new (gtk_radio_button_get_group (GTK_RADIO_BUTTON (group)));
+                        gtk_widget_set_tooltip_text (b, _("Vertical text"));
                         gtk_button_set_relief (GTK_BUTTON (b), GTK_RELIEF_NONE);
                         g_signal_connect ( G_OBJECT (b), "toggled", G_CALLBACK (sp_text_edit_dialog_any_toggled), dlg );
                         gtk_toggle_button_set_mode (GTK_TOGGLE_BUTTON (b), FALSE);
                         gtk_container_add (GTK_CONTAINER (b), px);
                         gtk_box_pack_start (GTK_BOX (row), b, FALSE, FALSE, 0);
-                        g_object_set_data (G_OBJECT (dlg), INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL, b);
+                        g_object_set_data (G_OBJECT (dlg), INKSCAPE_ICON("format-text-direction-vertical"), b);
                     }
 
                     gtk_box_pack_start (GTK_BOX (l_vb), row, FALSE, FALSE, 0);
@@ -344,23 +341,30 @@ sp_text_edit_dialog (void)
                 {
                     GtkWidget *row = gtk_hbox_new (FALSE, VB_MARGIN);
 
-                    GtkWidget *c = gtk_combo_new ();
-                    gtk_combo_set_value_in_list ((GtkCombo *) c, FALSE, FALSE);
-                    gtk_combo_set_use_arrows ((GtkCombo *) c, TRUE);
-                    gtk_combo_set_use_arrows_always ((GtkCombo *) c, TRUE);
+//This would introduce dependency on gtk version 2.24 which is currently not available in
+// Trisquel GNU/Linux 4.5.1 (released on May 25th, 2011)
+//This conditional and its #else block can be deleted in the future.
+#if GTK_CHECK_VERSION(2, 24,0)
+                    GtkWidget *c = gtk_combo_box_text_new_with_entry ();
+#else
+                    GtkWidget *c = gtk_combo_box_entry_new_text ();
+#endif
                     gtk_widget_set_size_request (c, 90, -1);
 
                     { /* Setup strings */
-                        GList *sl = NULL;
                         for (int i = 0; spacings[i]; i++) {
-                            sl = g_list_prepend (sl, (void *) spacings[i]);
+//This would introduce dependency on gtk version 2.24 which is currently not available in
+// Trisquel GNU/Linux 4.5.1 (released on May 25th, 2011)
+//This conditional and its #else block can be deleted in the future.
+#if GTK_CHECK_VERSION(2, 24,0)
+				gtk_combo_box_text_append_text((GtkComboBoxText *) c, spacings[i]);
+#else
+				gtk_combo_box_append_text((GtkComboBox *) c, spacings[i]);
+#endif
                         }
-                        sl = g_list_reverse (sl);
-                        gtk_combo_set_popdown_strings ((GtkCombo *) c, sl);
-                        g_list_free (sl);
                     }
 
-                    g_signal_connect ( (GObject *) ((GtkCombo *) c)->entry,
+                    g_signal_connect ( (GObject *) c,
                                        "changed",
                                        (GCallback) sp_text_edit_dialog_line_spacing_changed,
                                        dlg );
@@ -372,15 +376,18 @@ sp_text_edit_dialog (void)
             }
 
             /* Font preview */
-            GtkWidget *preview = sp_font_preview_new ();
-            gtk_box_pack_start (GTK_BOX (vb), preview, TRUE, TRUE, 4);
+            GtkLabel *preview = (GtkLabel*) gtk_label_new(NULL);
+            gtk_label_set_ellipsize(preview, PANGO_ELLIPSIZE_END);
+            gtk_label_set_justify(preview, GTK_JUSTIFY_CENTER);
+            gtk_label_set_line_wrap(preview, FALSE);
+            gtk_box_pack_start (GTK_BOX (vb), (GtkWidget*) preview, TRUE, TRUE, 4);
             g_object_set_data (G_OBJECT (dlg), "preview", preview);
         }
 
 
         // Text tab
         {
-            GtkWidget *l = gtk_label_new (_("Text"));
+            GtkWidget *l = gtk_label_new_with_mnemonic (_("_Text"));
             GtkWidget *vb = gtk_vbox_new (FALSE, VB_MARGIN);
             gtk_container_set_border_width (GTK_CONTAINER (vb), VB_MARGIN);
             gtk_notebook_append_page (GTK_NOTEBOOK (nb), vb, l);
@@ -427,7 +434,7 @@ sp_text_edit_dialog (void)
         gtk_box_pack_start (GTK_BOX (mainvb), hb, FALSE, FALSE, 0);
 
         {
-            GtkWidget *b = gtk_button_new_with_label (_("Set as default"));
+            GtkWidget *b = gtk_button_new_with_mnemonic (_("Set as _default"));
             g_signal_connect ( G_OBJECT (b), "clicked",
                                G_CALLBACK (sp_text_edit_dialog_set_default),
                                dlg );
@@ -444,10 +451,11 @@ sp_text_edit_dialog (void)
 
         {
             GtkWidget *b = gtk_button_new_from_stock (GTK_STOCK_APPLY);
-            GTK_WIDGET_SET_FLAGS (b, GTK_CAN_DEFAULT | GTK_HAS_DEFAULT);
             g_signal_connect ( G_OBJECT (b), "clicked",
                                G_CALLBACK (sp_text_edit_dialog_apply), dlg );
             gtk_box_pack_end ( GTK_BOX (hb), b, FALSE, FALSE, 0 );
+            gtk_widget_set_can_default (b, TRUE);
+            gtk_widget_grab_default (b);
             g_object_set_data (G_OBJECT (dlg), "apply", b);
         }
 
@@ -597,7 +605,7 @@ sp_get_text_dialog_style ()
             }
         }
 
-        b = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL );
+        b = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), INKSCAPE_ICON("format-text-direction-horizontal") );
 
         if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (b))) {
             sp_repr_css_set_property (css, "writing-mode", "lr");
@@ -608,7 +616,15 @@ sp_get_text_dialog_style ()
         // Note that CSS 1.1 does not support line-height; we set it for consistency, but also set
         // sodipodi:linespacing for backwards compatibility; in 1.2 we use line-height for flowtext
         GtkWidget *combo = (GtkWidget*)g_object_get_data ((GObject *) dlg, "line_spacing");
-        const char *sstr = gtk_entry_get_text ((GtkEntry *) ((GtkCombo *) (combo))->entry);
+
+//This would introduce dependency on gtk version 2.24 which is currently not available in
+// Trisquel GNU/Linux 4.5.1 (released on May 25th, 2011)
+//This conditional and its #else block can be deleted in the future.
+#if GTK_CHECK_VERSION(2, 24,0)
+        const gchar *sstr = gtk_combo_box_text_get_active_text ((GtkComboBoxText *) combo);
+#else
+        const gchar *sstr = gtk_entry_get_text ((GtkEntry *) (gtk_bin_get_child (GTK_BIN (combo))));
+#endif
         sp_repr_css_set_property (css, "line-height", sstr);
 
         return css;
@@ -699,7 +715,7 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
 
     g_object_set_data (G_OBJECT (dlg), "blocked", GINT_TO_POINTER (TRUE));
 
-    GtkWidget *notebook = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "notebook");
+    //GtkWidget *notebook = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "notebook");
     GtkWidget *textw = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "textw");
     GtkWidget *fontsel = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "fontsel");
     GtkWidget *preview = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "preview");
@@ -709,6 +725,12 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
     GtkTextBuffer *tb = (GtkTextBuffer*)g_object_get_data (G_OBJECT (dlg), "text");
 
     SPItem *text = sp_ted_get_selected_text_item ();
+
+    /* TRANSLATORS: Test string used in text and font dialog (when no
+     * text has been entered) to get a preview of the font.  Choose
+     * some representative characters that users of your locale will be
+     * interested in. */
+    gchar *phrase = g_strdup(_("AaBbCcIiPpQq12369$\342\202\254\302\242?.;/()"));
 
     Inkscape::XML::Node *repr;
     if (text)
@@ -727,19 +749,15 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
             str = sp_te_get_string_multiline (text);
 
             if (str) {
-                int pos;
-                pos = 0;
-
                 if (items == 1) {
                     gtk_text_buffer_set_text (tb, str, strlen (str));
                     gtk_text_buffer_set_modified (tb, FALSE);
                 }
-                sp_font_preview_set_phrase (SP_FONT_PREVIEW (preview), str);
-                g_free (str);
+                g_free(phrase);
+                phrase = str;
 
             } else {
                 gtk_text_buffer_set_text (tb, "", 0);
-                sp_font_preview_set_phrase (SP_FONT_PREVIEW (preview), NULL);
             }
         } // end of if (docontent)
         repr = text->getRepr();
@@ -776,7 +794,13 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
         if (font) {
             // the font is oversized, so we need to pass the true size separately
             sp_font_selector_set_font (SP_FONT_SELECTOR (fontsel), font, query->font_size.computed);
-            sp_font_preview_set_font (SP_FONT_PREVIEW (preview), font, SP_FONT_SELECTOR(fontsel));
+            char *desc = pango_font_description_to_string(font->descr);
+            double size = sp_font_selector_get_size(SP_FONT_SELECTOR(fontsel));
+            gchar *markup = g_strdup_printf("<span font=\"%s\" size=\"%d\">%s</span>",
+                desc, (int) size * PANGO_SCALE, phrase);
+            gtk_label_set_markup(GTK_LABEL(preview), markup);
+            g_free(desc);
+            g_free(markup);
             font->Unref();
             font=NULL;
         }
@@ -796,9 +820,9 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
         gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (b), TRUE);
 
         if (query->writing_mode.computed == SP_CSS_WRITING_MODE_LR_TB) {
-            b = (GtkWidget*)g_object_get_data ( G_OBJECT (dlg), INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_HORIZONTAL );
+            b = (GtkWidget*)g_object_get_data ( G_OBJECT (dlg), INKSCAPE_ICON("format-text-direction-horizontal") );
         } else {
-            b = (GtkWidget*)g_object_get_data ( G_OBJECT (dlg), INKSCAPE_ICON_FORMAT_TEXT_DIRECTION_VERTICAL );
+            b = (GtkWidget*)g_object_get_data ( G_OBJECT (dlg), INKSCAPE_ICON("format-text-direction-vertical") );
         }
         gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (b), TRUE);
 
@@ -809,12 +833,13 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
             height = query->line_height.value;
         else height = query->line_height.computed;
         gchar *sstr = g_strdup_printf ("%d%%", (int) floor(height * 100 + 0.5));
-        gtk_entry_set_text ((GtkEntry *) ((GtkCombo *) (combo))->entry, sstr);
+
+        gtk_entry_set_text ((GtkEntry *) gtk_bin_get_child ((GtkBin *) (combo)), sstr);
         g_free(sstr);
 
         sp_style_unref(query);
     }
-
+    g_free(phrase);
     g_object_set_data (G_OBJECT (dlg), "blocked", NULL);
 }
 
@@ -822,7 +847,7 @@ sp_text_edit_dialog_read_selection ( GtkWidget *dlg,
 static void
 sp_text_edit_dialog_text_changed (GtkTextBuffer *tb, GtkWidget *dlg)
 {
-    GtkWidget *textw, *preview, *apply, *def;
+    GtkWidget *textw, *preview, *apply, *def, *fontsel;
     GtkTextIter start, end;
     gchar *str;
 
@@ -835,14 +860,23 @@ sp_text_edit_dialog_text_changed (GtkTextBuffer *tb, GtkWidget *dlg)
     preview = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "preview");
     apply = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "apply");
     def = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "default");
+    fontsel = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "fontsel");
 
     gtk_text_buffer_get_bounds (tb, &start, &end);
     str = gtk_text_buffer_get_text (tb, &start, &end, TRUE);
+    font_instance *font = sp_font_selector_get_font(SP_FONT_SELECTOR(fontsel));
 
-    if (str && *str) {
-        sp_font_preview_set_phrase (SP_FONT_PREVIEW (preview), str);
+    if (font) {
+        gchar *phrase = str && *str ? str : _("AaBbCcIiPpQq12369$\342\202\254\302\242?.;/()");
+        char *desc = pango_font_description_to_string(font->descr);
+        double size = sp_font_selector_get_size(SP_FONT_SELECTOR(fontsel));
+        gchar *markup = g_strdup_printf("<span font=\"%s\" size=\"%d\">%s</span>",
+            desc, (int) size * PANGO_SCALE, phrase);
+        gtk_label_set_markup(GTK_LABEL(preview), markup);
+        g_free(desc);
+        g_free(markup);
     } else {
-        sp_font_preview_set_phrase (SP_FONT_PREVIEW (preview), NULL);
+        gtk_label_set_markup(GTK_LABEL(preview), NULL);
     }
     g_free (str);
 
@@ -863,11 +897,13 @@ sp_text_edit_dialog_default_set_insensitive ()
 }
 
 static void
-sp_text_edit_dialog_font_changed ( SPFontSelector *fsel,
+sp_text_edit_dialog_font_changed ( SPFontSelector * /*fsel*/,
                                    font_instance *font,
                                    GtkWidget *dlg )
 {
-    GtkWidget *preview, *apply, *def;
+    GtkWidget *preview, *apply, *def, *fontsel;
+    GtkTextIter start, end;
+    gchar *str;
 
     if (g_object_get_data (G_OBJECT (dlg), "blocked"))
         return;
@@ -877,11 +913,27 @@ sp_text_edit_dialog_font_changed ( SPFontSelector *fsel,
     preview = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "preview");
     apply = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "apply");
     def = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "default");
+    fontsel = (GtkWidget*)g_object_get_data (G_OBJECT (dlg), "fontsel");
 
-    sp_font_preview_set_font (SP_FONT_PREVIEW (preview), font, SP_FONT_SELECTOR(fsel));
+    GtkTextBuffer *tb = (GtkTextBuffer*)g_object_get_data (G_OBJECT (dlg), "text");
+    gtk_text_buffer_get_bounds (tb, &start, &end);
+    str = gtk_text_buffer_get_text (tb, &start, &end, TRUE);
 
-    if (text)
-    {
+    if (font) {
+        gchar *phrase = str && *str ? str : _("AaBbCcIiPpQq12369$\342\202\254\302\242?.;/()");
+        char *desc = pango_font_description_to_string(font->descr);
+        double size = sp_font_selector_get_size(SP_FONT_SELECTOR(fontsel));
+        gchar *markup = g_strdup_printf("<span font=\"%s\" size=\"%d\">%s</span>",
+            desc, (int) size * PANGO_SCALE, phrase);
+        gtk_label_set_markup(GTK_LABEL(preview), markup);
+        g_free(desc);
+        g_free(markup);
+    } else {
+        gtk_label_set_markup(GTK_LABEL(preview), NULL);
+    }
+    g_free(str);
+
+    if (text) {
         gtk_widget_set_sensitive (apply, TRUE);
     }
     gtk_widget_set_sensitive (def, TRUE);

@@ -41,16 +41,7 @@
 
 #include <string.h>
 
-#include <gtk/gtkhbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtktoolitem.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkcellrendererpixbuf.h>
-#include <gtk/gtkcelllayout.h>
-#include <gtk/gtkradioaction.h>
-#include <gtk/gtkradiomenuitem.h>
-#include <gtk/gtktable.h>
 
 #include "ege-select-one-action.h"
 
@@ -61,6 +52,7 @@ enum {
 
 static void ege_select_one_action_class_init( EgeSelectOneActionClass* klass );
 static void ege_select_one_action_init( EgeSelectOneAction* action );
+static void ege_select_one_action_finalize( GObject* action );
 static void ege_select_one_action_get_property( GObject* obj, guint propId, GValue* value, GParamSpec * pspec );
 static void ege_select_one_action_set_property( GObject* obj, guint propId, const GValue *value, GParamSpec* pspec );
 
@@ -168,6 +160,7 @@ void ege_select_one_action_class_init( EgeSelectOneActionClass* klass )
 
         gDataName = g_quark_from_string("ege-select1-action");
 
+        objClass->finalize = ege_select_one_action_finalize;
         objClass->get_property = ege_select_one_action_get_property;
         objClass->set_property = ege_select_one_action_set_property;
 
@@ -289,6 +282,19 @@ void ege_select_one_action_init( EgeSelectOneAction* action )
     action->private_data->pendingText = 0;
 
 /*     g_signal_connect( action, "notify", G_CALLBACK( fixup_labels ), NULL ); */
+}
+
+void ege_select_one_action_finalize( GObject* object )
+{
+    EgeSelectOneAction *action = EGE_SELECT_ONE_ACTION( object );
+
+    g_free( action->private_data->iconProperty );
+    g_free( action->private_data->appearance );
+    g_free( action->private_data->selection );
+
+    if ( G_OBJECT_CLASS(gParentClass)->finalize ) {
+        (*G_OBJECT_CLASS(gParentClass)->finalize)(object);
+    }
 }
 
 EgeSelectOneAction* ege_select_one_action_new( const gchar *name,
@@ -661,17 +667,19 @@ GtkWidget* create_tool_item( GtkAction* action )
             GtkTreeIter iter;
             gboolean valid = FALSE;
             gint index = 0;
-            GtkTooltips* tooltips = gtk_tooltips_new();
 
-            gchar*  sss = 0;
-            g_object_get( G_OBJECT(action), "short_label", &sss, NULL );
-            // If short_label not defined, g_object_get will return label.
-            // This hack allows a label to be used with a drop-down menu when
-            // no label is used with a set of icons that are self-explanatory.
-            if (sss && strcmp( sss, "NotUsed" ) != 0 ) {
-                GtkWidget* lbl;
-                lbl = gtk_label_new(sss);
-                gtk_box_pack_start( GTK_BOX(holder), lbl, FALSE, FALSE, 4 );
+            {
+                gchar*  sss = 0;
+                g_object_get( G_OBJECT(action), "short_label", &sss, NULL );
+                // If short_label not defined, g_object_get will return label.
+                // This hack allows a label to be used with a drop-down menu when
+                // no label is used with a set of icons that are self-explanatory.
+                if (sss && strcmp( sss, "NotUsed" ) != 0 ) {
+                    GtkWidget* lbl = gtk_label_new(sss);
+                    gtk_box_pack_start( GTK_BOX(holder), lbl, FALSE, FALSE, 4 );
+                }
+                g_free( sss );
+                sss = 0;
             }
 
             valid = gtk_tree_model_get_iter_first( act->private_data->model, &iter );
@@ -742,8 +750,8 @@ GtkWidget* create_tool_item( GtkAction* action )
                 g_signal_connect( G_OBJECT(ract), "changed", G_CALLBACK( proxy_action_chagned_cb ), act );
 
                 sub = gtk_action_create_tool_item( GTK_ACTION(ract) );
-                gtk_action_connect_proxy( GTK_ACTION(ract), sub );
-                gtk_tool_item_set_tooltip( GTK_TOOL_ITEM(sub), tooltips, tip, NULL );
+                gtk_activatable_set_related_action( GTK_ACTIVATABLE (sub), GTK_ACTION(ract) );
+                gtk_tool_item_set_tooltip_text( GTK_TOOL_ITEM(sub), tip );
 
                 gtk_box_pack_start( GTK_BOX(holder), sub, FALSE, FALSE, 0 );
 
@@ -756,7 +764,6 @@ GtkWidget* create_tool_item( GtkAction* action )
             }
 
             g_object_set_data( G_OBJECT(holder), "ege-proxy_action-group", group );
-            g_object_set_data( G_OBJECT(holder), "ege-tooltips", tooltips );
 
             gtk_container_add( GTK_CONTAINER(item), holder );
         } else {
@@ -766,7 +773,7 @@ GtkWidget* create_tool_item( GtkAction* action )
             GtkWidget *normal = (act->private_data->selectionMode == SELECTION_OPEN) ?
                 gtk_combo_box_entry_new_with_model( act->private_data->model, act->private_data->labelColumn ) :
                 gtk_combo_box_new_with_model( act->private_data->model );
-            if ((act->private_data->selectionMode == SELECTION_OPEN)) {
+            if (act->private_data->selectionMode == SELECTION_OPEN) {
                 GtkWidget *child = gtk_bin_get_child( GTK_BIN(normal) );
                 if (GTK_IS_ENTRY(child)) {
                     int maxUsed = scan_max_width( act->private_data->model, act->private_data->labelColumn );
@@ -813,9 +820,10 @@ GtkWidget* create_tool_item( GtkAction* action )
                 gchar*  sss = 0;
                 g_object_get( G_OBJECT(action), "short_label", &sss, NULL );
                 if (sss) {
-                    GtkWidget* lbl;
-                    lbl = gtk_label_new(sss);
+                    GtkWidget* lbl = gtk_label_new(sss);
                     gtk_box_pack_start( GTK_BOX(holder), lbl, FALSE, FALSE, 4 );
+                    g_free( sss );
+                    sss = 0;
                 }
             }
 
@@ -931,7 +939,6 @@ void resync_sensitive( EgeSelectOneAction* act )
                         GSList* group = (GSList*)data;
                         // List is backwards in group as compared to GtkTreeModel, we better do matching.
                         while ( group ) {
-#if GTK_CHECK_VERSION(2,16,0)
                             GtkRadioAction* ract = GTK_RADIO_ACTION(group->data);
                             const gchar* label = gtk_action_get_label( GTK_ACTION( ract ) );
 
@@ -960,8 +967,6 @@ void resync_sensitive( EgeSelectOneAction* act )
                             }
 
                             gtk_action_set_sensitive( GTK_ACTION(ract), sens );
-#endif
-
                             group = g_slist_next(group);
                         }
                     }

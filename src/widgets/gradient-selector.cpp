@@ -16,11 +16,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <gtk/gtkhbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtktooltips.h>
+#include <gtk/gtk.h>
 
 #include "document.h"
 #include "../document-private.h"
@@ -49,8 +45,7 @@ static void sp_gradient_selector_destroy (GtkObject *object);
 static void sp_gradient_selector_vector_set (SPGradientVectorSelector *gvs, SPGradient *gr, SPGradientSelector *sel);
 static void sp_gradient_selector_edit_vector_clicked (GtkWidget *w, SPGradientSelector *sel);
 static void sp_gradient_selector_add_vector_clicked (GtkWidget *w, SPGradientSelector *sel);
-
-static void sp_gradient_selector_spread_activate (GtkWidget *widget, SPGradientSelector *sel);
+static void sp_gradient_selector_spread_changed (GtkComboBox *widget, SPGradientSelector *sel);
 
 static GtkVBoxClass *parent_class;
 static guint signals[LAST_SIGNAL] = {0};
@@ -87,32 +82,36 @@ sp_gradient_selector_class_init (SPGradientSelectorClass *klass)
 
     object_class = (GtkObjectClass *) klass;
 
-    parent_class = (GtkVBoxClass*)gtk_type_class (GTK_TYPE_VBOX);
+    parent_class = (GtkVBoxClass*)g_type_class_peek_parent (klass);
 
-    signals[GRABBED] =  gtk_signal_new ("grabbed",
-                                        (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-                                        GTK_CLASS_TYPE(object_class),
-                                        GTK_SIGNAL_OFFSET (SPGradientSelectorClass, grabbed),
+    signals[GRABBED] =  g_signal_new ("grabbed",
+                                        G_TYPE_FROM_CLASS(object_class),
+                                        (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+                                        G_STRUCT_OFFSET (SPGradientSelectorClass, grabbed),
+					NULL, NULL,
                                         gtk_marshal_NONE__NONE,
-                                        GTK_TYPE_NONE, 0);
-    signals[DRAGGED] =  gtk_signal_new ("dragged",
-                                        (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-                                        GTK_CLASS_TYPE(object_class),
-                                        GTK_SIGNAL_OFFSET (SPGradientSelectorClass, dragged),
+                                        G_TYPE_NONE, 0);
+    signals[DRAGGED] =  g_signal_new ("dragged",
+                                        G_TYPE_FROM_CLASS(object_class),
+                                        (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+                                        G_STRUCT_OFFSET (SPGradientSelectorClass, dragged),
+					NULL, NULL,
                                         gtk_marshal_NONE__NONE,
-                                        GTK_TYPE_NONE, 0);
-    signals[RELEASED] = gtk_signal_new ("released",
-                                        (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-                                        GTK_CLASS_TYPE(object_class),
-                                        GTK_SIGNAL_OFFSET (SPGradientSelectorClass, released),
+                                        G_TYPE_NONE, 0);
+    signals[RELEASED] = g_signal_new ("released",
+                                        G_TYPE_FROM_CLASS(object_class),
+                                        (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+                                        G_STRUCT_OFFSET (SPGradientSelectorClass, released),
+					NULL, NULL,
                                         gtk_marshal_NONE__NONE,
-                                        GTK_TYPE_NONE, 0);
-    signals[CHANGED] =  gtk_signal_new ("changed",
-                                        (GtkSignalRunType)(GTK_RUN_FIRST | GTK_RUN_NO_RECURSE),
-                                        GTK_CLASS_TYPE(object_class),
-                                        GTK_SIGNAL_OFFSET (SPGradientSelectorClass, changed),
+                                        G_TYPE_NONE, 0);
+    signals[CHANGED] =  g_signal_new ("changed",
+                                        G_TYPE_FROM_CLASS(object_class),
+                                        (GSignalFlags)(G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE),
+                                        G_STRUCT_OFFSET (SPGradientSelectorClass, changed),
+					NULL, NULL,
                                         gtk_marshal_NONE__NONE,
-                                        GTK_TYPE_NONE, 0);
+                                        G_TYPE_NONE, 0);
 
     object_class->destroy = sp_gradient_selector_destroy;
 }
@@ -137,7 +136,6 @@ static void sp_gradient_selector_init(SPGradientSelector *sel)
     GtkWidget *hb = gtk_hbox_new( FALSE, 0 );
     sel->nonsolid.push_back(hb);
     gtk_box_pack_start( GTK_BOX(sel), hb, FALSE, FALSE, 0 );
-    GtkTooltips *ttips = gtk_tooltips_new ();
 
     sel->add = gtk_button_new_with_label (_("Duplicate"));
     sel->nonsolid.push_back(sel->add);
@@ -159,33 +157,34 @@ static void sp_gradient_selector_init(SPGradientSelector *sel)
     gtk_widget_show(hb);
     gtk_box_pack_start( GTK_BOX(sel), hb, FALSE, FALSE, 0 );
 
-    sel->spread = gtk_option_menu_new();
+// The GtkComboBoxText API only appeared in Gtk 2.24 but Inkscape supports
+// builds for Gtk >= 2.20.
+// Older versions need to use now-deprecated parts of
+// the GtkComboBox API instead.
+#if GTK_CHECK_VERSION(2,24,0)
+    sel->spread = gtk_combo_box_text_new ();
+    gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (sel->spread), _("none"));
+    gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (sel->spread), _("reflected"));
+    gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (sel->spread), _("direct"));
+#else
+    sel->spread = gtk_combo_box_new_text ();
+    gtk_combo_box_append_text (GTK_COMBO_BOX (sel->spread), _("none"));
+    gtk_combo_box_append_text (GTK_COMBO_BOX (sel->spread), _("reflected"));
+    gtk_combo_box_append_text (GTK_COMBO_BOX (sel->spread), _("direct"));
+#endif
+
     sel->nonsolid.push_back(sel->spread);
     gtk_widget_show(sel->spread);
     gtk_box_pack_end( GTK_BOX(hb), sel->spread, FALSE, FALSE, 0 );
-    gtk_tooltips_set_tip( ttips, sel->spread,
+    gtk_widget_set_tooltip_text( sel->spread,
                           // TRANSLATORS: for info, see http://www.w3.org/TR/2000/CR-SVG-20000802/pservers.html#LinearGradientSpreadMethodAttribute
                           _("Whether to fill with flat color beyond the ends of the gradient vector "
                             "(spreadMethod=\"pad\"), or repeat the gradient in the same direction "
                             "(spreadMethod=\"repeat\"), or repeat the gradient in alternating opposite "
-                            "directions (spreadMethod=\"reflect\")"), NULL);
+                            "directions (spreadMethod=\"reflect\")"));
 
-    GtkWidget *m = gtk_menu_new();
-    GtkWidget *mi = gtk_menu_item_new_with_label(_("none"));
-    gtk_menu_append (GTK_MENU (m), mi);
-    g_object_set_data (G_OBJECT (mi), "gradientSpread", GUINT_TO_POINTER (SP_GRADIENT_SPREAD_PAD));
-    g_signal_connect (G_OBJECT (mi), "activate", G_CALLBACK (sp_gradient_selector_spread_activate), sel);
-    mi = gtk_menu_item_new_with_label (_("reflected"));
-    g_object_set_data (G_OBJECT (mi), "gradientSpread", GUINT_TO_POINTER (SP_GRADIENT_SPREAD_REFLECT));
-    g_signal_connect (G_OBJECT (mi), "activate", G_CALLBACK (sp_gradient_selector_spread_activate), sel);
-    gtk_menu_append (GTK_MENU (m), mi);
-    mi = gtk_menu_item_new_with_label (_("direct"));
-    g_object_set_data (G_OBJECT (mi), "gradientSpread", GUINT_TO_POINTER (SP_GRADIENT_SPREAD_REPEAT));
-    g_signal_connect (G_OBJECT (mi), "activate", G_CALLBACK (sp_gradient_selector_spread_activate), sel);
-    gtk_menu_append (GTK_MENU (m), mi);
-    gtk_widget_show_all (m);
-
-    gtk_option_menu_set_menu( GTK_OPTION_MENU(sel->spread), m );
+    g_signal_connect (G_OBJECT (sel->spread), "changed", 
+		    G_CALLBACK (sp_gradient_selector_spread_changed), sel);
 
     sel->spreadLbl = gtk_label_new( _("Repeat:") );
     sel->nonsolid.push_back(sel->spreadLbl);
@@ -213,7 +212,7 @@ sp_gradient_selector_new (void)
 {
     SPGradientSelector *sel;
 
-    sel = (SPGradientSelector*)gtk_type_new (SP_TYPE_GRADIENT_SELECTOR);
+    sel = (SPGradientSelector*)g_object_new (SP_TYPE_GRADIENT_SELECTOR, NULL);
 
     return (GtkWidget *) sel;
 }
@@ -242,8 +241,7 @@ void SPGradientSelector::setUnits(SPGradientUnits units)
 void SPGradientSelector::setSpread(SPGradientSpread spread)
 {
     gradientSpread = spread;
-
-    gtk_option_menu_set_history(GTK_OPTION_MENU(this->spread), gradientSpread);
+    gtk_combo_box_set_active (GTK_COMBO_BOX(this->spread), gradientSpread);
 }
 
 SPGradientUnits SPGradientSelector::getUnits()
@@ -360,7 +358,7 @@ sp_gradient_selector_add_vector_clicked (GtkWidget */*w*/, SPGradientSelector *s
         Inkscape::GC::release(stop);
     }
 
-    SP_DOCUMENT_DEFS(doc)->getRepr()->addChild(repr, NULL);
+    doc->getDefs()->getRepr()->addChild(repr, NULL);
 
     gr = (SPGradient *) doc->getObjectByRepr(repr);
     sp_gradient_vector_selector_set_gradient(
@@ -369,16 +367,12 @@ sp_gradient_selector_add_vector_clicked (GtkWidget */*w*/, SPGradientSelector *s
     Inkscape::GC::release(repr);
 }
 
-
-
 static void
-sp_gradient_selector_spread_activate (GtkWidget *widget, SPGradientSelector *sel)
+sp_gradient_selector_spread_changed (GtkComboBox *widget, SPGradientSelector *sel)
 {
-    sel->gradientSpread = (SPGradientSpread)GPOINTER_TO_UINT (g_object_get_data (G_OBJECT (widget), "gradientSpread"));
-
-    g_signal_emit (G_OBJECT (sel), signals[CHANGED], 0);
+	sel->gradientSpread = (SPGradientSpread) gtk_combo_box_get_active (GTK_COMBO_BOX(widget));
+	g_signal_emit (G_OBJECT (sel), signals[CHANGED], 0);
 }
-
 
 /*
   Local Variables:

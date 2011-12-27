@@ -33,6 +33,9 @@
 
 #include "select-context.h"
 #include "selection-chemistry.h"
+#ifdef WITH_DBUS
+#include "extension/dbus/document-interface.h"
+#endif
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "sp-root.h"
@@ -43,9 +46,10 @@
 #include "seltrans.h"
 #include "box3d.h"
 #include "display/sp-canvas.h"
-#include "display/nr-arena-item.h"
+#include "display/drawing-item.h"
 
 using Inkscape::DocumentUndo;
+
 
 static void sp_select_context_class_init(SPSelectContextClass *klass);
 static void sp_select_context_init(SPSelectContext *select_context);
@@ -69,7 +73,7 @@ static gint xp = 0, yp = 0; // where drag started
 static gint tolerance = 0;
 static bool within_tolerance = false;
 
-GtkType
+GType
 sp_select_context_get_type(void)
 {
     static GType type = 0;
@@ -394,6 +398,16 @@ sp_select_context_item_handler(SPEventContext *event_context, SPItem *item, GdkE
                     seltrans->stamp();
                     ret = TRUE;
                 }
+            } else if (get_group0_keyval (&event->key) == GDK_Tab) {
+                if (sc->dragging && sc->grabbed) {
+                    seltrans->getNextClosestPoint(false);
+                    ret = TRUE;
+                }
+            } else if (get_group0_keyval (&event->key) == GDK_ISO_Left_Tab) {
+                if (sc->dragging && sc->grabbed) {
+                    seltrans->getNextClosestPoint(true);
+                    ret = TRUE;
+                }
             }
             break;
 
@@ -414,7 +428,7 @@ sp_select_context_cycle_through_items(SPSelectContext *sc, Inkscape::Selection *
     if (!sc->cycling_cur_item)
         return;
 
-    NRArenaItem *arenaitem;
+    Inkscape::DrawingItem *arenaitem;
     SPDesktop *desktop = SP_EVENT_CONTEXT(sc)->desktop;
     SPItem *item = SP_ITEM(sc->cycling_cur_item->data);
 
@@ -422,7 +436,7 @@ sp_select_context_cycle_through_items(SPSelectContext *sc, Inkscape::Selection *
     if (!g_list_find(sc->cycling_items_selected_before, item) && selection->includes(item))
         selection->remove(item);
     arenaitem = item->get_arenaitem(desktop->dkey);
-    nr_arena_item_set_opacity (arenaitem, 0.3);
+    arenaitem->setOpacity(0.3);
 
     // Find next item and activate it
     GList *next;
@@ -438,7 +452,7 @@ sp_select_context_cycle_through_items(SPSelectContext *sc, Inkscape::Selection *
     sc->cycling_cur_item = next;
     item = SP_ITEM(sc->cycling_cur_item->data);
     arenaitem = item->get_arenaitem(desktop->dkey);
-    nr_arena_item_set_opacity (arenaitem, 1.0);
+    arenaitem->setOpacity(1.0);
 
     if (shift_pressed)
         selection->add(item);
@@ -527,8 +541,8 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
 
         case GDK_MOTION_NOTIFY:
         {
-        	tolerance = prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
-        	if (event->motion.state & GDK_BUTTON1_MASK && !event_context->space_panning) {
+            tolerance = prefs->getIntLimited("/options/dragtolerance/value", 0, 0, 100);
+            if ((event->motion.state & GDK_BUTTON1_MASK) && !event_context->space_panning) {
                 Geom::Point const motion_pt(event->motion.x, event->motion.y);
                 Geom::Point const p(desktop->w2d(motion_pt));
 
@@ -545,7 +559,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                 if (sc->button_press_ctrl || (sc->button_press_alt && !sc->button_press_shift && !selection->isEmpty())) {
                     // if it's not click and ctrl or alt was pressed (the latter with some selection
                     // but not with shift) we want to drag rather than rubberband
-                  	sc->dragging = TRUE;
+                    sc->dragging = TRUE;
                     gdk_window_set_cursor(GTK_WIDGET(sp_desktop_canvas(desktop))->window, CursorSelectDragging);
 
                     sp_canvas_force_full_redraw_after_interruptions(desktop->canvas, 5);
@@ -622,6 +636,9 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                         // item has been moved
                         seltrans->ungrab();
                         sc->moved = FALSE;
+#ifdef WITH_DBUS
+                        dbus_send_ping(desktop, sc->item);
+#endif
                     } else if (sc->item && !drag_escaped) {
                         // item has not been moved -> simply a click, do selecting
                         if (!selection->isEmpty()) {
@@ -788,10 +805,10 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     g_assert(sc->cycling_cur_item != NULL || sc->cycling_items == NULL);
                 } else {
                     // ... otherwise reset opacities for outdated items ...
-                    NRArenaItem *arenaitem;
+                    Inkscape::DrawingItem *arenaitem;
                     for(GList *l = sc->cycling_items_cmp; l != NULL; l = l->next) {
                         arenaitem = SP_ITEM(l->data)->get_arenaitem(desktop->dkey);
-                        nr_arena_item_set_opacity (arenaitem, 1.0);
+                        arenaitem->setOpacity(1.0);
                         //if (!shift_pressed && !g_list_find(sc->cycling_items_selected_before, SP_ITEM(l->data)) && selection->includes(SP_ITEM(l->data)))
                         if (!g_list_find(sc->cycling_items_selected_before, SP_ITEM(l->data)) && selection->includes(SP_ITEM(l->data)))
                             selection->remove(SP_ITEM(l->data));
@@ -810,7 +827,7 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                     for(GList *l = sc->cycling_items; l != NULL; l = l->next) {
                         item = SP_ITEM(l->data);
                         arenaitem = item->get_arenaitem(desktop->dkey);
-                        nr_arena_item_set_opacity (arenaitem, 0.3);
+                        arenaitem->setOpacity(0.3);
                         if (selection->includes(item)) {
                             // already selected items are stored separately, too
                             sc->cycling_items_selected_before = g_list_append(sc->cycling_items_selected_before, item);
@@ -867,8 +884,8 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
             }
 			}
 
-            gdouble const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000); // in px
-			gdouble const offset = prefs->getDoubleLimited("/options/defaultscale/value", 2, 0, 1000);
+            gdouble const nudge = prefs->getDoubleLimited("/options/nudgedistance/value", 2, 0, 1000, "px"); // in px
+			gdouble const offset = prefs->getDoubleLimited("/options/defaultscale/value", 2, 0, 1000, "px");
 			int const snaps = prefs->getInt("/options/rotationsnapsperpi/value", 12);
 
 			switch (get_group0_keyval (&event->key)) {
@@ -1085,10 +1102,10 @@ sp_select_context_root_handler(SPEventContext *event_context, GdkEvent *event)
                 if (alt) { // TODO: Should we have a variable like is_cycling or is it harmless to run this piece of code each time?
                     // quit cycle-selection and reset opacities
                     SPSelectContext *sc = SP_SELECT_CONTEXT(event_context);
-                    NRArenaItem *arenaitem;
+                    Inkscape::DrawingItem *arenaitem;
                     for (GList *l = sc->cycling_items; l != NULL; l = g_list_next(l)) {
                         arenaitem = SP_ITEM(l->data)->get_arenaitem(desktop->dkey);
-                        nr_arena_item_set_opacity (arenaitem, 1.0);
+                        arenaitem->setOpacity(1.0);
                     }
                     g_list_free(sc->cycling_items);
                     g_list_free(sc->cycling_items_selected_before);

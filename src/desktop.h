@@ -1,9 +1,7 @@
 #ifndef SEEN_SP_DESKTOP_H
 #define SEEN_SP_DESKTOP_H
 
-/** \file
- * SPDesktop: an editable view.
- *
+/*
  * Author:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   Frank Felfe <innerspace@iname.com>
@@ -27,8 +25,8 @@
 #include "config.h"
 #endif
 
-#include <gdk/gdkevents.h>
-#include <gtk/gtktypeutils.h>
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
 #include <stddef.h>
 #include <sigc++/sigc++.h>
 
@@ -46,10 +44,11 @@ struct SPCanvas;
 struct SPCanvasItem;
 struct SPCanvasGroup;
 struct SPEventContext;
-struct SPItem;
+class  SPItem;
 struct SPNamedView;
-struct SPObject;
+class  SPObject;
 struct SPStyle;
+typedef struct _DocumentInterface DocumentInterface;//struct DocumentInterface;
 
 namespace Gtk
 {
@@ -83,7 +82,31 @@ namespace Inkscape {
 }
 
 /**
- * Editable view.
+ * SPDesktop is a subclass of View, implementing an editable document
+ * canvas.  It is extensively used by many UI controls that need certain
+ * visual representations of their own.
+ *
+ * SPDesktop provides a certain set of SPCanvasItems, serving as GUI
+ * layers of different control objects. The one containing the whole
+ * document is the drawing layer. In addition to it, there are grid,
+ * guide, sketch and control layers. The sketch layer is used for
+ * temporary drawing objects, before the real objects in document are
+ * created. The control layer contains editing knots, rubberband and
+ * similar non-document UI objects.
+ *
+ * Each SPDesktop is associated with a SPNamedView node of the document
+ * tree.  Currently, all desktops are created from a single main named
+ * view, but in the future there may be support for different ones.
+ * SPNamedView serves as an in-document container for desktop-related
+ * data, like grid and guideline placement, snapping options and so on.
+ *
+ * Associated with each SPDesktop are the two most important editing
+ * related objects - SPSelection and SPEventContext.
+ *
+ * Sodipodi keeps track of the active desktop and invokes notification
+ * signals whenever it changes. UI elements can use these to update their
+ * display to the selection of the currently active editing window.
+ * (Lauris Kaplinski)
  *
  * @see \ref desktop-handles.h for desktop macros.
  */
@@ -98,7 +121,7 @@ public:
     SPEventContext            *event_context;
     Inkscape::LayerManager    *layer_manager;
     Inkscape::EventLog        *event_log;
-
+    DocumentInterface *dbus_document_interface;
     Inkscape::Display::TemporaryItemList *temporary_item_list;
     Inkscape::Display::SnapIndicator *snapindicator;
 
@@ -116,8 +139,9 @@ public:
     SPCSSAttr     *current;     ///< current style
     bool           _focusMode;  ///< Whether we're focused working or general working
 
-    GList *zooms_past;
-    GList *zooms_future;
+    std::list<Geom::Rect> zooms_past;
+    std::list<Geom::Rect> zooms_future;
+
     bool _quick_zoom_enabled; ///< Signifies that currently we're in quick zoom mode
     Geom::Rect _quick_zoom_stored_area;  ///< The area of the screen before quick zoom
     unsigned int dkey;
@@ -138,7 +162,7 @@ public:
 
 
     Inkscape::ObjectHierarchy *_layer_hierarchy;
-    gchar * _reconstruction_old_layer_id;
+    Glib::ustring _reconstruction_old_layer_id;
 
     sigc::signal<void, sp_verb_t>      _tool_changed;
     sigc::signal<void, SPObject *>     _layer_changed_signal;
@@ -185,7 +209,13 @@ public:
     Inkscape::Whiteboard::SessionManager* _whiteboard_session_manager;
 #endif
 
+    /**
+     * Return new desktop object.
+     * \pre namedview != NULL.
+     * \pre canvas != NULL.
+     */
     SPDesktop();
+
     void init (SPNamedView* nv, SPCanvas* canvas, Inkscape::UI::View::EditWidgetInterface *widget);
     virtual ~SPDesktop();
     void destroy();
@@ -211,25 +241,28 @@ public:
     Inkscape::RenderMode _display_mode;
     Inkscape::RenderMode getMode() const { return _display_mode; }
 
-    void _setDisplayColorMode(Inkscape::ColorRenderMode mode);
+    void _setDisplayColorMode(Inkscape::ColorMode mode);
     void setDisplayColorModeNormal() {
-        _setDisplayColorMode(Inkscape::COLORRENDERMODE_NORMAL);
+        _setDisplayColorMode(Inkscape::COLORMODE_NORMAL);
     }
     void setDisplayColorModeGrayscale() {
-        _setDisplayColorMode(Inkscape::COLORRENDERMODE_GRAYSCALE);
+        _setDisplayColorMode(Inkscape::COLORMODE_GRAYSCALE);
     }
 //    void setDisplayColorModePrintColorsPreview() {
-//        _setDisplayColorMode(Inkscape::COLORRENDERMODE_PRINT_COLORS_PREVIEW);
+//        _setDisplayColorMode(Inkscape::COLORMODE_PRINT_COLORS_PREVIEW);
 //    }
     void displayColorModeToggle();
-    Inkscape::ColorRenderMode _display_color_mode;
-    Inkscape::ColorRenderMode getColorMode() const { return _display_color_mode; }
+    Inkscape::ColorMode _display_color_mode;
+    Inkscape::ColorMode getColorMode() const { return _display_color_mode; }
 
     Inkscape::UI::Widget::Dock* getDock() { return _widget->getDock(); }
 
     void set_active (bool new_active);
+
+    // TODO look into making these return a more specific subclass:
     SPObject *currentRoot() const;
     SPObject *currentLayer() const;
+
     void setCurrentLayer(SPObject *object);
     void toggleLayerSolo(SPObject *object);
     SPObject *layerForObject(SPObject *object);
@@ -240,8 +273,8 @@ public:
     void activate_guides (bool activate);
     void change_document (SPDocument *document);
 
-    void set_event_context (GtkType type, const gchar *config);
-    void push_event_context (GtkType type, const gchar *config, unsigned int key);
+    void set_event_context (GType type, const gchar *config);
+    void push_event_context (GType type, const gchar *config, unsigned int key);
 
     void set_coordinate_status (Geom::Point p);
     SPItem *getItemFromListAtPointBottom(const GSList *list, Geom::Point const p) const;
@@ -288,6 +321,7 @@ public:
     void setWindowTransient (void* p, int transient_policy=1);
     Gtk::Window* getToplevel();
     void presentWindow();
+    bool showInfoDialog( Glib::ustring const &message );
     bool warnDialog (gchar *text);
     void toggleRulers();
     void toggleScrollbars();
@@ -354,7 +388,7 @@ private:
     bool grids_visible; /* don't set this variable directly, use the method below */
     void set_grids_visible(bool visible);
 
-    void push_current_zoom (GList**);
+    void push_current_zoom(std::list<Geom::Rect> &);
 
     sigc::signal<void,SPDesktop*,SPDocument*>     _document_replaced_signal;
     sigc::signal<void>                 _activate_signal;

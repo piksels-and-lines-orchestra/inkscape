@@ -1,6 +1,7 @@
-#ifndef __CSSREADER_H__
-#define __CSSREADER_H__
+#ifndef SEEN_CSSREADER_H
+#define SEEN_CSSREADER_H
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -8,7 +9,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -51,7 +53,11 @@ public:
     /**
      *
      */
-    CssReader()
+    CssReader() :
+            stylesheet(),
+            parsebuf(),
+            parselen(0),
+            lastPosition(0)
         {}
 
     /**
@@ -73,9 +79,10 @@ public:
 
 private:
 
+    CSSStyleSheet stylesheet;
     DOMString parsebuf;
     long parselen;
-    CSSStyleSheet stylesheet;
+    int lastPosition;
 
 
     /**
@@ -260,9 +267,6 @@ int getFunction(int p0);
  */
 int getHexColor(int p0);
 
-
-int lastPosition;
-
 /**
  * Get the column and row number of the given character position.
  * Also gets the last-occuring newline before the position
@@ -283,7 +287,7 @@ void getColumnAndRow(int p, int &col, int &row, int &lastNL);
 
 
 
-#endif /* __CSSREADER_H__ */
+#endif // SEEN_CSSREADER_H
 //#########################################################################
 //# E N D    O F    F I L E
 //#########################################################################

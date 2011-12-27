@@ -11,8 +11,8 @@
  * Hereby placed in public domain.
  */
 
-#include <gdk/gdktypes.h>
-#include <glib/gtypes.h>
+#include <gdk/gdk.h>
+#include <glib.h>
 
 inline bool
 mod_shift(guint const state)

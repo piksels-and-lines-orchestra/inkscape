@@ -1,9 +1,6 @@
 #ifndef SEEN_KNOT_HOLDER_ENTITY_H
 #define SEEN_KNOT_HOLDER_ENTITY_H
-
-/** \file
- * KnotHolderEntity definition.
- *
+/*
  * Authors:
  *   Mitsuru Oka <oka326@parkcity.ne.jp>
  *   Maximilian Albert <maximilian.albert@gmail.com>
@@ -17,12 +14,12 @@
  * Released under GNU GPL
  */
 
-#include <glib/gtypes.h>
+#include <glib.h>
 #include "knot.h"
 #include <2geom/forward.h>
 #include "snapper.h"
 
-struct SPItem;
+class  SPItem;
 struct SPKnot;
 
 class SPDesktop;
@@ -33,6 +30,9 @@ typedef Geom::Point (* SPKnotHolderGetFunc) (SPItem *item);
 /* fixme: Think how to make callbacks most sensitive (Lauris) */
 typedef void (* SPKnotHolderReleasedFunc) (SPItem *item);
 
+/**
+ * KnotHolderEntity definition.
+ */
 class KnotHolderEntity {
 public:
     KnotHolderEntity() {}

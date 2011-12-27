@@ -1,5 +1,6 @@
-/** @file
- * @brief Undo History dialog - implementation
+/**
+ * @file
+ * Undo History dialog - implementation.
  */
 /* Author:
  *   Gustav Broberg <broberg@kth.se>
@@ -14,7 +15,7 @@
 #endif
 
 #include <glibmm/i18n.h>
-#include <gtk/gtkimage.h>
+#include <gtk/gtk.h>
 #include <stddef.h>
 #include <sigc++/sigc++.h>
 

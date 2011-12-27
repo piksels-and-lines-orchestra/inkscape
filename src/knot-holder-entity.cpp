@@ -1,4 +1,4 @@
-/** \file
+/*
  * KnotHolderEntity definition.
  *
  * Authors:
@@ -20,7 +20,6 @@
 #include "style.h"
 #include "preferences.h"
 #include "macros.h"
-#include <libnr/nr-matrix-ops.h>
 #include "sp-pattern.h"
 #include "snap.h"
 #include "desktop.h"
@@ -76,9 +75,9 @@ KnotHolderEntity::~KnotHolderEntity()
 void
 KnotHolderEntity::update_knot()
 {
-    Geom::Affine const i2d(item->i2d_affine());
+    Geom::Affine const i2dt(item->i2dt_affine());
 
-    Geom::Point dp(knot_get() * i2d);
+    Geom::Point dp(knot_get() * i2dt);
 
     _moved_connection.block();
     sp_knot_set_position(knot, dp, SP_KNOT_STATE_NORMAL);
@@ -88,27 +87,26 @@ KnotHolderEntity::update_knot()
 Geom::Point
 KnotHolderEntity::snap_knot_position(Geom::Point const &p)
 {
-    Geom::Affine const i2d (item->i2d_affine());
-    Geom::Point s = p * i2d;
+    Geom::Affine const i2dt (item->i2dt_affine());
+    Geom::Point s = p * i2dt;
 
     SnapManager &m = desktop->namedview->snap_manager;
     m.setup(desktop, true, item);
     m.freeSnapReturnByRef(s, Inkscape::SNAPSOURCE_NODE_HANDLE);
     m.unSetup();
 
-    return s * i2d.inverse();
+    return s * i2dt.inverse();
 }
 
 Geom::Point
 KnotHolderEntity::snap_knot_position_constrained(Geom::Point const &p, Inkscape::Snapper::SnapConstraint const &constraint)
 {
-    Geom::Affine const i2d (item->i2d_affine());
+    Geom::Affine const i2d (item->i2dt_affine());
     Geom::Point s = p * i2d;
 
     SnapManager &m = desktop->namedview->snap_manager;
     m.setup(desktop, true, item);
 
-    Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     // constrainedSnap() will first project the point p onto the constraint line and then try to snap along that line.
     // This way the constraint is already enforced, no need to worry about that later on
     Inkscape::Snapper::SnapConstraint transformed_constraint = Inkscape::Snapper::SnapConstraint(constraint.getPoint() * i2d, (constraint.getPoint() + constraint.getDirection()) * i2d - constraint.getPoint() * i2d);

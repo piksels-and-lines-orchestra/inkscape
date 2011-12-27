@@ -1,5 +1,6 @@
-/** @file
- * @brief A dialog that displays log messages
+/**
+ * @file
+ * A dialog that displays log messages.
  */
 /* Authors:
  *   Bob Jamison
@@ -27,7 +28,7 @@ namespace UI {
 namespace Dialog {
 
 /**
- * @brief A very simple dialog for displaying Inkscape messages - implementation
+ * A very simple dialog for displaying Inkscape messages - implementation.
  */
 class DebugDialogImpl : public DebugDialog, public Gtk::Dialog
 {
@@ -153,6 +154,8 @@ void DebugDialog::showInstance()
 {
     DebugDialog *debugDialog = getInstance();
     debugDialog->show();
+    // this is not a real memleak because getInstance() only creates a debug dialog once, and returns that instance for all subsequent calls
+    // cppcheck-suppress memleak
 }
 
 

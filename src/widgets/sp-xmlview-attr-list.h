@@ -13,7 +13,6 @@
  */
 
 #include <stdio.h>
-#include <gtk/gtkctree.h>
 #include <gtk/gtk.h>
 #include "../xml/repr.h"
 
@@ -21,9 +20,9 @@
 
 
 #define SP_TYPE_XMLVIEW_ATTR_LIST (sp_xmlview_attr_list_get_type ())
-#define SP_XMLVIEW_ATTR_LIST(o) (GTK_CHECK_CAST ((o), SP_TYPE_XMLVIEW_ATTR_LIST, SPXMLViewAttrList))
-#define SP_IS_XMLVIEW_ATTR_LIST(o) (GTK_CHECK_TYPE ((o), SP_TYPE_XMLVIEW_ATTR_LIST))
-#define SP_XMLVIEW_ATTR_LIST_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), SP_TYPE_XMLVIEW_ATTR_LIST))
+#define SP_XMLVIEW_ATTR_LIST(o) (G_TYPE_CHECK_INSTANCE_CAST ((o), SP_TYPE_XMLVIEW_ATTR_LIST, SPXMLViewAttrList))
+#define SP_IS_XMLVIEW_ATTR_LIST(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), SP_TYPE_XMLVIEW_ATTR_LIST))
+#define SP_XMLVIEW_ATTR_LIST_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), SP_TYPE_XMLVIEW_ATTR_LIST))
 
 struct SPXMLViewAttrList
 {
@@ -39,7 +38,7 @@ struct SPXMLViewAttrListClass
 	void (* row_changed) (SPXMLViewAttrList *list, gint row);
 };
 
-GtkType sp_xmlview_attr_list_get_type (void);
+GType sp_xmlview_attr_list_get_type (void);
 GtkWidget * sp_xmlview_attr_list_new (Inkscape::XML::Node * repr);
 
 #define SP_XMLVIEW_ATTR_LIST_GET_REPR(list) (SP_XMLVIEW_ATTR_LIST (list)->repr)

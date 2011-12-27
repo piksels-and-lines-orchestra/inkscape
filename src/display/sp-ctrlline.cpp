@@ -19,14 +19,14 @@
  *
  */
 
-#include "sp-canvas-util.h"
-#include "sp-ctrlline.h"
-
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <color.h>
-#include "display/inkscape-cairo.h"
+
+#include "display/sp-ctrlline.h"
+#include "display/sp-canvas-util.h"
+#include "display/cairo-utils.h"
+#include "color.h"
 
 
 static void sp_ctrlline_class_init (SPCtrlLineClass *klass);
@@ -64,7 +64,7 @@ sp_ctrlline_class_init (SPCtrlLineClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     SPCanvasItemClass *item_class = (SPCanvasItemClass *) klass;
 
-    parent_class = (SPCanvasItemClass*)gtk_type_class (SP_TYPE_CANVAS_ITEM);
+    parent_class = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_ctrlline_destroy;
 
@@ -105,19 +105,15 @@ sp_ctrlline_render (SPCanvasItem *item, SPCanvasBuf *buf)
     if (cl->s == cl->e)
         return;
 
-    sp_canvas_prepare_buffer (buf);
-
-    guint32 rgba = cl->rgba;
-    cairo_set_source_rgba(buf->ct, SP_RGBA32_B_F(rgba), SP_RGBA32_G_F(rgba), SP_RGBA32_R_F(rgba), SP_RGBA32_A_F(rgba));
-
+    ink_cairo_set_source_rgba32(buf->ct, cl->rgba);
     cairo_set_line_width(buf->ct, 1);
     cairo_new_path(buf->ct);
 
     Geom::Point s = cl->s * cl->affine;
     Geom::Point e = cl->e * cl->affine;
 
-    cairo_move_to (buf->ct, s[Geom::X] - buf->rect.x0, s[Geom::Y] - buf->rect.y0);
-    cairo_line_to (buf->ct, e[Geom::X] - buf->rect.x0, e[Geom::Y] - buf->rect.y0);
+    cairo_move_to (buf->ct, s[Geom::X] - buf->rect.left(), s[Geom::Y] - buf->rect.top());
+    cairo_line_to (buf->ct, e[Geom::X] - buf->rect.left(), e[Geom::Y] - buf->rect.top());
 
     cairo_stroke(buf->ct);
 }

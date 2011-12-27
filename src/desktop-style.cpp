@@ -1,4 +1,4 @@
-/** \file
+/*
  * Desktop style management
  *
  * Authors:
@@ -28,7 +28,7 @@
 #include "filters/blend.h"
 #include "sp-filter.h"
 #include "sp-filter-reference.h"
-#include "sp-gaussian-blur.h"
+#include "filters/gaussian-blur.h"
 #include "sp-flowtext.h"
 #include "sp-flowregion.h"
 #include "sp-flowdiv.h"
@@ -46,6 +46,7 @@
 #include "desktop-style.h"
 #include "svg/svg-icc-color.h"
 #include "box3d-side.h"
+#include <2geom/math-utils.h>
 
 /**
  * Set color on selection on desktop.
@@ -288,7 +289,7 @@ sp_desktop_get_master_opacity_tool(SPDesktop *desktop, Glib::ustring const &tool
                 value = 1.0; // things failed. set back to the default
             } else {
                 if (has_opacity)
-                   *has_opacity = false;
+                   *has_opacity = true;
             }
         }
 
@@ -410,7 +411,7 @@ gdouble
 stroke_average_width (GSList const *objects)
 {
     if (g_slist_length ((GSList *) objects) == 0)
-        return NR_HUGE;
+        return Geom::infinity();
 
     gdouble avgwidth = 0.0;
     bool notstroked = true;
@@ -420,22 +421,24 @@ stroke_average_width (GSList const *objects)
         if (!SP_IS_ITEM (l->data))
             continue;
 
-        Geom::Affine i2d = SP_ITEM(l->data)->i2d_affine();
+        Geom::Affine i2dt = SP_ITEM(l->data)->i2dt_affine();
 
         SPObject *object = SP_OBJECT(l->data);
 
-        if ( object->style->stroke.isNone() ) {
+        double width = object->style->stroke_width.computed * i2dt.descrim();
+
+        if ( object->style->stroke.isNone() || IS_NAN(width)) {
             ++n_notstroked;   // do not count nonstroked objects
             continue;
         } else {
             notstroked = false;
         }
 
-        avgwidth += object->style->stroke_width.computed * i2d.descrim();
+        avgwidth += width;
     }
 
     if (notstroked)
-        return NR_HUGE;
+        return Geom::infinity();
 
     return avgwidth / (g_slist_length ((GSList *) objects) - n_notstroked);
 }
@@ -721,18 +724,19 @@ objects_query_strokewidth (GSList *objects, SPStyle *style_res)
             continue;
         }
 
-        n_stroked ++;
-
         noneSet &= style->stroke.isNone();
 
-        Geom::Affine i2d = SP_ITEM(obj)->i2d_affine();
+        Geom::Affine i2d = SP_ITEM(obj)->i2dt_affine();
         double sw = style->stroke_width.computed * i2d.descrim();
 
-        if (prev_sw != -1 && fabs(sw - prev_sw) > 1e-3)
-            same_sw = false;
-        prev_sw = sw;
+        if (!IS_NAN(sw)) {
+            if (prev_sw != -1 && fabs(sw - prev_sw) > 1e-3)
+                same_sw = false;
+            prev_sw = sw;
 
-        avgwidth += sw;
+            avgwidth += sw;
+            n_stroked ++;
+        }
     }
 
     if (n_stroked > 1)
@@ -945,6 +949,7 @@ objects_query_fontnumbers (GSList *objects, SPStyle *style_res)
     double linespacing_prev = 0;
 
     int texts = 0;
+    int no_size = 0;
 
     for (GSList const *i = objects; i != NULL; i = i->next) {
         SPObject *obj = SP_OBJECT (i->data);
@@ -961,7 +966,12 @@ objects_query_fontnumbers (GSList *objects, SPStyle *style_res)
         }
 
         texts ++;
-        size += style->font_size.computed * Geom::Affine(SP_ITEM(obj)->i2d_affine()).descrim(); /// \todo FIXME: we assume non-% units here
+        double dummy = style->font_size.computed * Geom::Affine(SP_ITEM(obj)->i2dt_affine()).descrim();
+        if (!IS_NAN(dummy)) {
+            size += dummy; /// \todo FIXME: we assume non-% units here
+        } else {
+            no_size++;
+        }
 
         if (style->letter_spacing.normal) {
             if (!different && (letterspacing_prev == 0 || letterspacing_prev == letterspacing)) {
@@ -1016,7 +1026,9 @@ objects_query_fontnumbers (GSList *objects, SPStyle *style_res)
         return QUERY_STYLE_NOTHING;
 
     if (texts > 1) {
-        size /= texts;
+        if (texts - no_size > 0) {
+            size /= (texts - no_size);
+        }
         letterspacing /= texts;
         wordspacing /= texts;
         linespacing /= texts;
@@ -1428,7 +1440,7 @@ objects_query_blur (GSList *objects, SPStyle *style_res)
             continue;
         }
 
-        Geom::Affine i2d = SP_ITEM(obj)->i2d_affine();
+        Geom::Affine i2d = SP_ITEM(obj)->i2dt_affine();
 
         items ++;
 
@@ -1444,12 +1456,15 @@ objects_query_blur (GSList *objects, SPStyle *style_res)
                     if(SP_IS_GAUSSIANBLUR(primitive)) {
                         SPGaussianBlur * spblur = SP_GAUSSIANBLUR(primitive);
                         float num = spblur->stdDeviation.getNumber();
-                        blur_sum += num * i2d.descrim();
-                        if (blur_prev != -1 && fabs (num - blur_prev) > 1e-2) // rather low tolerance because difference in blur radii is much harder to notice than e.g. difference in sizes
-                            same_blur = false;
-                        blur_prev = num;
-                        //TODO: deal with opt number, for the moment it's not necessary to the ui.
-                        blur_items ++;
+                        float dummy = num * i2d.descrim();
+                        if (!IS_NAN(dummy)) {
+                            blur_sum += dummy;
+                            if (blur_prev != -1 && fabs (num - blur_prev) > 1e-2) // rather low tolerance because difference in blur radii is much harder to notice than e.g. difference in sizes
+                                same_blur = false;
+                            blur_prev = num;
+                            //TODO: deal with opt number, for the moment it's not necessary to the ui.
+                            blur_items ++;
+                        }
                     }
                 }
                 primitive_obj = primitive_obj->next;

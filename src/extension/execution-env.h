@@ -17,12 +17,24 @@
 
 #include <gtkmm/dialog.h>
 
-#include "forward.h"
-#include "extension-forward.h"
 #include "extension.h"
 
 namespace Inkscape {
+
+namespace UI {
+namespace View {
+class View;
+} // namespace View
+} // namespace UI
+
 namespace Extension {
+
+class Effect;
+
+namespace  Implementation
+{
+class ImplementationDocumentCache;
+}
 
 class ExecutionEnv {
 private:

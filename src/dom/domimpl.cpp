@@ -1,4 +1,4 @@
-/**
+/*
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -2077,7 +2077,10 @@ void UserDataHandlerImpl::handle(unsigned short /*operation*/,
 /**
  *
  */
-DOMErrorImpl::DOMErrorImpl()
+DOMErrorImpl::DOMErrorImpl() :
+    severity(0),
+    message(),
+    type()
 {
 }
 
@@ -2183,7 +2186,13 @@ bool DOMErrorHandlerImpl::handleError(const DOMError *error)
 /**
  *
  */
-DOMLocatorImpl::DOMLocatorImpl()
+DOMLocatorImpl::DOMLocatorImpl() :
+    lineNumber(0),
+    columnNumber(0),
+    byteOffset(0),
+    utf16Offset(0),
+    relatedNode(0),
+    uri()
 {
 }
 

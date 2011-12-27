@@ -64,16 +64,22 @@ protected:
 #endif // ENABLE_LCMS
 
     void  external_scripts_list_button_release(GdkEventButton* event);
-    void  populate_external_scripts_box();
+    void  embedded_scripts_list_button_release(GdkEventButton* event);
+    void  populate_script_lists();
     void  addExternalScript();
+    void  addEmbeddedScript();
     void  removeExternalScript();
-    void  scripting_create_popup_menu(Gtk::Widget& parent, sigc::slot<void> rem);
+    void  removeEmbeddedScript();
+    void  changeEmbeddedScript();
+    void  editEmbeddedScript();
+    void  external_create_popup_menu(Gtk::Widget& parent, sigc::slot<void> rem);
+    void  embedded_create_popup_menu(Gtk::Widget& parent, sigc::slot<void> rem);
 
     void _handleDocumentReplaced(SPDesktop* desktop, SPDocument *document);
     void _handleActivateDesktop(Inkscape::Application *application, SPDesktop *desktop);
     void _handleDeactivateDesktop(Inkscape::Application *application, SPDesktop *desktop);
 
-    Inkscape::XML::SignalObserver _emb_profiles_observer, _ext_scripts_observer;
+    Inkscape::XML::SignalObserver _emb_profiles_observer, _scripts_observer;
     Gtk::Tooltips _tt;
     Gtk::Notebook  _notebook;
 
@@ -82,6 +88,11 @@ protected:
     UI::Widget::NotebookPage   _page_snap;
     UI::Widget::NotebookPage   _page_cms;
     UI::Widget::NotebookPage   _page_scripting;
+
+    Gtk::Notebook _scripting_notebook;
+    UI::Widget::NotebookPage _page_external_scripts;
+    UI::Widget::NotebookPage _page_embedded_scripts;
+
     Gtk::VBox      _grids_vbox;
 
     UI::Widget::Registry _wr;
@@ -95,13 +106,14 @@ protected:
     UI::Widget::PageSizer             _page_sizer;
     //---------------------------------------------------------------
     UI::Widget::RegisteredCheckButton _rcb_sgui;
-    UI::Widget::RegisteredCheckButton _rcbsng;
     UI::Widget::RegisteredColorPicker _rcp_gui;
     UI::Widget::RegisteredColorPicker _rcp_hgui;
     //---------------------------------------------------------------
     UI::Widget::ToleranceSlider       _rsu_sno;
     UI::Widget::ToleranceSlider       _rsu_sn;
     UI::Widget::ToleranceSlider       _rsu_gusn;
+    UI::Widget::RegisteredCheckButton _rcb_snclp;
+    UI::Widget::RegisteredCheckButton _rcb_snmsk;
     //---------------------------------------------------------------
     Gtk::Menu   _menu;
     Gtk::OptionMenu   _combo_avail;
@@ -122,6 +134,7 @@ protected:
 
     //---------------------------------------------------------------
     Gtk::Button         _add_btn;
+    Gtk::Button         _new_btn;
     class ExternalScriptsColumns : public Gtk::TreeModel::ColumnRecord
         {
         public:
@@ -130,11 +143,25 @@ protected:
             Gtk::TreeModelColumn<Glib::ustring> filenameColumn;
         };
     ExternalScriptsColumns _ExternalScriptsListColumns;
+    class EmbeddedScriptsColumns : public Gtk::TreeModel::ColumnRecord
+        {
+        public:
+            EmbeddedScriptsColumns()
+               { add(idColumn); }
+            Gtk::TreeModelColumn<Glib::ustring> idColumn;
+        };
+    EmbeddedScriptsColumns _EmbeddedScriptsListColumns;
     Glib::RefPtr<Gtk::ListStore> _ExternalScriptsListStore;
+    Glib::RefPtr<Gtk::ListStore> _EmbeddedScriptsListStore;
     Gtk::TreeView _ExternalScriptsList;
+    Gtk::TreeView _EmbeddedScriptsList;
     Gtk::ScrolledWindow _ExternalScriptsListScroller;
+    Gtk::ScrolledWindow _EmbeddedScriptsListScroller;
     Gtk::Menu _ExternalScriptsContextMenu;
+    Gtk::Menu _EmbeddedScriptsContextMenu;
     Gtk::Entry _script_entry;
+    Gtk::TextView _EmbeddedContent;
+    Gtk::ScrolledWindow _EmbeddedContentScroller;
     //---------------------------------------------------------------
 
     Gtk::Notebook   _grids_notebook;

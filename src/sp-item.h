@@ -19,14 +19,12 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 #include <vector>
-
-#include "display/nr-arena-forward.h"
-#include "sp-object.h"
-#include <2geom/affine.h>
-#include <libnr/nr-rect.h>
 #include <2geom/forward.h>
-#include <libnr/nr-convert2geom.h>
-#include <snap-preferences.h>
+#include <2geom/affine.h>
+#include <2geom/rect.h>
+
+#include "sp-object.h"
+#include "snap-preferences.h"
 #include "snap-candidate.h"
 
 class SPGuideConstraint;
@@ -34,7 +32,14 @@ struct SPClipPathReference;
 struct SPMaskReference;
 struct SPAvoidRef;
 struct SPPrintContext;
-namespace Inkscape { class URIReference;}
+
+namespace Inkscape {
+
+class Drawing;
+class DrawingItem;
+class URIReference;
+
+}
 
 enum {
     SP_EVENT_INVALID,
@@ -66,7 +71,7 @@ public:
     SPItemView *next;
     unsigned int flags;
     unsigned int key;
-    NRArenaItem *arenaitem;
+    Inkscape::DrawingItem *arenaitem;
 };
 
 /* flags */
@@ -88,7 +93,7 @@ public:
     /** Item to document transformation */
     Geom::Affine i2doc;
     /** Viewport size */
-    NRRect vp;
+    Geom::Rect viewport;
     /** Item to viewport transformation */
     Geom::Affine i2vp;
 };
@@ -112,15 +117,18 @@ public:
         // includes only the bare path bbox, no stroke, no nothing
         GEOMETRIC_BBOX,
         // includes everything: correctly done stroke (with proper miters and caps), markers, filter margins (e.g. blur)
-        RENDERING_BBOX
+        VISUAL_BBOX
     };
 
     unsigned int sensitive : 1;
     unsigned int stop_paint: 1;
+    mutable unsigned bbox_valid : 1;
     double transform_center_x;
     double transform_center_y;
+    bool freeze_stroke_width;
 
     Geom::Affine transform;
+    mutable Geom::OptRect doc_bbox;
 
     SPClipPathReference *clip_ref;
     SPMaskReference *mask_ref;
@@ -151,7 +159,7 @@ public:
 
     void setExplicitlyHidden(bool val);
 
-    void setCenter(Geom::Point object_centre);
+    void setCenter(Geom::Point const &object_centre);
     void unsetCenter();
     bool isCenterSet();
     Geom::Point getCenter() const;
@@ -167,41 +175,43 @@ public:
     void raiseToTop();
     void lowerToBottom();
 
-    Geom::OptRect getBounds(Geom::Affine const &transform, BBoxType type=APPROXIMATE_BBOX, unsigned int dkey=0) const;
-
-    sigc::connection _clip_ref_connection;
-    sigc::connection _mask_ref_connection;
-
     sigc::connection connectTransformed(sigc::slot<void, Geom::Affine const *, SPItem *> slot)  {
         return _transformed_signal.connect(slot);
     }
-    void invoke_bbox( Geom::OptRect &bbox, Geom::Affine const &transform, unsigned const clear, SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
-    void invoke_bbox( NRRect *bbox, Geom::Affine const &transform, unsigned const clear, SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX) __attribute__ ((deprecated));
-    void invoke_bbox_full( Geom::OptRect &bbox, Geom::Affine const &transform, unsigned const flags, unsigned const clear) const;
-    void invoke_bbox_full( NRRect *bbox, Geom::Affine const &transform, unsigned const flags, unsigned const clear) __attribute__ ((deprecated));
+
+    Geom::OptRect geometricBounds(Geom::Affine const &transform = Geom::identity()) const;
+    Geom::OptRect visualBounds(Geom::Affine const &transform = Geom::identity()) const;
+    Geom::OptRect bounds(BBoxType type, Geom::Affine const &transform = Geom::identity()) const;
+    Geom::OptRect documentGeometricBounds() const;
+    Geom::OptRect documentVisualBounds() const;
+    Geom::OptRect documentBounds(BBoxType type) const;
+    Geom::OptRect desktopGeometricBounds() const;
+    Geom::OptRect desktopVisualBounds() const;
+    Geom::OptRect desktopPreferredBounds() const;
+    Geom::OptRect desktopBounds(BBoxType type) const;
 
     unsigned pos_in_parent();
     gchar *description();
     void invoke_print(SPPrintContext *ctx);
     static unsigned int display_key_new(unsigned int numkeys);
-    NRArenaItem *invoke_show(NRArena *arena, unsigned int key, unsigned int flags);
+    Inkscape::DrawingItem *invoke_show(Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
     void invoke_hide(unsigned int key);
     void getSnappoints(std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs=0) const;
     void adjust_pattern(/* Geom::Affine const &premul, */ Geom::Affine const &postmul, bool set = false);
     void adjust_gradient(/* Geom::Affine const &premul, */ Geom::Affine const &postmul, bool set = false);
     void adjust_stroke(gdouble ex);
     void adjust_stroke_width_recursive(gdouble ex);
+    void freeze_stroke_width_recursive(bool freeze);
     void adjust_paint_recursive(Geom::Affine advertized_transform, Geom::Affine t_ancestors, bool is_pattern);
     void adjust_livepatheffect(Geom::Affine const &postmul, bool set = false);
     void doWriteTransform(Inkscape::XML::Node *repr, Geom::Affine const &transform, Geom::Affine const *adv = NULL, bool compensate = true);
     void set_item_transform(Geom::Affine const &transform_matrix);
     void convert_item_to_guides();
     gint emitEvent (SPEvent &event);
-    NRArenaItem *get_arenaitem(unsigned int key);
-    void getBboxDesktop(NRRect *bbox, SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX) __attribute__ ((deprecated));
-    Geom::OptRect getBboxDesktop(SPItem::BBoxType type = SPItem::APPROXIMATE_BBOX);
+    Inkscape::DrawingItem *get_arenaitem(unsigned int key);
+
     Geom::Affine i2doc_affine() const;
-    Geom::Affine i2d_affine() const;
+    Geom::Affine i2dt_affine() const;
     void set_i2d_affine(Geom::Affine const &transform);
     Geom::Affine dt2i_affine() const;
     void convert_to_guides();
@@ -226,7 +236,7 @@ private:
     static gchar *sp_item_private_description(SPItem *item);
     static void sp_item_private_snappoints(SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 
-    static SPItemView *sp_item_view_new_prepend(SPItemView *list, SPItem *item, unsigned flags, unsigned key, NRArenaItem *arenaitem);
+    static SPItemView *sp_item_view_new_prepend(SPItemView *list, SPItem *item, unsigned flags, unsigned key, Inkscape::DrawingItem *arenaitem);
     static SPItemView *sp_item_view_list_remove(SPItemView *list, SPItemView *view);
     static void clip_ref_changed(SPObject *old_clip, SPObject *clip, SPItem *item);
     static void mask_ref_changed(SPObject *old_clip, SPObject *clip, SPItem *item);
@@ -240,7 +250,7 @@ public:
     SPObjectClass parent_class;
 
     /** BBox union in given coordinate system */
-    void (* bbox) (SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+    Geom::OptRect (* bbox) (SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
 
     /** Printing method. Assumes ctm is set to item affine matrix */
     /* \todo Think about it, and maybe implement generic export method instead (Lauris) */
@@ -249,7 +259,7 @@ public:
     /** Give short description of item (for status display) */
     gchar * (* description) (SPItem * item);
 
-    NRArenaItem * (* show) (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+    Inkscape::DrawingItem * (* show) (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
     void (* hide) (SPItem *item, unsigned int key);
 
     /** Write to an iterator the points that should be considered for snapping

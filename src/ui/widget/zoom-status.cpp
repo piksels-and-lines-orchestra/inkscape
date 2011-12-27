@@ -1,7 +1,4 @@
-/** \file
- * Gtkmm facade/wrapper around zoom_status code that formerly lived
- * in desktop-widget.cpp
- *
+/*
  * Authors:
  *   Ralf Stephan <ralf@ark.in-berlin.de>
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -20,7 +17,6 @@
 #include "desktop.h"
 #include "desktop-handles.h"
 #include "widgets/spw-utilities.h"
-#include "libnr/nr-convert2geom.h"
 
 namespace Inkscape {
 namespace UI {

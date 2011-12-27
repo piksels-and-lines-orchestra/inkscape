@@ -13,13 +13,11 @@
  */
 
 #define SP_TYPE_BUTTON (sp_button_get_type ())
-#define SP_BUTTON(o) (GTK_CHECK_CAST ((o), SP_TYPE_BUTTON, SPButton))
-#define SP_IS_BUTTON(o) (GTK_CHECK_TYPE ((o), SP_TYPE_BUTTON))
+#define SP_BUTTON(o) (G_TYPE_CHECK_INSTANCE_CAST ((o), SP_TYPE_BUTTON, SPButton))
+#define SP_IS_BUTTON(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), SP_TYPE_BUTTON))
 
-#include <gtk/gtkwidget.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtktooltips.h>
-
+#include <gtk/gtk.h>
+#include <sigc++/sigc++.h>
 #include "helper/action.h"
 #include "icon-size.h"
 
@@ -40,7 +38,9 @@ struct SPButton {
 	unsigned int psize;
 	SPAction *action;
 	SPAction *doubleclick_action;
-	GtkTooltips *tooltips;
+
+	sigc::connection c_set_active;
+	sigc::connection c_set_sensitive;
 };
 
 struct SPButtonClass {
@@ -51,7 +51,7 @@ struct SPButtonClass {
 
 GType sp_button_get_type (void);
 
-GtkWidget *sp_button_new (Inkscape::IconSize size, SPButtonType type, SPAction *action, SPAction *doubleclick_action, GtkTooltips *tooltips);
+GtkWidget *sp_button_new (Inkscape::IconSize size, SPButtonType type, SPAction *action, SPAction *doubleclick_action);
 
 void sp_button_toggle_set_down (SPButton *button, gboolean down);
 
@@ -59,8 +59,7 @@ GtkWidget *sp_button_new_from_data (Inkscape::IconSize size,
 				    SPButtonType type,
 				    Inkscape::UI::View::View *view,
 				    const gchar *name,
-				    const gchar *tip,
-				    GtkTooltips *tooltips);
+				    const gchar *tip);
 
 
 

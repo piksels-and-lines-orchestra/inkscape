@@ -17,22 +17,12 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
-#include <glib/gutils.h>
 #include <glibmm/fileutils.h>
-#if GLIB_CHECK_VERSION(2,6,0)
-    #include <glib/gstdio.h>
-#endif
 #include <glibmm/ustring.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 
 #include "preferences.h"
 #include "sys.h"
-
-#ifdef WIN32
-// For now to get at is_os_wide().
-#include "extension/internal/win32.h"
-using Inkscape::Extension::Internal::PrintWin32;
-#endif // WIN32
 
 //#define INK_DUMP_FILENAME_CONV 1
 #undef INK_DUMP_FILENAME_CONV

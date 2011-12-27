@@ -1,5 +1,6 @@
-/** @file
- * @brief Implementation of the file dialog interfaces defined in filedialogimpl.h
+/**
+ * @file
+ * Implementation of the file dialog interfaces defined in filedialogimpl.h.
  */
 /* Authors:
  *   Bob Jamison
@@ -599,8 +600,9 @@ void FileDialogBaseGtk::cleanup( bool showConfirmed )
 {
     if (_dialogType != EXE_TYPES) {
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
-        if ( showConfirmed )
+        if ( showConfirmed ) {
             prefs->setBool( preferenceBase + "/enable_preview", previewCheckbox.get_active() );
+        }
     }
 }
 
@@ -611,6 +613,9 @@ void FileDialogBaseGtk::_previewEnabledCB()
     set_preview_widget_active(enabled);
     if ( enabled ) {
         _updatePreviewCallback();
+    } else {
+        // Clears out any current preview image.
+        svgPreview.showNoPreview();
     }
 }
 
@@ -622,6 +627,7 @@ void FileDialogBaseGtk::_previewEnabledCB()
 void FileDialogBaseGtk::_updatePreviewCallback()
 {
     Glib::ustring fileName = get_preview_filename();
+    bool enabled = previewCheckbox.get_active();
 
 #ifdef WITH_GNOME_VFS
     if ( fileName.empty() && gnome_vfs_initialized() ) {
@@ -629,11 +635,11 @@ void FileDialogBaseGtk::_updatePreviewCallback()
     }
 #endif
 
-    if (fileName.empty()) {
-        return;
+    if ( enabled && !fileName.empty() ) {
+        svgPreview.set(fileName, _dialogType);
+    } else {
+        svgPreview.showNoPreview();
     }
-
-    svgPreview.set(fileName, _dialogType);
 }
 
 
@@ -757,7 +763,7 @@ void FileOpenDialogImplGtk::createFilterMenu()
         Inkscape::Extension::db.get_input_list(extension_list);
 
         for (Inkscape::Extension::DB::InputList::iterator current_item = extension_list.begin();
-             current_item != extension_list.end(); current_item++)
+             current_item != extension_list.end(); ++current_item)
         {
             Inkscape::Extension::Input * imod = *current_item;
 
@@ -1081,7 +1087,7 @@ void FileSaveDialogImplGtk::createFileTypeMenu()
     knownExtensions.clear();
 
     for (Inkscape::Extension::DB::OutputList::iterator current_item = extension_list.begin();
-         current_item != extension_list.end(); current_item++)
+         current_item != extension_list.end(); ++current_item)
     {
         Inkscape::Extension::Output * omod = *current_item;
 
@@ -1336,7 +1342,7 @@ void FileExportDialogImpl::createFileTypeMenu()
     Inkscape::Extension::db.get_output_list(extension_list);
 
     for (Inkscape::Extension::DB::OutputList::iterator current_item = extension_list.begin();
-         current_item != extension_list.end(); current_item++)
+         current_item != extension_list.end(); ++current_item)
     {
         Inkscape::Extension::Output * omod = *current_item;
 

@@ -1,6 +1,4 @@
-/** \file
- * \brief
- *
+/*
  * Authors:
  *   Ralf Stephan <ralf@ark.in-berlin.de>
  *   Johan Engelen <j.b.c.engelen@utwente.nl>
@@ -61,9 +59,6 @@ public:
     }
 
     bool is_updating() {if (_wr) return _wr->isUpdating(); else return false;}
-
-    // provide automatic 'upcast' for ease of use. (do it 'dynamic_cast' instead of 'static' because who knows what W is)
-    operator const Gtk::Widget () { return dynamic_cast<Gtk::Widget*>(this); }
 
 protected:
     RegisteredWidget() : W() { construct(); }
@@ -350,6 +345,12 @@ public:
     // redefine setValue, because transform must be applied
     void setValue(Geom::Point const & p);
     void setValue(Geom::Point const & p, Geom::Point const & origin);
+
+    /**
+     * Changes the widgets text to polar coordinates. The SVG output will still be a normal carthesian vector.
+     * Careful: when calling getValue(), the return value's X-coord will be the angle, Y-value will be the distance/length. 
+     * After changing the coords type (polar/non-polar), the value has to be reset (setValue).
+     */
     void setPolarCoords(bool polar_coords = true);
 
 protected:

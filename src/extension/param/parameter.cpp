@@ -1,5 +1,5 @@
 /** @file
- * @brief Parameters for extensions.
+ * Parameters for extensions.
  */
 /* Author:
  *   Ted Gould <ted@gould.cx>
@@ -19,10 +19,6 @@
 # define ESCAPE_DOLLAR_COMMANDLINE
 #endif
 
-#include <gtkmm/adjustment.h>
-#include <gtkmm/box.h>
-#include <gtkmm/spinbutton.h>
-
 #include <xml/node.h>
 
 #include <extension/extension.h>
@@ -36,7 +32,6 @@
 #include "bool.h"
 #include "color.h"
 #include "description.h"
-#include "groupheader.h"
 #include "enum.h"
 #include "float.h"
 #include "int.h"
@@ -47,76 +42,52 @@
 namespace Inkscape {
 namespace Extension {
 
-/**
-    \return None
-    \brief  This function creates a parameter that can be used later.  This
-            is typically done in the creation of the extension and defined
-            in the XML file describing the extension (it's private so people
-            have to use the system) :)
-    \param  in_repr  The XML describing the parameter
-
-    This function first grabs all of the data out of the Repr and puts
-    it into local variables.  Actually, these are just pointers, and the
-    data is not duplicated so we need to be careful with it.  If there
-    isn't a name or a type in the XML, then no parameter is created as
-    the function just returns.
-
-    From this point on, we're pretty committed as we've allocated an
-    object and we're starting to fill it.  The name is set first, and
-    is created with a strdup to actually allocate memory for it.  Then
-    there is a case statement (roughly because strcmp requires 'ifs')
-    based on what type of parameter this is.  Depending which type it
-    is, the value is interpreted differently, but they are relatively
-    straight forward.  In all cases the value is set to the default
-    value from the XML and the type is set to the interpreted type.
-*/
-Parameter *
-Parameter::make (Inkscape::XML::Node * in_repr, Inkscape::Extension::Extension * in_ext)
+Parameter *Parameter::make(Inkscape::XML::Node *in_repr, Inkscape::Extension::Extension *in_ext)
 {
-    const char * name;
-    const char * type;
-    const char * guitext;
-    const char * desc;
-    const char * scope_str;
-    Parameter::_scope_t scope = Parameter::SCOPE_USER;
-	bool gui_hidden = false;
-	const char * gui_hide;
-	const char * gui_tip;
+    const char *name = in_repr->attribute("name");
+    const char *type = in_repr->attribute("type");
 
-    name = in_repr->attribute("name");
-    type = in_repr->attribute("type");
-    guitext = in_repr->attribute("gui-text");
-    if (guitext == NULL)
-        guitext = in_repr->attribute("_gui-text");
-    gui_tip = in_repr->attribute("gui-tip");
-    if (gui_tip == NULL)
-        gui_tip = in_repr->attribute("_gui-tip");
-    desc = in_repr->attribute("gui-description");
-    if (desc == NULL)
-        desc = in_repr->attribute("_gui-description");
-    scope_str = in_repr->attribute("scope");
-	gui_hide = in_repr->attribute("gui-hidden");
-	if (gui_hide != NULL) {
-		if (strcmp(gui_hide, "1") == 0 ||
-			strcmp(gui_hide, "true") == 0) {
-			gui_hidden = true;
-		}
-		/* else stays false */
-	}
-    const gchar* appearance = in_repr->attribute("appearance");
-
-    /* In this case we just don't have enough information */
-    if (name == NULL || type == NULL) {
+    // In this case we just don't have enough information
+    if (!name || !type) {
         return NULL;
     }
 
-    if (scope_str != NULL) {
-        if (!strcmp(scope_str, "user")) {
-            scope = Parameter::SCOPE_USER;
-        } else if (!strcmp(scope_str, "document")) {
-            scope = Parameter::SCOPE_DOCUMENT;
-        } else if (!strcmp(scope_str, "node")) {
-            scope = Parameter::SCOPE_NODE;
+    const char *guitext = in_repr->attribute("gui-text");
+    if (guitext == NULL) {
+        guitext = in_repr->attribute("_gui-text");
+    }
+    const char *gui_tip = in_repr->attribute("gui-tip");
+    if (gui_tip == NULL) {
+        gui_tip = in_repr->attribute("_gui-tip");
+    }
+    const char *desc = in_repr->attribute("gui-description");
+    if (desc == NULL) {
+        desc = in_repr->attribute("_gui-description");
+    }
+    bool gui_hidden = false;
+    {
+        const char *gui_hide = in_repr->attribute("gui-hidden");
+        if (gui_hide != NULL) {
+            if (strcmp(gui_hide, "1") == 0 ||
+                strcmp(gui_hide, "true") == 0) {
+                gui_hidden = true;
+            }
+            /* else stays false */
+        }
+    }
+    const gchar* appearance = in_repr->attribute("appearance");
+
+    Parameter::_scope_t scope = Parameter::SCOPE_USER;
+    {
+        const char *scope_str = in_repr->attribute("scope");
+        if (scope_str != NULL) {
+            if (!strcmp(scope_str, "user")) {
+                scope = Parameter::SCOPE_USER;
+            } else if (!strcmp(scope_str, "document")) {
+                scope = Parameter::SCOPE_DOCUMENT;
+            } else if (!strcmp(scope_str, "node")) {
+                scope = Parameter::SCOPE_NODE;
+            }
         }
     }
 
@@ -124,20 +95,30 @@ Parameter::make (Inkscape::XML::Node * in_repr, Inkscape::Extension::Extension *
     if (!strcmp(type, "boolean")) {
         param = new ParamBool(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
     } else if (!strcmp(type, "int")) {
-        param = new ParamInt(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
+        if (appearance && !strcmp(appearance, "full")) {
+            param = new ParamInt(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamInt::FULL);
+        } else {
+            param = new ParamInt(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamInt::MINIMAL);
+        }
     } else if (!strcmp(type, "float")) {
-        param = new ParamFloat(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
+        if (appearance && !strcmp(appearance, "full")) {
+            param = new ParamFloat(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamFloat::FULL);
+        } else {
+            param = new ParamFloat(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamFloat::MINIMAL);
+        }
     } else if (!strcmp(type, "string")) {
         param = new ParamString(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
-        const gchar * max_length = in_repr->attribute("max_length");
+        gchar const * max_length = in_repr->attribute("max_length");
         if (max_length != NULL) {
-        	ParamString * ps = dynamic_cast<ParamString *>(param);
-        	ps->setMaxLength(atoi(max_length));
+            ParamString * ps = dynamic_cast<ParamString *>(param);
+            ps->setMaxLength(atoi(max_length));
         }
     } else if (!strcmp(type, "description")) {
-        param = new ParamDescription(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
-    } else if (!strcmp(type, "groupheader")) {
-        param = new ParamGroupHeader(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);        
+        if (appearance && !strcmp(appearance, "header")) {
+            param = new ParamDescription(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamDescription::HEADER);
+        } else {
+            param = new ParamDescription(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr, ParamDescription::DESC);
+        }   
     } else if (!strcmp(type, "enum")) {
         param = new ParamComboBox(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
     } else if (!strcmp(type, "notebook")) {
@@ -152,82 +133,74 @@ Parameter::make (Inkscape::XML::Node * in_repr, Inkscape::Extension::Extension *
         param = new ParamColor(name, guitext, desc, scope, gui_hidden, gui_tip, in_ext, in_repr);
     }
 
-    /* Note: param could equal NULL */
+    // Note: param could equal NULL
     return param;
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-bool
-Parameter::get_bool (const SPDocument * doc, const Inkscape::XML::Node * node)
+bool Parameter::get_bool(SPDocument const *doc, Inkscape::XML::Node const *node) const
 {
-    ParamBool * boolpntr = dynamic_cast<ParamBool *>(this);
-    if (boolpntr == NULL)
+    ParamBool const *boolpntr = dynamic_cast<ParamBool const *>(this);
+    if (!boolpntr) {
         throw Extension::param_not_bool_param();
+    }
     return boolpntr->get(doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-int
-Parameter::get_int (const SPDocument * doc, const Inkscape::XML::Node * node)
+int Parameter::get_int(SPDocument const *doc, Inkscape::XML::Node const *node) const
 {
-    ParamInt * intpntr = dynamic_cast<ParamInt *>(this);
-    if (intpntr == NULL)
+    ParamInt const *intpntr = dynamic_cast<ParamInt const *>(this);
+    if (!intpntr) {
         throw Extension::param_not_int_param();
+    }
     return intpntr->get(doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-float
-Parameter::get_float (const SPDocument * doc, const Inkscape::XML::Node * node)
+float Parameter::get_float(SPDocument const *doc, Inkscape::XML::Node const *node) const
 {
-    ParamFloat * floatpntr = dynamic_cast<ParamFloat *>(this);
-    if (floatpntr == NULL)
+    ParamFloat const *floatpntr = dynamic_cast<ParamFloat const *>(this);
+    if (!floatpntr) {
         throw Extension::param_not_float_param();
+    }
     return floatpntr->get(doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-const gchar *
-Parameter::get_string (const SPDocument * doc, const Inkscape::XML::Node * node)
+gchar const *Parameter::get_string(SPDocument const *doc, Inkscape::XML::Node const *node) const
 {
-    ParamString * stringpntr = dynamic_cast<ParamString *>(this);
-    if (stringpntr == NULL)
+    ParamString const *stringpntr = dynamic_cast<ParamString const *>(this);
+    if (!stringpntr) {
         throw Extension::param_not_string_param();
+    }
     return stringpntr->get(doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-const gchar *
-Parameter::get_enum (const SPDocument * doc, const Inkscape::XML::Node * node)
+gchar const *Parameter::get_enum(SPDocument const *doc, Inkscape::XML::Node const *node) const
 {
-    ParamComboBox * param = dynamic_cast<ParamComboBox *>(this);
-    if (param == NULL)
+    ParamComboBox const *param = dynamic_cast<ParamComboBox const *>(this);
+    if (!param) {
         throw Extension::param_not_enum_param();
+    }
     return param->get(doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-gchar const *Parameter::get_optiongroup(SPDocument const * doc, Inkscape::XML::Node const * node)
+gchar const *Parameter::get_optiongroup(SPDocument const *doc, Inkscape::XML::Node const * node) const
 {
-    ParamRadioButton * param = dynamic_cast<ParamRadioButton *>(this);
+    ParamRadioButton const *param = dynamic_cast<ParamRadioButton const *>(this);
     if (!param) {
         throw Extension::param_not_optiongroup_param();
     }
     return param->get(doc, node);
 }
 
-guint32
-Parameter::get_color(const SPDocument* doc, const Inkscape::XML::Node* node)
+guint32 Parameter::get_color(const SPDocument* doc, Inkscape::XML::Node const *node) const
 {
-    ParamColor* param = dynamic_cast<ParamColor *>(this);
-    if (param == NULL)
+    ParamColor const *param = dynamic_cast<ParamColor const *>(this);
+    if (!param) {
         throw Extension::param_not_color_param();
+    }
     return param->get(doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-bool
-Parameter::set_bool (bool in, SPDocument * doc, Inkscape::XML::Node * node)
+bool Parameter::set_bool(bool in, SPDocument * doc, Inkscape::XML::Node * node)
 {
     ParamBool * boolpntr = dynamic_cast<ParamBool *>(this);
     if (boolpntr == NULL)
@@ -235,9 +208,7 @@ Parameter::set_bool (bool in, SPDocument * doc, Inkscape::XML::Node * node)
     return boolpntr->set(in, doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-int
-Parameter::set_int (int in, SPDocument * doc, Inkscape::XML::Node * node)
+int Parameter::set_int(int in, SPDocument * doc, Inkscape::XML::Node * node)
 {
     ParamInt * intpntr = dynamic_cast<ParamInt *>(this);
     if (intpntr == NULL)
@@ -245,7 +216,7 @@ Parameter::set_int (int in, SPDocument * doc, Inkscape::XML::Node * node)
     return intpntr->set(in, doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
+/** Wrapper to cast to the object and use it's function. */
 float
 Parameter::set_float (float in, SPDocument * doc, Inkscape::XML::Node * node)
 {
@@ -256,9 +227,9 @@ Parameter::set_float (float in, SPDocument * doc, Inkscape::XML::Node * node)
     return floatpntr->set(in, doc, node);
 }
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
-const gchar *
-Parameter::set_string (const gchar * in, SPDocument * doc, Inkscape::XML::Node * node)
+/** Wrapper to cast to the object and use it's function. */
+gchar const *
+Parameter::set_string (gchar const * in, SPDocument * doc, Inkscape::XML::Node * node)
 {
     ParamString * stringpntr = dynamic_cast<ParamString *>(this);
     if (stringpntr == NULL)
@@ -276,7 +247,7 @@ gchar const * Parameter::set_optiongroup( gchar const * in, SPDocument * doc, In
 }
 
 
-/** \brief  Wrapper to cast to the object and use it's function.  */
+/** Wrapper to cast to the object and use it's function. */
 guint32
 Parameter::set_color (guint32 in, SPDocument * doc, Inkscape::XML::Node * node)
 {
@@ -287,9 +258,15 @@ Parameter::set_color (guint32 in, SPDocument * doc, Inkscape::XML::Node * node)
 }
 
 
-/** \brief  Oop, now that we need a parameter, we need it's name.  */
-Parameter::Parameter (const gchar * name, const gchar * guitext, const gchar * desc, const Parameter::_scope_t scope, bool gui_hidden, const gchar * gui_tip, Inkscape::Extension::Extension * ext) :
-    extension(ext), _name(NULL), _desc(NULL), _scope(scope), _text(NULL), _gui_hidden(gui_hidden), _gui_tip(NULL)
+/** Oop, now that we need a parameter, we need it's name. */
+Parameter::Parameter(gchar const * name, gchar const * guitext, gchar const * desc, const Parameter::_scope_t scope, bool gui_hidden, gchar const * gui_tip, Inkscape::Extension::Extension * ext) :
+    _desc(0),
+    _scope(scope),
+    _text(0),
+    _gui_hidden(gui_hidden),
+    _gui_tip(0),
+    extension(ext),
+    _name(0)
 {
     if (name != NULL) {
         _name = g_strdup(name);
@@ -302,28 +279,53 @@ Parameter::Parameter (const gchar * name, const gchar * guitext, const gchar * d
         _gui_tip = g_strdup(gui_tip);
     }
 
-
-    if (guitext != NULL)
+    if (guitext != NULL) {
         _text = g_strdup(guitext);
-    else
+    } else {
         _text = g_strdup(name);
+    }
 
     return;
 }
 
-/** \brief  Just free the allocated name. */
-Parameter::~Parameter (void)
+/** Oop, now that we need a parameter, we need it's name. */
+Parameter::Parameter (gchar const * name, gchar const * guitext, Inkscape::Extension::Extension * ext) :
+    _desc(0),
+    _scope(Parameter::SCOPE_USER),
+    _text(0),
+    _gui_hidden(false),
+    _gui_tip(0),
+    extension(ext),
+    _name(0)
 {
-    g_free(_name);
-    g_free(_text);
-	g_free(_gui_tip);
-    g_free(_desc);
+    if (name != NULL) {
+        _name = g_strdup(name);
+    }
+    if (guitext != NULL) {
+        _text = g_strdup(guitext);
+    } else {
+        _text = g_strdup(name);
+    }
+
+    return;
 }
 
-/** \brief  Build the name to write the parameter from the extension's
-            ID and the name of this parameter. */
-gchar *
-Parameter::pref_name (void)
+Parameter::~Parameter(void)
+{
+    g_free(_name);
+    _name = 0;
+
+    g_free(_text);
+    _text = 0;
+
+    g_free(_gui_tip);
+    _gui_tip = 0;
+
+    g_free(_desc);
+    _desc = 0;
+}
+
+gchar *Parameter::pref_name(void) const
 {
     return g_strdup_printf("%s.%s", extension->get_id(), _name);
 }
@@ -349,7 +351,7 @@ Parameter::new_child (Inkscape::XML::Node * parent)
 Inkscape::XML::Node *Parameter::document_param_node(SPDocument * doc)
 {
     Inkscape::XML::Document *xml_doc = doc->getReprDoc();
-    Inkscape::XML::Node * defs = SP_DOCUMENT_DEFS(doc)->getRepr();
+    Inkscape::XML::Node * defs = doc->getDefs()->getRepr();
     Inkscape::XML::Node * params = NULL;
 
     GQuark const name_quark = g_quark_from_string("inkscape:extension-params");
@@ -374,50 +376,43 @@ Inkscape::XML::Node *Parameter::document_param_node(SPDocument * doc)
     return params;
 }
 
-/** \brief  Basically, if there is no widget pass a NULL. */
+/** Basically, if there is no widget pass a NULL. */
 Gtk::Widget *
 Parameter::get_widget (SPDocument * /*doc*/, Inkscape::XML::Node * /*node*/, sigc::signal<void> * /*changeSignal*/)
 {
     return NULL;
 }
 
-/** \brief  If I'm not sure which it is, just don't return a value. */
-void
-Parameter::string (std::string &/*string*/)
+/** If I'm not sure which it is, just don't return a value. */
+void Parameter::string(std::string &/*string*/) const
 {
-    return;
+    // TODO investigate clearing the target string.
 }
 
-void
-Parameter::string (std::list <std::string> &list)
+void Parameter::string(std::list <std::string> &list) const
 {
     std::string value;
     string(value);
-    if (value == "") {
-        return;
+    if (!value.empty()) {
+        std::string final;
+        final += "--";
+        final += name();
+        final += "=";
+        final += value;
+
+        list.insert(list.end(), final);
     }
-
-    std::string final;
-    final += "--";
-    final += name();
-    final += "=";
-    final += value;
-
-    list.insert(list.end(), final);
-    return;
 }
 
-/** \brief  All the code in Notebook::get_param to get the notebook content */
-Parameter *
-Parameter::get_param(const gchar * name)
+Parameter *Parameter::get_param(gchar const * /*name*/)
 {
     return NULL;
 }
 
 Glib::ustring const extension_pref_root = "/extensions/";
 
-}  /* namespace Extension */
-}  /* namespace Inkscape */
+}  // namespace Extension
+}  // namespace Inkscape
 
 /*
   Local Variables:

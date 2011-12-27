@@ -1,9 +1,6 @@
-#ifndef __UI_WIDGET_ZOOMSTATUS_H__
-#define __UI_WIDGET_ZOOMSTATUS_H__
-
-/** \file
- * Enhanced spinbutton.
- *
+#ifndef SEEN_UI_WIDGET_ZOOMSTATUS_H
+#define SEEN_UI_WIDGET_ZOOMSTATUS_H
+/*
  * Authors:
  *   Ralf Stephan <ralf@ark.in-berlin.de>
  *
@@ -13,7 +10,7 @@
  */
 
 #include <gtkmm/adjustment.h>
-#include <gtkmm/spinbutton.h>
+#include "ui/widget/spinbutton.h"
 
 struct SPDesktop;
 
@@ -22,7 +19,10 @@ namespace Inkscape {
     namespace UI {
         namespace Widget {
 
-class ZoomStatus : public Gtk::SpinButton
+/**
+ * Enhanced spinbutton.
+ */
+class ZoomStatus : public Inkscape::UI::Widget::SpinButton
 {
 public:
     ZoomStatus();
@@ -46,7 +46,7 @@ protected:
 } // namespace Inkscape
 
 
-#endif 
+#endif // SEEN_UI_WIDGET_ZOOMSTATUS_H
 
 
 /*

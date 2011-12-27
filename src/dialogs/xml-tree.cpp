@@ -1,5 +1,6 @@
-/** @file
- * @brief XML editor
+/**
+ * @file
+ * XML editor.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
@@ -66,7 +67,6 @@ static Inkscape::MessageStack *_message_stack = NULL;
 static Inkscape::MessageContext *_message_context = NULL;
 static sigc::connection _message_changed_connection;
 
-static GtkTooltips *tooltips = NULL;
 static GtkEditable *attr_name = NULL;
 static GtkTextView *attr_value = NULL;
 static SPXMLViewTree *tree = NULL;
@@ -149,8 +149,8 @@ static gboolean sp_xml_tree_key_press(GtkWidget *widget, GdkEventKey *event);
 
 static bool in_dt_coordsys(SPObject const &item);
 
-/*
- * \brief Sets the XML status bar when the tree is selected.
+/**
+ * Sets the XML status bar when the tree is selected.
  */
 void tree_reset_context()
 {
@@ -159,8 +159,8 @@ void tree_reset_context()
 }
 
 
-/*
- * \brief Sets the XML status bar, depending on which attr is selected.
+/**
+ * Sets the XML status bar, depending on which attr is selected.
  */
 void attr_reset_context(gint attr)
 {
@@ -190,12 +190,9 @@ void sp_xml_tree_dialog()
     if (dlg == NULL)
     { // very long block
 
-        GtkWidget *box, *sw, *paned, *toolbar, *button;
+        GtkWidget *box, *sw, *paned, *toolbar;
         GtkWidget *text_container, *attr_container, *attr_subpaned_container, *box2;
         GtkWidget *set_attr;
-
-        tooltips = gtk_tooltips_new();
-        gtk_tooltips_enable(tooltips);
 
         dlg = sp_window_new("", TRUE);
         Inkscape::Preferences *prefs = Inkscape::Preferences::get();
@@ -225,10 +222,10 @@ void sp_xml_tree_dialog()
         wd.stop = 0;
         g_signal_connect  ( G_OBJECT(INKSCAPE), "activate_desktop", G_CALLBACK(sp_transientize_callback), &wd );
 
-        gtk_signal_connect( GTK_OBJECT(dlg), "event", GTK_SIGNAL_FUNC(sp_dialog_event_handler), dlg );
+        g_signal_connect( G_OBJECT(dlg), "event", G_CALLBACK(sp_dialog_event_handler), dlg );
 
-        gtk_signal_connect( GTK_OBJECT(dlg), "destroy", G_CALLBACK(on_destroy), dlg);
-        gtk_signal_connect( GTK_OBJECT(dlg), "delete_event", G_CALLBACK(on_delete), dlg);
+        g_signal_connect( G_OBJECT(dlg), "destroy", G_CALLBACK(on_destroy), dlg);
+        g_signal_connect( G_OBJECT(dlg), "delete_event", G_CALLBACK(on_delete), dlg);
         g_signal_connect  ( G_OBJECT(INKSCAPE), "shut_down", G_CALLBACK(on_delete), dlg);
 
         g_signal_connect  ( G_OBJECT(INKSCAPE), "dialogs_hide", G_CALLBACK(sp_dialog_hide), dlg);
@@ -267,8 +264,8 @@ void sp_xml_tree_dialog()
         gtk_paned_pack1(GTK_PANED(paned), box, FALSE, FALSE);
 
         tree = SP_XMLVIEW_TREE(sp_xmlview_tree_new(NULL, NULL, NULL));
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(tree),
-                               _("Drag to reorder nodes"), NULL );
+        gtk_widget_set_tooltip_text( GTK_WIDGET(tree),
+                               _("Drag to reorder nodes") );
 
         g_signal_connect( G_OBJECT(tree), "tree_select_row",
                            G_CALLBACK(on_tree_select_row), NULL );
@@ -279,144 +276,226 @@ void sp_xml_tree_dialog()
         g_signal_connect_after( G_OBJECT(tree), "tree_move",
                                  G_CALLBACK(after_tree_move), NULL);
 
-        /* TODO: replace gtk_signal_connect_while_alive() with something
-         * else...
-         */
         toolbar = gtk_toolbar_new();
         gtk_toolbar_set_style(GTK_TOOLBAR(toolbar), GTK_TOOLBAR_ICONS);
         gtk_container_set_border_width(GTK_CONTAINER(toolbar), 0);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar),
-                NULL,
-                _("New element node"),
-                NULL,
-                sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                                    INKSCAPE_ICON_XML_ELEMENT_NEW ),
-                G_CALLBACK(cmd_new_element_node),
-                NULL);
+	GtkToolItem *xml_element_new_button = gtk_tool_button_new (
+			sp_icon_new (Inkscape::ICON_SIZE_LARGE_TOOLBAR,
+				INKSCAPE_ICON("xml-element-new")),
+				NULL);
 
-        gtk_signal_connect_while_alive( GTK_OBJECT(tree),
+	g_signal_connect (G_OBJECT(xml_element_new_button),
+			"clicked",
+			G_CALLBACK(cmd_new_element_node),
+			NULL);
+
+	gtk_widget_set_tooltip_text (GTK_WIDGET(xml_element_new_button), 
+			_("New element node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), xml_element_new_button, -1);
+
+        g_signal_connect_object (G_OBJECT(tree),
                         "tree_select_row",
                         G_CALLBACK(on_tree_select_row_enable_if_element),
-                        button,
-                        GTK_OBJECT(button));
+                        xml_element_new_button,
+                        (GConnectFlags)0);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree),
+        g_signal_connect_object (G_OBJECT(tree),
                         "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button,
-                        GTK_OBJECT(button));
+                        xml_element_new_button,
+                        (GConnectFlags)0);
 
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(xml_element_new_button), FALSE);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar),
-                NULL, _("New text node"), NULL,
-                sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                             INKSCAPE_ICON_XML_TEXT_NEW ),
-                G_CALLBACK(cmd_new_text_node),
-                NULL);
+	GtkToolItem *xml_text_new_button = gtk_tool_button_new (
+			sp_icon_new (Inkscape::ICON_SIZE_LARGE_TOOLBAR,
+				INKSCAPE_ICON("xml-text-new")),
+			NULL);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree),
+	g_signal_connect (G_OBJECT(xml_text_new_button),
+			"clicked",
+			G_CALLBACK(cmd_new_text_node),
+			NULL);
+	
+	gtk_widget_set_tooltip_text (GTK_WIDGET(xml_text_new_button),
+			_("New text node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), xml_text_new_button, -1);
+
+        g_signal_connect_object(G_OBJECT(tree),
                         "tree_select_row",
                         G_CALLBACK(on_tree_select_row_enable_if_element),
-                        button,
-                        GTK_OBJECT(button));
+                        xml_text_new_button,
+			(GConnectFlags)0);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree),
+        g_signal_connect_object(G_OBJECT(tree),
                         "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button,
-                        GTK_OBJECT(button));
+                        xml_text_new_button,
+			(GConnectFlags)0);
 
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(xml_text_new_button), FALSE);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar),
-                NULL, _("Duplicate node"), NULL,
-                sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                             INKSCAPE_ICON_XML_NODE_DUPLICATE ),
-                G_CALLBACK(cmd_duplicate_node),
-                NULL);
+        GtkToolItem *xml_node_duplicate_button = gtk_tool_button_new (
+			sp_icon_new (Inkscape::ICON_SIZE_LARGE_TOOLBAR,
+				INKSCAPE_ICON("xml-node-duplicate")),
+			NULL);
+	
+	g_signal_connect (G_OBJECT(xml_node_duplicate_button),
+			"clicked",
+			G_CALLBACK(cmd_duplicate_node),
+			NULL);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree),
+	gtk_widget_set_tooltip_text (GTK_WIDGET(xml_node_duplicate_button),
+			_("Duplicate node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), xml_node_duplicate_button, -1);
+
+	g_signal_connect_object(G_OBJECT(tree),
                         "tree_select_row",
                         G_CALLBACK(on_tree_select_row_enable_if_mutable),
-                        button,
-                        GTK_OBJECT(button));
+                        xml_node_duplicate_button,
+			(GConnectFlags)0);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button, GTK_OBJECT(button));
+                        xml_node_duplicate_button,
+			(GConnectFlags)0);
 
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(xml_node_duplicate_button), FALSE);
 
-        gtk_toolbar_append_space(GTK_TOOLBAR(toolbar));
+	GtkToolItem *separator = gtk_separator_tool_item_new ();
+	gtk_separator_tool_item_set_draw (GTK_SEPARATOR_TOOL_ITEM(separator), FALSE);
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), separator, -1);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar),
-                NULL, Q_("nodeAsInXMLdialogTooltip|Delete node"), NULL,
-                sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                             INKSCAPE_ICON_XML_NODE_DELETE ),
-                                           G_CALLBACK(cmd_delete_node), NULL );
+	GtkToolItem *xml_node_delete_button = gtk_tool_button_new (
+			sp_icon_new (Inkscape::ICON_SIZE_LARGE_TOOLBAR,
+				INKSCAPE_ICON ("xml-node-delete")),
+			NULL);
+	
+	g_signal_connect (G_OBJECT(xml_node_delete_button),
+			"clicked",
+			G_CALLBACK(cmd_delete_node),
+			NULL);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+	gtk_widget_set_tooltip_text (GTK_WIDGET(xml_node_delete_button),
+			Q_("nodeAsInXMLdialogTooltip|Delete node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), xml_node_delete_button, -1);
+
+        g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                         G_CALLBACK(on_tree_select_row_enable_if_mutable),
-                        button, GTK_OBJECT(button));
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+                        xml_node_delete_button,
+			(GConnectFlags)0);
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button, GTK_OBJECT(button));
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+                        xml_node_delete_button,
+			(GConnectFlags)0);
+        gtk_widget_set_sensitive(GTK_WIDGET(xml_node_delete_button), FALSE);
 
-        gtk_toolbar_append_space(GTK_TOOLBAR(toolbar));
+	GtkToolItem *separator2 = gtk_separator_tool_item_new ();
+	gtk_separator_tool_item_set_draw (GTK_SEPARATOR_TOOL_ITEM(separator2), FALSE);
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), separator2, -1);
 
-        button = gtk_toolbar_append_item( GTK_TOOLBAR(toolbar), "<",
-                        _("Unindent node"), NULL,
-                        gtk_arrow_new(GTK_ARROW_LEFT, GTK_SHADOW_IN),
-                        G_CALLBACK(cmd_unindent_node), NULL);
+	GtkToolItem *unindent_node_button = gtk_tool_button_new (
+			gtk_arrow_new (GTK_ARROW_LEFT, GTK_SHADOW_IN),
+			"<");
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+	g_signal_connect (G_OBJECT(unindent_node_button),
+			"clicked",
+			G_CALLBACK(cmd_unindent_node),
+			NULL);
+	
+	gtk_widget_set_tooltip_text (GTK_WIDGET(unindent_node_button),
+			_("Unindent node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), unindent_node_button, -1);
+
+        g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                     G_CALLBACK(on_tree_select_row_enable_if_has_grandparent),
-                    button, GTK_OBJECT(button));
+                    unindent_node_button,
+		    (GConnectFlags)0);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button, GTK_OBJECT(button));
+                        unindent_node_button,
+			(GConnectFlags)0);
 
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(unindent_node_button), FALSE);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar), ">",
-                        _("Indent node"), NULL,
-                        gtk_arrow_new(GTK_ARROW_RIGHT, GTK_SHADOW_IN),
-                        G_CALLBACK(cmd_indent_node), NULL);
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+	GtkToolItem *indent_node_button = gtk_tool_button_new (
+			gtk_arrow_new (GTK_ARROW_RIGHT, GTK_SHADOW_IN),
+			">");
+
+	g_signal_connect (G_OBJECT(indent_node_button),
+			"clicked",
+			G_CALLBACK(cmd_indent_node),
+			NULL);
+	
+	gtk_widget_set_tooltip_text (GTK_WIDGET(indent_node_button),
+			_("Indent node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), indent_node_button, -1);
+
+	g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                         G_CALLBACK(on_tree_select_row_enable_if_indentable),
-                        button, GTK_OBJECT(button));
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+                        indent_node_button,
+			(GConnectFlags)0);
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                        (GCallback) on_tree_unselect_row_disable,
-                        button, GTK_OBJECT(button));
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+                        indent_node_button,
+			(GConnectFlags)0);
+        gtk_widget_set_sensitive(GTK_WIDGET(indent_node_button), FALSE);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar), "^",
-                        _("Raise node"), NULL,
-                        gtk_arrow_new(GTK_ARROW_UP, GTK_SHADOW_IN),
-                        G_CALLBACK(cmd_raise_node), NULL);
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+	GtkToolItem *raise_node_button = gtk_tool_button_new (
+			gtk_arrow_new (GTK_ARROW_UP, GTK_SHADOW_IN),
+			"^");
+	
+	g_signal_connect (G_OBJECT(raise_node_button),
+			"clicked",
+			G_CALLBACK(cmd_raise_node),
+			NULL);
+	
+	gtk_widget_set_tooltip_text (GTK_WIDGET (raise_node_button),
+			_("Raise node"));
+	
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), raise_node_button, -1);
+
+	g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                     G_CALLBACK(on_tree_select_row_enable_if_not_first_child),
-                    button, GTK_OBJECT(button));
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+                    raise_node_button,
+		    (GConnectFlags)0);
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button, GTK_OBJECT(button));
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+                        raise_node_button,
+			(GConnectFlags)0);
+        gtk_widget_set_sensitive(GTK_WIDGET(raise_node_button), FALSE);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar), "v",
-                        _("Lower node"), NULL,
-                        gtk_arrow_new(GTK_ARROW_DOWN, GTK_SHADOW_IN),
-                        G_CALLBACK(cmd_lower_node), NULL);
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+	GtkToolItem *lower_node_button = gtk_tool_button_new (
+			gtk_arrow_new (GTK_ARROW_DOWN, GTK_SHADOW_IN),
+			"v");
+
+	g_signal_connect (G_OBJECT(lower_node_button),
+			"clicked",
+			G_CALLBACK(cmd_lower_node),
+			NULL);
+	
+	gtk_widget_set_tooltip_text (GTK_WIDGET (lower_node_button),
+			_("Lower node"));
+
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), lower_node_button, -1);
+
+        g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                         G_CALLBACK(on_tree_select_row_enable_if_not_last_child),
-                        button, GTK_OBJECT(button));
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+                        lower_node_button,
+			(GConnectFlags)0);
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                         G_CALLBACK(on_tree_unselect_row_disable),
-                        button, GTK_OBJECT(button));
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+                        lower_node_button,
+			(GConnectFlags)0);
+        gtk_widget_set_sensitive(GTK_WIDGET(lower_node_button), FALSE);
 
         gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, TRUE, 0);
 
@@ -424,7 +503,7 @@ void sp_xml_tree_dialog()
         gtk_scrolled_window_set_policy( GTK_SCROLLED_WINDOW(sw),
                                          GTK_POLICY_AUTOMATIC,
                                          GTK_POLICY_AUTOMATIC );
-        gtk_box_pack_start(GTK_BOX(box), sw, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(box), sw, TRUE, TRUE, 0);
 
         gtk_container_add(GTK_CONTAINER(sw), GTK_WIDGET(tree));
 
@@ -451,25 +530,37 @@ void sp_xml_tree_dialog()
         gtk_toolbar_set_style(GTK_TOOLBAR(toolbar), GTK_TOOLBAR_ICONS);
         gtk_container_set_border_width(GTK_CONTAINER(toolbar), 0);
 
-        button = gtk_toolbar_append_item(GTK_TOOLBAR(toolbar),
-                NULL, _("Delete attribute"), NULL,
-                sp_icon_new( Inkscape::ICON_SIZE_LARGE_TOOLBAR,
-                             INKSCAPE_ICON_XML_ATTRIBUTE_DELETE ),
-               (GCallback) cmd_delete_attr, NULL);
+	GtkToolItem* xml_attribute_delete_button = gtk_tool_button_new (
+			sp_icon_new (Inkscape::ICON_SIZE_LARGE_TOOLBAR,
+				INKSCAPE_ICON ("xml-attribute-delete")),
+				NULL);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(attributes), "select_row",
-                       (GCallback) on_attr_select_row_enable, button,
-                        GTK_OBJECT(button));
+	g_signal_connect (G_OBJECT(xml_attribute_delete_button),
+			"clicked",
+			G_CALLBACK(cmd_delete_attr),
+			NULL);
+	
+	gtk_widget_set_tooltip_text (GTK_WIDGET(xml_attribute_delete_button),
+			_("Delete attribute"));
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(attributes), "unselect_row",
-                       (GCallback) on_attr_unselect_row_disable, button,
-                        GTK_OBJECT(button));
+	gtk_toolbar_insert (GTK_TOOLBAR(toolbar), xml_attribute_delete_button, -1);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
-                       (GCallback) on_tree_unselect_row_disable, button,
-                        GTK_OBJECT(button));
+        g_signal_connect_object(G_OBJECT(attributes), "select_row",
+                       (GCallback) on_attr_select_row_enable, 
+		       xml_attribute_delete_button,
+                        (GConnectFlags)0);
 
-        gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+        g_signal_connect_object(G_OBJECT(attributes), "unselect_row",
+                       (GCallback) on_attr_unselect_row_disable, 
+		       xml_attribute_delete_button,
+                        (GConnectFlags)0);
+
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
+                       (GCallback) on_tree_unselect_row_disable, 
+		       xml_attribute_delete_button,
+                        (GConnectFlags)0);
+
+        gtk_widget_set_sensitive(GTK_WIDGET(xml_attribute_delete_button), FALSE);
 
         gtk_box_pack_start( GTK_BOX(attr_container),
                              GTK_WIDGET(toolbar), FALSE, TRUE, 0 );
@@ -495,19 +586,19 @@ void sp_xml_tree_dialog()
                              FALSE, TRUE, 0);
 
         attr_name = GTK_EDITABLE(gtk_entry_new());
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(attr_name),
+        gtk_widget_set_tooltip_text( GTK_WIDGET(attr_name),
                                // TRANSLATORS: "Attribute" is a noun here
-                               _("Attribute name"), NULL );
+                               _("Attribute name") );
 
-        gtk_signal_connect( GTK_OBJECT(attributes), "select_row",
+        g_signal_connect( G_OBJECT(attributes), "select_row",
                             (GCallback) on_attr_select_row_set_name_content,
                              attr_name);
 
-        gtk_signal_connect( GTK_OBJECT(attributes), "unselect_row",
+        g_signal_connect( G_OBJECT(attributes), "unselect_row",
                             (GCallback) on_attr_unselect_row_clear_text,
                              attr_name);
 
-        gtk_signal_connect( GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect( G_OBJECT(tree), "tree_unselect_row",
                             (GCallback) on_tree_unselect_row_clear_text,
                              attr_name);
 
@@ -515,16 +606,16 @@ void sp_xml_tree_dialog()
                              TRUE, TRUE, 0);
 
         set_attr = gtk_button_new();
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(set_attr),
+        gtk_widget_set_tooltip_text( GTK_WIDGET(set_attr),
                                // TRANSLATORS: "Set" is a verb here
-                               _("Set attribute"), NULL );
+                               _("Set attribute") );
         // TRANSLATORS: "Set" is a verb here
         GtkWidget *set_label = gtk_label_new(_("Set"));
         gtk_container_add(GTK_CONTAINER(set_attr), set_label);
 
-        gtk_signal_connect( GTK_OBJECT(set_attr), "clicked",
+        g_signal_connect( G_OBJECT(set_attr), "clicked",
                             (GCallback) cmd_set_attr, NULL);
-        gtk_signal_connect( GTK_OBJECT(attr_name), "changed",
+        g_signal_connect( G_OBJECT(attr_name), "changed",
                    (GCallback) on_editable_changed_enable_if_valid_xml_name,
                     set_attr );
         gtk_widget_set_sensitive(GTK_WIDGET(set_attr), FALSE);
@@ -540,16 +631,16 @@ void sp_xml_tree_dialog()
 
         attr_value =(GtkTextView *) gtk_text_view_new();
         gtk_text_view_set_wrap_mode((GtkTextView *) attr_value, GTK_WRAP_CHAR);
-        gtk_tooltips_set_tip( tooltips, GTK_WIDGET(attr_value),
+        gtk_widget_set_tooltip_text( GTK_WIDGET(attr_value),
                                // TRANSLATORS: "Attribute" is a noun here
-                               _("Attribute value"), NULL );
-        gtk_signal_connect( GTK_OBJECT(attributes), "select_row",
+                               _("Attribute value") );
+        g_signal_connect( G_OBJECT(attributes), "select_row",
                             (GCallback) on_attr_select_row_set_value_content,
                              attr_value );
-        gtk_signal_connect( GTK_OBJECT(attributes), "unselect_row",
+        g_signal_connect( G_OBJECT(attributes), "unselect_row",
                             (GCallback) on_attr_unselect_row_clear_text,
                              attr_value );
-        gtk_signal_connect( GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect( G_OBJECT(tree), "tree_unselect_row",
                             (GCallback) on_tree_unselect_row_clear_text,
                              attr_value );
         gtk_text_view_set_editable(attr_value, TRUE);
@@ -577,23 +668,27 @@ void sp_xml_tree_dialog()
 
         gtk_widget_show_all(GTK_WIDGET(dlg));
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+        g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                        (GCallback) on_tree_select_row_show_if_element,
-                        attr_container, GTK_OBJECT(attr_container));
+                        attr_container,
+			(GConnectFlags)0);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                        (GCallback) on_tree_unselect_row_hide,
-                        attr_container, GTK_OBJECT(attr_container));
+                        attr_container,
+			(GConnectFlags)0);
 
         gtk_widget_hide(attr_container);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_select_row",
+        g_signal_connect_object(G_OBJECT(tree), "tree_select_row",
                        (GCallback) on_tree_select_row_show_if_text,
-                        text_container, GTK_OBJECT(text_container));
+                        text_container,
+			(GConnectFlags)0);
 
-        gtk_signal_connect_while_alive(GTK_OBJECT(tree), "tree_unselect_row",
+        g_signal_connect_object(G_OBJECT(tree), "tree_unselect_row",
                        (GCallback) on_tree_unselect_row_hide,
-                        text_container, GTK_OBJECT(text_container));
+                        text_container,
+			(GConnectFlags)0);
 
         gtk_widget_hide(text_container);
 
@@ -895,8 +990,6 @@ void after_tree_move(GtkCTree */*tree*/,
 static void on_destroy(GtkObject */*object*/, gpointer /*data*/)
 {
     set_tree_desktop(NULL);
-    gtk_object_destroy(GTK_OBJECT(tooltips));
-    tooltips = NULL;
     sp_signal_disconnect_by_data(INKSCAPE, dlg);
     wd.win = dlg = NULL;
     wd.stop = 0;
@@ -1323,12 +1416,12 @@ void cmd_new_element_node(GtkObject */*object*/, gpointer /*data*/)
     window = sp_window_new(NULL, TRUE);
     gtk_container_set_border_width(GTK_CONTAINER(window), 4);
     gtk_window_set_title(GTK_WINDOW(window), _("New element node..."));
-    gtk_window_set_policy(GTK_WINDOW(window), FALSE, FALSE, TRUE);
+    gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(dlg));
     gtk_window_set_modal(GTK_WINDOW(window), TRUE);
-    gtk_signal_connect(GTK_OBJECT(window), "destroy", gtk_main_quit, NULL);
-    gtk_signal_connect(GTK_OBJECT(window), "key-press-event", G_CALLBACK(quit_on_esc), window);
+    g_signal_connect(G_OBJECT(window), "destroy", gtk_main_quit, NULL);
+    g_signal_connect(G_OBJECT(window), "key-press-event", G_CALLBACK(quit_on_esc), window);
 
     vbox = gtk_vbox_new(FALSE, 4);
     gtk_container_add(GTK_CONTAINER(window), vbox);
@@ -1345,25 +1438,24 @@ void cmd_new_element_node(GtkObject */*object*/, gpointer /*data*/)
     gtk_box_pack_start(GTK_BOX(vbox), bbox, FALSE, TRUE, 0);
 
     cancel = gtk_button_new_with_label(_("Cancel"));
-    GTK_WIDGET_SET_FLAGS( GTK_WIDGET(cancel),
-                           GTK_CAN_DEFAULT );
-    gtk_signal_connect_object( GTK_OBJECT(cancel), "clicked",
+    gtk_widget_set_can_default( GTK_WIDGET(cancel), TRUE );
+    g_signal_connect_swapped( G_OBJECT(cancel), "clicked",
                                 G_CALLBACK(gtk_widget_destroy),
-                                GTK_OBJECT(window) );
+                                G_OBJECT(window) );
     gtk_container_add(GTK_CONTAINER(bbox), cancel);
 
     create = gtk_button_new_with_label(_("Create"));
     gtk_widget_set_sensitive(GTK_WIDGET(create), FALSE);
-    gtk_signal_connect( GTK_OBJECT(entry), "changed",
+    g_signal_connect( G_OBJECT(entry), "changed",
                     G_CALLBACK(on_editable_changed_enable_if_valid_xml_name),
                     create );
-    gtk_signal_connect( GTK_OBJECT(create), "clicked",
+    g_signal_connect( G_OBJECT(create), "clicked",
                          G_CALLBACK(on_clicked_get_editable_text), &name );
-    gtk_signal_connect_object( GTK_OBJECT(create), "clicked",
+    g_signal_connect_swapped( G_OBJECT(create), "clicked",
                                 G_CALLBACK(gtk_widget_destroy),
-                                GTK_OBJECT(window) );
-    GTK_WIDGET_SET_FLAGS( GTK_WIDGET(create),
-                           GTK_CAN_DEFAULT | GTK_RECEIVES_DEFAULT );
+                                G_OBJECT(window) );
+    gtk_widget_set_can_default( GTK_WIDGET(create), TRUE );
+    gtk_widget_set_receives_default( GTK_WIDGET(create), TRUE );
     gtk_container_add(GTK_CONTAINER(bbox), create);
 
     gtk_widget_show_all(GTK_WIDGET(window));

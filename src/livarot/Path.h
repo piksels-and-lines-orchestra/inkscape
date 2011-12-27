@@ -11,10 +11,14 @@
 
 #include <vector>
 #include "LivarotDefs.h"
-#include "livarot/livarot-forward.h"
-#include "libnr/nr-point.h"
-#include <libnr/nr-rect-l.h>
-#include <2geom/forward.h>
+#include <2geom/point.h>
+
+struct PathDescr;
+class PathDescrLineTo;
+class PathDescrArcTo;
+class PathDescrCubicTo;
+class PathDescrBezierTo;
+class PathDescrIntermBezierTo;
 
 struct SPStyle;
 
@@ -113,7 +117,6 @@ public:
   // transforms a description in a polyline (for stroking and filling)
   // treshhold is the max length^2 (sort of)
   void Convert (double treshhold);
-  void Convert(NRRectL *area, double treshhold);
   void ConvertEvenLines (double treshhold);	// decomposes line segments too, for later recomposition
   // same function for use when you want to later recompose the curves from the polyline
   void ConvertWithBackData (double treshhold);

@@ -14,12 +14,8 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include "display/nr-filter-primitive.h"
-#include "display/nr-filter-slot.h"
-#include "display/nr-filter-units.h"
-#include "libnr/nr-pixblock.h"
 #include <2geom/forward.h>
-#include "libnr/nr-rect-l.h"
+#include "display/nr-filter-primitive.h"
 
 enum {
     BLUR_QUALITY_BEST = 2,
@@ -38,9 +34,10 @@ public:
     static FilterPrimitive *create();
     virtual ~FilterGaussian();
 
-    virtual int render(FilterSlot &slot, FilterUnits const &units);
-    virtual void area_enlarge(NRRectL &area, Geom::Affine const &m);
-    virtual FilterTraits get_input_traits();
+    virtual void render_cairo(FilterSlot &slot);
+    virtual void area_enlarge(Geom::IntRect &area, Geom::Affine const &m);
+    virtual bool can_handle_affine(Geom::Affine const &m);
+    virtual double complexity(Geom::Affine const &ctm);
 
     /**
      * Set the standard deviation value for gaussian blur. Deviation along

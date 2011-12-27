@@ -13,19 +13,18 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include "sp-canvas-util.h"
-#include "canvas-text.h"
-#include "display/inkscape-cairo.h"
-#include <sstream>
-#include <string.h>
-#include "desktop.h"
-
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <color.h>
 
-#include <libnr/nr-pixops.h>
+#include <sstream>
+#include <string.h>
+
+#include "sp-canvas-util.h"
+#include "canvas-text.h"
+#include "display/cairo-utils.h"
+#include "desktop.h"
+#include "color.h"
 
 static void sp_canvastext_class_init (SPCanvasTextClass *klass);
 static void sp_canvastext_init (SPCanvasText *canvastext);
@@ -36,21 +35,23 @@ static void sp_canvastext_render (SPCanvasItem *item, SPCanvasBuf *buf);
 
 static SPCanvasItemClass *parent_class_ct;
 
-GtkType
+GType
 sp_canvastext_get_type (void)
 {
-    static GtkType type = 0;
+    static GType type = 0;
 
     if (!type) {
-        GtkTypeInfo info = {
-            (gchar *)"SPCanvasText",
-            sizeof (SPCanvasText),
+	GTypeInfo info = {
             sizeof (SPCanvasTextClass),
-            (GtkClassInitFunc) sp_canvastext_class_init,
-            (GtkObjectInitFunc) sp_canvastext_init,
-            NULL, NULL, NULL
-        };
-        type = gtk_type_unique (SP_TYPE_CANVAS_ITEM, &info);
+	    NULL, NULL,
+            (GClassInitFunc) sp_canvastext_class_init,
+	    NULL, NULL,
+            sizeof (SPCanvasText),
+	    0,
+            (GInstanceInitFunc) sp_canvastext_init,
+	    NULL
+	};
+        type = g_type_register_static (SP_TYPE_CANVAS_ITEM, "SPCanvasText", &info, (GTypeFlags)0);
     }
     return type;
 }
@@ -61,7 +62,7 @@ sp_canvastext_class_init (SPCanvasTextClass *klass)
     GtkObjectClass *object_class = (GtkObjectClass *) klass;
     SPCanvasItemClass *item_class = (SPCanvasItemClass *) klass;
 
-    parent_class_ct = (SPCanvasItemClass*)gtk_type_class (SP_TYPE_CANVAS_ITEM);
+    parent_class_ct = (SPCanvasItemClass*)g_type_class_peek_parent (klass);
 
     object_class->destroy = sp_canvastext_destroy;
 
@@ -72,8 +73,11 @@ sp_canvastext_class_init (SPCanvasTextClass *klass)
 static void
 sp_canvastext_init (SPCanvasText *canvastext)
 {
+    canvastext->anchor_position = TEXT_ANCHOR_CENTER;
     canvastext->rgba = 0x33337fff;
     canvastext->rgba_stroke = 0xffffffff;
+    canvastext->rgba_background = 0x0000007f;
+    canvastext->background = false;
     canvastext->s[Geom::X] = canvastext->s[Geom::Y] = 0.0;
     canvastext->affine = Geom::identity();
     canvastext->fontsize = 10.0;
@@ -98,9 +102,6 @@ sp_canvastext_destroy (GtkObject *object)
         (* GTK_OBJECT_CLASS (parent_class_ct)->destroy) (object);
 }
 
-// FIXME: remove this as soon as we know how to correctly determine the text extent
-static const double arbitrary_factor = 0.8;
-
 // these are set in sp_canvastext_update() and then re-used in sp_canvastext_render(), which is called afterwards
 static double anchor_offset_x = 0;
 static double anchor_offset_y = 0;
@@ -114,22 +115,37 @@ sp_canvastext_render (SPCanvasItem *item, SPCanvasBuf *buf)
         return;
 
     Geom::Point s = cl->s * cl->affine;
-    double offsetx = s[Geom::X] - buf->rect.x0;
-    double offsety = s[Geom::Y] - buf->rect.y0;
+    double offsetx = s[Geom::X] - buf->rect.left();
+    double offsety = s[Geom::Y] - buf->rect.top();
     offsetx -= anchor_offset_x;
-    offsety += anchor_offset_y;
+    offsety -= anchor_offset_y;
+
+    cairo_set_font_size(buf->ct, cl->fontsize);
+
+    if (cl->background){
+        cairo_text_extents_t extents;
+        cairo_text_extents(buf->ct, cl->text, &extents);
+
+        double border = extents.height*0.5;
+        cairo_rectangle(buf->ct, offsetx - extents.x_bearing - border,
+                                 offsety + extents.y_bearing - border,
+                                 extents.width + 2*border,
+                                 extents.height + 2*border);
+
+        ink_cairo_set_source_rgba32(buf->ct, cl->rgba_background);
+        cairo_fill(buf->ct);
+    }
 
     cairo_move_to(buf->ct, offsetx, offsety);
-    cairo_set_font_size(buf->ct, cl->fontsize);
     cairo_text_path(buf->ct, cl->text);
 
-    cairo_set_source_rgba(buf->ct, SP_RGBA32_B_F(cl->rgba_stroke), SP_RGBA32_G_F(cl->rgba_stroke), SP_RGBA32_R_F(cl->rgba_stroke), SP_RGBA32_A_F(cl->rgba_stroke));
-    cairo_set_line_width (buf->ct, 2.0);
-    cairo_stroke_preserve(buf->ct);
-    cairo_set_source_rgba(buf->ct, SP_RGBA32_B_F(cl->rgba), SP_RGBA32_G_F(cl->rgba), SP_RGBA32_R_F(cl->rgba), SP_RGBA32_A_F(cl->rgba));
+    if (cl->outline){
+        ink_cairo_set_source_rgba32(buf->ct, cl->rgba_stroke);
+        cairo_set_line_width (buf->ct, 2.0);
+        cairo_stroke_preserve(buf->ct);
+    }
+    ink_cairo_set_source_rgba32(buf->ct, cl->rgba);
     cairo_fill(buf->ct);
-
-    cairo_new_path(buf->ct);
 }
 
 static void
@@ -150,24 +166,52 @@ sp_canvastext_update (SPCanvasItem *item, Geom::Affine const &affine, unsigned i
 
     // set up a temporary cairo_t to measure the text extents; it would be better to compute this in the render()
     // method but update() seems to be called before so we don't have the information available when we need it
-    /**
-    cairo_t tmp_buf;
-    cairo_text_extents_t bbox;
-    cairo_text_extents(&tmp_buf, cl->text, &bbox);
-    **/
-    item->x1 = s[Geom::X] + 0;
-    item->y1 = s[Geom::Y] - cl->fontsize;
-    item->x2 = s[Geom::X] + cl->fontsize * strlen(cl->text);
-    item->y2 = s[Geom::Y] + cl->fontsize * 0.5; // for letters below the baseline
+    cairo_surface_t *tmp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
+    cairo_t* tmp_buf = cairo_create(tmp_surface);
+
+    cairo_set_font_size(tmp_buf, cl->fontsize);
+    cairo_text_extents_t extents;
+    cairo_text_extents(tmp_buf, cl->text, &extents);
+    double border = extents.height;
+
+    item->x1 = s[Geom::X] - extents.x_bearing - 2*border;
+    item->y1 = s[Geom::Y] + extents.y_bearing - 2*border;
+    item->x2 = s[Geom::X] + extents.width + 2*border;
+    item->y2 = s[Geom::Y] + extents.height + 2*border;
 
     // adjust update region according to anchor shift
-    // FIXME: use the correct text extent
-    anchor_offset_x = arbitrary_factor * cl->fontsize * strlen(cl->text) * (cl->anchor_x + 1.0) / 2.0;
-    anchor_offset_y = cl->fontsize * (cl->anchor_y + 1.0) / 2.0;
+    switch (cl->anchor_position){
+        case TEXT_ANCHOR_LEFT:
+            anchor_offset_x = -2*border;
+            anchor_offset_y = -extents.height/2;
+            break;
+        case TEXT_ANCHOR_RIGHT:
+            anchor_offset_x = extents.width + 2*border;
+            anchor_offset_y = -extents.height/2;
+            break;
+        case TEXT_ANCHOR_BOTTOM:
+            anchor_offset_x = extents.width/2;
+            anchor_offset_y = 2*border;
+            break;
+        case TEXT_ANCHOR_TOP:
+            anchor_offset_x = extents.width/2;
+            anchor_offset_y = -extents.height - 2*border;
+            break;
+        case TEXT_ANCHOR_ZERO:
+            anchor_offset_x = 0;
+            anchor_offset_y = 0;
+            break;
+        case TEXT_ANCHOR_CENTER:
+        default:
+            anchor_offset_x = extents.width/2;
+            anchor_offset_y = -extents.height/2;
+            break;
+    }
+
     item->x1 -= anchor_offset_x;
     item->x2 -= anchor_offset_x;
-    item->y1 += anchor_offset_y;
-    item->y2 += anchor_offset_y;
+    item->y1 -= anchor_offset_y;
+    item->y2 -= anchor_offset_y;
 
     sp_canvas_request_redraw (item->canvas, (int)item->x1, (int)item->y1, (int)item->x2, (int)item->y2);
 }

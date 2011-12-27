@@ -193,7 +193,7 @@ GtkWidget *gr_vector_list(SPDesktop *desktop, bool selection_empty, SPGradient *
         gtk_container_add (GTK_CONTAINER (i), l);
 
         gtk_widget_show (i);
-        gtk_menu_append (GTK_MENU (m), i);
+        gtk_menu_shell_append(GTK_MENU_SHELL (m), i);
         gtk_widget_set_sensitive (om, FALSE);
     } else if (selection_empty) {
         // Document has gradients, but nothing is currently selected.
@@ -203,7 +203,7 @@ GtkWidget *gr_vector_list(SPDesktop *desktop, bool selection_empty, SPGradient *
         gtk_container_add (GTK_CONTAINER (i), l);
 
         gtk_widget_show (i);
-        gtk_menu_append (GTK_MENU (m), i);
+        gtk_menu_shell_append(GTK_MENU_SHELL (m), i);
         gtk_widget_set_sensitive (om, FALSE);
     } else {
 
@@ -214,7 +214,7 @@ GtkWidget *gr_vector_list(SPDesktop *desktop, bool selection_empty, SPGradient *
             gtk_container_add (GTK_CONTAINER (i), l);
 
             gtk_widget_show (i);
-            gtk_menu_append (GTK_MENU (m), i);
+            gtk_menu_shell_append(GTK_MENU_SHELL (m), i);
         }
 
         if (gr_multi) {
@@ -224,7 +224,7 @@ GtkWidget *gr_vector_list(SPDesktop *desktop, bool selection_empty, SPGradient *
             gtk_container_add (GTK_CONTAINER (i), l);
 
             gtk_widget_show (i);
-            gtk_menu_append (GTK_MENU (m), i);
+            gtk_menu_shell_append(GTK_MENU_SHELL (m), i);
         }
 
         while (gl) {
@@ -250,7 +250,7 @@ GtkWidget *gr_vector_list(SPDesktop *desktop, bool selection_empty, SPGradient *
 
             gtk_container_add (GTK_CONTAINER (i), hb);
 
-            gtk_menu_append (GTK_MENU (m), i);
+            gtk_menu_shell_append(GTK_MENU_SHELL (m), i);
 
             if (gradient == gr_selected) {
                 pos = idx;
@@ -464,12 +464,10 @@ GtkWidget * gr_change_widget(SPDesktop *desktop)
     SPGradientSpread spr_selected = (SPGradientSpread) INT_MAX; // meaning undefined
     bool spr_multi = false;
 
-    GtkTooltips *tt = gtk_tooltips_new();
-
     gr_read_selection (selection, ev? ev->get_drag() : 0, gr_selected, gr_multi, spr_selected, spr_multi);
 
     GtkWidget *widget = gtk_hbox_new(FALSE, FALSE);
-    gtk_object_set_data(GTK_OBJECT(widget), "dtw", desktop->canvas);
+    g_object_set_data(G_OBJECT(widget), "dtw", desktop->canvas);
     g_object_set_data (G_OBJECT (widget), "desktop", desktop);
 
     GtkWidget *om = gr_vector_list (desktop, selection->isEmpty(), gr_selected, gr_multi);
@@ -484,10 +482,10 @@ GtkWidget * gr_change_widget(SPDesktop *desktop)
     {
         GtkWidget *hb = gtk_hbox_new(FALSE, 1);
         GtkWidget *b = gtk_button_new_with_label(_("Edit..."));
-        gtk_tooltips_set_tip(tt, b, _("Edit the stops of the gradient"), NULL);
+        gtk_widget_set_tooltip_text(b, _("Edit the stops of the gradient"));
         gtk_widget_show(b);
         gtk_container_add(GTK_CONTAINER(hb), b);
-        gtk_signal_connect(GTK_OBJECT(b), "clicked", GTK_SIGNAL_FUNC(gr_edit), widget);
+        g_signal_connect(G_OBJECT(b), "clicked", G_CALLBACK(gr_edit), widget);
         gtk_box_pack_start (GTK_BOX(buttons), hb, FALSE, FALSE, 0);
     }
 
@@ -521,9 +519,9 @@ GtkWidget * gr_change_widget(SPDesktop *desktop)
 
     // connect to release and modified signals of the defs (i.e. when someone changes gradient)
     sigc::connection *release_connection = new sigc::connection();
-    *release_connection = SP_DOCUMENT_DEFS(document)->connectRelease(sigc::bind<1>(sigc::ptr_fun(&gr_defs_release), widget));
+    *release_connection = document->getDefs()->connectRelease(sigc::bind<1>(sigc::ptr_fun(&gr_defs_release), widget));
     sigc::connection *modified_connection = new sigc::connection();
-    *modified_connection = SP_DOCUMENT_DEFS(document)->connectModified(sigc::bind<2>(sigc::ptr_fun(&gr_defs_modified), widget));
+    *modified_connection = document->getDefs()->connectModified(sigc::bind<2>(sigc::ptr_fun(&gr_defs_modified), widget));
 
     // when widget is destroyed, disconnect
     g_signal_connect(G_OBJECT(widget), "destroy", G_CALLBACK(gr_disconnect_sigc), release_connection);
@@ -539,10 +537,8 @@ sp_gradient_toolbox_new(SPDesktop *desktop)
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     GtkWidget *tbl = gtk_toolbar_new();
 
-    gtk_object_set_data(GTK_OBJECT(tbl), "dtw", desktop->canvas);
-    gtk_object_set_data(GTK_OBJECT(tbl), "desktop", desktop);
-
-    GtkTooltips *tt = gtk_tooltips_new();
+    g_object_set_data(G_OBJECT(tbl), "dtw", desktop->canvas);
+    g_object_set_data(G_OBJECT(tbl), "desktop", desktop);
 
     sp_toolbox_add_label(tbl, _("<b>New:</b>"));
 
@@ -556,9 +552,8 @@ sp_gradient_toolbox_new(SPDesktop *desktop)
     GtkWidget *button = sp_button_new_from_data( Inkscape::ICON_SIZE_DECORATION,
                                               SP_BUTTON_TYPE_TOGGLE,
                                               NULL,
-                                              INKSCAPE_ICON_PAINT_GRADIENT_LINEAR,
-                                              _("Create linear gradient"),
-                                              tt);
+                                              INKSCAPE_ICON("paint-gradient-linear"),
+                                              _("Create linear gradient") );
     g_signal_connect_after (G_OBJECT (button), "clicked", G_CALLBACK (gr_toggle_type), tbl);
     g_object_set_data(G_OBJECT(tbl), "linear", button);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button),
@@ -570,9 +565,8 @@ sp_gradient_toolbox_new(SPDesktop *desktop)
     GtkWidget *button = sp_button_new_from_data( Inkscape::ICON_SIZE_DECORATION,
                                               SP_BUTTON_TYPE_TOGGLE,
                                               NULL,
-                                              INKSCAPE_ICON_PAINT_GRADIENT_RADIAL,
-                                              _("Create radial (elliptic or circular) gradient"),
-                                              tt);
+                                              INKSCAPE_ICON("paint-gradient-radial"),
+                                              _("Create radial (elliptic or circular) gradient"));
     g_signal_connect_after (G_OBJECT (button), "clicked", G_CALLBACK (gr_toggle_type), tbl);
     g_object_set_data(G_OBJECT(tbl), "radial", button);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button),
@@ -598,9 +592,8 @@ sp_gradient_toolbox_new(SPDesktop *desktop)
     GtkWidget *button = sp_button_new_from_data( Inkscape::ICON_SIZE_DECORATION,
                                               SP_BUTTON_TYPE_TOGGLE,
                                               NULL,
-                                              INKSCAPE_ICON_OBJECT_FILL,
-                                              _("Create gradient in the fill"),
-                                              tt);
+                                              INKSCAPE_ICON("object-fill"),
+                                              _("Create gradient in the fill"));
     g_signal_connect_after (G_OBJECT (button), "clicked", G_CALLBACK (gr_toggle_fillstroke), tbl);
     g_object_set_data(G_OBJECT(tbl), "fill", button);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button),
@@ -612,9 +605,8 @@ sp_gradient_toolbox_new(SPDesktop *desktop)
     GtkWidget *button = sp_button_new_from_data( Inkscape::ICON_SIZE_DECORATION,
                                               SP_BUTTON_TYPE_TOGGLE,
                                               NULL,
-                                              INKSCAPE_ICON_OBJECT_STROKE,
-                                              _("Create gradient in the stroke"),
-                                              tt);
+                                              INKSCAPE_ICON("object-stroke"),
+                                              _("Create gradient in the stroke"));
     g_signal_connect_after (G_OBJECT (button), "clicked", G_CALLBACK (gr_toggle_fillstroke), tbl);
     g_object_set_data(G_OBJECT(tbl), "stroke", button);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button),

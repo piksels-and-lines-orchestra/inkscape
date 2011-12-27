@@ -11,7 +11,7 @@
 #include <2geom/forward.h>
 #include <2geom/path.h>
 class SPCurve;
-struct SPItem;
+class SPItem;
 
 // boolean operations
 // work on the current selection
@@ -49,8 +49,10 @@ Geom::PathVector* item_outline(SPItem const *item);
 void sp_selected_path_simplify (SPDesktop *desktop);
 
 Path *Path_for_item(SPItem *item, bool doTransformation, bool transformFull = true);
+Path *Path_for_item_before_LPE(SPItem *item, bool doTransformation, bool transformFull = true);
 Geom::PathVector* pathvector_for_curve(SPItem *item, SPCurve *curve, bool doTransformation, bool transformFull, Geom::Affine extraPreAffine, Geom::Affine extraPostAffine);
 SPCurve *curve_for_item(SPItem *item);
+SPCurve *curve_for_item_before_LPE(SPItem *item);
 boost::optional<Path::cut_position> get_nearest_position_on_Path(Path *path, Geom::Point p, unsigned seg = 0);
 Geom::Point get_point_on_Path(Path *path, int piece, double t);
 

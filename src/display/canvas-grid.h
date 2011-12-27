@@ -1,5 +1,5 @@
 /** @file
- * @brief Cartesian grid item for the Inkscape canvas
+ * Cartesian grid item for the Inkscape canvas.
  */
 /* Copyright (C) Johan Engelen 2006-2007 <johan@shouraizou.nl>
  * Copyright (C) Lauris Kaplinski 2000
@@ -24,10 +24,10 @@
 #include "snapper.h"
 #include "line-snapper.h"
 
-struct SPDesktop;
+class  SPDesktop;
 struct SPNamedView;
 struct SPCanvasBuf;
-class SPDocument;
+class  SPDocument;
 
 namespace Inkscape {
 
@@ -39,15 +39,14 @@ enum GridType {
 #define GRID_MAXTYPENR 1
 
 #define INKSCAPE_TYPE_GRID_CANVASITEM            (Inkscape::grid_canvasitem_get_type ())
-#define INKSCAPE_GRID_CANVASITEM(obj)            (GTK_CHECK_CAST ((obj), INKSCAPE_TYPE_GRID_CANVASITEM, GridCanvasItem))
-#define INKSCAPE_GRID_CANVASITEM_CLASS(klass)    (GTK_CHECK_CLASS_CAST ((klass), INKSCAPE_TYPE_GRID_CANVASITEM, GridCanvasItem))
-#define INKSCAPE_IS_GRID_CANVASITEM(obj)         (GTK_CHECK_TYPE ((obj), INKSCAPE_TYPE_GRID_CANVASITEM))
-#define INKSCAPE_IS_GRID_CANVASITEM_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), INKSCAPE_TYPE_GRID_CANVASITEM))
+#define INKSCAPE_GRID_CANVASITEM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), INKSCAPE_TYPE_GRID_CANVASITEM, GridCanvasItem))
+#define INKSCAPE_GRID_CANVASITEM_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), INKSCAPE_TYPE_GRID_CANVASITEM, GridCanvasItem))
+#define INKSCAPE_IS_GRID_CANVASITEM(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), INKSCAPE_TYPE_GRID_CANVASITEM))
+#define INKSCAPE_IS_GRID_CANVASITEM_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), INKSCAPE_TYPE_GRID_CANVASITEM))
 
 class CanvasGrid;
 
-/** \brief  All the variables that are tracked for a grid specific
-            canvas item. */
+/** All the variables that are tracked for a grid specific canvas item. */
 struct GridCanvasItem : public SPCanvasItem{
     CanvasGrid *grid; // the owning grid object
 };
@@ -57,7 +56,7 @@ struct GridCanvasItemClass {
 };
 
 /* Standard Gtk function */
-GtkType grid_canvasitem_get_type (void);
+GType grid_canvasitem_get_type (void);
 
 
 
@@ -87,6 +86,7 @@ public:
 
     Gtk::Widget * newWidget();
 
+    void setOrigin(Geom::Point const &origin_px); /**< writes new origin (specified in px units) to SVG */
     Geom::Point origin;     /**< Origin of the grid */
     guint32 color;        /**< Color for normal lines */
     guint32 empcolor;     /**< Color for emphasis lines */
@@ -167,8 +167,8 @@ public:
 
 private:
     LineList _getSnapLines(Geom::Point const &p) const;
-    void _addSnappedLine(SnappedConstraints &sc, Geom::Point const snapped_point, Geom::Coord const snapped_distance,  SnapSourceType const &source, long source_num, Geom::Point const normal_to_line, const Geom::Point point_on_line) const;
-    void _addSnappedPoint(SnappedConstraints &sc, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const;
+    void _addSnappedLine(IntermSnapResults &isr, Geom::Point const snapped_point, Geom::Coord const snapped_distance,  SnapSourceType const &source, long source_num, Geom::Point const normal_to_line, const Geom::Point point_on_line) const;
+    void _addSnappedPoint(IntermSnapResults &isr, Geom::Point const snapped_point, Geom::Coord const snapped_distance, SnapSourceType const &source, long source_num, bool constrained_snap) const;
     CanvasXYGrid *grid;
 };
 

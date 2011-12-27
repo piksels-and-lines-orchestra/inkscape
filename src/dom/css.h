@@ -1,4 +1,5 @@
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -6,7 +7,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -36,8 +38,8 @@
      
  */
 
-#ifndef __CSS_H__
-#define __CSS_H__
+#ifndef SEEN_CSS_H
+#define SEEN_CSS_H
 
 #include "dom.h"
 #include "stylesheets.h"
@@ -388,7 +390,7 @@ public:
     /**
      *
      */
-    CSSStyleSheet() : stylesheets::StyleSheet()
+    CSSStyleSheet() : stylesheets::StyleSheet(), ownerRule(0)
         {
         }
 
@@ -608,7 +610,7 @@ public:
     virtual DOMString getPropertyValue(const DOMString &propertyName)
         {
         std::vector<CSSStyleDeclarationEntry>::iterator iter;
-        for (iter=items.begin() ; iter!=items.end() ; iter++)
+        for (iter=items.begin() ; iter!=items.end() ; ++iter)
             {
             if (iter->name == propertyName)
                 return iter->value;
@@ -637,11 +639,14 @@ public:
                                      throw (dom::DOMException)
         {
         std::vector<CSSStyleDeclarationEntry>::iterator iter;
-        for (iter=items.begin() ; iter!=items.end() ; iter++)
-            {
-            if (iter->name == propertyName)
-                items.erase(iter);
+        for (iter=items.begin() ; iter!=items.end() ; ){
+            if (iter->name == propertyName){
+                iter = items.erase(iter);
             }
+            else{
+                ++iter;
+            }
+        }
         return propertyName;
         }
 
@@ -652,7 +657,7 @@ public:
     virtual DOMString getPropertyPriority(const DOMString &propertyName)
         {
         std::vector<CSSStyleDeclarationEntry>::iterator iter;
-        for (iter=items.begin() ; iter!=items.end() ; iter++)
+        for (iter=items.begin() ; iter!=items.end() ; ++iter)
             {
             if (iter->name == propertyName)
                 return iter->prio;
@@ -669,7 +674,7 @@ public:
                              throw (dom::DOMException)
         {
         std::vector<CSSStyleDeclarationEntry>::iterator iter;
-        for (iter=items.begin() ; iter!=items.end() ; iter++)
+        for (iter=items.begin() ; iter!=items.end() ; ++iter)
             {
             if (iter->name == propertyName)
                 {
@@ -1212,6 +1217,7 @@ public:
      */
     void assign(const CSSImportRule &other)
         {
+        href       = other.href;
         mediaList  = other.mediaList;
         styleSheet = other.styleSheet;
         }
@@ -1606,23 +1612,38 @@ public:
     /**
      *
      */
-    CSSPrimitiveValue() : CSSValue()
+    CSSPrimitiveValue() :
+            CSSValue(),
+            primitiveType(0),
+            doubleValue(0),
+            stringValue()
         {
         }
 
     /**
      *
      */
-    CSSPrimitiveValue(const CSSPrimitiveValue &other) : CSSValue(other)
+    CSSPrimitiveValue(const CSSPrimitiveValue &other) :
+            CSSValue()
         {
+            primitiveType = other.primitiveType;
+            doubleValue   = other.doubleValue;
+            stringValue   = other.stringValue;
         }
 
     /**
      *
      */
-    CSSPrimitiveValue &operator=(const CSSPrimitiveValue &/*other*/)
+    CSSPrimitiveValue &operator=(const CSSPrimitiveValue &other)
         {
-        return *this;
+            if(this == &other)
+            {
+                return *this;
+            }
+            primitiveType = other.primitiveType;
+            doubleValue   = other.doubleValue;
+            stringValue   = other.stringValue;
+            return *this;
         }
 
     /**
@@ -4663,7 +4684,7 @@ public:
 }  //namespace org
 
 
-#endif /* __CSS_H__ */
+#endif // SEEN_CSS_H
 
 /*#########################################################################
 ## E N D    O F    F I L E

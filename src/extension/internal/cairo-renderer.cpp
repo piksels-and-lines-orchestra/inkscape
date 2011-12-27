@@ -28,19 +28,16 @@
 #include <signal.h>
 #include <errno.h>
 
-#include "libnr/nr-rect.h"
 #include "libnrtype/Layout-TNG.h"
 #include <2geom/transforms.h>
 #include <2geom/pathvector.h>
 
-#include <glib/gmem.h>
+#include <glib.h>
 
 #include <glibmm/i18n.h>
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
-#include "display/nr-arena-group.h"
 #include "display/curve.h"
 #include "display/canvas-bpath.h"
+#include "display/cairo-utils.h"
 #include "sp-item.h"
 #include "sp-item-group.h"
 #include "style.h"
@@ -87,15 +84,15 @@
 struct SPClipPathView {
     SPClipPathView *next;
     unsigned int key;
-    NRArenaItem *arenaitem;
-    NRRect bbox;
+    Inkscape::DrawingItem *arenaitem;
+    Geom::OptRect bbox;
 };
 
 struct SPMaskView {
     SPMaskView *next;
     unsigned int key;
-    NRArenaItem *arenaitem;
-    NRRect bbox;
+    Inkscape::DrawingItem *arenaitem;
+    Geom::OptRect bbox;
 };
 
 namespace Inkscape {
@@ -170,25 +167,25 @@ static void sp_shape_render_invoke_marker_rendering(SPMarker* marker, Geom::Affi
 
     if (render) {
         SPItem* marker_item = sp_item_first_item_child(marker);
-        tr = (Geom::Affine)marker_item->transform * (Geom::Affine)marker->c2p * tr;
-        Geom::Affine old_tr = marker_item->transform;
-        marker_item->transform = tr;
-        ctx->getRenderer()->renderItem (ctx, marker_item);
-        marker_item->transform = old_tr;
+        if (marker_item) {
+            tr = (Geom::Affine)marker_item->transform * (Geom::Affine)marker->c2p * tr;
+            Geom::Affine old_tr = marker_item->transform;
+            marker_item->transform = tr;
+            ctx->getRenderer()->renderItem (ctx, marker_item);
+            marker_item->transform = old_tr;
+        }
     }
 }
 
 static void sp_shape_render (SPItem *item, CairoRenderContext *ctx)
 {
-    NRRect pbox;
-
     SPShape *shape = SP_SHAPE(item);
 
     if (!shape->curve) {
         return;
     }
 
-    item->invoke_bbox( &pbox, Geom::identity(), TRUE);
+    Geom::OptRect pbox = item->geometricBounds();
 
     SPStyle* style = item->style;
 
@@ -197,7 +194,7 @@ static void sp_shape_render (SPItem *item, CairoRenderContext *ctx)
         return;
     }
 
-    ctx->renderPathVector(pathv, style, &pbox);
+    ctx->renderPathVector(pathv, style, pbox);
 
     // START marker
     for (int i = 0; i < 2; i++) {  // SP_MARKER_LOC and SP_MARKER_LOC_START
@@ -315,7 +312,7 @@ static void sp_use_render(SPItem *item, CairoRenderContext *ctx)
     if ((use->x._set && use->x.computed != 0) || (use->y._set && use->y.computed != 0)) {
         Geom::Affine tp(Geom::Translate(use->x.computed, use->y.computed));
         ctx->pushState();
-        ctx->transform(&tp);
+        ctx->transform(tp);
         translated = true;
     }
 
@@ -343,18 +340,15 @@ static void sp_flowtext_render(SPItem *item, CairoRenderContext *ctx)
 static void sp_image_render(SPItem *item, CairoRenderContext *ctx)
 {
     SPImage *image;
-    guchar *px;
-    int w, h, rs;
+    int w, h;
 
     image = SP_IMAGE (item);
 
     if (!image->pixbuf) return;
     if ((image->width.computed <= 0.0) || (image->height.computed <= 0.0)) return;
 
-    px = gdk_pixbuf_get_pixels (image->pixbuf);
     w = gdk_pixbuf_get_width (image->pixbuf);
     h = gdk_pixbuf_get_height (image->pixbuf);
-    rs = gdk_pixbuf_get_rowstride (image->pixbuf);
 
     double x = image->x.computed;
     double y = image->y.computed;
@@ -374,7 +368,7 @@ static void sp_image_render(SPItem *item, CairoRenderContext *ctx)
     Geom::Scale s(width / (double)w, height / (double)h);
     Geom::Affine t(s * tp);
 
-    ctx->renderImage (px, w, h, rs, &t, item->style);
+    ctx->renderImage (image->pixbuf, t, item->style);
 }
 
 static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
@@ -386,7 +380,7 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
 
     /* Cloned <symbol> is actually renderable */
     ctx->pushState();
-    ctx->transform(&symbol->c2p);
+    ctx->transform(symbol->c2p);
 
     // apply viewbox if set
     if (0 /*symbol->viewBox_set*/) {
@@ -398,8 +392,8 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
         width = 1.0;
         height = 1.0;
 
-        view_width = symbol->viewBox.x1 - symbol->viewBox.x0;
-        view_height = symbol->viewBox.y1 - symbol->viewBox.y0;
+        view_width = symbol->viewBox.width();
+        view_height = symbol->viewBox.height();
 
         calculatePreserveAspectRatio(symbol->aspect_align, symbol->aspect_clip, view_width, view_height,
                                      &x, &y,&width, &height);
@@ -408,29 +402,27 @@ static void sp_symbol_render(SPItem *item, CairoRenderContext *ctx)
         vb2user = Geom::identity();
         vb2user[0] = width / view_width;
         vb2user[3] = height / view_height;
-        vb2user[4] = x - symbol->viewBox.x0 * vb2user[0];
-        vb2user[5] = y - symbol->viewBox.y0 * vb2user[3];
+        vb2user[4] = x - symbol->viewBox.left() * vb2user[0];
+        vb2user[5] = y - symbol->viewBox.top() * vb2user[3];
 
-        ctx->transform(&vb2user);
+        ctx->transform(vb2user);
     }
 
     sp_group_render(item, ctx);
     ctx->popState();
 }
 
-static void sp_root_render(SPItem *item, CairoRenderContext *ctx)
+static void sp_root_render(SPRoot *root, CairoRenderContext *ctx)
 {
-    SPRoot *root = SP_ROOT(item);
     CairoRenderer *renderer = ctx->getRenderer();
 
-    if (!ctx->getCurrentState()->has_overflow && item->parent)
+    if (!ctx->getCurrentState()->has_overflow && root->parent)
         ctx->addClippingRect(root->x.computed, root->y.computed, root->width.computed, root->height.computed);
 
     ctx->pushState();
-    renderer->setStateForItem(ctx, item);
-    Geom::Affine tempmat (root->c2p);
-    ctx->transform(&tempmat);
-    sp_group_render(item, ctx);
+    renderer->setStateForItem(ctx, root);
+    ctx->transform(root->c2p);
+    sp_group_render(root, ctx);
     ctx->popState();
 }
 
@@ -453,9 +445,8 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
     }
     TRACE(("sp_asbitmap_render: resolution: %f\n", res ));
 
-    // Get the bounding box of the selection in document coordinates.
-    Geom::OptRect bbox = 
-           item->getBounds(item->i2d_affine(), SPItem::RENDERING_BBOX);
+    // Get the bounding box of the selection in desktop coordinates.
+    Geom::OptRect bbox = item->desktopVisualBounds();
 
     // no bbox, e.g. empty group
 	if (!bbox) {
@@ -463,12 +454,7 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
     }
 
     Geom::Rect docrect(Geom::Rect(Geom::Point(0, 0), item->document->getDimensions()));
-    Geom::Rect bboxrect(Geom::Rect(Geom::Point(bbox->min()[Geom::X], bbox->min()[Geom::Y]), Geom::Point(bbox->max()[Geom::X], bbox->max()[Geom::Y])));
-
-    Geom::OptRect _bbox = Geom::intersect(docrect, bboxrect);
-
-	// assign the object dimension clipped on the document, no need to draw on area not on canvas
-    bbox = _bbox;
+    bbox &= docrect;
 
     // no bbox, e.g. empty group
     if (!bbox) {
@@ -476,12 +462,14 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
     }
 
     // The width and height of the bitmap in pixels
-    unsigned width = (unsigned) floor ((bbox->max()[Geom::X] - bbox->min()[Geom::X]) * (res / PX_PER_IN));
-    unsigned height =(unsigned) floor ((bbox->max()[Geom::Y] - bbox->min()[Geom::Y]) * (res / PX_PER_IN));
-    
+    unsigned width =  ceil(bbox->width() * (res / PX_PER_IN));
+    unsigned height = ceil(bbox->height() * (res / PX_PER_IN));
+
+    if (width == 0 || height == 0) return;
+
     // Scale to exactly fit integer bitmap inside bounding box
-    double scale_x = (bbox->max()[Geom::X] - bbox->min()[Geom::X]) / width;
-    double scale_y = (bbox->max()[Geom::Y] - bbox->min()[Geom::Y]) / height;
+    double scale_x = bbox->width() / width;
+    double scale_y = bbox->height() / height;
 
     // Location of bounding box in document coordinates.
     double shift_x = bbox->min()[Geom::X];
@@ -501,7 +489,7 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
                                  (Geom::Affine)(Geom::Translate (shift_x, shift_y));
 
     // ctx matrix already includes item transformation. We must substract.
-    Geom::Affine t_item =  item->i2d_affine ();
+    Geom::Affine t_item =  item->i2dt_affine ();
     Geom::Affine t = t_on_document * t_item.inverse();
 
     // Do the export
@@ -515,11 +503,9 @@ static void sp_asbitmap_render(SPItem *item, CairoRenderContext *ctx)
 
     if (pb) {
         TEST(gdk_pixbuf_save( pb, "bitmap.png", "png", NULL, NULL ));
-        unsigned char *px = gdk_pixbuf_get_pixels (pb);
-        unsigned int w = gdk_pixbuf_get_width(pb);
-        unsigned int h = gdk_pixbuf_get_height(pb);
-        unsigned int rs = gdk_pixbuf_get_rowstride(pb);
-        ctx->renderImage(px, w, h, rs, &t, item->style);
+        // TODO this is stupid - we just converted to pixbuf format when generating the bitmap!
+        convert_pixbuf_normal_to_argb32(pb);
+        ctx->renderImage(pb, t, item->style);
         gdk_pixbuf_unref(pb);
         pb = 0;
     }
@@ -541,7 +527,10 @@ static void sp_item_invoke_render(SPItem *item, CairoRenderContext *ctx)
 
     if (SP_IS_ROOT(item)) {
         TRACE(("root\n"));
-        return sp_root_render(item, ctx);
+        return sp_root_render(SP_ROOT(item), ctx);
+    } else if (SP_IS_SYMBOL(item)) {
+        TRACE(("symbol\n"));
+        return sp_symbol_render(item, ctx);
     } else if (SP_IS_GROUP(item)) {
         TRACE(("group\n"));
         return sp_group_render(item, ctx);
@@ -552,9 +541,6 @@ static void sp_item_invoke_render(SPItem *item, CairoRenderContext *ctx)
         TRACE(("use begin---\n"));
         sp_use_render(item, ctx);
         TRACE(("---use end\n"));
-    } else if (SP_IS_SYMBOL(item)) {
-        TRACE(("symbol\n"));
-        return sp_symbol_render(item, ctx);
     } else if (SP_IS_TEXT(item)) {
         TRACE(("text\n"));
         return sp_text_render(item, ctx);
@@ -607,8 +593,7 @@ void CairoRenderer::renderItem(CairoRenderContext *ctx, SPItem *item)
         state->merge_opacity = FALSE;
         ctx->pushLayer();
     }
-    Geom::Affine tempmat (item->transform);
-    ctx->transform(&tempmat);
+    ctx->transform(item->transform);
     sp_item_invoke_render(item, ctx);
 
     if (state->need_layer)
@@ -625,28 +610,28 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
     g_assert( ctx != NULL );
 
     if (!base) {
-        base = SP_ITEM(doc->getRoot());
+        base = doc->getRoot();
     }
 
-    NRRect d;
+    Geom::Rect d;
     if (pageBoundingBox) {
-        d.x0 = d.y0 = 0;
-        d.x1 = doc->getWidth();
-        d.y1 = doc->getHeight();
+        d = Geom::Rect::from_xywh(Geom::Point(0,0), doc->getDimensions());
     } else {
-        base->invoke_bbox( &d, base->i2d_affine(), TRUE, SPItem::RENDERING_BBOX);
+        Geom::OptRect bbox = base->desktopVisualBounds();
+        if (!bbox) {
+            g_message("CairoRenderer: empty bounding box.");
+            return false;
+        }
+        d = *bbox;
     }
 
     if (ctx->_vector_based_target) {
         // convert from px to pt
-        d.x0 *= PT_PER_PX;
-        d.x1 *= PT_PER_PX;
-        d.y0 *= PT_PER_PX;
-        d.y1 *= PT_PER_PX;
+        d *= Geom::Scale(PT_PER_PX);
     }
 
-    ctx->_width = d.x1-d.x0;
-    ctx->_height = d.y1-d.y0;
+    ctx->_width = d.width();
+    ctx->_height = d.height();
 
     TRACE(("setupDocument: %f x %f\n", ctx->_width, ctx->_height));
 
@@ -658,11 +643,12 @@ CairoRenderer::setupDocument(CairoRenderContext *ctx, SPDocument *doc, bool page
         if (ctx->_vector_based_target)
             high *= PT_PER_PX;
 
-        Geom::Affine tp(Geom::Translate(-d.x0 * (ctx->_vector_based_target ? PX_PER_PT : 1.0),
-                                    (d.y1 - high) * (ctx->_vector_based_target ? PX_PER_PT : 1.0)));
-        ctx->transform(&tp);
+        /// @fixme hardcoded dt2doc transform?
+        Geom::Affine tp(Geom::Translate(-d.left() * (ctx->_vector_based_target ? PX_PER_PT : 1.0),
+                                        (d.bottom() - high) * (ctx->_vector_based_target ? PX_PER_PT : 1.0)));
+        ctx->transform(tp);
     }
-    
+
     return ret;
 }
 
@@ -680,16 +666,17 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
     CairoRenderContext::CairoRenderMode saved_mode = ctx->getRenderMode();
     ctx->setRenderMode(CairoRenderContext::RENDER_MODE_CLIP);
 
+    // FIXME: the access to the first clippath view to obtain the bbox is completely bogus
     Geom::Affine saved_ctm;
-    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
+    if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX && cp->display->bbox) {
         //SP_PRINT_DRECT("clipd", cp->display->bbox);
-        NRRect clip_bbox(cp->display->bbox);
-        Geom::Affine t(Geom::Scale(clip_bbox.x1 - clip_bbox.x0, clip_bbox.y1 - clip_bbox.y0));
-        t[4] = clip_bbox.x0;
-        t[5] = clip_bbox.y0;
+        Geom::Rect clip_bbox = *cp->display->bbox;
+        Geom::Affine t(Geom::Scale(clip_bbox.dimensions()));
+        t[4] = clip_bbox.left();
+        t[5] = clip_bbox.top();
         t *= ctx->getCurrentState()->transform;
-        ctx->getTransform(&saved_ctm);
-        ctx->setTransform(&t);
+        saved_ctm = ctx->getTransform();
+        ctx->setTransform(t);
     }
 
     TRACE(("BEGIN clip\n"));
@@ -699,12 +686,11 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
             SPItem const *item = SP_ITEM(child);
 
             // combine transform of the item in clippath and the item using clippath:
-            Geom::Affine tempmat (item->transform);
-            tempmat = tempmat * (ctx->getCurrentState()->item_transform);
+            Geom::Affine tempmat = item->transform * ctx->getCurrentState()->item_transform;
 
             // render this item in clippath
             ctx->pushState();
-            ctx->transform(&tempmat);
+            ctx->transform(tempmat);
             setStateForItem(ctx, item);
             // TODO fix this call to accept const items
             sp_item_invoke_render(const_cast<SPItem *>(item), ctx);
@@ -719,7 +705,7 @@ CairoRenderer::applyClipPath(CairoRenderContext *ctx, SPClipPath const *cp)
         cairo_clip(ctx->_cr);
 
     if (cp->clipPathUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX)
-        ctx->setTransform(&saved_ctm);
+        ctx->setTransform(saved_ctm);
 
     ctx->setRenderMode(saved_mode);
 }
@@ -733,15 +719,16 @@ CairoRenderer::applyMask(CairoRenderContext *ctx, SPMask const *mask)
     if (mask == NULL)
         return;
 
-    //SP_PRINT_DRECT("maskd", &mask->display->bbox);
-    NRRect mask_bbox(mask->display->bbox);
+    // FIXME: the access to the first mask view to obtain the bbox is completely bogus
     // TODO: should the bbox be transformed if maskUnits != userSpaceOnUse ?
-    if (mask->maskContentUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX) {
-        Geom::Affine t(Geom::Scale(mask_bbox.x1 - mask_bbox.x0, mask_bbox.y1 - mask_bbox.y0));
-        t[4] = mask_bbox.x0;
-        t[5] = mask_bbox.y0;
+    if (mask->maskContentUnits == SP_CONTENT_UNITS_OBJECTBOUNDINGBOX && mask->display->bbox) {
+        //SP_PRINT_DRECT("maskd", &mask->display->bbox);
+        Geom::Rect mask_bbox = *mask->display->bbox;
+        Geom::Affine t(Geom::Scale(mask_bbox.dimensions()));
+        t[4] = mask_bbox.left();
+        t[5] = mask_bbox.top();
         t *= ctx->getCurrentState()->transform;
-        ctx->setTransform(&t);
+        ctx->setTransform(t);
     }
 
     // Clip mask contents... but...

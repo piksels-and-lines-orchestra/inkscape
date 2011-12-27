@@ -4,6 +4,7 @@ SUBDIRS = \
 	Barcode \
 	Poly3DObjects \
 	test \
+  ink2canvas \
 	xaml2svg
 
 extensiondir = $(datadir)/inkscape/extensions
@@ -43,6 +44,7 @@ extensions = \
 	cubicsuperpath.py \
 	dia2svg.sh \
 	dimension.py \
+	dm2svg.py \
 	dots.py \
 	draw_from_triangle.py \
 	dxf_input.py \
@@ -62,26 +64,24 @@ extensions = \
 	fractalize.py \
 	funcplot.py \
 	gears.py\
-    gcodetools.py\
+	gcodetools.py\
 	generate_voronoi.py \
 	gimp_xcf.py \
 	grid_cartesian.py \
+	grid_isometric.py \
 	grid_polar.py \
 	guides_creator.py \
 	guillotine.py \
 	handles.py \
 	hpgl_output.py \
 	ill2svg.pl \
+	ink2canvas.py \
 	inkex.py \
 	Inkscape.pm \
 	inkwebeffect.py \
-	inkweb.js \
 	interp.py \
 	interp_att_g.py \
-	jessyInk.js \
 	jessyInk_autoTexts.py \
-	jessyInk_core_mouseHandler_noclick.js \
-	jessyInk_core_mouseHandler_zoomControl.js \
 	jessyInk_effects.py \
 	jessyInk_export.py \
 	jessyInk_install.py \
@@ -94,11 +94,18 @@ extensions = \
 	jessyInk_video.py \
 	jessyInk_view.py \
 	launch_webbrowser.py \
+	layers2svgfont.py \
+	svgfont2layers.py \
+	layout_nup.py \
+	layout_nup_pageframe.py \
 	lindenmayer.py \
 	lorem_ipsum.py \
 	markers_strokepaint.py \
 	measure.py \
 	motion.py \
+	new_glyph_layer.py \
+	next_glyph_layer.py \
+	previous_glyph_layer.py \
 	outline2svg.pl	\
 	param_curves.py \
 	pathalongpath.py\
@@ -126,6 +133,7 @@ extensions = \
 	run_command.py \
 	scour.py \
 	scour.inkscape.py \
+	setup_typography_canvas.py \
 	simplepath.py \
 	simplepath.rb \
 	simplestyle.py \
@@ -140,6 +148,11 @@ extensions = \
 	svgcalendar.py \
 	svg_regex.py \
 	svg_and_media_zip_output.py \
+	synfig_fileformat.py \
+	synfig_output.py \
+	synfig_prepare.py \
+	text_extract.py \
+	svg_transform.py \
 	text_uppercase.py \
 	text_lowercase.py \
 	text_sentencecase.py \
@@ -153,6 +166,7 @@ extensions = \
 	uniconv-ext.py \
 	uniconv_output.py \
 	voronoi.py \
+	voronoi2svg.py \
 	webslicer_create_group.py \
 	webslicer_create_rect.py \
 	webslicer_effect.py \
@@ -165,10 +179,14 @@ extensions = \
 	yocto_css.py
 
 otherstuff = \
+	inkweb.js \
+	jessyInk.js \
+	jessyInk_core_mouseHandler_noclick.js \
+	jessyInk_core_mouseHandler_zoomControl.js \
 	aisvg.xslt \
 	colors.xml \
 	jessyInk_video.svg \
-    svg2fxg.xsl \
+	svg2fxg.xsl \
 	svg2xaml.xsl \
 	xaml2svg.xsl
 
@@ -201,6 +219,7 @@ modules = \
 	color_rgbbarrel.inx\
 	color_replace.inx\
 	convert2dashes.inx\
+	dhw_input.inx \
 	dia.inx \
 	dimension.inx \
 	dots.inx \
@@ -221,23 +240,27 @@ modules = \
 	fractalize.inx \
 	funcplot.inx \
 	gears.inx\
-    gcodetools_all_in_one.inx\
-    gcodetools_area.inx\
-    gcodetools_check_for_updates.inx\
-    gcodetools_dxf_points.inx\
-    gcodetools_engraving.inx\
-    gcodetools_lathe.inx\
-    gcodetools_orientation_points.inx\
-    gcodetools_path_to_gcode.inx\
-    gcodetools_tools_library.inx\
+	gcodetools_about.inx\
+	gcodetools_area.inx\
+	gcodetools_check_for_updates.inx\
+	gcodetools_dxf_points.inx\
+	gcodetools_engraving.inx\
+	gcodetools_graffiti.inx\
+	gcodetools_lathe.inx\
+	gcodetools_orientation_points.inx\
+	gcodetools_path_to_gcode.inx\
+	gcodetools_prepare_path_for_plasma.inx\
+	gcodetools_tools_library.inx\
 	generate_voronoi.inx \
 	gimp_xcf.inx \
 	grid_cartesian.inx \
+	grid_isometric.inx \
 	grid_polar.inx \
 	guides_creator.inx \
 	guillotine.inx \
 	handles.inx \
 	hpgl_output.inx \
+	ink2canvas.inx \
 	inkscape_help_askaquestion.inx \
 	inkscape_help_commandline.inx \
 	inkscape_help_faq.inx\
@@ -260,11 +283,17 @@ modules = \
 	jessyInk_uninstall.inx \
 	jessyInk_video.inx \
 	jessyInk_view.inx \
+	layers2svgfont.inx \
+	svgfont2layers.inx \
+	layout_nup.inx \
 	lindenmayer.inx \
 	lorem_ipsum.inx \
 	markers_strokepaint.inx \
 	measure.inx \
 	motion.inx \
+	new_glyph_layer.inx \
+	next_glyph_layer.inx \
+	previous_glyph_layer.inx \
 	outline2svg.inx \
 	param_curves.inx \
 	pathalongpath.inx\
@@ -287,6 +316,7 @@ modules = \
 	rubberstretch.inx \
 	rtree.inx \
 	scour.inx \
+	setup_typography_canvas.inx \
 	sk_input.inx \
 	sk1_input.inx \
 	sk1_output.inx \
@@ -294,10 +324,12 @@ modules = \
 	split.inx \
 	straightseg.inx \
 	summersnight.inx \
-    svg2fxg.inx \
+	svg2fxg.inx \
 	svg2xaml.inx \
 	svg_and_media_zip_output.inx \
 	svgcalendar.inx \
+	synfig_output.inx \
+	text_extract.inx \
 	text_uppercase.inx\
 	text_lowercase.inx \
 	text_sentencecase.inx \
@@ -308,6 +340,7 @@ modules = \
 	text_braille.inx \
 	triangle.inx \
 	txt2svg.inx \
+	voronoi2svg.inx \
 	webslicer_create_group.inx \
 	webslicer_create_rect.inx \
 	webslicer_export.inx \

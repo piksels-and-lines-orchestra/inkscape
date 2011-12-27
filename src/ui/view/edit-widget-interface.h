@@ -1,8 +1,4 @@
-/**
- * \file
- *
- * Abstract base class for all EditWidget implementations.
- *
+/*
  * Authors:
  *     Ralf Stephan <ralf@ark.in-berlin.de>
  *     John Bintz <jcoswell@coswellproductions.org>
@@ -16,9 +12,9 @@
 #ifndef INKSCAPE_UI_VIEW_EDIT_WIDGET_IFACE_H
 #define INKSCAPE_UI_VIEW_EDIT_WIDGET_IFACE_H
 
-#include "libnr/nr-point.h"
 #include "message.h"
 #include <gtkmm/window.h>
+#include <2geom/point.h>
 
 namespace Inkscape { namespace UI { namespace Widget { class Dock; } } }
 
@@ -26,6 +22,9 @@ namespace Inkscape {
 namespace UI {
 namespace View {
 
+/**
+ * Abstract base class for all EditWidget implementations.
+ */
 struct EditWidgetInterface
 {
     EditWidgetInterface() {}
@@ -136,6 +135,10 @@ struct EditWidgetInterface
 
     /// Message widget will get no content
     virtual void setMessage (Inkscape::MessageType type, gchar const* msg) = 0;
+
+
+    /** Show an info dialog with the given message */
+    virtual bool showInfoDialog( Glib::ustring const &message ) = 0;
 
     /// Open yes/no dialog with warning text and confirmation question.
     virtual bool warnDialog (gchar*) = 0;

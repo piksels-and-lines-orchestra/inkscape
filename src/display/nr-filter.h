@@ -13,23 +13,27 @@
  */
 
 //#include "display/nr-arena-item.h"
+#include <cairo.h>
 #include "display/nr-filter-primitive.h"
 #include "display/nr-filter-types.h"
-#include "libnr/nr-pixblock.h"
-#include "libnr/nr-matrix.h"
-#include "libnr/nr-rect.h"
 #include "svg/svg-length.h"
 #include "sp-filter-units.h"
 #include "gc-managed.h"
 
-struct NRArenaItem;
-
 namespace Inkscape {
+class DrawingContext;
+class DrawingItem;
+
 namespace Filters {
 
-class Filter : public Inkscape::GC::Managed<> {
+class Filter {
 public:
-    int render(NRArenaItem const *item, NRPixBlock *pb);
+    /** Given background state from @a bgct and an intermediate rendering from the surface
+     * backing @a graphic, modify the contents of the surface backing @a graphic to represent
+     * the results of filter rendering. @a bgarea and @a area specify bounding boxes
+     * of both surfaces in world coordinates; Cairo contexts are assumed to be in default state
+     * (0,0 = surface origin, no path, OVER operator) */
+    int render(Inkscape::DrawingItem const *item, DrawingContext &graphic, DrawingContext *bgct);
 
     /**
      * Creates a new filter primitive under this filter object.
@@ -145,18 +149,25 @@ public:
      * to be rendered so that after filtering, the original area is
      * drawn correctly.
      */
-    void area_enlarge(NRRectL &area, NRArenaItem const *item) const;
+    void area_enlarge(Geom::IntRect &area, Inkscape::DrawingItem const *item) const;
     /**
-     * Given an object bounding box, this function enlarges it so that
-     * it contains the filter effect area.
+     * Given an item bounding box (in user coords), this function enlarges it
+     * to contain the filter effects region and transforms it to screen
+     * coordinates
      */
-    void bbox_enlarge(NRRectL &bbox);
+    Geom::OptIntRect compute_drawbox(Inkscape::DrawingItem const *item, Geom::OptRect const &item_bbox);
     /**
      * Returns the filter effects area in user coordinate system.
      * The given bounding box should be a bounding box as specified in
      * SVG standard and in user coordinate system.
      */
-    Geom::Rect filter_effect_area(Geom::Rect const &bbox);
+    Geom::OptRect filter_effect_area(Geom::OptRect const &bbox);
+
+    // returns cache score factor
+    double complexity(Geom::Affine const &ctm);
+
+    // says whether the filter accesses any of the background images
+    bool uses_background();
 
     /** Creates a new filter with space for one filter element */
     Filter();
@@ -170,9 +181,7 @@ public:
     virtual ~Filter();
 
 private:
-    int _primitive_count;
-    int _primitive_table_size;
-
+    std::vector<FilterPrimitive*> _primitive;
     /** Amount of image slots used, when this filter was rendered last time */
     int _slot_count;
 
@@ -194,10 +203,7 @@ private:
     SPFilterUnits _filter_units;
     SPFilterUnits _primitive_units;
 
-    FilterPrimitive ** _primitive;
-
     void _create_constructor_table();
-    void _enlarge_primitive_table();
     void _common_init();
     int _resolution_limit(FilterQuality const quality) const;
     std::pair<double,double> _filter_resolution(Geom::Rect const &area,

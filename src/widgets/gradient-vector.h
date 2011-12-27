@@ -20,14 +20,17 @@
 #include <stddef.h>
 #include <sigc++/connection.h>
 
-#include <gtk/gtkvbox.h>
-#include "../forward.h"
+#include <gtk/gtk.h>
 
 #define SP_TYPE_GRADIENT_VECTOR_SELECTOR (sp_gradient_vector_selector_get_type ())
-#define SP_GRADIENT_VECTOR_SELECTOR(o) (GTK_CHECK_CAST ((o), SP_TYPE_GRADIENT_VECTOR_SELECTOR, SPGradientVectorSelector))
-#define SP_GRADIENT_VECTOR_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_CAST ((k), SP_TYPE_GRADIENT_VECTOR_SELECTOR, SPGradientVectorSelectorClass))
-#define SP_IS_GRADIENT_VECTOR_SELECTOR(o) (GTK_CHECK_TYPE ((o), SP_TYPE_GRADIENT_VECTOR_SELECTOR))
-#define SP_IS_GRADIENT_VECTOR_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), SP_TYPE_GRADIENT_VECTOR_SELECTOR))
+#define SP_GRADIENT_VECTOR_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_CAST ((o), SP_TYPE_GRADIENT_VECTOR_SELECTOR, SPGradientVectorSelector))
+#define SP_GRADIENT_VECTOR_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_CAST ((k), SP_TYPE_GRADIENT_VECTOR_SELECTOR, SPGradientVectorSelectorClass))
+#define SP_IS_GRADIENT_VECTOR_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), SP_TYPE_GRADIENT_VECTOR_SELECTOR))
+#define SP_IS_GRADIENT_VECTOR_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), SP_TYPE_GRADIENT_VECTOR_SELECTOR))
+
+class SPDocument;
+class SPGradient;
+class SPStop;
 
 struct SPGradientVectorSelector {
     GtkVBox vbox;

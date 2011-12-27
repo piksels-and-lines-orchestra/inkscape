@@ -27,9 +27,9 @@
 
 #include "gdl-i18n.h"
 
-#include "gdl-tools.h"
 #include "gdl-dock-placeholder.h"
 #include "gdl-dock-item.h"
+#include "gdl-dock-paned.h"
 #include "gdl-dock-master.h"
 #include "libgdltypebuiltins.h"
 
@@ -39,7 +39,6 @@
 /* ----- Private prototypes ----- */
 
 static void     gdl_dock_placeholder_class_init     (GdlDockPlaceholderClass *klass);
-static void     gdl_dock_placeholder_instance_init  (GdlDockPlaceholder      *ph);
 
 static void     gdl_dock_placeholder_set_property   (GObject                 *g_object,
                                                      guint                    prop_id,
@@ -119,8 +118,7 @@ struct _GdlDockPlaceholderPrivate {
 
 /* ----- Private interface ----- */
 
-GDL_CLASS_BOILERPLATE (GdlDockPlaceholder, gdl_dock_placeholder,
-                       GdlDockObject, GDL_TYPE_DOCK_OBJECT);
+G_DEFINE_TYPE (GdlDockPlaceholder, gdl_dock_placeholder, GDL_TYPE_DOCK_OBJECT);
 
 static void 
 gdl_dock_placeholder_class_init (GdlDockPlaceholderClass *klass)
@@ -188,14 +186,14 @@ gdl_dock_placeholder_class_init (GdlDockPlaceholderClass *klass)
                             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 	g_object_class_install_property (
         g_object_class, PROP_FLOAT_X,
-        g_param_spec_int ("floatx", _("X-Coordinate"),
+        g_param_spec_int ("floatx", _("X Coordinate"),
                           	_("X coordinate for dock when floating"),
                           	-1, G_MAXINT, -1,
                           	G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                           	GDL_DOCK_PARAM_EXPORT));
 	g_object_class_install_property (
         g_object_class, PROP_FLOAT_Y,
-        g_param_spec_int ("floaty", _("Y-Coordinate"),
+        g_param_spec_int ("floaty", _("Y Coordinate"),
                           	_("Y coordinate for dock when floating"),
                           	-1, G_MAXINT, -1,
                           	G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
@@ -213,10 +211,10 @@ gdl_dock_placeholder_class_init (GdlDockPlaceholderClass *klass)
 }
 
 static void 
-gdl_dock_placeholder_instance_init (GdlDockPlaceholder *ph)
+gdl_dock_placeholder_init (GdlDockPlaceholder *ph)
 {
-    GTK_WIDGET_SET_FLAGS (ph, GTK_NO_WINDOW);
-    GTK_WIDGET_UNSET_FLAGS (ph, GTK_CAN_FOCUS);
+    gtk_widget_set_has_window (GTK_WIDGET (ph), FALSE);
+    gtk_widget_set_can_focus (GTK_WIDGET (ph), FALSE);
     
     ph->_priv = g_new0 (GdlDockPlaceholderPrivate, 1);
 }
@@ -325,7 +323,7 @@ gdl_dock_placeholder_destroy (GtkObject *object)
         ph->_priv = NULL;
     }
 
-    GDL_CALL_PARENT (GTK_OBJECT_CLASS, destroy, (object));
+    GTK_OBJECT_CLASS (gdl_dock_placeholder_parent_class)->destroy (object);
 }
 
 static void 
@@ -351,6 +349,7 @@ gdl_dock_placeholder_detach (GdlDockObject *object,
                              gboolean       recursive)
 {
     GdlDockPlaceholder *ph = GDL_DOCK_PLACEHOLDER (object);
+    (void)recursive;
 
     /* disconnect handlers */
     disconnect_host (ph);
@@ -365,6 +364,7 @@ gdl_dock_placeholder_detach (GdlDockObject *object,
 static void 
 gdl_dock_placeholder_reduce (GdlDockObject *object)
 {
+    (void)object;
     /* placeholders are not reduced */
     return;
 }
@@ -374,6 +374,7 @@ find_biggest_dock_item (GtkContainer *container, GtkWidget **biggest_child,
                         gint *biggest_child_area)
 {
     GList *children, *child;
+    GtkAllocation allocation;
     
     children = gtk_container_get_children (GTK_CONTAINER (container));
     child = children;
@@ -389,7 +390,8 @@ find_biggest_dock_item (GtkContainer *container, GtkWidget **biggest_child,
             child = g_list_next (child);
             continue;
         }
-        area = child_widget->allocation.width * child_widget->allocation.height;
+        gtk_widget_get_allocation (child_widget, &allocation);
+        area = allocation.width * allocation.height;
         
         if (area > *biggest_child_area) {
             *biggest_child_area = area;
@@ -405,8 +407,13 @@ attempt_to_dock_on_host (GdlDockPlaceholder *ph, GdlDockObject *host,
                          gpointer other_data)
 {
     GdlDockObject *parent;
-    gint host_width = GTK_WIDGET (host)->allocation.width;
-    gint host_height = GTK_WIDGET (host)->allocation.height;
+    GtkAllocation  allocation;
+    gint host_width;
+    gint host_height;
+
+    gtk_widget_get_allocation (GTK_WIDGET (host), &allocation);
+    host_width = allocation.width;
+    host_height = allocation.height;
     
     if (placement != GDL_DOCK_CENTER || !GDL_IS_DOCK_PANED (host)) {
         /* we simply act as a proxy for our host */
@@ -491,7 +498,7 @@ gdl_dock_placeholder_dock (GdlDockObject    *object,
         GdlDockObject *toplevel;
         
         if (!gdl_dock_object_is_bound (GDL_DOCK_OBJECT (ph))) {
-            g_warning ("%s",_("Attempt to dock a dock object to an unbound placeholder"));
+            g_warning ("%s", _("Attempt to dock a dock object to an unbound placeholder"));
             return;
         }
         
@@ -531,6 +538,8 @@ static void
 gdl_dock_placeholder_present (GdlDockObject *object,
                               GdlDockObject *child)
 {
+    (void)object;
+    (void)child;
     /* do nothing */
     return;
 }
@@ -538,7 +547,7 @@ gdl_dock_placeholder_present (GdlDockObject *object,
 /* ----- Public interface ----- */ 
 								   
 GtkWidget * 
-gdl_dock_placeholder_new (gchar            *name,
+gdl_dock_placeholder_new (const gchar     *name,
                           GdlDockObject    *object,
                           GdlDockPlacement  position,
                           gboolean          sticky)
@@ -548,22 +557,10 @@ gdl_dock_placeholder_new (gchar            *name,
     ph = GDL_DOCK_PLACEHOLDER (g_object_new (GDL_TYPE_DOCK_PLACEHOLDER,
                                              "name", name,
                                              "sticky", sticky,
+                                             "next-placement", position,
+                                             "host", object,
                                              NULL));
     GDL_DOCK_OBJECT_UNSET_FLAGS (ph, GDL_DOCK_AUTOMATIC);
-
-    if (object) {
-        gdl_dock_placeholder_attach (ph, object);
-        if (position == GDL_DOCK_NONE)
-            position = GDL_DOCK_CENTER;
-        g_object_set (G_OBJECT (ph), "next-placement", position, NULL);
-        if (GDL_IS_DOCK (object)) {
-            /* the top placement will be consumed by the toplevel
-               dock, so add a dummy placement */
-            g_object_set (G_OBJECT (ph), "next-placement", GDL_DOCK_CENTER, NULL);
-        }
-        /* try a recursion */
-        do_excursion (ph);
-    }
     
     return GTK_WIDGET (ph);
 }
@@ -573,7 +570,8 @@ gdl_dock_placeholder_weak_notify (gpointer data,
                                   GObject *old_object)
 {
     GdlDockPlaceholder *ph;
-    
+    (void)old_object;
+
     g_return_if_fail (data != NULL && GDL_IS_DOCK_PLACEHOLDER (data));
 
     ph = GDL_DOCK_PLACEHOLDER (data);
@@ -605,6 +603,7 @@ detach_cb (GdlDockObject *object,
 {
     GdlDockPlaceholder *ph;
     GdlDockObject      *new_host, *obj;
+    (void)recursive;
 
     g_return_if_fail (user_data != NULL && GDL_IS_DOCK_PLACEHOLDER (user_data));
     
@@ -734,7 +733,9 @@ dock_cb (GdlDockObject    *object,
 {
     GdlDockPlacement    pos = GDL_DOCK_NONE;
     GdlDockPlaceholder *ph;
-    
+    (void)position;
+    (void)other_data;
+
     g_return_if_fail (user_data != NULL && GDL_IS_DOCK_PLACEHOLDER (user_data));
     ph = GDL_DOCK_PLACEHOLDER (user_data);
     g_return_if_fail (ph->_priv->host == object);

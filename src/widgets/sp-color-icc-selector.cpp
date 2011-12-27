@@ -2,12 +2,7 @@
 # include "config.h"
 #endif
 #include <math.h>
-#include <gtk/gtkbutton.h>
 #include <gtk/gtk.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtkspinbutton.h>
 #include <glibmm/i18n.h>
 #include "../dialogs/dialog-events.h"
 #include "sp-color-icc-selector.h"
@@ -20,12 +15,12 @@
 #define noDEBUG_LCMS
 
 #if ENABLE_LCMS
-#include "color-profile-fns.h"
 #include "color-profile.h"
+#include "cms-system.h"
+#include "color-profile-cms-fns.h"
 
 #ifdef DEBUG_LCMS
 #include "preferences.h"
-#include <gtk/gtkmessagedialog.h>
 #endif // DEBUG_LCMS
 #endif // ENABLE_LCMS
 
@@ -134,6 +129,8 @@ ColorICCSelector::ColorICCSelector( SPColorSelector* csel )
       _updating( FALSE ),
       _dragging( FALSE ),
       _fixupNeeded(0),
+      _fixupBtn(0),
+      _profileSel(0),
       _fooCount(0),
       _fooScales(0),
       _fooAdj(0),
@@ -142,9 +139,9 @@ ColorICCSelector::ColorICCSelector( SPColorSelector* csel )
       _fooLabel(0),
       _fooMap(0),
       _adj(0),
+      _slider(0),
       _sbtn(0),
-      _label(0),
-      _tt(0)
+      _label(0)
 #if ENABLE_LCMS
     ,
       _profileName(""),
@@ -265,6 +262,12 @@ void getThings( DWORD space, gchar const**& namers, gchar const**& tippies, guin
     tippies = tips[index];
     scalies = scales[index];
 }
+
+
+void getThings( Inkscape::ColorProfile *prof, gchar const**& namers, gchar const**& tippies, guint const*& scalies ) {
+    getThings( asICColorSpaceSig(prof->getColorSpace()), namers, tippies, scalies );
+}
+
 #endif // ENABLE_LCMS
 
 
@@ -275,8 +278,6 @@ void ColorICCSelector::init()
 
     _updating = FALSE;
     _dragging = FALSE;
-
-    _tt = gtk_tooltips_new();
 
     t = gtk_table_new (5, 3, FALSE);
     gtk_widget_show (t);
@@ -296,7 +297,7 @@ void ColorICCSelector::init()
     _fixupBtn = gtk_button_new_with_label(_("Fix"));
     g_signal_connect( G_OBJECT(_fixupBtn), "clicked", G_CALLBACK(_fixupHit), (gpointer)this );
     gtk_widget_set_sensitive( _fixupBtn, FALSE );
-    gtk_tooltips_set_tip( _tt, _fixupBtn, _("Fix RGB fallback to match icc-color() value."), NULL );
+    gtk_widget_set_tooltip_text( _fixupBtn, _("Fix RGB fallback to match icc-color() value.") );
     //gtk_misc_set_alignment( GTK_MISC (_fixupBtn), 1.0, 0.5 );
     gtk_widget_show( _fixupBtn );
     gtk_table_attach( GTK_TABLE (t), _fixupBtn, 0, 1, row, row + 1, GTK_FILL, GTK_FILL, XPAD, YPAD );
@@ -344,18 +345,18 @@ void ColorICCSelector::init()
         /* Slider */
         _fooSlider[i] = sp_color_slider_new( _fooAdj[i] );
 #if ENABLE_LCMS
-        gtk_tooltips_set_tip( _tt, _fooSlider[i], tips[i], NULL );
+        gtk_widget_set_tooltip_text( _fooSlider[i], tips[i] );
 #else
-        gtk_tooltips_set_tip( _tt, _fooSlider[i], ".", NULL );
+        gtk_widget_set_tooltip_text( _fooSlider[i], "." );
 #endif // ENABLE_LCMS
         gtk_widget_show( _fooSlider[i] );
         gtk_table_attach( GTK_TABLE (t), _fooSlider[i], 1, 2, row, row + 1, (GtkAttachOptions)(GTK_EXPAND | GTK_FILL), (GtkAttachOptions)GTK_FILL, XPAD, YPAD );
 
         _fooBtn[i] = gtk_spin_button_new( _fooAdj[i], step, digits );
 #if ENABLE_LCMS
-        gtk_tooltips_set_tip( _tt, _fooBtn[i], tips[i], NULL );
+        gtk_widget_set_tooltip_text( _fooBtn[i], tips[i] );
 #else
-        gtk_tooltips_set_tip( _tt, _fooBtn[i], ".", NULL );
+        gtk_widget_set_tooltip_text( _fooBtn[i], "." );
 #endif // ENABLE_LCMS
         sp_dialog_defocus_on_enter( _fooBtn[i] );
         gtk_label_set_mnemonic_widget( GTK_LABEL(_fooLabel[i]), _fooBtn[i] );
@@ -367,11 +368,11 @@ void ColorICCSelector::init()
 
 
         /* Signals */
-        gtk_signal_connect( GTK_OBJECT( _fooAdj[i] ), "value_changed", GTK_SIGNAL_FUNC( _adjustmentChanged ), _csel );
+        g_signal_connect( G_OBJECT( _fooAdj[i] ), "value_changed", G_CALLBACK( _adjustmentChanged ), _csel );
 
-        gtk_signal_connect( GTK_OBJECT( _fooSlider[i] ), "grabbed", GTK_SIGNAL_FUNC( _sliderGrabbed ), _csel );
-        gtk_signal_connect( GTK_OBJECT( _fooSlider[i] ), "released", GTK_SIGNAL_FUNC( _sliderReleased ), _csel );
-        gtk_signal_connect( GTK_OBJECT( _fooSlider[i] ), "changed", GTK_SIGNAL_FUNC( _sliderChanged ), _csel );
+        g_signal_connect( G_OBJECT( _fooSlider[i] ), "grabbed", G_CALLBACK( _sliderGrabbed ), _csel );
+        g_signal_connect( G_OBJECT( _fooSlider[i] ), "released", G_CALLBACK( _sliderReleased ), _csel );
+        g_signal_connect( G_OBJECT( _fooSlider[i] ), "changed", G_CALLBACK( _sliderChanged ), _csel );
 
         row++;
     }
@@ -387,7 +388,7 @@ void ColorICCSelector::init()
 
     /* Slider */
     _slider = sp_color_slider_new (_adj);
-    gtk_tooltips_set_tip (_tt, _slider, _("Alpha (opacity)"), NULL);
+    gtk_widget_set_tooltip_text (_slider, _("Alpha (opacity)"));
     gtk_widget_show (_slider);
     gtk_table_attach (GTK_TABLE (t), _slider, 1, 2, row, row + 1, (GtkAttachOptions)(GTK_EXPAND | GTK_FILL), (GtkAttachOptions)GTK_FILL, XPAD, YPAD);
 
@@ -399,22 +400,22 @@ void ColorICCSelector::init()
 
     /* Spinbutton */
     _sbtn = gtk_spin_button_new (GTK_ADJUSTMENT (_adj), 1.0, 0);
-    gtk_tooltips_set_tip (_tt, _sbtn, _("Alpha (opacity)"), NULL);
+    gtk_widget_set_tooltip_text (_sbtn, _("Alpha (opacity)"));
     sp_dialog_defocus_on_enter (_sbtn);
     gtk_label_set_mnemonic_widget (GTK_LABEL(_label), _sbtn);
     gtk_widget_show (_sbtn);
     gtk_table_attach (GTK_TABLE (t), _sbtn, 2, 3, row, row + 1, (GtkAttachOptions)0, (GtkAttachOptions)0, XPAD, YPAD);
 
     /* Signals */
-    gtk_signal_connect (GTK_OBJECT (_adj), "value_changed",
-                        GTK_SIGNAL_FUNC (_adjustmentChanged), _csel);
+    g_signal_connect (G_OBJECT (_adj), "value_changed",
+                        G_CALLBACK (_adjustmentChanged), _csel);
 
-    gtk_signal_connect (GTK_OBJECT (_slider), "grabbed",
-                        GTK_SIGNAL_FUNC (_sliderGrabbed), _csel);
-    gtk_signal_connect (GTK_OBJECT (_slider), "released",
-                        GTK_SIGNAL_FUNC (_sliderReleased), _csel);
-    gtk_signal_connect (GTK_OBJECT (_slider), "changed",
-                        GTK_SIGNAL_FUNC (_sliderChanged), _csel);
+    g_signal_connect (G_OBJECT (_slider), "grabbed",
+                        G_CALLBACK (_sliderGrabbed), _csel);
+    g_signal_connect (G_OBJECT (_slider), "released",
+                        G_CALLBACK (_sliderReleased), _csel);
+    g_signal_connect (G_OBJECT (_slider), "changed",
+                        G_CALLBACK (_sliderChanged), _csel);
 }
 
 static void
@@ -441,7 +442,7 @@ sp_color_icc_selector_new (void)
 {
     SPColorICCSelector *csel;
 
-    csel = (SPColorICCSelector*)gtk_type_new (SP_TYPE_COLOR_ICC_SELECTOR);
+    csel = (SPColorICCSelector*)g_object_new (SP_TYPE_COLOR_ICC_SELECTOR, NULL);
 
     return GTK_WIDGET (csel);
 }
@@ -506,12 +507,12 @@ void ColorICCSelector::_switchToProfile( gchar const* name )
 #ifdef DEBUG_LCMS
                     g_message("got on out [%04x] [%04x] [%04x] [%04x]", post[0], post[1], post[2], post[3]);
 #endif // DEBUG_LCMS
-                    guint count = _cmsChannelsOf( newProf->getColorSpace() );
+                    guint count = _cmsChannelsOf( asICColorSpaceSig(newProf->getColorSpace()) );
 
                     gchar const** names = 0;
                     gchar const** tips = 0;
                     guint const* scales = 0;
-                    getThings( newProf->getColorSpace(), names, tips, scales );
+                    getThings( asICColorSpaceSig(newProf->getColorSpace()), names, tips, scales );
 
                     for ( guint i = 0; i < count; i++ ) {
                         gdouble val = (((gdouble)post[i])/65535.0) * (gdouble)scales[i];
@@ -689,19 +690,19 @@ void ColorICCSelector::_setProfile( SVGICCColor* profile )
 
     if ( profile ) {
         _prof = SP_ACTIVE_DOCUMENT->profileManager->find(profile->colorProfile.c_str());
-        if ( _prof && _prof->getProfileClass() != icSigNamedColorClass ) {
-            _profChannelCount = _cmsChannelsOf( _prof->getColorSpace() );
+        if ( _prof && (asICColorProfileClassSig(_prof->getProfileClass()) != icSigNamedColorClass) ) {
+            _profChannelCount = _cmsChannelsOf( asICColorSpaceSig(_prof->getColorSpace()) );
 
             gchar const** names = 0;
             gchar const** tips = 0;
-            getThings( _prof->getColorSpace(), names, tips, _fooScales );
+            getThings( asICColorSpaceSig(_prof->getColorSpace()), names, tips, _fooScales );
 
             if ( profChanged ) {
                 for ( guint i = 0; i < _profChannelCount; i++ ) {
                     gtk_label_set_text_with_mnemonic( GTK_LABEL(_fooLabel[i]), names[i]);
 
-                    gtk_tooltips_set_tip( _tt, _fooSlider[i], tips[i], NULL );
-                    gtk_tooltips_set_tip( _tt, _fooBtn[i], tips[i], NULL );
+                    gtk_widget_set_tooltip_text( _fooSlider[i], tips[i] );
+                    gtk_widget_set_tooltip_text( _fooBtn[i], tips[i] );
 
                     sp_color_slider_set_colors( SP_COLOR_SLIDER(_fooSlider[i]),
                                                 SPColor(0.0, 0.0, 0.0).toRGBA32(0xff),
@@ -709,7 +710,7 @@ void ColorICCSelector::_setProfile( SVGICCColor* profile )
                                                 SPColor(1.0, 1.0, 1.0).toRGBA32(0xff) );
 /*
                     _fooAdj[i] = GTK_ADJUSTMENT( gtk_adjustment_new( val, 0.0, _fooScales[i],  step, page, page ) );
-                    gtk_signal_connect( GTK_OBJECT( _fooAdj[i] ), "value_changed", GTK_SIGNAL_FUNC( _adjustmentChanged ), _csel );
+                    g_signal_connect( G_OBJECT( _fooAdj[i] ), "value_changed", G_CALLBACK( _adjustmentChanged ), _csel );
 
                     sp_color_slider_set_adjustment( SP_COLOR_SLIDER(_fooSlider[i]), _fooAdj[i] );
                     gtk_spin_button_set_adjustment( GTK_SPIN_BUTTON(_fooBtn[i]), _fooAdj[i] );

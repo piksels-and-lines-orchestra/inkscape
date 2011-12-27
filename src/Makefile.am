@@ -118,11 +118,8 @@ include extension/script/Makefile_insert
 include filters/Makefile_insert
 include helper/Makefile_insert
 include io/Makefile_insert
-#include pedro/Makefile_insert
-#include jabber_whiteboard/Makefile_insert
 include libcroco/Makefile_insert
 include libgdl/Makefile_insert
-include libnr/Makefile_insert
 include libnrtype/Makefile_insert
 include libavoid/Makefile_insert
 include livarot/Makefile_insert
@@ -185,8 +182,6 @@ EXTRA_DIST +=	\
 	widgets/makefile.in	\
 	xml/makefile.in		\
 	2geom/makefile.in	\
-	extension/internal/win32.cpp	\
-	extension/internal/win32.h	\
 	extension/internal/emf-win32-inout.cpp	\
 	extension/internal/emf-win32-inout.h	\
 	extension/internal/emf-win32-print.cpp	\
@@ -212,11 +207,7 @@ libinkscape_a_SOURCES = $(ink_common_sources)
 
 inkscape_SOURCES += main.cpp $(win32_sources)
 inkscape_LDADD = $(all_libs)
-if EXPORT_DYNAMIC_DIRECT
-inkscape_LDFLAGS = --export-dynamic $(kdeldflags) $(mwindows)
-else
-inkscape_LDFLAGS = -Wl,--export-dynamic $(kdeldflags) $(mwindows)
-endif
+inkscape_LDFLAGS = $(kdeldflags) $(mwindows)
 
 inkview_SOURCES += inkview.cpp $(win32_sources)
 inkview_LDADD = $(all_libs)
@@ -270,7 +261,7 @@ TESTS = $(check_PROGRAMS) ../share/extensions/test/run-all-extension-tests
 XFAIL_TESTS = $(check_PROGRAMS) ../share/extensions/test/run-all-extension-tests
 
 # including the the testsuites here ensures that they get distributed
-cxxtests_SOURCES = cxxtests.cpp libnr/nr-compose-reference.cpp $(CXXTEST_TESTSUITES)
+cxxtests_SOURCES = cxxtests.cpp $(CXXTEST_TESTSUITES)
 cxxtests_LDADD = $(all_libs)
 
 cxxtests.cpp: $(CXXTEST_TESTSUITES) $(CXXTEST_TEMPLATE)

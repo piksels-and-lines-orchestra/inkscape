@@ -1,8 +1,3 @@
-/** \file
- * \brief 
- *
- * This widget is part of the Document properties dialog.
- */
 /*
  * Authors:
  *   Ralf Stephan <ralf@ark.in-berlin.de>
@@ -27,10 +22,25 @@ namespace Widget {
 
 class Registry;
 
+/**
+ * Implementation of tolerance slider widget.
+ * This widget is part of the Document properties dialog.
+ */
 class ToleranceSlider {
 public:
-    ToleranceSlider();
+    ToleranceSlider(const Glib::ustring& label1, 
+            const Glib::ustring& label2, 
+            const Glib::ustring& label3,
+            const Glib::ustring& tip1,
+            const Glib::ustring& tip2, 
+            const Glib::ustring& tip3,
+            const Glib::ustring& key, 
+            Registry& wr);
     ~ToleranceSlider();
+    void setValue (double);
+    void setLimits (double, double);
+    Gtk::VBox* _vbox;
+private:
     void init (const Glib::ustring& label1, 
             const Glib::ustring& label2, 
             const Glib::ustring& label3,
@@ -39,9 +49,6 @@ public:
             const Glib::ustring& tip3,
             const Glib::ustring& key, 
             Registry& wr);
-    void setValue (double);
-    void setLimits (double, double);
-    Gtk::VBox* _vbox;
 
 protected:
     void on_scale_changed();

@@ -12,7 +12,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+# include "config.h"
 #endif
 #include "attributes.h"
 #include "style.h"
@@ -20,8 +20,7 @@
 #include "sp-guide.h"
 #include "display/curve.h"
 #include <glibmm/i18n.h>
-#include <libnr/nr-matrix-fns.h>
-#include <xml/repr.h>
+#include "xml/repr.h"
 #include "document.h"
 #include "inkscape.h"
 
@@ -128,8 +127,8 @@ void SPLine::update(SPObject *object, SPCtx *ctx, guint flags)
 
         SPStyle const *style = object->style;
         SPItemCtx const *ictx = (SPItemCtx const *) ctx;
-        double const w = (ictx->vp.x1 - ictx->vp.x0);
-        double const h = (ictx->vp.y1 - ictx->vp.y0);
+        double const w = ictx->viewport.width();
+        double const h = ictx->viewport.height();
         double const em = style->font_size.computed;
         double const ex = em * 0.5;  // fixme: get from pango or libnrtype.
         line->x1.update(em, ex, w);
@@ -180,12 +179,12 @@ void SPLine::convertToGuides(SPItem *item)
     SPLine *line = SP_LINE(item);
     Geom::Point points[2];
 
-    Geom::Affine const i2d(item->i2d_affine());
+    Geom::Affine const i2dt(item->i2dt_affine());
 
-    points[0] = Geom::Point(line->x1.computed, line->y1.computed)*i2d;
-    points[1] = Geom::Point(line->x2.computed, line->y2.computed)*i2d;
+    points[0] = Geom::Point(line->x1.computed, line->y1.computed)*i2dt;
+    points[1] = Geom::Point(line->x2.computed, line->y2.computed)*i2dt;
 
-    SPGuide::createSPGuide(inkscape_active_desktop(), points[0], points[1]);
+    SPGuide::createSPGuide(item->document, points[0], points[1]);
 }
 
 Geom::Affine SPLine::setTransform(SPItem *item, Geom::Affine const &xform)
@@ -221,6 +220,9 @@ void SPLine::setShape(SPShape *shape)
     c->lineto(line->x2.computed, line->y2.computed);
 
     shape->setCurveInsync(c, TRUE); // *_insync does not call update, avoiding infinite recursion when set_shape is called by update
+    shape->setCurveBeforeLPE(c);
+
+    // LPE's cannot be applied to lines. (the result can (generally) not be represented as SPLine)
 
     c->unref();
 }

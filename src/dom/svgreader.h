@@ -1,7 +1,8 @@
-#ifndef __SVGREADER_H__
-#define __SVGREADER_H__
+#ifndef SEEN_SVGREADER_H
+#define SEEN_SVGREADER_H
 
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -9,7 +10,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -63,14 +65,11 @@ public:
     /**
      *
      */
-    SVGReader()
-        {
-        }
-
-    /**
-     *
-     */
-    SVGReader(const SVGReader &/*other*/)
+    SVGReader() :
+            parsebuf(),
+            parselen(0),
+            lastPosition(0),
+            doc(0)
         {
         }
 
@@ -179,7 +178,7 @@ private:
 }  //namespace w3c
 }  //namespace org
 
-#endif /* __SVGREADER_H__ */
+#endif // SEEN_SVGREADER_H
 /*#########################################################################
 ## E N D    O F    F I L E
 #########################################################################*/

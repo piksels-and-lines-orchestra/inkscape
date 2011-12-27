@@ -116,7 +116,7 @@ static void sp_guide_class_init(SPGuideClass *gc)
 
 static void sp_guide_init(SPGuide *guide)
 {
-    guide->normal_to_line = component_vectors[Geom::Y];
+    guide->normal_to_line = Geom::Point(0.,1.);
     guide->point_on_line = Geom::Point(0.,0.);
     guide->color = 0x0000ff7f;
     guide->hicolor = 0xff00007f;
@@ -160,8 +160,12 @@ static void sp_guide_build(SPObject *object, SPDocument *document, Inkscape::XML
         (* ((SPObjectClass *) (parent_class))->build)(object, document, repr);
     }
 
+    object->readAttr( "inkscape:label" );
     object->readAttr( "orientation" );
     object->readAttr( "position" );
+
+    /* Register */
+    document->addResource("guide", object);
 }
 
 static void sp_guide_release(SPObject *object)
@@ -171,6 +175,11 @@ static void sp_guide_release(SPObject *object)
     while (guide->views) {
         sp_guideline_delete(SP_GUIDELINE(guide->views->data));
         guide->views = g_slist_remove(guide->views, guide->views->data);
+    }
+
+    if (object->document) {
+        // Unregister ourselves
+        object->document->removeResource("guide", object);
     }
 
     if (((SPObjectClass *) parent_class)->release) {
@@ -183,13 +192,22 @@ static void sp_guide_set(SPObject *object, unsigned int key, const gchar *value)
     SPGuide *guide = SP_GUIDE(object);
 
     switch (key) {
+    case SP_ATTR_INKSCAPE_LABEL:
+        if (value) {
+            guide->label = g_strdup(value);
+        } else {
+            guide->label = NULL;
+        }
+
+        sp_guide_set_label(*guide, guide->label, false);
+        break;
     case SP_ATTR_ORIENTATION:
         {
             if (value && !strcmp(value, "horizontal")) {
                 /* Visual representation of a horizontal line, constrain vertically (y coordinate). */
-                guide->normal_to_line = component_vectors[Geom::Y];
+                guide->normal_to_line = Geom::Point(0., 1.);
             } else if (value && !strcmp(value, "vertical")) {
-                guide->normal_to_line = component_vectors[Geom::X];
+                guide->normal_to_line = Geom::Point(1., 0.);
             } else if (value) {
                 gchar ** strarray = g_strsplit(value, ",", 2);
                 double newx, newy;
@@ -202,34 +220,38 @@ static void sp_guide_set(SPObject *object, unsigned int key, const gchar *value)
                     guide->normal_to_line = direction;
                 } else {
                     // default to vertical line for bad arguments
-                    guide->normal_to_line = component_vectors[Geom::X];
+                    guide->normal_to_line = Geom::Point(1., 0.);
                 }
             } else {
                 // default to vertical line for bad arguments
-                guide->normal_to_line = component_vectors[Geom::X];
+                guide->normal_to_line = Geom::Point(1., 0.);
             }
             sp_guide_set_normal(*guide, guide->normal_to_line, false);
         }
         break;
     case SP_ATTR_POSITION:
         {
-            gchar ** strarray = g_strsplit(value, ",", 2);
-            double newx, newy;
-            unsigned int success = sp_svg_number_read_d(strarray[0], &newx);
-            success += sp_svg_number_read_d(strarray[1], &newy);
-            g_strfreev (strarray);
-            if (success == 2) {
-                guide->point_on_line = Geom::Point(newx, newy);
-            } else if (success == 1) {
-                // before 0.46 style guideline definition.
-                const gchar *attr = object->getRepr()->attribute("orientation");
-                if (attr && !strcmp(attr, "horizontal")) {
-                    guide->point_on_line = Geom::Point(0, newx);
-                } else {
-                    guide->point_on_line = Geom::Point(newx, 0);
+            if (value) {
+                gchar ** strarray = g_strsplit(value, ",", 2);
+                double newx, newy;
+                unsigned int success = sp_svg_number_read_d(strarray[0], &newx);
+                success += sp_svg_number_read_d(strarray[1], &newy);
+                g_strfreev (strarray);
+                if (success == 2) {
+                    guide->point_on_line = Geom::Point(newx, newy);
+                } else if (success == 1) {
+                    // before 0.46 style guideline definition.
+                    const gchar *attr = object->getRepr()->attribute("orientation");
+                    if (attr && !strcmp(attr, "horizontal")) {
+                        guide->point_on_line = Geom::Point(0, newx);
+                    } else {
+                        guide->point_on_line = Geom::Point(newx, 0);
+                    }
                 }
+            } else {
+                // default to (0,0) for bad arguments
+                guide->point_on_line = Geom::Point(0,0);
             }
-
             // update position in non-committing way
             // fixme: perhaps we need to add an update method instead, and request_update here
             sp_guide_moveto(*guide, guide->point_on_line, false);
@@ -243,9 +265,8 @@ static void sp_guide_set(SPObject *object, unsigned int key, const gchar *value)
     }
 }
 
-SPGuide *SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom::Point const &pt2)
+SPGuide *SPGuide::createSPGuide(SPDocument *doc, Geom::Point const &pt1, Geom::Point const &pt2)
 {
-    SPDocument *doc = sp_desktop_document(desktop);
     Inkscape::XML::Document *xml_doc = doc->getReprDoc();
 
     Inkscape::XML::Node *repr = xml_doc->createElement("sodipodi:guide");
@@ -255,7 +276,10 @@ SPGuide *SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom
     sp_repr_set_point(repr, "position", pt1);
     sp_repr_set_point(repr, "orientation", n);
 
-    desktop->namedview->appendChild(repr);
+    SPNamedView *namedview = sp_document_namedview(doc, NULL);
+    if (namedview) {
+        namedview->appendChild(repr);
+    }
     Inkscape::GC::release(repr);
 
     SPGuide *guide= SP_GUIDE(doc->getObjectByRepr(repr));
@@ -263,9 +287,9 @@ SPGuide *SPGuide::createSPGuide(SPDesktop *desktop, Geom::Point const &pt1, Geom
 }
 
 void
-sp_guide_pt_pairs_to_guides(SPDesktop *dt, std::list<std::pair<Geom::Point, Geom::Point> > &pts) {
+sp_guide_pt_pairs_to_guides(SPDocument *doc, std::list<std::pair<Geom::Point, Geom::Point> > &pts) {
     for (std::list<std::pair<Geom::Point, Geom::Point> >::iterator i = pts.begin(); i != pts.end(); ++i) {
-        SPGuide::createSPGuide(dt, (*i).first, (*i).second);
+        SPGuide::createSPGuide(doc, (*i).first, (*i).second);
     }
 }
 
@@ -284,14 +308,26 @@ sp_guide_create_guides_around_page(SPDesktop *dt) {
     pts.push_back(std::make_pair<Geom::Point, Geom::Point>(C, D));
     pts.push_back(std::make_pair<Geom::Point, Geom::Point>(D, A));
 
-    sp_guide_pt_pairs_to_guides(dt, pts);
+    sp_guide_pt_pairs_to_guides(doc, pts);
 
-    DocumentUndo::done(doc, SP_VERB_NONE, _("Guides Around Page"));
+    DocumentUndo::done(doc, SP_VERB_NONE, _("Create Guides Around the Page"));
+}
+
+void
+sp_guide_delete_all_guides(SPDesktop *dt) {
+    SPDocument *doc=sp_desktop_document(dt);
+    const GSList *current;
+    while ( (current = doc->getResourceList("guide")) ) {
+        SPGuide* guide = SP_GUIDE(current->data);
+        sp_guide_remove(guide);
+    }
+
+    DocumentUndo::done(doc, SP_VERB_NONE, _("Delete All Guides"));
 }
 
 void SPGuide::showSPGuide(SPCanvasGroup *group, GCallback handler)
 {
-    SPCanvasItem *item = sp_guideline_new(group, point_on_line, normal_to_line);
+    SPCanvasItem *item = sp_guideline_new(group, label, point_on_line, normal_to_line);
     sp_guideline_set_color(SP_GUIDELINE(item), color);
 
     g_signal_connect(G_OBJECT(item), "event", G_CALLBACK(handler), this);
@@ -402,6 +438,36 @@ void sp_guide_set_normal(SPGuide &guide, Geom::Point const normal_to_line, bool 
 */
 }
 
+void sp_guide_set_color(SPGuide &guide, const unsigned char r, const unsigned char g, const unsigned char b, bool const commit)
+{
+    g_assert(SP_IS_GUIDE(&guide));
+    guide.color = (r << 24) | (g << 16) | (b << 8) | 0x7f;
+
+    if (guide.views){
+        sp_guideline_set_color(SP_GUIDELINE(guide.views->data), guide.color);
+    }
+
+    if (commit){
+        std::ostringstream os;
+        os << "rgb(" << r << "," << g << "," << b << ")";
+        //XML Tree being used directly while it shouldn't be
+        guide.getRepr()->setAttribute("inkscape:color", os.str().c_str());
+    }
+}
+
+void sp_guide_set_label(SPGuide &guide, const char* label, bool const commit)
+{
+    g_assert(SP_IS_GUIDE(&guide));
+    if (guide.views){
+        sp_guideline_set_label(SP_GUIDELINE(guide.views->data), label);
+    }
+
+    if (commit){
+        //XML Tree being used directly while it shouldn't be
+        guide.getRepr()->setAttribute("inkscape:label", label);
+    }
+}
+
 /**
  * Returns a human-readable description of the guideline for use in dialog boxes and status bar.
  * If verbose is false, only positioning information is included (useful for dialogs).
@@ -412,36 +478,46 @@ char *sp_guide_description(SPGuide const *guide, const bool verbose)
 {
     using Geom::X;
     using Geom::Y;
-            
-    GString *position_string_x = SP_PX_TO_METRIC_STRING(guide->point_on_line[X],
-                                                        SP_ACTIVE_DESKTOP->namedview->getDefaultMetric());
-    GString *position_string_y = SP_PX_TO_METRIC_STRING(guide->point_on_line[Y],
-                                                        SP_ACTIVE_DESKTOP->namedview->getDefaultMetric());
 
-    gchar *shortcuts = g_strdup_printf("; %s", _("<b>Shift+drag</b> to rotate, <b>Ctrl+drag</b> to move origin, <b>Del</b> to delete"));
-    gchar *descr;
-
-    if ( are_near(guide->normal_to_line, component_vectors[X]) ||
-         are_near(guide->normal_to_line, -component_vectors[X]) ) {
-        descr = g_strdup_printf(_("vertical, at %s"), position_string_x->str);
-    } else if ( are_near(guide->normal_to_line, component_vectors[Y]) ||
-                are_near(guide->normal_to_line, -component_vectors[Y]) ) {
-        descr = g_strdup_printf(_("horizontal, at %s"), position_string_y->str);
+    char *descr = 0;
+    if ( !guide->document ) {
+        // Guide has probably been deleted and no longer has an attached namedview.
+        descr = g_strdup_printf(_("Deleted"));
     } else {
-        double const radians = guide->angle();
-        double const degrees = Geom::rad_to_deg(radians);
-        int const degrees_int = (int) round(degrees);
-        descr = g_strdup_printf(_("at %d degrees, through (%s,%s)"), 
-                                degrees_int, position_string_x->str, position_string_y->str);
+        SPNamedView *namedview = sp_document_namedview(guide->document, NULL);
+
+        GString *position_string_x = SP_PX_TO_METRIC_STRING(guide->point_on_line[X],
+                                                            namedview->getDefaultMetric());
+        GString *position_string_y = SP_PX_TO_METRIC_STRING(guide->point_on_line[Y],
+                                                            namedview->getDefaultMetric());
+
+        gchar *shortcuts = g_strdup_printf("; %s", _("<b>Shift+drag</b> to rotate, <b>Ctrl+drag</b> to move origin, <b>Del</b> to delete"));
+
+        if ( are_near(guide->normal_to_line, Geom::Point(1., 0.)) ||
+             are_near(guide->normal_to_line, -Geom::Point(1., 0.)) ) {
+            descr = g_strdup_printf(_("vertical, at %s"), position_string_x->str);
+        } else if ( are_near(guide->normal_to_line, Geom::Point(0., 1.)) ||
+                    are_near(guide->normal_to_line, -Geom::Point(0., 1.)) ) {
+            descr = g_strdup_printf(_("horizontal, at %s"), position_string_y->str);
+        } else {
+            double const radians = guide->angle();
+            double const degrees = Geom::rad_to_deg(radians);
+            int const degrees_int = (int) round(degrees);
+            descr = g_strdup_printf(_("at %d degrees, through (%s,%s)"), 
+                                    degrees_int, position_string_x->str, position_string_y->str);
+        }
+
+        g_string_free(position_string_x, TRUE);
+        g_string_free(position_string_y, TRUE);
+
+        if (verbose) {
+            gchar *oldDescr = descr;
+            descr = g_strconcat(oldDescr, shortcuts, NULL);
+            g_free(oldDescr);
+        }
+        g_free(shortcuts);
     }
 
-    g_string_free(position_string_x, TRUE);
-    g_string_free(position_string_y, TRUE);
-
-    if (verbose) {
-        descr = g_strconcat(descr, shortcuts, NULL);
-    }
-    g_free(shortcuts);
     return descr;
 }
 

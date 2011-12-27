@@ -1,5 +1,5 @@
-#ifndef _XMLREADER_H_
-#define _XMLREADER_H_
+#ifndef SEEN_XMLREADER_H
+#define SEEN_XMLREADER_H
 
 /**
  * Phoebe DOM Implementation.
@@ -9,7 +9,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -99,34 +100,27 @@ private:
 
     int parseVersion(int pos);
     int parseDoctype(int pos);
-
     int parseCDATA  (int pos, CDATASectionPtr cdata);
     int parseComment(int pos, CommentPtr comment);
     int parseText(int pos, TextPtr text);
-
     int parseEntity(int pos, DOMString &buf);
-
     int parseAttributes(int p0, NodePtr node, bool *quickClose);
-
     int parseNode(int p0, NodePtr node, int depth);
-
-    bool       keepGoing;
-    bool       parseAsData;
-    int        pos;   //current parse position
-    int        len;   //length of parsed region
-    DOMString  parsebuf;
 
     DOMString  loadFile(const DOMString &fileName);
 
-    int        lineNr;
-    int        colNr;
-
     DocumentPtr document;
-
+    DOMString   parsebuf;
+    bool        keepGoing;
+    bool        parseAsData;
+    int         pos;   //current parse position
+    int         len;   //length of parsed region
+    int         lineNr;
+    int         colNr;
 };
 
 }  //namespace dom
 }  //namespace w3c
 }  //namespace org
 
-#endif /*_XMLREADER_H_*/
+#endif // SEEN_XMLREADER_H

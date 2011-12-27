@@ -1,9 +1,7 @@
 #ifndef INKSCAPE_CANVAS_TEMPORARY_ITEM_LIST_H
 #define INKSCAPE_CANVAS_TEMPORARY_ITEM_LIST_H
 
-/** \file
- * Provides a class that can contain active TemporaryItem's on a desktop
- *
+/*
  * Authors:
  *   Johan Engelen
  *
@@ -12,16 +10,20 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include "forward.h"
 #include <list>
+#include <glib.h>
 
 struct SPCanvasItem;
+class SPDesktop;
 
 namespace Inkscape {
 namespace Display {
 
 class TemporaryItem;
 
+/**
+ * Provides a class that can contain active TemporaryItem's on a desktop.
+ */
 class TemporaryItemList  {
 public:
     TemporaryItemList(SPDesktop *desktop);

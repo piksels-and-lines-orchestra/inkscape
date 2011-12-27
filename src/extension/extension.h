@@ -1,5 +1,5 @@
-#ifndef __INK_EXTENSION_H__
-#define __INK_EXTENSION_H__
+#ifndef INK_EXTENSION_H
+#define INK_EXTENSION_H
 
 /** \file
  * Frontend to certain, possibly pluggable, actions.
@@ -22,7 +22,6 @@
 #include <gtkmm/table.h>
 #include <glibmm/ustring.h>
 #include "xml/repr.h"
-#include "extension/extension-forward.h"
 
 /** The key that is used to identify that the I/O should be autodetected */
 #define SP_MODULE_KEY_AUTODETECT "autodetect"
@@ -51,15 +50,6 @@
 #define SP_MODULE_KEY_PRINT_LATEX    "org.inkscape.print.latex"
 /** Defines the key for printing with GNOME Print */
 #define SP_MODULE_KEY_PRINT_GNOME "org.inkscape.print.gnome"
-/** Defines the key for printing under Win32 */
-#define SP_MODULE_KEY_PRINT_WIN32 "org.inkscape.print.win32"
-#ifdef WIN32
-/** Defines the default printing to use */
-#define SP_MODULE_KEY_PRINT_DEFAULT  SP_MODULE_KEY_PRINT_WIN32
-#else
-/** Defines the default printing to use */
-#define SP_MODULE_KEY_PRINT_DEFAULT  SP_MODULE_KEY_PRINT_PS
-#endif
 
 /** Mime type for SVG */
 #define MIME_SVG "image/svg+xml"
@@ -76,6 +66,17 @@ struct SPDocument;
 
 namespace Inkscape {
 namespace Extension {
+
+class Dependency;
+class ExpirationTimer;
+class ExpirationTimer;
+class Parameter;
+
+namespace Implementation
+{
+class Implementation;
+}
+
 
 /** The object that is the basis for the Extension system.  This object
     contains all of the information that all Extension have.  The
@@ -99,6 +100,7 @@ private:
     state_t    _state;                    /**< Which state the Extension is currently in */
     std::vector<Dependency *>  _deps;     /**< Dependencies for this extension */
     static std::ofstream error_file;      /**< This is the place where errors get reported */
+    bool silent;
     bool _gui;
 
 protected:
@@ -120,6 +122,7 @@ public:
     gchar *       get_name     (void);
     /** \brief  Gets the help string for this extension */
     gchar const * get_help     (void) { return _help; }
+    bool          is_silent (void);
     void          deactivate   (void);
     bool          deactivated  (void);
     void          printFailure (Glib::ustring reason);
@@ -170,7 +173,28 @@ public:
 private:
     void             make_param       (Inkscape::XML::Node * paramrepr);
     
-    Parameter *      get_param        (const gchar * name);
+    /**
+     * This function looks through the linked list for a parameter
+     * structure with the name of the passed in name.
+     *
+     * This is an inline function that is used by all the get_param and
+     * set_param functions to find a param_t in the linked list with
+     * the passed in name.
+     *
+     * This function can throw a 'param_not_exist' exception if the
+     * name is not found.
+     *
+     * The first thing that this function checks is if the list is NULL.
+     * It could be NULL because there are no parameters for this extension
+     * or because all of them have been checked.  If the list
+     * is NULL then the 'param_not_exist' exception is thrown.
+     *
+     * @param name The name to search for.
+     * @return Parameter structure with a name of 'name'.
+     */
+     Parameter *get_param(const gchar * name);
+
+     Parameter const *get_param(const gchar * name) const;
 
 public:
     bool             get_param_bool   (const gchar * name,
@@ -185,9 +209,19 @@ public:
                                        const SPDocument *   doc = NULL,
                                        const Inkscape::XML::Node * node = NULL);
 
-    const gchar *    get_param_string (const gchar * name,
-                                       const SPDocument *   doc = NULL,
-                                       const Inkscape::XML::Node * node = NULL);
+    /**
+     * Gets a parameter identified by name with the string placed in value.
+     * It isn't duplicated into the value string. Look up in the parameters list,
+     * then execute the function on that found parameter.
+     *
+     * @param name The name of the parameter to get.
+     * @param doc The document to look in for document specific parameters.
+     * @param node The node to look in for a specific parameter.
+     * @return A constant pointer to the string held by the parameters.
+     */
+    gchar const *get_param_string(gchar const *name,
+                                  SPDocument const *doc = NULL,
+                                  Inkscape::XML::Node const *node = NULL) const;
 
     guint32          get_param_color  (const gchar * name,
                                        const SPDocument *   doc = NULL,
@@ -276,7 +310,7 @@ public:
 }  /* namespace Extension */
 }  /* namespace Inkscape */
 
-#endif /* __INK_EXTENSION_H__ */
+#endif // INK_EXTENSION_H
 
 /*
   Local Variables:

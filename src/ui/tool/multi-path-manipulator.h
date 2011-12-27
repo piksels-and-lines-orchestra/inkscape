@@ -13,7 +13,6 @@
 
 #include <stddef.h>
 #include <sigc++/connection.h>
-#include "forward.h"
 #include "ui/tool/commit-events.h"
 #include "ui/tool/manipulator.h"
 #include "ui/tool/modifier-tracker.h"
@@ -103,8 +102,8 @@ private:
     }
 
     void _commit(CommitEvent cps);
-    void _done(gchar const *);
-    void _doneWithCleanup(gchar const *);
+    void _done(gchar const *reason, bool alert_LPE = false);
+    void _doneWithCleanup(gchar const *reason, bool alert_LPE = false);
     guint32 _getOutlineColor(ShapeRole role);
 
     MapType _mmap;

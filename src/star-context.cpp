@@ -34,7 +34,6 @@
 #include "desktop.h"
 #include "desktop-style.h"
 #include "message-context.h"
-#include "libnr/nr-macros.h"
 #include "pixmaps/cursor-star.xpm"
 #include "sp-metrics.h"
 #include <glibmm/i18n.h>
@@ -64,7 +63,7 @@ static void sp_star_cancel(SPStarContext * sc);
 
 static SPEventContextClass * parent_class;
 
-GtkType
+GType
 sp_star_context_get_type (void)
 {
     static GType type = 0;
@@ -164,12 +163,12 @@ sp_star_context_dispose (GObject *object)
 }
 
 /**
-\brief  Callback that processes the "changed" signal on the selection;
-destroys old and creates new knotholder
-\param  selection Should not be NULL.
-*/
-void
-sp_star_context_selection_changed (Inkscape::Selection * selection, gpointer data)
+ * Callback that processes the "changed" signal on the selection;
+ * destroys old and creates new knotholder.
+ *
+ * @param  selection Should not be NULL.
+ */
+void sp_star_context_selection_changed (Inkscape::Selection * selection, gpointer data)
 {
     g_assert (selection != NULL);
 
@@ -225,9 +224,9 @@ sp_star_context_set (SPEventContext *ec, Inkscape::Preferences::Entry *val)
     Glib::ustring path = val->getEntryName();
 
     if (path == "magnitude") {
-        sc->magnitude = NR_CLAMP(val->getInt(5), 3, 1024);
+        sc->magnitude = CLAMP(val->getInt(5), 3, 1024);
     } else if (path == "proportion") {
-        sc->proportion = NR_CLAMP(val->getDouble(0.5), 0.01, 2.0);
+        sc->proportion = CLAMP(val->getDouble(0.5), 0.01, 2.0);
     } else if (path == "isflatsided") {
         sc->isflatsided = val->getBool();
     } else if (path == "rounded") {
@@ -446,7 +445,7 @@ static void sp_star_drag(SPStarContext *sc, Geom::Point p, guint state)
     /* Snap corner point with no constraints */
     SnapManager &m = desktop->namedview->snap_manager;
     m.setup(desktop, true, sc->item);
-    Geom::Point pt2g = to_2geom(p);
+    Geom::Point pt2g = p;
     m.freeSnapReturnByRef(pt2g, Inkscape::SNAPSOURCE_NODE_HANDLE);
     m.unSetup();
     Geom::Point const p0 = desktop->dt2doc(sc->center);
@@ -457,14 +456,14 @@ static void sp_star_drag(SPStarContext *sc, Geom::Point p, guint state)
     double const sides = (gdouble) sc->magnitude;
     Geom::Point const d = p1 - p0;
     Geom::Coord const r1 = Geom::L2(d);
-    double arg1 = atan2(from_2geom(d));
+    double arg1 = atan2(d);
 
     if (state & GDK_CONTROL_MASK) {
         /* Snap angle */
         arg1 = sp_round(arg1, M_PI / snaps);
     }
 
-    sp_star_position_set(star, sc->magnitude, from_2geom(p0), r1, r1 * sc->proportion,
+    sp_star_position_set(star, sc->magnitude, p0, r1, r1 * sc->proportion,
                          arg1, arg1 + M_PI / sides, sc->isflatsided, sc->rounded, sc->randomized);
 
     /* status text */

@@ -31,7 +31,13 @@
 
 #define SP_SHAPE_WRITE_PATH (1 << 2)
 
-struct SPDesktop;
+class SPDesktop;
+
+namespace Inkscape {
+
+class DrawingItem;
+
+} // namespace Inkscape
 
 class SPShape : public SPLPEItem {
 public:
@@ -44,10 +50,15 @@ public:
     static GType getType (void);
     void setShape ();
     SPCurve * getCurve ();
+    SPCurve * getCurveBeforeLPE ();
     void setCurve (SPCurve *curve, unsigned int owner);
     void setCurveInsync (SPCurve *curve, unsigned int owner);
+    void setCurveBeforeLPE (SPCurve *curve);
     int hasMarkers () const;
     int numberOfMarkers (int type);
+
+protected:
+    SPCurve *curve_before_lpe;
 
 private:
     static void sp_shape_init (SPShape *shape);
@@ -61,12 +72,12 @@ private:
     static void sp_shape_modified (SPObject *object, unsigned int flags);
     static Inkscape::XML::Node *sp_shape_write(SPObject *object, Inkscape::XML::Document *doc, Inkscape::XML::Node *repr, guint flags);
 
-    static void sp_shape_bbox(SPItem const *item, NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
-    static NRArenaItem *sp_shape_show (SPItem *item, NRArena *arena, unsigned int key, unsigned int flags);
+    static Geom::OptRect sp_shape_bbox(SPItem const *item, Geom::Affine const &transform, SPItem::BBoxType type);
+    static Inkscape::DrawingItem *sp_shape_show (SPItem *item, Inkscape::Drawing &drawing, unsigned int key, unsigned int flags);
     static void sp_shape_hide (SPItem *item, unsigned int key);
     static void sp_shape_snappoints (SPItem const *item, std::vector<Inkscape::SnapCandidatePoint> &p, Inkscape::SnapPreferences const *snapprefs);
 
-    static void sp_shape_update_marker_view (SPShape *shape, NRArenaItem *ai);
+    static void sp_shape_update_marker_view (SPShape *shape, Inkscape::DrawingItem *ai);
 
 
 

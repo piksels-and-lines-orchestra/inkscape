@@ -44,8 +44,9 @@ enum {
     PREFS_PAGE_TOOLS_SELECTOR,
     PREFS_PAGE_TOOLS_NODE,
     PREFS_PAGE_TOOLS_TWEAK,
-  PREFS_PAGE_TOOLS_SPRAY,
+    PREFS_PAGE_TOOLS_SPRAY,
     PREFS_PAGE_TOOLS_ZOOM,
+    PREFS_PAGE_TOOLS_MEASURE,
     PREFS_PAGE_TOOLS_SHAPES,
     PREFS_PAGE_TOOLS_SHAPES_RECT,
     PREFS_PAGE_TOOLS_SHAPES_3DBOX,
@@ -66,7 +67,7 @@ enum {
     PREFS_PAGE_TRANSFORMS,
     PREFS_PAGE_CLONES,
     PREFS_PAGE_MASKS,
-    PREFS_PAGE_FILTERS,
+    PREFS_PAGE_RENDERING,
     PREFS_PAGE_BITMAPS,
     PREFS_PAGE_CMS,
     PREFS_PAGE_GRIDS,
@@ -123,7 +124,7 @@ protected:
     UI::Widget::DialogPage _page_clones;
     UI::Widget::DialogPage _page_mask;
     UI::Widget::DialogPage _page_transforms;
-    UI::Widget::DialogPage _page_filters;
+    UI::Widget::DialogPage _page_rendering;
     UI::Widget::DialogPage _page_select;
     UI::Widget::DialogPage _page_importexport;
     UI::Widget::DialogPage _page_cms;
@@ -140,6 +141,7 @@ protected:
     UI::Widget::DialogPage _page_tweak;
     UI::Widget::DialogPage _page_spray;
     UI::Widget::DialogPage _page_zoom;
+    UI::Widget::DialogPage _page_measure;
     UI::Widget::DialogPage _page_shapes;
     UI::Widget::DialogPage _page_pencil;
     UI::Widget::DialogPage _page_pen;
@@ -177,11 +179,12 @@ protected:
     UI::Widget::PrefCheckButton _snap_mouse_pointer;
 
     UI::Widget::PrefCombo       _steps_rot_snap;
+    UI::Widget::PrefCheckButton _steps_rot_relative;
     UI::Widget::PrefCheckButton _steps_compass;
-    UI::Widget::PrefSpinButton _steps_arrow;
-    UI::Widget::PrefSpinButton _steps_scale;
-    UI::Widget::PrefSpinButton _steps_inset;
-    UI::Widget::PrefSpinButton _steps_zoom;
+    UI::Widget::PrefSpinUnit    _steps_arrow;
+    UI::Widget::PrefSpinUnit    _steps_scale;
+    UI::Widget::PrefSpinUnit    _steps_inset;
+    UI::Widget::PrefSpinButton  _steps_zoom;
 
     UI::Widget::PrefRadioButton _t_sel_trans_obj;
     UI::Widget::PrefRadioButton _t_sel_trans_outl;
@@ -251,6 +254,7 @@ protected:
     UI::Widget::PrefRadioButton _filter_quality_worse;
     UI::Widget::PrefRadioButton _filter_quality_worst;
     UI::Widget::PrefCheckButton _show_filters_info_box;
+    UI::Widget::PrefSpinButton  _rendering_cache_size;
     UI::Widget::PrefSpinButton  _filter_multi_threaded;
 
     UI::Widget::PrefCheckButton _trans_scale_stroke;
@@ -354,6 +358,17 @@ protected:
     UI::Widget::PrefCheckButton   _svgoutput_allowrelativecoordinates;
     UI::Widget::PrefCheckButton   _svgoutput_forcerepeatcommands;
 
+    // Attribute Checking controls for SVG Output page:
+    UI::Widget::PrefCheckButton   _svgoutput_attrwarn;
+    UI::Widget::PrefCheckButton   _svgoutput_attrremove;
+    UI::Widget::PrefCheckButton   _svgoutput_stylepropwarn;
+    UI::Widget::PrefCheckButton   _svgoutput_stylepropremove;
+    UI::Widget::PrefCheckButton   _svgoutput_styledefaultswarn;
+    UI::Widget::PrefCheckButton   _svgoutput_styledefaultsremove;
+    UI::Widget::PrefCheckButton   _svgoutput_check_reading;
+    UI::Widget::PrefCheckButton   _svgoutput_check_editing;
+    UI::Widget::PrefCheckButton   _svgoutput_check_writing;
+
     UI::Widget::PrefEntryButtonHBox _importexport_ocal_url;
     UI::Widget::PrefEntry       _importexport_ocal_username;
     UI::Widget::PrefEntry       _importexport_ocal_password;
@@ -371,6 +386,7 @@ protected:
     static void AddSelcueCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
     static void AddGradientCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
     static void AddConvertGuidesCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
+    static void AddFirstAndLastCheckbox(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, bool def_value);
     static void AddDotSizeSpinbutton(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, double def_value);
     static void AddNewObjectsStyle(UI::Widget::DialogPage& p, Glib::ustring const &prefs_path, const gchar* banner = NULL);
 
@@ -385,7 +401,7 @@ protected:
     void initPageClones();
     void initPageMasks();
     void initPageTransforms();
-    void initPageFilters();
+    void initPageRendering();
     void initPageSelecting();
     void initPageImportExport();
     void initPageCMS();

@@ -28,43 +28,22 @@
 #endif
 
 //#include "inkscape.h"
+#include "sp-root.h"
 #include "sp-path.h"
 #include "style.h"
-//#include "color.h"
-//#include "display/curve.h"
-//#include "libnr/nr-point-matrix-ops.h"
-//#include "gtk/gtk.h"
 #include "print.h"
-//#include "glibmm/i18n.h"
-//#include "extension/extension.h"
 #include "extension/system.h"
 #include "extension/print.h"
 #include "extension/db.h"
 #include "extension/output.h"
-//#include "document.h"
-#include "display/nr-arena.h"
-#include "display/nr-arena-item.h"
-
-//#include "libnr/nr-rect.h"
-//#include "libnr/nr-matrix.h"
-//#include "libnr/nr-pixblock.h"
-
-//#include <stdio.h>
-//#include <string.h>
-
-//#include <vector>
-//#include <string>
-
-//#include "io/sys.h"
-
+#include "display/drawing.h"
+#include "display/drawing-item.h"
 #include "unit-constants.h"
-
 #include "clear-n_.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include "win32.h"
 #include "emf-win32-print.h"
 #include "emf-win32-inout.h"
 
@@ -75,12 +54,15 @@
 #define PS_JOIN_MASK (PS_JOIN_BEVEL|PS_JOIN_MITER|PS_JOIN_ROUND)
 #endif
 
+#define DPA 0x00A000C9    // TernaryRasterOperation
 
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
 static float device_scale = DEVICESCALE;
+static RECTL rc_old;
+static bool clipset = false;
 
 EmfWin32::EmfWin32 (void) // The null constructor
 {
@@ -123,10 +105,11 @@ emf_print_document_to_file(SPDocument *doc, gchar const *filename)
     context.module = mod;
     /* fixme: This has to go into module constructor somehow */
     /* Create new arena */
-    mod->base = SP_ITEM(doc->getRoot());
-    mod->arena = NRArena::create();
+    mod->base = doc->getRoot();
+    Inkscape::Drawing drawing;
     mod->dkey = SPItem::display_key_new(1);
-    mod->root = mod->base->invoke_show(mod->arena, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+    mod->root = mod->base->invoke_show(drawing, mod->dkey, SP_ITEM_SHOW_DISPLAY);
+    drawing.setRoot(mod->root);
     /* Print document */
     ret = mod->begin(doc);
     if (ret) {
@@ -138,9 +121,7 @@ emf_print_document_to_file(SPDocument *doc, gchar const *filename)
     /* Release arena */
     mod->base->invoke_hide(mod->dkey);
     mod->base = NULL;
-    mod->root = NULL;
-    nr_object_unref((NRObject *) mod->arena);
-    mod->arena = NULL;
+    mod->root = NULL; // deleted by invoke_hide
 /* end */
 
     mod->set_param_string("destination", oldoutput);
@@ -204,6 +185,7 @@ typedef struct emf_device_context {
 typedef struct emf_callback_data {
     Glib::ustring *outsvg;
     Glib::ustring *path;
+    Glib::ustring *outdef;
 
     EMF_DEVICE_CONTEXT dc[EMF_MAX_DC+1]; // FIXME: This should be dynamic..
     int level;
@@ -310,6 +292,9 @@ output_style(PEMF_CALLBACK_DATA d, int iType)
         tmp_style << "stroke-opacity:1;";
     }
     tmp_style << "\" ";
+    if (clipset)
+        tmp_style << "\n\tclip-path=\"url(#clipEmfPath" << d->id << ")\" ";
+    clipset = false;
 
     *(d->outsvg) += tmp_style.str().c_str();
 }
@@ -341,7 +326,7 @@ pix_to_x_point(PEMF_CALLBACK_DATA d, double px, double py)
     double ppy = _pix_y_to_point(d, py);
 
     double x = ppx * d->dc[d->level].worldTransform.eM11 + ppy * d->dc[d->level].worldTransform.eM21 + d->dc[d->level].worldTransform.eDx;
-    x *= d->dc[d->level].ScaleOutX ? d->dc[d->level].ScaleOutX : device_scale;
+    x *= device_scale;
     
     return x;
 }
@@ -353,7 +338,7 @@ pix_to_y_point(PEMF_CALLBACK_DATA d, double px, double py)
     double ppy = _pix_y_to_point(d, py);
 
     double y = ppx * d->dc[d->level].worldTransform.eM12 + ppy * d->dc[d->level].worldTransform.eM22 + d->dc[d->level].worldTransform.eDy;
-    y *= d->dc[d->level].ScaleOutY ? d->dc[d->level].ScaleOutY : device_scale;
+    y *= device_scale;
     
     return y;
 }
@@ -365,9 +350,9 @@ pix_to_size_point(PEMF_CALLBACK_DATA d, double px)
     double ppy = 0;
 
     double dx = ppx * d->dc[d->level].worldTransform.eM11 + ppy * d->dc[d->level].worldTransform.eM21;
-    dx *= d->dc[d->level].ScaleOutX ? d->dc[d->level].ScaleOutX : device_scale;
+    dx *= device_scale;
     double dy = ppx * d->dc[d->level].worldTransform.eM12 + ppy * d->dc[d->level].worldTransform.eM22;
-    dy *= d->dc[d->level].ScaleOutY ? d->dc[d->level].ScaleOutY : device_scale;
+    dy *= device_scale;
 
     double tmp = sqrt(dx * dx + dy * dy);
     return tmp;
@@ -751,7 +736,7 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             lpEMFR->iType!=EMR_POLYLINETO && lpEMFR->iType!=EMR_POLYLINETO16 &&
             lpEMFR->iType!=EMR_LINETO && lpEMFR->iType!=EMR_ARCTO &&
             lpEMFR->iType!=EMR_SETBKCOLOR && lpEMFR->iType!=EMR_SETROP2 &&
-            lpEMFR->iType!=EMR_SETBKMODE)
+            lpEMFR->iType!=EMR_SETBKMODE && lpEMFR->iType!=EMR_BEGINPATH)
         {
             *(d->outsvg) += "    <path ";
             output_style(d, EMR_STROKEPATH);
@@ -769,19 +754,20 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
         {
             dbg_str << "<!-- EMR_HEADER -->\n";
 
-            *(d->outsvg) += "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n";
+            *(d->outdef) += "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n";
 
             if (d->pDesc) {
-                *(d->outsvg) += "<!-- ";
-                *(d->outsvg) += d->pDesc;
-                *(d->outsvg) += " -->\n";
+                *(d->outdef) += "<!-- ";
+                *(d->outdef) += d->pDesc;
+                *(d->outdef) += " -->\n";
             }
 
             ENHMETAHEADER *pEmr = (ENHMETAHEADER *) lpEMFR;
-            tmp_outsvg << "<svg\n";
-            tmp_outsvg << "  xmlns:svg=\"http://www.w3.org/2000/svg\"\n";
-            tmp_outsvg << "  xmlns=\"http://www.w3.org/2000/svg\"\n";
-            tmp_outsvg << "  version=\"1.0\"\n";
+            SVGOStringStream tmp_outdef;
+            tmp_outdef << "<svg\n";
+            tmp_outdef << "  xmlns:svg=\"http://www.w3.org/2000/svg\"\n";
+            tmp_outdef << "  xmlns=\"http://www.w3.org/2000/svg\"\n";
+            tmp_outdef << "  version=\"1.0\"\n";
 
             d->xDPI = 2540;
             d->yDPI = 2540;
@@ -799,15 +785,13 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             if (pEmr->szlMillimeters.cx && pEmr->szlDevice.cx)
                 device_scale = PX_PER_MM*pEmr->szlMillimeters.cx/pEmr->szlDevice.cx;
             
-            tmp_outsvg <<
+            tmp_outdef <<
                 "  width=\"" << d->MMX << "mm\"\n" <<
                 "  height=\"" << d->MMY << "mm\">\n";
-//            tmp_outsvg <<
-//                "  id=\"" << (d->id++) << "\">\n";
+            *(d->outdef) += tmp_outdef.str().c_str();
+            *(d->outdef) += "<defs>";				// temporary end of header
 
-            tmp_outsvg << "<g>\n";
-//                "<g\n" <<
-//                "  id=\"" << (d->id++) << "\">\n";
+            tmp_outsvg << "\n</defs>\n<g>\n";			// start of main body
 
             if (pEmr->nHandles) {
                 d->n_obj = pEmr->nHandles;
@@ -1071,15 +1055,6 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 d->dc[d->level].ScaleInY = 1;
             }
 
-            if (d->dc[d->level].sizeView.cx && d->dc[d->level].sizeView.cy) {
-                d->dc[d->level].ScaleOutX = (double) d->dc[d->level].PixelsOutX / (double) d->dc[d->level].sizeView.cx;
-                d->dc[d->level].ScaleOutY = (double) d->dc[d->level].PixelsOutY / (double) d->dc[d->level].sizeView.cy;
-            }
-            else {
-                d->dc[d->level].ScaleOutX = device_scale;
-                d->dc[d->level].ScaleOutY = device_scale;
-            }
-
             break;
         }
         case EMR_SETWINDOWORGEX:
@@ -1122,15 +1097,6 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 d->dc[d->level].ScaleInY = 1;
             }
 
-            if (d->dc[d->level].sizeView.cx && d->dc[d->level].sizeView.cy) {
-                d->dc[d->level].ScaleOutX = (double) d->dc[d->level].PixelsOutX / (double) d->dc[d->level].sizeView.cx;
-                d->dc[d->level].ScaleOutY = (double) d->dc[d->level].PixelsOutY / (double) d->dc[d->level].sizeView.cy;
-            }
-            else {
-                d->dc[d->level].ScaleOutX = device_scale;
-                d->dc[d->level].ScaleOutY = device_scale;
-            }
-
             break;
         }
         case EMR_SETVIEWPORTORGEX:
@@ -1151,6 +1117,7 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             assert_empty_path(d, "EMR_EOF");
             tmp_outsvg << "</g>\n";
             tmp_outsvg << "</svg>\n";
+            *(d->outsvg) = *(d->outdef) + *(d->outsvg);
             break;
         }
         case EMR_SETPIXELV:
@@ -1233,8 +1200,37 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             dbg_str << "<!-- EMR_EXCLUDECLIPRECT -->\n";
             break;
         case EMR_INTERSECTCLIPRECT:
+        {
             dbg_str << "<!-- EMR_INTERSECTCLIPRECT -->\n";
+
+            PEMRINTERSECTCLIPRECT pEmr = (PEMRINTERSECTCLIPRECT) lpEMFR;
+            RECTL rc = pEmr->rclClip;
+            clipset = true;
+            if ((rc.left == rc_old.left) && (rc.top == rc_old.top) && (rc.right == rc_old.right) && (rc.bottom == rc_old.bottom))
+                break;
+            rc_old = rc;
+
+            double l = pix_to_x_point( d, rc.left, rc.top );
+            double t = pix_to_y_point( d, rc.left, rc.top );
+            double r = pix_to_x_point( d, rc.right, rc.bottom );
+            double b = pix_to_y_point( d, rc.right, rc.bottom );
+
+            SVGOStringStream tmp_rectangle;
+            tmp_rectangle << "\n<clipPath\n\tclipPathUnits=\"userSpaceOnUse\" ";
+            tmp_rectangle << "\n\tid=\"clipEmfPath" << ++(d->id) << "\" >";
+            tmp_rectangle << "\n<rect ";
+            tmp_rectangle << "\n\tx=\"" << l << "\" ";
+            tmp_rectangle << "\n\ty=\"" << t << "\" ";
+            tmp_rectangle << "\n\twidth=\"" << r-l << "\" ";
+            tmp_rectangle << "\n\theight=\"" << b-t << "\" />";
+            tmp_rectangle << "\n</clipPath>";
+
+            assert_empty_path(d, "EMR_RECTANGLE");
+
+            *(d->outdef) += tmp_rectangle.str().c_str();
+            *(d->path) = "";
             break;
+        }
         case EMR_SCALEVIEWPORTEXTEX:
             dbg_str << "<!-- EMR_SCALEVIEWPORTEXTEX -->\n";
             break;
@@ -1669,8 +1665,11 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
         {
             dbg_str << "<!-- EMR_BEGINPATH -->\n";
 
-            tmp_path << "d=\"";
-            *(d->path) = "";
+            if (!d->pathless_stroke) {
+                tmp_path << "d=\"";
+                *(d->path) = "";
+            }
+            d->pathless_stroke = false;
             d->inpath = true;
             break;
         }
@@ -1761,8 +1760,36 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             dbg_str << "<!-- EMR_EXTSELECTCLIPRGN -->\n";
             break;
         case EMR_BITBLT:
+        {
             dbg_str << "<!-- EMR_BITBLT -->\n";
+
+            PEMRBITBLT pEmr = (PEMRBITBLT) lpEMFR;
+            if (pEmr->dwRop == DPA) {
+                // should be an application of a DIBPATTERNBRUSHPT, use a solid color instead
+                double l = pix_to_x_point( d, pEmr->xDest, pEmr->yDest);
+                double t = pix_to_y_point( d, pEmr->xDest, pEmr->yDest);
+                double r = pix_to_x_point( d, pEmr->xDest + pEmr->cxDest, pEmr->yDest + pEmr->cyDest);
+                double b = pix_to_y_point( d, pEmr->xDest + pEmr->cxDest, pEmr->yDest + pEmr->cyDest);
+
+                SVGOStringStream tmp_rectangle;
+                tmp_rectangle << "d=\"";
+                tmp_rectangle << "\n\tM " << l << " " << t << " ";
+                tmp_rectangle << "\n\tL " << r << " " << t << " ";
+                tmp_rectangle << "\n\tL " << r << " " << b << " ";
+                tmp_rectangle << "\n\tL " << l << " " << b << " ";
+                tmp_rectangle << "\n\tz";
+
+                assert_empty_path(d, "EMR_BITBLT");
+
+                *(d->outsvg) += "    <path ";
+                output_style(d, lpEMFR->iType);
+                *(d->outsvg) += "\n\t";
+                *(d->outsvg) += tmp_rectangle.str().c_str();
+                *(d->outsvg) += " \" /> \n";
+                *(d->path) = "";
+            }
             break;
+        }
         case EMR_STRETCHBLT:
             dbg_str << "<!-- EMR_STRETCHBLT -->\n";
             break;
@@ -1810,16 +1837,16 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
                 y1 = d->dc[d->level].cur.y;
             }
 
-            if (!(d->dc[d->level].textAlign & TA_BOTTOM))
-                if (d->dc[d->level].style.baseline_shift.value) {
-                    x1 += std::sin(d->dc[d->level].style.baseline_shift.value*M_PI/180.0)*fabs(d->dc[d->level].style.font_size.computed);
-                    y1 += std::cos(d->dc[d->level].style.baseline_shift.value*M_PI/180.0)*fabs(d->dc[d->level].style.font_size.computed);
-                }
-                else
-                    y1 += fabs(d->dc[d->level].style.font_size.computed);
-
             double x = pix_to_x_point(d, x1, y1);
             double y = pix_to_y_point(d, x1, y1);
+
+            if (!(d->dc[d->level].textAlign & TA_BOTTOM))
+                if (d->dc[d->level].style.baseline_shift.value) {
+                    x += std::sin(d->dc[d->level].style.baseline_shift.value*M_PI/180.0)*fabs(d->dc[d->level].style.font_size.computed);
+                    y += std::cos(d->dc[d->level].style.baseline_shift.value*M_PI/180.0)*fabs(d->dc[d->level].style.font_size.computed);
+                }
+                else
+                    y += fabs(d->dc[d->level].style.font_size.computed);
 
             wchar_t *wide_text = (wchar_t *) ((char *) pEmr + pEmr->emrtext.offString);
 
@@ -2119,8 +2146,17 @@ myEnhMetaFileProc(HDC /*hDC*/, HANDLETABLE * /*lpHTable*/, ENHMETARECORD const *
             dbg_str << "<!-- EMR_CREATEMONOBRUSH -->\n";
             break;
         case EMR_CREATEDIBPATTERNBRUSHPT:
+        {
             dbg_str << "<!-- EMR_CREATEDIBPATTERNBRUSHPT -->\n";
+
+            PEMRCREATEDIBPATTERNBRUSHPT pEmr = (PEMRCREATEDIBPATTERNBRUSHPT) lpEMFR;
+            int index = pEmr->ihBrush;
+
+            EMRCREATEDIBPATTERNBRUSHPT *pBrush =
+                (EMRCREATEDIBPATTERNBRUSHPT *) malloc( sizeof(EMRCREATEDIBPATTERNBRUSHPT) );
+            insert_object(d, index, EMR_CREATEDIBPATTERNBRUSHPT, (ENHMETARECORD *) pBrush);
             break;
+        }
         case EMR_EXTCREATEPEN:
         {
             dbg_str << "<!-- EMR_EXTCREATEPEN -->\n";
@@ -2235,6 +2271,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
 
     d.outsvg = new Glib::ustring("");
     d.path = new Glib::ustring("");
+    d.outdef = new Glib::ustring("");
 
     CHAR *ansi_uri = (CHAR *) local_fn;
     gunichar2 *unicode_fn = g_utf8_to_utf16( local_fn, -1, NULL, NULL, NULL );
@@ -2246,12 +2283,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
     HMETAFILE hmf;
     HENHMETAFILE hemf;
 
-    if (PrintWin32::is_os_wide()) {
-        fp = CreateFileW(unicode_uri, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    }
-    else {
-        fp = CreateFileA(ansi_uri, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    }
+    fp = CreateFileW(unicode_uri, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
     if ( fp != INVALID_HANDLE_VALUE ) {
         filesize = GetFileSize(fp, NULL);
@@ -2259,36 +2291,21 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
     }
 
     // Try open as Enhanced Metafile
-    if (PrintWin32::is_os_wide())
-        hemf = GetEnhMetaFileW(unicode_uri);
-    else
-        hemf = GetEnhMetaFileA(ansi_uri);
+    hemf = GetEnhMetaFileW(unicode_uri);
 
     if (!hemf) {
         // Try open as Windows Metafile
-        if (PrintWin32::is_os_wide())
-            hmf = GetMetaFileW(unicode_uri);
-        else
-            hmf = GetMetaFileA(ansi_uri);
+        hmf = GetMetaFileW(unicode_uri);
 
         METAFILEPICT mp;
         HDC hDC;
 
         if (!hmf) {
-            if (PrintWin32::is_os_wide()) {
-                WCHAR szTemp[MAX_PATH];
+            WCHAR szTemp[MAX_PATH];
 
-                DWORD dw = GetShortPathNameW( unicode_uri, szTemp, MAX_PATH );
-                if (dw) {
-                    hmf = GetMetaFileW( szTemp );
-                }
-            } else {
-                CHAR szTemp[MAX_PATH];
-
-                DWORD dw = GetShortPathNameA( ansi_uri, szTemp, MAX_PATH );
-                if (dw) {
-                    hmf = GetMetaFileA( szTemp );
-                }
+            DWORD dw = GetShortPathNameW( unicode_uri, szTemp, MAX_PATH );
+            if (dw) {
+                hmf = GetMetaFileW( szTemp );
             }
         }
 
@@ -2335,10 +2352,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
         else {
             // Try open as Aldus Placeable Metafile
             HANDLE hFile;
-            if (PrintWin32::is_os_wide())
-                hFile = CreateFileW( unicode_uri, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
-            else
-                hFile = CreateFileA( ansi_uri, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
+            hFile = CreateFileW( unicode_uri, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
 
             if (hFile != INVALID_HANDLE_VALUE) {
                 DWORD nSize = GetFileSize( hFile, NULL );
@@ -2376,6 +2390,8 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
             delete d.outsvg;
         if (d.path)
             delete d.path;
+        if (d.outdef)
+            delete d.outdef;
         if (local_fn)
             g_free(local_fn);
         if (unicode_fn)
@@ -2417,6 +2433,7 @@ EmfWin32::open( Inkscape::Extension::Input * /*mod*/, const gchar *uri )
 
     delete d.outsvg;
     delete d.path;
+    delete d.outdef;
 
     if (d.emf_obj) {
         int i;

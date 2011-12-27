@@ -1,7 +1,8 @@
-#ifndef __XMLWRITER_H__
-#define __XMLWRITER_H__
+#ifndef SEEN_XMLWRITER_H
+#define SEEN_XMLWRITER_H
 
 /**
+ * @file
  * Phoebe DOM Implementation.
  *
  * This is a C++ approximation of the W3C DOM model, which follows
@@ -9,7 +10,8 @@
  * which are provided for reference.  Most important is this one:
  *
  * http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/idl-definitions.html
- *
+ */
+/*
  * Authors:
  *   Bob Jamison
  *
@@ -48,30 +50,19 @@ namespace dom
 class XmlWriter
 {
 public:
-
     XmlWriter();
-
     virtual ~XmlWriter();
-
-
     void write(const NodePtr node);
-
     void writeFile(FILE *f, const NodePtr node);
 
 
 protected:
-
-    int indent;
-
     void spaces();
-
     void po(const char *str, ...) G_GNUC_PRINTF(2,3);
-
     void pos(const DOMString &str);
 
+    int indent;
     DOMString buf;
-
-
 };
 
 
@@ -85,7 +76,7 @@ protected:
 
 
 
-#endif  /* __XMLWRITER_H__ */
+#endif // SEEN_XMLWRITER_H
 
 
 

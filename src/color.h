@@ -1,9 +1,7 @@
-#ifndef __SP_COLOR_H__
-#define __SP_COLOR_H__
+#ifndef SEEN_SP_COLOR_H
+#define SEEN_SP_COLOR_H
 
-/** \file
- * Colors.
- *
+/*
  * Author:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   bulia byak <buliabyak@users.sf.net>
@@ -15,7 +13,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
 
-#include <gdk/gdktypes.h>
+#include <gdk/gdk.h>
 #include <string>
 
 /* Useful composition macros */
@@ -82,5 +80,4 @@ void sp_color_rgb_to_cmyk_floatv (float *cmyk, float r, float g, float b);
 void sp_color_cmyk_to_rgb_floatv (float *rgb, float c, float m, float y, float k);
 
 
-#endif
-
+#endif // SEEN_SP_COLOR_H

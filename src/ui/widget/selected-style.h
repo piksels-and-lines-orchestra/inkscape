@@ -1,6 +1,4 @@
-/**
- * \brief Selected style indicator (fill, stroke, opacity)
- *
+/*
  * Authors:
  *   buliabyak@gmail.com
  *   scislac@users.sf.net
@@ -21,7 +19,7 @@
 #include <gtkmm/menu.h>
 #include <gtkmm/menuitem.h>
 #include <gtkmm/adjustment.h>
-#include <gtkmm/spinbutton.h>
+#include "ui/widget/spinbutton.h"
 
 #include <stddef.h>
 #include <sigc++/sigc++.h>
@@ -103,6 +101,9 @@ private:
     bool cr_set;
 };
 
+/**
+ * Selected style indicator (fill, stroke, opacity).
+ */
 class SelectedStyle : public Gtk::HBox
 {
 public:
@@ -138,7 +139,7 @@ protected:
 
     Gtk::EventBox _opacity_place;
     Gtk::Adjustment _opacity_adjustment;
-    Gtk::SpinButton _opacity_sb;
+    Inkscape::UI::Widget::SpinButton _opacity_sb;
 
     Gtk::Label _na[2];
     Glib::ustring __na[2];

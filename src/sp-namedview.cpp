@@ -17,6 +17,7 @@
 #include "config.h"
 #include <cstring>
 #include <string>
+#include <2geom/transforms.h>
 
 #include "display/canvas-grid.h"
 #include "display/guideline.h"
@@ -34,6 +35,7 @@
 #include "preferences.h"
 #include "desktop.h"
 #include "conn-avoid-ref.h" // for defaultConnSpacing.
+#include "sp-root.h"
 
 using Inkscape::DocumentUndo;
 
@@ -131,14 +133,14 @@ static void sp_namedview_generate_old_grid(SPNamedView * /*nv*/, SPDocument *doc
     const char* gridoriginy     = "0px";
     const char* gridoriginx     = "0px";
     const char* gridempspacing  = "5";
-    const char* gridcolor       = "#0000ff";
-    const char* gridempcolor    = "#0000ff";
-    const char* gridopacity     = "0.2";
-    const char* gridempopacity  = "0.4";
+    const char* gridcolor       = "#3f3fff";
+    const char* gridempcolor    = "#3f3fff";
+    const char* gridopacity     = "0.15";
+    const char* gridempopacity  = "0.38";
 
     const char* value = NULL;
     if ((value = repr->attribute("gridoriginx"))) {
-        gridspacingx = value;
+        gridoriginx = value;
         old_grid_settings_present = true;
     }
     if ((value = repr->attribute("gridoriginy"))) {
@@ -250,17 +252,21 @@ static void sp_namedview_build(SPObject *object, SPDocument *document, Inkscape:
     object->readAttr( "inkscape:snap-global" );
     object->readAttr( "inkscape:snap-bbox" );
     object->readAttr( "inkscape:snap-nodes" );
+    object->readAttr( "inkscape:snap-others" );
     object->readAttr( "inkscape:snap-from-guide" );
     object->readAttr( "inkscape:snap-center" );
     object->readAttr( "inkscape:snap-smooth-nodes" );
     object->readAttr( "inkscape:snap-midpoints" );
     object->readAttr( "inkscape:snap-object-midpoints" );
+    object->readAttr( "inkscape:snap-text-baseline" );
     object->readAttr( "inkscape:snap-bbox-edge-midpoints" );
     object->readAttr( "inkscape:snap-bbox-midpoints" );
     object->readAttr( "inkscape:snap-to-guides" );
     object->readAttr( "inkscape:snap-grids" );
     object->readAttr( "inkscape:snap-intersection-paths" );
     object->readAttr( "inkscape:object-paths" );
+    object->readAttr( "inkscape:snap-path-clip" );
+    object->readAttr( "inkscape:snap-path-mask" );
     object->readAttr( "inkscape:object-nodes" );
     object->readAttr( "inkscape:bbox-paths" );
     object->readAttr( "inkscape:bbox-nodes" );
@@ -307,8 +313,6 @@ static void sp_namedview_release(SPObject *object)
 static void sp_namedview_set(SPObject *object, unsigned int key, const gchar *value)
 {
     SPNamedView *nv = SP_NAMEDVIEW(object);
-    // TODO investigate why we grab this and then never use it
-    SPUnit const &px = sp_unit_get_by_id(SP_UNIT_PX);
 
     switch (key) {
     case SP_ATTR_VIEWONLY:
@@ -333,17 +337,17 @@ static void sp_namedview_set(SPObject *object, unsigned int key, const gchar *va
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
     case SP_ATTR_GRIDTOLERANCE:
-        nv->snap_manager.snapprefs.setGridTolerance(value ? g_ascii_strtod(value, NULL) : 10000);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
+            nv->snap_manager.snapprefs.setGridTolerance(value ? g_ascii_strtod(value, NULL) : 10000);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
     case SP_ATTR_GUIDETOLERANCE:
-        nv->snap_manager.snapprefs.setGuideTolerance(value ? g_ascii_strtod(value, NULL) : 20);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
+            nv->snap_manager.snapprefs.setGuideTolerance(value ? g_ascii_strtod(value, NULL) : 20);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
     case SP_ATTR_OBJECTTOLERANCE:
-        nv->snap_manager.snapprefs.setObjectTolerance(value ? g_ascii_strtod(value, NULL) : 20);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
+            nv->snap_manager.snapprefs.setObjectTolerance(value ? g_ascii_strtod(value, NULL) : 20);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
     case SP_ATTR_GUIDECOLOR:
             nv->guidecolor = (nv->guidecolor & 0xff) | (DEFAULTGUIDECOLOR & 0xffffff00);
             if (value) {
@@ -450,79 +454,91 @@ static void sp_namedview_set(SPObject *object, unsigned int key, const gchar *va
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
     case SP_ATTR_INKSCAPE_WINDOW_MAXIMIZED:
-        nv->window_maximized = value ? atoi(value) : 0;
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
+            nv->window_maximized = value ? atoi(value) : 0;
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
     case SP_ATTR_INKSCAPE_SNAP_GLOBAL:
             nv->snap_manager.snapprefs.setSnapEnabledGlobally(value ? sp_str_to_bool(value) : TRUE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
     case SP_ATTR_INKSCAPE_SNAP_BBOX:
-            nv->snap_manager.snapprefs.setSnapModeBBox(value ? sp_str_to_bool(value) : FALSE);
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_BBOX_CATEGORY, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_NODES:
-            nv->snap_manager.snapprefs.setSnapModeNode(value ? sp_str_to_bool(value) : TRUE);
+    case SP_ATTR_INKSCAPE_SNAP_NODE:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_NODE_CATEGORY, value ? sp_str_to_bool(value) : TRUE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_CENTER:
-            nv->snap_manager.snapprefs.setIncludeItemCenter(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_OTHERS:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_OTHERS_CATEGORY, value ? sp_str_to_bool(value) : TRUE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_GRIDS:
-        nv->snap_manager.snapprefs.setSnapToGrids(value ? sp_str_to_bool(value) : TRUE);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
-    case SP_ATTR_INKSCAPE_SNAP_TO_GUIDES:
-        nv->snap_manager.snapprefs.setSnapToGuides(value ? sp_str_to_bool(value) : TRUE);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
-    case SP_ATTR_INKSCAPE_SNAP_SMOOTH_NODES:
-            nv->snap_manager.snapprefs.setSnapSmoothNodes(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_ROTATION_CENTER:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_ROTATION_CENTER, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINTS:
-            nv->snap_manager.snapprefs.setSnapLineMidpoints(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_GRID:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_GRID, value ? sp_str_to_bool(value) : TRUE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINTS:
-        nv->snap_manager.snapprefs.setSnapObjectMidpoints(value ? sp_str_to_bool(value) : FALSE);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
-    case SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINTS:
-        nv->snap_manager.snapprefs.setSnapBBoxEdgeMidpoints(value ? sp_str_to_bool(value) : FALSE);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
-    case SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINTS:
-        nv->snap_manager.snapprefs.setSnapBBoxMidpoints(value ? sp_str_to_bool(value) : FALSE);
-        object->requestModified(SP_OBJECT_MODIFIED_FLAG);
-        break;
-    case SP_ATTR_INKSCAPE_SNAP_FROM_GUIDE:
-            nv->snap_manager.snapprefs.setSnapModeGuide(value ? sp_str_to_bool(value) : TRUE);
+    case SP_ATTR_INKSCAPE_SNAP_GUIDE:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_GUIDE, value ? sp_str_to_bool(value) : TRUE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_INTERS_PATHS:
-            nv->snap_manager.snapprefs.setSnapIntersectionCS(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_NODE_SMOOTH:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_NODE_SMOOTH, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_OBJECT_PATHS:
-            nv->snap_manager.snapprefs.setSnapToItemPath(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_LINE_MIDPOINT:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_LINE_MIDPOINT, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_OBJECT_NODES:
-            nv->snap_manager.snapprefs.setSnapToItemNode(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_OBJECT_MIDPOINT:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_OBJECT_MIDPOINT, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_BBOX_PATHS:
-            nv->snap_manager.snapprefs.setSnapToBBoxPath(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_TEXT_BASELINE:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_TEXT_BASELINE, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_BBOX_NODES:
-            nv->snap_manager.snapprefs.setSnapToBBoxNode(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE_MIDPOINT:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_BBOX_EDGE_MIDPOINT, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
-    case SP_ATTR_INKSCAPE_SNAP_PAGE:
-            nv->snap_manager.snapprefs.setSnapToPageBorder(value ? sp_str_to_bool(value) : FALSE);
+    case SP_ATTR_INKSCAPE_SNAP_BBOX_MIDPOINT:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_BBOX_MIDPOINT, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_PATH_INTERSECTION:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_PATH_INTERSECTION, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_PATH:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_PATH, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_PATH_CLIP:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_PATH_CLIP, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_PATH_MASK:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_PATH_MASK, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_NODE_CUSP:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_NODE_CUSP, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_BBOX_EDGE:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_BBOX_EDGE, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_BBOX_CORNER:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_BBOX_CORNER, value ? sp_str_to_bool(value) : FALSE);
+            object->requestModified(SP_OBJECT_MODIFIED_FLAG);
+            break;
+    case SP_ATTR_INKSCAPE_SNAP_PAGE_BORDER:
+            nv->snap_manager.snapprefs.setTargetSnappable(Inkscape::SNAPTARGET_PAGE_BORDER, value ? sp_str_to_bool(value) : FALSE);
             object->requestModified(SP_OBJECT_MODIFIED_FLAG);
             break;
     case SP_ATTR_INKSCAPE_CURRENT_LAYER:
@@ -801,10 +817,7 @@ void sp_namedview_window_from_document(SPDesktop *desktop)
     }
 
     // cancel any history of zooms up to this point
-    if (desktop->zooms_past) {
-        g_list_free(desktop->zooms_past);
-        desktop->zooms_past = NULL;
-    }
+    desktop->zooms_past.clear();
 }
 
 bool SPNamedView::getSnapGlobal() const
@@ -980,9 +993,9 @@ GSList const *SPNamedView::getViewList() const
 static gboolean sp_str_to_bool(const gchar *str)
 {
     if (str) {
-        if (!g_strcasecmp(str, "true") ||
-            !g_strcasecmp(str, "yes") ||
-            !g_strcasecmp(str, "y") ||
+        if (!g_ascii_strcasecmp(str, "true") ||
+            !g_ascii_strcasecmp(str, "yes") ||
+            !g_ascii_strcasecmp(str, "y") ||
             (atoi(str) != 0)) {
             return TRUE;
         }
@@ -1013,7 +1026,7 @@ SPNamedView *sp_document_namedview(SPDocument *document, const gchar *id)
 {
     g_return_val_if_fail(document != NULL, NULL);
 
-    SPObject *nv = sp_item_group_get_child_by_name((SPGroup *) document->root, NULL, "sodipodi:namedview");
+    SPObject *nv = sp_item_group_get_child_by_name(document->getRoot(), NULL, "sodipodi:namedview");
     g_assert(nv != NULL);
 
     if (id == NULL) {
@@ -1021,7 +1034,7 @@ SPNamedView *sp_document_namedview(SPDocument *document, const gchar *id)
     }
 
     while (nv && strcmp(nv->getId(), id)) {
-        nv = sp_item_group_get_child_by_name((SPGroup *) document->root, nv, "sodipodi:namedview");
+        nv = sp_item_group_get_child_by_name(document->getRoot(), nv, "sodipodi:namedview");
     }
 
     return (SPNamedView *) nv;
@@ -1098,9 +1111,17 @@ void SPNamedView::translateGuides(Geom::Translate const &tr) {
     for (GSList *l = guides; l != NULL; l = l->next) {
         SPGuide &guide = *SP_GUIDE(l->data);
         Geom::Point point_on_line = guide.point_on_line;
-        point_on_line[0] += tr[0];
-        point_on_line[1] += tr[1];
+        point_on_line *= tr;
         sp_guide_moveto(guide, point_on_line, true);
+    }
+}
+
+void SPNamedView::translateGrids(Geom::Translate const &tr) {
+    for (GSList *l = grids; l != NULL; l = l->next) {
+        Inkscape::CanvasGrid* g = reinterpret_cast<Inkscape::CanvasGrid*>(l->data);
+        if (g) {
+            g->setOrigin(g->origin * tr);
+        }
     }
 }
 

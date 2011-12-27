@@ -1,4 +1,4 @@
-/**
+/*
  * This is intended to be a standalone, reduced capability
  * implementation of Gzip and Zip functionality.  Its
  * targeted use case is for archiving and retrieving single files
@@ -175,7 +175,7 @@ void Crc32::update(char *str)
 void Crc32::update(const std::vector<unsigned char> &buf)
 {
     std::vector<unsigned char>::const_iterator iter;
-    for (iter=buf.begin() ; iter!=buf.end() ; iter++)
+    for (iter=buf.begin() ; iter!=buf.end() ; ++iter)
         {
         unsigned char ch = *iter;
         update(ch);
@@ -302,7 +302,12 @@ private:
 /**
  *
  */
-Inflater::Inflater()
+Inflater::Inflater() :
+    dest(),
+    src(),
+    srcPos(0),
+    bitBuf(0),
+    bitCnt(0)
 {
 }
 
@@ -800,7 +805,7 @@ bool Inflater::inflate(std::vector<unsigned char> &destination,
 //########################################################################
 
 
-
+#define DEFLATER_BUF_SIZE 32768
 class Deflater
 {
 public:
@@ -862,13 +867,13 @@ private:
 
     bool compress();
 
+    std::vector<unsigned char> compressed;
+
     std::vector<unsigned char> uncompressed;
 
     std::vector<unsigned char> window;
 
     unsigned int windowPos;
-
-    std::vector<unsigned char> compressed;
 
     //#### Output
     unsigned int outputBitBuf;
@@ -887,9 +892,9 @@ private:
     //#### Huffman Encode
     void encodeLiteralStatic(unsigned int ch);
 
-    unsigned char windowBuf[32768];
+    unsigned char windowBuf[DEFLATER_BUF_SIZE];
     //assume 32-bit ints
-    unsigned int windowHashBuf[32768];
+    unsigned int windowHashBuf[DEFLATER_BUF_SIZE];
 };
 
 
@@ -919,11 +924,17 @@ Deflater::~Deflater()
  */
 void Deflater::reset()
 {
-    outputBitBuf = 0;
-    outputNrBits = 0;
-    window.clear();
     compressed.clear();
     uncompressed.clear();
+    window.clear();
+	windowPos = 0;
+    outputBitBuf = 0;
+    outputNrBits = 0;
+    for (int k=0; k<DEFLATER_BUF_SIZE; k++)
+    {
+        windowBuf[k]=0;
+        windowHashBuf[k]=0;
+    }
 }
 
 /**
@@ -1390,7 +1401,7 @@ bool Deflater::compress()
         while (window.size() < 32768 && iter != uncompressed.end())
             {
             window.push_back(*iter);
-            iter++;
+            ++iter;
             }
         if (window.size() >= 32768)
             putBits(0x00, 1); //0  -- more blocks
@@ -1415,7 +1426,12 @@ bool Deflater::compress()
 /**
  * Constructor
  */
-GzipFile::GzipFile()
+GzipFile::GzipFile() :
+    data(),
+    fileName(),
+    fileBuf(),
+    fileBufPos(0),
+    compressionMethod(0)
 {
 }
 
@@ -1595,7 +1611,7 @@ bool GzipFile::write()
         }
 
     std::vector<unsigned char>::iterator iter;
-    for (iter=compBuf.begin() ; iter!=compBuf.end() ; iter++)
+    for (iter=compBuf.begin() ; iter!=compBuf.end() ; ++iter)
         {
         unsigned char ch = *iter;
         putByte(ch);
@@ -1636,7 +1652,7 @@ bool GzipFile::writeFile(const std::string &fileName)
     if (!f)
         return false;
     std::vector<unsigned char>::iterator iter;
-    for (iter=fileBuf.begin() ; iter!=fileBuf.end() ; iter++)
+    for (iter=fileBuf.begin() ; iter!=fileBuf.end() ; ++iter)
         {
         unsigned char ch = *iter;
         fputc(ch, f);
@@ -1883,6 +1899,7 @@ ZipEntry::ZipEntry()
 {
     crc               = 0L;
     compressionMethod = 8;
+    position          = 0;
 }
 
 /**
@@ -1895,6 +1912,7 @@ ZipEntry::ZipEntry(const std::string &fileNameArg,
     compressionMethod = 8;
     fileName          = fileNameArg;
     comment           = commentArg;
+    position          = 0;
 }
 
 /**
@@ -2033,7 +2051,7 @@ void ZipEntry::finish()
     Crc32 c32;
     std::vector<unsigned char>::iterator iter;
     for (iter = uncompressedData.begin() ;
-           iter!= uncompressedData.end() ; iter++)
+           iter!= uncompressedData.end() ; ++iter)
         {
         unsigned char ch = *iter;
         c32.update(ch);
@@ -2044,7 +2062,7 @@ void ZipEntry::finish()
         case 0: //none
             {
             for (iter = uncompressedData.begin() ;
-               iter!= uncompressedData.end() ; iter++)
+               iter!= uncompressedData.end() ; ++iter)
                 {
                 unsigned char ch = *iter;
                 compressedData.push_back(ch);
@@ -2124,9 +2142,12 @@ unsigned long ZipEntry::getPosition()
 /**
  * Constructor
  */
-ZipFile::ZipFile()
+ZipFile::ZipFile() :
+    entries(),
+    fileBuf(),
+    fileBufPos(0),
+    comment()
 {
-
 }
 
 /**
@@ -2135,7 +2156,7 @@ ZipFile::ZipFile()
 ZipFile::~ZipFile()
 {
     std::vector<ZipEntry *>::iterator iter;
-    for (iter=entries.begin() ; iter!=entries.end() ; iter++)
+    for (iter=entries.begin() ; iter!=entries.end() ; ++iter)
         {
         ZipEntry *entry = *iter;
         delete entry;
@@ -2269,7 +2290,7 @@ bool ZipFile::putByte(unsigned char val)
 bool ZipFile::writeFileData()
 {
     std::vector<ZipEntry *>::iterator iter;
-    for (iter = entries.begin() ; iter != entries.end() ; iter++)
+    for (iter = entries.begin() ; iter != entries.end() ; ++iter)
         {
         ZipEntry *entry = *iter;
         entry->setPosition(fileBuf.size());
@@ -2299,7 +2320,7 @@ bool ZipFile::writeFileData()
         //##### DATA
         std::vector<unsigned char> &buf = entry->getCompressedData();
         std::vector<unsigned char>::iterator iter;
-        for (iter = buf.begin() ; iter != buf.end() ; iter++)
+        for (iter = buf.begin() ; iter != buf.end() ; ++iter)
             {
             unsigned char ch = (unsigned char) *iter;
             putByte(ch);
@@ -2315,7 +2336,7 @@ bool ZipFile::writeCentralDirectory()
 {
     unsigned long cdPosition = fileBuf.size();
     std::vector<ZipEntry *>::iterator iter;
-    for (iter = entries.begin() ; iter != entries.end() ; iter++)
+    for (iter = entries.begin() ; iter != entries.end() ; ++iter)
         {
         ZipEntry *entry = *iter;
         std::string fname   = entry->getFileName();
@@ -2403,7 +2424,7 @@ bool ZipFile::writeFile(const std::string &fileName)
     if (!f)
         return false;
     std::vector<unsigned char>::iterator iter;
-    for (iter=fileBuf.begin() ; iter!=fileBuf.end() ; iter++)
+    for (iter=fileBuf.begin() ; iter!=fileBuf.end() ; ++iter)
         {
         unsigned char ch = *iter;
         fputc(ch, f);

@@ -86,7 +86,6 @@ init (void)
         GError *error = NULL;
         DBusGConnection *connection;
         DBusGProxy *proxy;
-	    DocumentInterface *obj;
         connection = dbus_get_connection();
         proxy = dbus_get_proxy(connection);
         org_freedesktop_DBus_request_name (proxy,
@@ -102,8 +101,6 @@ init (void)
 
 gchar *
 init_document (void) {
-        guint   result;
-        GError *error = NULL;
         DBusGConnection *connection;
         DBusGProxy *proxy;
 	SPDocument *doc;
@@ -150,7 +147,7 @@ dbus_init_desktop_interface (SPDesktop * dt)
           &dbus_glib_document_interface_object_info, name.c_str());
 	obj->desk = dt;
     obj->updates = TRUE;
-
+    dt->dbus_document_interface=obj;
     return strdup(name.c_str());
 }
 

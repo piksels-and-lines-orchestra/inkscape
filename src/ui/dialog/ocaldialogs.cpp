@@ -1,5 +1,6 @@
-/** @file
- * @brief Open Clip Art Library integration dialogs - implementation
+/**
+ * @file
+ * Open Clip Art Library integration dialogs - implementation.
  */
 /* Authors:
  *   Bruno Dilly
@@ -635,7 +636,7 @@ void ImportDialog::on_list_results_selection_changed()
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     
-    printf("%s", "on_list_results_selection_changed");
+    printf("%s", "on_list_results_selection_changed\n");
     
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
@@ -652,7 +653,7 @@ void ImportDialog::on_button_import_clicked() {
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     
-    printf("%s", "on_button_import_clicked");
+    printf("%s", "on_button_import_clicked\n");
     
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
@@ -673,7 +674,7 @@ void ImportDialog::on_list_results_cursor_changed()
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
     
-    printf("%s", "on_list_results_cursor_changed");
+    printf("%s", "on_list_results_cursor_changed\n");
     
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
@@ -1077,6 +1078,7 @@ ImportDialog::ImportDialog(Gtk::Window& parent_window, FileDialogType file_types
                                                    const Glib::ustring &title) :
     FileDialogBase(title, parent_window)
 {
+    printf("%s\n", "Hi!");
     // Initalize to Autodetect
     extension = NULL;
     // No filename to start out with

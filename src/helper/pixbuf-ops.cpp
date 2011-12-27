@@ -15,28 +15,24 @@
 # include "config.h"
 #endif
 
-#include <interface.h>
-#include <libnr/nr-pixops.h>
 #include <glib.h>
-#include <glib/gmessages.h>
 #include <png.h>
-#include "png-write.h"
-#include <display/nr-arena-item.h>
-#include <display/nr-arena.h>
-#include <document.h>
-#include <sp-item.h>
-#include <sp-root.h>
-#include <sp-use.h>
-#include <sp-defs.h>
+#include <2geom/transforms.h>
+
+#include "interface.h"
+#include "helper/png-write.h"
+#include "display/cairo-utils.h"
+#include "display/drawing.h"
+#include "display/drawing-context.h"
+#include "display/drawing-item.h"
+#include "document.h"
+#include "sp-item.h"
+#include "sp-root.h"
+#include "sp-use.h"
+#include "sp-defs.h"
 #include "unit-constants.h"
 
-#include "libnr/nr-matrix-translate-ops.h"
-#include "libnr/nr-scale-ops.h"
-#include "libnr/nr-scale-translate-ops.h"
-#include "libnr/nr-translate-matrix-ops.h"
-#include "libnr/nr-translate-scale-ops.h"
-
-#include "pixbuf-ops.h"
+#include "helper/pixbuf-ops.h"
 
 // TODO look for copy-n-past duplication of this function:
 /**
@@ -67,28 +63,23 @@ static void hide_other_items_recursively(SPObject *o, GSList *list, unsigned dke
 // The dpi settings dont do anything yet, but I want them to, and was wanting to keep reasonably close
 // to the call for the interface to the png writing.
 
-bool
-sp_export_jpg_file(SPDocument *doc, gchar const *filename,
-                   double x0, double y0, double x1, double y1,
-                   unsigned width, unsigned height, double xdpi, double ydpi,
-                   unsigned long bgcolor, double quality,GSList *items)
-
+bool sp_export_jpg_file(SPDocument *doc, gchar const *filename,
+                        double x0, double y0, double x1, double y1,
+                        unsigned width, unsigned height, double xdpi, double ydpi,
+                        unsigned long bgcolor, double quality,GSList *items)
 {
-
-
-      GdkPixbuf* pixbuf;
-      pixbuf = sp_generate_internal_bitmap(doc, filename, x0, y0, x1, y1,
+    GdkPixbuf* pixbuf = 0;
+    pixbuf = sp_generate_internal_bitmap(doc, filename, x0, y0, x1, y1,
                                          width, height, xdpi, ydpi,
                                          bgcolor, items );
 
+    gchar c[32];
+    g_snprintf(c, 32, "%f", quality);
+    gboolean saved = gdk_pixbuf_save (pixbuf, filename, "jpeg", NULL, "quality", c, NULL);
+    g_free(c);
+    gdk_pixbuf_unref (pixbuf);
 
-     gchar c[32];
-     g_snprintf(c, 32, "%f", quality);
-     gboolean saved = gdk_pixbuf_save (pixbuf, filename, "jpeg", NULL, "quality", c, NULL);
-     g_free(c);
-     gdk_pixbuf_unref (pixbuf);
-     if (saved) return true;
-     else return false;
+    return saved;
 }
 
 /**
@@ -104,104 +95,72 @@ sp_export_jpg_file(SPDocument *doc, gchar const *filename,
     @param ydpi
     @return the created GdkPixbuf structure or NULL if no memory is allocable
 */
-GdkPixbuf*
-sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
-                            double x0, double y0, double x1, double y1,
-                            unsigned width, unsigned height, double xdpi, double ydpi,
-                            unsigned long bgcolor,
-                            GSList *items_only)
+GdkPixbuf *sp_generate_internal_bitmap(SPDocument *doc, gchar const */*filename*/,
+                                       double x0, double y0, double x1, double y1,
+                                       unsigned width, unsigned height, double xdpi, double ydpi,
+                                       unsigned long /*bgcolor*/,
+                                       GSList *items_only)
 
 {
+    if (width == 0 || height == 0) return NULL;
 
-     GdkPixbuf* pixbuf = NULL;
-     /* Create new arena for offscreen rendering*/
-     NRArena *arena = NRArena::create();
-     nr_arena_set_renderoffscreen(arena);
-     unsigned dkey = SPItem::display_key_new(1);
+    GdkPixbuf* pixbuf = NULL;
+    /* Create new drawing for offscreen rendering*/
+    Inkscape::Drawing drawing;
+    drawing.setExact(true);
+    unsigned dkey = SPItem::display_key_new(1);
 
-     doc->ensureUpToDate();
+    doc->ensureUpToDate();
 
-     Geom::Rect screen=Geom::Rect(Geom::Point(x0,y0), Geom::Point(x1, y1));
+    Geom::Rect screen=Geom::Rect(Geom::Point(x0,y0), Geom::Point(x1, y1));
 
-     double padding = 1.0;
+    double padding = 1.0;
 
-     Geom::Point origin(screen.min()[Geom::X],
-                      doc->getHeight() - screen[Geom::Y].extent() - screen.min()[Geom::Y]);
+    Geom::Point origin(screen.min()[Geom::X],
+                  doc->getHeight() - screen[Geom::Y].extent() - screen.min()[Geom::Y]);
 
-     origin[Geom::X] = origin[Geom::X] + (screen[Geom::X].extent() * ((1 - padding) / 2));
-     origin[Geom::Y] = origin[Geom::Y] + (screen[Geom::Y].extent() * ((1 - padding) / 2));
+    origin[Geom::X] = origin[Geom::X] + (screen[Geom::X].extent() * ((1 - padding) / 2));
+    origin[Geom::Y] = origin[Geom::Y] + (screen[Geom::Y].extent() * ((1 - padding) / 2));
 
-     Geom::Scale scale( (xdpi / PX_PER_IN),   (ydpi / PX_PER_IN));
-     Geom::Affine affine = scale * Geom::Translate(-origin * scale);
+    Geom::Scale scale( (xdpi / PX_PER_IN),   (ydpi / PX_PER_IN));
+    Geom::Affine affine = scale * Geom::Translate(-origin * scale);
 
-     /* Create ArenaItems and set transform */
-     NRArenaItem *root = SP_ITEM(doc->getRoot())->invoke_show( arena, dkey, SP_ITEM_SHOW_DISPLAY);
-     nr_arena_item_set_transform(NR_ARENA_ITEM(root), affine);
+    /* Create ArenaItems and set transform */
+    Inkscape::DrawingItem *root = doc->getRoot()->invoke_show( drawing, dkey, SP_ITEM_SHOW_DISPLAY);
+    root->setTransform(affine);
+    drawing.setRoot(root);
 
-     NRGC gc(NULL);
-     gc.transform.setIdentity();
-
-     // We show all and then hide all items we don't want, instead of showing only requested items,
-     // because that would not work if the shown item references something in defs
-     if (items_only) {
-         hide_other_items_recursively(doc->getRoot(), items_only, dkey);
-     }
-
-     NRRectL final_bbox;
-     final_bbox.x0 = 0;
-     final_bbox.y0 = 0;//row;
-     final_bbox.x1 = width;
-     final_bbox.y1 = height;//row + num_rows;
-
-     nr_arena_item_invoke_update(root, &final_bbox, &gc, NR_ARENA_ITEM_STATE_ALL, NR_ARENA_ITEM_STATE_NONE);
-
-    guchar *px = NULL;
-    guint64 size = 4L * (guint64)width * (guint64)height;
-    if(size < (guint64)G_MAXSIZE) {
-        // g_try_new is limited to g_size type which is defined as unisgned int. Need to test for very large nubers
-        px = g_try_new(guchar, size);
+    // We show all and then hide all items we don't want, instead of showing only requested items,
+    // because that would not work if the shown item references something in defs
+    if (items_only) {
+        hide_other_items_recursively(doc->getRoot(), items_only, dkey);
     }
 
-    if(px != NULL)
-    {
+    Geom::IntRect final_bbox = Geom::IntRect::from_xywh(0, 0, width, height);
+    drawing.update(final_bbox);
 
-         NRPixBlock B;
-         //g_warning("sp_generate_internal_bitmap: nr_pixblock_setup_extern.");
-         nr_pixblock_setup_extern( &B, NR_PIXBLOCK_MODE_R8G8B8A8N,
-                                   final_bbox.x0, final_bbox.y0, final_bbox.x1, final_bbox.y1,
-                                   px, 4 * width, FALSE, FALSE );
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 
-         unsigned char dtc[4];
-         dtc[0] = NR_RGBA32_R(bgcolor);
-         dtc[1] = NR_RGBA32_G(bgcolor);
-         dtc[2] = NR_RGBA32_B(bgcolor);
-         dtc[3] = NR_RGBA32_A(bgcolor);
+    if (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS) {
+        Inkscape::DrawingContext ct(surface, Geom::Point(0,0));
 
-         // fill pixelblock using background colour
-         for (gsize fy = 0; fy < height; fy++) {
-             guchar *p = NR_PIXBLOCK_PX(&B) + fy * (gsize)B.rs;
-             for (unsigned int fx = 0; fx < width; fx++) {
-                 for (int i = 0; i < 4; i++) {
-                     *p++ = dtc[i];
-                 }
-             }
-         }
+        // render items
+        drawing.render(ct, final_bbox, Inkscape::DrawingItem::RENDER_BYPASS_CACHE);
 
-
-         nr_arena_item_invoke_render(NULL, root, &final_bbox, &B, NR_ARENA_ITEM_RENDER_NO_CACHE );
-
-         pixbuf = gdk_pixbuf_new_from_data(px, GDK_COLORSPACE_RGB,
-                                              TRUE,
-                                              8, width, height, width * 4,
-                                              (GdkPixbufDestroyNotify)g_free,
-                                              NULL);
+        pixbuf = gdk_pixbuf_new_from_data(cairo_image_surface_get_data(surface),
+                                          GDK_COLORSPACE_RGB, TRUE,
+                                          8, width, height, cairo_image_surface_get_stride(surface),
+                                          ink_cairo_pixbuf_cleanup,
+                                          surface);
+        convert_pixbuf_argb32_to_normal(pixbuf);
     }
     else
     {
+        long long size = (long long) height * (long long) cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
         g_warning("sp_generate_internal_bitmap: not enough memory to create pixel buffer. Need %lld.", size);
+        cairo_surface_destroy(surface);
     }
-     SP_ITEM(doc->getRoot())->invoke_hide(dkey);
-     nr_object_unref((NRObject *) arena);
+    doc->getRoot()->invoke_hide(dkey);
 
 //    gdk_pixbuf_save (pixbuf, "C:\\temp\\internal.jpg", "jpeg", NULL, "quality","100", NULL);
 

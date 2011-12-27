@@ -1,6 +1,4 @@
-/**
- * \brief Groups an HScale and a SpinButton together using the same Adjustment
- *
+/*
  * Author:
  *   Nicholas Bishop <nicholasbishop@gmail.com>
  *   Felipe C. da S. Sanches <juca@members.fsf.org>
@@ -20,7 +18,7 @@ namespace UI {
 namespace Widget {
 
 SpinSlider::SpinSlider(double value, double lower, double upper, double step_inc,
-                       double climb_rate, int digits, const SPAttributeEnum a, char* tip_text)
+                       double climb_rate, int digits, const SPAttributeEnum a, const char* tip_text)
     : AttrWidget(a, value), _adjustment(value, lower, upper, step_inc),
       _scale(_adjustment), _spin(_adjustment, climb_rate, digits)
 {
@@ -90,11 +88,11 @@ Gtk::HScale& SpinSlider::get_scale()
     return _scale;
 }
 
-const Gtk::SpinButton& SpinSlider::get_spin_button() const
+const Inkscape::UI::Widget::SpinButton& SpinSlider::get_spin_button() const
 {
     return _spin;
 }
-Gtk::SpinButton& SpinSlider::get_spin_button()
+Inkscape::UI::Widget::SpinButton& SpinSlider::get_spin_button()
 {
     return _spin;
 }

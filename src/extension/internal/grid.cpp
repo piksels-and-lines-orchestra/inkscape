@@ -90,7 +90,7 @@ Grid::effect (Inkscape::Extension::Effect *module, Inkscape::UI::View::View *doc
         bounding_area = Geom::Rect(  Geom::Point(0,0),
                                      Geom::Point(doc->getWidth(), doc->getHeight())  );
     } else {
-        Geom::OptRect bounds = selection->bounds();
+        Geom::OptRect bounds = selection->visualBounds();
         if (bounds) {
             bounding_area = *bounds;
         }
@@ -207,7 +207,9 @@ Grid::init (void)
             "<effect>\n"
                 "<object-type>all</object-type>\n"
                 "<effects-menu>\n"
-                    "<submenu name=\"" N_("Render") "\" />\n"
+                "<submenu name=\"" N_("Render") "\">\n"
+                    "<submenu name=\"" N_("Grids") "\" />\n"
+                "</submenu>\n"
                 "</effects-menu>\n"
                 "<menu-tip>" N_("Draw a path which is a grid") "</menu-tip>\n"
             "</effect>\n"

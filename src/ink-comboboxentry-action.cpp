@@ -3,7 +3,8 @@
  * Features:
  *   Setting GtkEntryBox width in characters.
  *   Passing a function for formatting cells.
- *   Displaying a warning if text isn't in list.
+ *   Displaying a warning if entry text isn't in list.
+ *   Check comma separated values in text against list. (Useful for font-family fallbacks.)
  *   Setting names for GtkComboBoxEntry and GtkEntry (actionName_combobox, actionName_entry)
  *     to allow setting resources.
  *
@@ -26,9 +27,6 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
-#include <gtk/gtktoolitem.h>
-#include <gtk/gtkcomboboxentry.h>
-#include <gtk/gtkentrycompletion.h>
 
 #include "ink-comboboxentry-action.h"
 
@@ -38,6 +36,7 @@ static GtkWidget* create_menu_item( GtkAction* action );
 
 // Internal
 static gint get_active_row_from_text( Ink_ComboBoxEntry_Action* action, const gchar* target_text );
+static gint check_comma_separated_text( Ink_ComboBoxEntry_Action* action );
 
 // Callbacks
 static void combo_box_changed_cb( GtkComboBoxEntry* widget, gpointer data );
@@ -266,9 +265,7 @@ static void ink_comboboxentry_action_init (Ink_ComboBoxEntry_Action *action)
   action->active = -1;
   action->text = NULL;
   action->entry_completion = NULL;
-#if !GTK_CHECK_VERSION(2,16,0)
   action->indicator = NULL;
-#endif
   action->popup = false;
   action->warning = NULL;
   action->altx_name = NULL;
@@ -348,15 +345,7 @@ GtkWidget* create_tool_item( GtkAction* action )
 
     {
         GtkWidget *align = gtk_alignment_new(0, 0.5, 0, 0);
-#if GTK_CHECK_VERSION(2,16,0)
         gtk_container_add( GTK_CONTAINER(align), comboBoxEntry );
-#else // GTK_CHECK_VERSION(2,16,0)
-        GtkWidget *hbox = gtk_hbox_new( FALSE, 0 );
-        ink_comboboxentry_action->indicator = gtk_image_new_from_stock(GTK_STOCK_DIALOG_WARNING, GTK_ICON_SIZE_SMALL_TOOLBAR);
-        gtk_box_pack_start( GTK_BOX(hbox), comboBoxEntry, TRUE, TRUE, 0 );
-        gtk_box_pack_start( GTK_BOX(hbox), ink_comboboxentry_action->indicator, FALSE, FALSE, 0 );
-        gtk_container_add( GTK_CONTAINER(align), hbox );
-#endif // GTK_CHECK_VERSION(2,16,0)
         gtk_container_add( GTK_CONTAINER(item), align );
     }
 
@@ -415,10 +404,7 @@ GtkWidget* create_tool_item( GtkAction* action )
 
     }
 
-#if GTK_CHECK_VERSION(2,16,0)
-    gtk_action_connect_proxy( GTK_ACTION( action ), item );
-#endif
-
+    gtk_activatable_set_related_action( GTK_ACTIVATABLE (item), GTK_ACTION( action ) );
     gtk_widget_show_all( item );
 
   } else {
@@ -479,8 +465,9 @@ gboolean ink_comboboxentry_action_set_active_text( Ink_ComboBoxEntry_Action* ink
     gtk_entry_set_text( ink_comboboxentry_action->entry, text );
 
     // Show or hide warning
-    if( ink_comboboxentry_action->active == -1 && ink_comboboxentry_action->warning != NULL ) {
-#if GTK_CHECK_VERSION(2,16,0)
+    if( ink_comboboxentry_action->active == -1 && 
+	ink_comboboxentry_action->warning != NULL && 
+	check_comma_separated_text( ink_comboboxentry_action ) ) {
       {
 	  GtkStockItem item;
 	  gboolean isStock = gtk_stock_lookup( GTK_STOCK_DIALOG_WARNING, &item );
@@ -498,22 +485,13 @@ gboolean ink_comboboxentry_action_set_active_text( Ink_ComboBoxEntry_Action* ink
       gtk_entry_set_icon_tooltip_text( ink_comboboxentry_action->entry,
                                        GTK_ENTRY_ICON_SECONDARY,
                                        ink_comboboxentry_action->warning );
-#else // GTK_CHECK_VERSION(2,16,0)
-      gtk_image_set_from_stock( GTK_IMAGE(ink_comboboxentry_action->indicator), GTK_STOCK_DIALOG_WARNING, GTK_ICON_SIZE_SMALL_TOOLBAR);
-      gtk_widget_set_tooltip_text( ink_comboboxentry_action->indicator, ink_comboboxentry_action->warning );
-#endif // GTK_CHECK_VERSION(2,16,0)
     } else {
-#if GTK_CHECK_VERSION(2,16,0)
       gtk_entry_set_icon_from_icon_name( GTK_ENTRY(ink_comboboxentry_action->entry),
                                          GTK_ENTRY_ICON_SECONDARY,
                                          NULL );
       gtk_entry_set_icon_from_stock( GTK_ENTRY(ink_comboboxentry_action->entry),
 				     GTK_ENTRY_ICON_SECONDARY,
 				     NULL );
-#else // GTK_CHECK_VERSION(2,16,0)
-      gtk_image_set_from_stock( GTK_IMAGE(ink_comboboxentry_action->indicator), NULL, GTK_ICON_SIZE_SMALL_TOOLBAR);
-      gtk_widget_set_tooltip_text( ink_comboboxentry_action->indicator, NULL );
-#endif // GTK_CHECK_VERSION(2,16,0)
     }
   }
 
@@ -585,13 +563,9 @@ void     ink_comboboxentry_action_set_warning( Ink_ComboBoxEntry_Action* action,
 
   // Widget may not have been created....
   if( action->entry ) {
-#if GTK_CHECK_VERSION(2,16,0)
     gtk_entry_set_icon_tooltip_text( GTK_ENTRY(action->entry),
                                      GTK_ENTRY_ICON_SECONDARY,
                                      action->warning );
-#else // GTK_CHECK_VERSION(2,16,0)
-    gtk_image_set_from_stock( GTK_IMAGE(action->indicator), action->warning ? GTK_STOCK_DIALOG_WARNING : 0, GTK_ICON_SIZE_SMALL_TOOLBAR );
-#endif // GTK_CHECK_VERSION(2,16,0)
   }
 }
 
@@ -637,6 +611,45 @@ gint get_active_row_from_text( Ink_ComboBoxEntry_Action* action, const gchar* ta
 
 }
 
+// Checks if all comma separated text fragments are in the list.
+// This is useful for checking if all fonts in a font-family fallback
+// list are available on the system.
+// The return value is set to the number of missing text fragments.
+// This routine could also create a Pango Markup string to show which
+// fragments are invalid.
+// It is envisioned that one can construct a Pango Markup String here
+// so that individual text fragments can be flagged as not being in the
+// list.
+static gint check_comma_separated_text( Ink_ComboBoxEntry_Action* action ) {
+
+  gint ret_val = 0;
+
+  // Parse fallback_list using a comma as deliminator
+  gchar** tokens = g_strsplit( action->text, ",", 0 );
+
+  gint i = 0;
+  while( tokens[i] != NULL ) {
+
+    // Remove any surrounding white space.
+    g_strstrip( tokens[i] );
+
+    if( get_active_row_from_text( action, tokens[i] ) == -1 ) {
+      ret_val += 1;
+    }
+    ++i;
+  }
+  g_strfreev( tokens );
+
+  // Pango Markup notes:
+  // GString* Pango_Markup = g_string_new("");
+  // if not present:
+  // g_string_sprintfa( Pango_Markup, "<span strikethrough=\"true\" strikethrough_color=\"#880000\">%s</span>", tokens[i] );
+  // PangoLayout * pl = gtk_entry_get_layout( entry );
+  // pango_layout_set_markup( pl, Pango_Markup->str, -1 );
+  // g_string_free( Pango_Markup, TRUE );
+
+  return ret_val;
+}
 
 // Callbacks ---------------------------------------------------
 

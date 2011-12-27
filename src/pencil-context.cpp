@@ -34,7 +34,6 @@
 #include <2geom/bezier-utils.h>
 #include "display/canvas-bpath.h"
 #include <glibmm/i18n.h>
-#include "libnr/in-svg-plane.h"
 #include "context-fns.h"
 #include "sp-namedview.h"
 #include "xml/repr.h"
@@ -57,10 +56,10 @@ static gint pencil_handle_button_release(SPPencilContext *const pc, GdkEventButt
 static gint pencil_handle_key_press(SPPencilContext *const pc, guint const keyval, guint const state);
 static gint pencil_handle_key_release(SPPencilContext *const pc, guint const keyval, guint const state);
 
-static void spdc_set_startpoint(SPPencilContext *pc, Geom::Point const p);
-static void spdc_set_endpoint(SPPencilContext *pc, Geom::Point const p);
+static void spdc_set_startpoint(SPPencilContext *pc, Geom::Point const &p);
+static void spdc_set_endpoint(SPPencilContext *pc, Geom::Point const &p);
 static void spdc_finish_endpoint(SPPencilContext *pc);
-static void spdc_add_freehand_point(SPPencilContext *pc, Geom::Point p, guint state);
+static void spdc_add_freehand_point(SPPencilContext *pc, Geom::Point const &p, guint state);
 static void fit_and_split(SPPencilContext *pc);
 static void interpolate(SPPencilContext *pc);
 static void sketch_interpolate(SPPencilContext *pc);
@@ -68,6 +67,8 @@ static void sketch_interpolate(SPPencilContext *pc);
 static SPDrawContextClass *pencil_parent_class;
 static Geom::Point pencil_drag_origin_w(0, 0);
 static bool pencil_within_tolerance = false;
+
+static bool in_svg_plane(Geom::Point const &p) { return Geom::LInfty(p) < 1e18; }
 
 /**
  * Register SPPencilContext class with Gdk and return its type number.
@@ -165,12 +166,15 @@ static void
 spdc_endpoint_snap(SPPencilContext const *pc, Geom::Point &p, guint const state)
 {
     if ((state & GDK_CONTROL_MASK)) { //CTRL enables constrained snapping
-        spdc_endpoint_snap_rotation(pc, p, pc->p[0], state);
+        if (pc->npoints > 0) {
+            spdc_endpoint_snap_rotation(pc, p, pc->p[0], state);
+        }
     } else {
         if (!(state & GDK_SHIFT_MASK)) { //SHIFT disables all snapping, except the angular snapping above
                                          //After all, the user explicitely asked for angular snapping by
                                          //pressing CTRL
-            spdc_endpoint_snap_free(pc, p, state);
+            boost::optional<Geom::Point> origin = pc->npoints > 0 ? pc->p[0] : boost::optional<Geom::Point>();
+            spdc_endpoint_snap_free(pc, p, origin, state);
         }
     }
 }
@@ -644,7 +648,7 @@ pencil_handle_key_release(SPPencilContext *const pc, guint const keyval, guint c
  * Reset points and set new starting point.
  */
 static void
-spdc_set_startpoint(SPPencilContext *const pc, Geom::Point const p)
+spdc_set_startpoint(SPPencilContext *const pc, Geom::Point const &p)
 {
     pc->npoints = 0;
     pc->red_curve_is_valid = false;
@@ -664,7 +668,7 @@ spdc_set_startpoint(SPPencilContext *const pc, Geom::Point const p)
  * We change RED curve.
  */
 static void
-spdc_set_endpoint(SPPencilContext *const pc, Geom::Point const p)
+spdc_set_endpoint(SPPencilContext *const pc, Geom::Point const &p)
 {
     if (pc->npoints == 0) {
         return;
@@ -716,7 +720,7 @@ spdc_finish_endpoint(SPPencilContext *const pc)
 
 
 static void
-spdc_add_freehand_point(SPPencilContext *pc, Geom::Point p, guint /*state*/)
+spdc_add_freehand_point(SPPencilContext *pc, Geom::Point const &p, guint /*state*/)
 {
     g_assert( pc->npoints > 0 );
     g_return_if_fail(unsigned(pc->npoints) < G_N_ELEMENTS(pc->p));

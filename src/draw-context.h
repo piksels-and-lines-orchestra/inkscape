@@ -1,5 +1,5 @@
-#ifndef __SP_DRAW_CONTEXT_H__
-#define __SP_DRAW_CONTEXT_H__
+#ifndef SEEN_SP_DRAW_CONTEXT_H
+#define SEEN_SP_DRAW_CONTEXT_H
 
 /*
  * Generic drawing context
@@ -16,18 +16,17 @@
 
 #include <stddef.h>
 #include <sigc++/sigc++.h>
+#include <2geom/point.h>
 #include "event-context.h"
-#include <forward.h>
-#include <libnr/nr-point.h>
 #include "live_effects/effect.h"
 
 /* Freehand context */
 
 #define SP_TYPE_DRAW_CONTEXT (sp_draw_context_get_type())
-#define SP_DRAW_CONTEXT(o) (GTK_CHECK_CAST((o), SP_TYPE_DRAW_CONTEXT, SPDrawContext))
-#define SP_DRAW_CONTEXT_CLASS(k) (GTK_CHECK_CLASS_CAST((k), SP_TYPE_DRAW_CONTEXT, SPDrawContextClass))
-#define SP_IS_DRAW_CONTEXT(o) (GTK_CHECK_TYPE((o), SP_TYPE_DRAW_CONTEXT))
-#define SP_IS_DRAW_CONTEXT_CLASS(k) (GTK_CHECK_CLASS_TYPE((k), SP_TYPE_DRAW_CONTEXT))
+#define SP_DRAW_CONTEXT(o) (G_TYPE_CHECK_INSTANCE_CAST((o), SP_TYPE_DRAW_CONTEXT, SPDrawContext))
+#define SP_DRAW_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_CAST((k), SP_TYPE_DRAW_CONTEXT, SPDrawContextClass))
+#define SP_IS_DRAW_CONTEXT(o) (G_TYPE_CHECK_INSTANCE_TYPE((o), SP_TYPE_DRAW_CONTEXT))
+#define SP_IS_DRAW_CONTEXT_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE((k), SP_TYPE_DRAW_CONTEXT))
 
 struct SPDrawAnchor;
 namespace Inkscape
@@ -86,11 +85,11 @@ GType sp_draw_context_get_type(void);
 SPDrawAnchor *spdc_test_inside(SPDrawContext *dc, Geom::Point p);
 void spdc_concat_colors_and_flush(SPDrawContext *dc, gboolean forceclosed);
 void spdc_endpoint_snap_rotation(SPEventContext const *const ec, Geom::Point &p, Geom::Point const &o, guint state);
-void spdc_endpoint_snap_free(SPEventContext const *ec, Geom::Point &p, guint state);
+void spdc_endpoint_snap_free(SPEventContext const *ec, Geom::Point &p, boost::optional<Geom::Point> &start_point, guint state);
 void spdc_check_for_and_apply_waiting_LPE(SPDrawContext *dc, SPItem *item);
 void spdc_create_single_dot(SPEventContext *ec, Geom::Point const &pt, char const *tool, guint event_state);
 
-#endif
+#endif // SEEN_SP_DRAW_CONTEXT_H
 
 /*
   Local Variables:

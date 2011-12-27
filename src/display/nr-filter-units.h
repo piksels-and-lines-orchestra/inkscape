@@ -13,15 +13,24 @@
  */
 
 #include "sp-filter-units.h"
-#include "libnr/nr-matrix.h"
-#include "libnr/nr-rect.h"
-#include "libnr/nr-rect-l.h"
 #include <2geom/affine.h>
 #include <2geom/rect.h>
 
 namespace Inkscape {
 namespace Filters {
 
+/* Notes:
+ * - "filter units" is a coordinate system where the filter region is contained
+ *   between (0,0) and (1,1). Do not confuse this with the filterUnits property
+ * - "primitive units" is the coordinate system in which all lengths and distances
+ *   in the filter definition should be interpreted. They are affected by the value
+ *   of the primitiveUnits attribute
+ * - "pb" is the coordinate system in which filter rendering happens.
+ *   It might be aligned with user or screen coordinates depending on
+ *   the filter primitives used in the filter.
+ * - "display" are world coordinates of the canvas - pixel grid coordinates
+ *   of the drawing area translated so that (0,0) corresponds to the document origin
+ */
 class FilterUnits {
 public:
     FilterUnits();
@@ -123,7 +132,7 @@ public:
      * NOTE: use only in filters, that define TRAIT_PARALLER in
      * get_input_traits. The filter effects area may not be representable
      * by simple rectangle otherwise. */
-    NR::IRect get_pixblock_filterarea_paraller() const;
+    Geom::IntRect get_pixblock_filterarea_paraller() const;
 
     FilterUnits& operator=(FilterUnits const &other);
 

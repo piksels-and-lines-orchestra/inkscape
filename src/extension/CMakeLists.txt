@@ -1,41 +1,255 @@
-SET(extfolders
-#dxf2svg
-implementation
-internal
-internal/bitmap
-internal/filter
-internal/pdfinput
-param
-script
+
+set(extension_SRC
+	db.cpp
+	dependency.cpp
+	effect.cpp
+	error-file.cpp
+	execution-env.cpp
+	extension.cpp
+	init.cpp
+	input.cpp
+	output.cpp
+	patheffect.cpp
+	prefdialog.cpp
+	print.cpp
+	system.cpp
+	timer.cpp
+
+	implementation/implementation.cpp
+	implementation/xslt.cpp
+	implementation/script.cpp
+
+	param/bool.cpp
+	param/color.cpp
+	param/description.cpp
+	param/enum.cpp
+	param/float.cpp
+	param/int.cpp
+	param/notebook.cpp
+	param/parameter.cpp
+	param/radiobutton.cpp
+	param/string.cpp
+
+	internal/bluredge.cpp
+	internal/cairo-png-out.cpp
+	internal/cairo-ps-out.cpp
+	internal/cairo-render-context.cpp
+	internal/cairo-renderer.cpp
+	internal/cairo-renderer-pdf-out.cpp
+	internal/emf-win32-inout.cpp
+	internal/emf-win32-print.cpp
+	internal/gdkpixbuf-input.cpp
+	internal/gimpgrad.cpp
+	internal/grid.cpp
+	internal/latex-pstricks.cpp
+	internal/latex-pstricks-out.cpp
+	internal/odf.cpp
+	internal/latex-text-renderer.cpp
+	internal/pdf-input-cairo.cpp
+	internal/pov-out.cpp
+	internal/javafx-out.cpp
+	internal/svg.cpp
+	internal/svgz.cpp
+
+	internal/filter/filter-all.cpp
+	internal/filter/filter-file.cpp
+	internal/filter/filter.cpp
+
+	internal/pdfinput/pdf-input.cpp
+	internal/pdfinput/pdf-parser.cpp
+	internal/pdfinput/svg-builder.cpp
+
+	script/InkscapeScript.cpp
+
+	# dxf2svg/aci2rgb.cpp
+	# dxf2svg/entities2elements.cpp
+	# dxf2svg/tables2svg_info.cpp
+	# dxf2svg/blocks.cpp
+	# dxf2svg/entities.cpp
+	# dxf2svg/tables.cpp
+	# dxf2svg/dxf2svg.cpp
+	# dxf2svg/read_dxf.cpp
+	# dxf2svg/test_dxf.cpp
+
+
+	# ------
+	# Header
+	db.h
+	dependency.h
+	effect.h
+	error-file.h
+	execution-env.h
+	extension.h
+	init.h
+	input.h
+	output.h
+	param/bool.h
+	param/color.h
+	param/description.h
+	param/enum.h
+	param/float.h
+	param/int.h
+	param/notebook.h
+	param/parameter.h
+	param/radiobutton.h
+	param/string.h
+	patheffect.h
+	prefdialog.h
+	print.h
+	system.h
+	timer.h
+
+	implementation/implementation.h
+	implementation/script.h
+	implementation/xslt.h
+
+	internal/bluredge.h
+	internal/cairo-png-out.h
+	internal/cairo-ps-out.h
+	internal/cairo-render-context.h
+	internal/cairo-renderer-pdf-out.h
+	internal/cairo-renderer.h
+	internal/clear-n_.h
+	internal/emf-win32-inout.h
+	internal/emf-win32-print.h
+	internal/filter/bevels.h
+	internal/filter/blurs.h
+	internal/filter/bumps.h
+	internal/filter/color.h
+	internal/filter/distort.h
+	internal/filter/filter.h
+	internal/filter/image.h
+	internal/filter/morphology.h
+	internal/filter/overlays.h
+	internal/filter/paint.h
+	internal/filter/protrusions.h
+	internal/filter/shadows.h
+	internal/filter/textures.h
+	internal/filter/transparency.h
+	internal/gdkpixbuf-input.h
+	internal/gimpgrad.h
+	internal/grid.h
+	internal/javafx-out.h
+	internal/latex-pstricks-out.h
+	internal/latex-pstricks.h
+	internal/latex-text-renderer.h
+	internal/odf.h
+	internal/pdf-input-cairo.h
+	internal/pdfinput/pdf-input.h
+	internal/pdfinput/pdf-parser.h
+	internal/pdfinput/svg-builder.h
+	internal/pov-out.h
+	internal/svg.h
+	internal/svgz.h
+
+	script/InkscapeScript.h
 )
 
-FOREACH(extlistsrc ${extfolders})
-  ADD_SUBDIRECTORY(${extlistsrc})
-ENDFOREACH(extlistsrc)
+if(WIN32)
+	list(APPEND extension_SRC
+	)
+endif()
 
-SET(extension_SRC
-db.cpp
-dependency.cpp
-effect.cpp
-error-file.cpp
-execution-env.cpp
-extension.cpp
-init.cpp
-input.cpp
-output.cpp
-patheffect.cpp
-prefdialog.cpp
-print.cpp
-system.cpp
-timer.cpp
-#${extension_dxf2svg_SRC}
-${extension_implementation_SRC}
-${extension_internal_bitmap_SRC}
-${extension_internal_filter_SRC}
-${extension_internal_pdfinput_SRC}
-${extension_param_SRC}
-${extension_script_SRC}
-)
-ADD_LIBRARY(extension STATIC ${extension_SRC})
-TARGET_LINK_LIBRARIES(extension
-2geom ${INKSCAPE_LIBS})
+if(WITH_LIBWPG)
+	list(APPEND extension_SRC
+		internal/wpg-input.cpp
+		internal/wpg-input.h
+	)
+endif()
+
+if(ImageMagick_FOUND)
+	list(APPEND extension_SRC
+		internal/bitmap/adaptiveThreshold.cpp
+		internal/bitmap/adaptiveThreshold.h
+		internal/bitmap/addNoise.cpp
+		internal/bitmap/addNoise.h
+		internal/bitmap/blur.cpp
+		internal/bitmap/blur.h
+		internal/bitmap/channel.cpp
+		internal/bitmap/channel.h
+		internal/bitmap/charcoal.cpp
+		internal/bitmap/charcoal.h
+		internal/bitmap/colorize.cpp
+		internal/bitmap/colorize.h
+		internal/bitmap/contrast.cpp
+		internal/bitmap/contrast.h
+		internal/bitmap/crop.cpp
+		internal/bitmap/crop.h
+		internal/bitmap/cycleColormap.cpp
+		internal/bitmap/cycleColormap.h
+		internal/bitmap/despeckle.cpp
+		internal/bitmap/despeckle.h
+		internal/bitmap/edge.cpp
+		internal/bitmap/edge.h
+		internal/bitmap/emboss.cpp
+		internal/bitmap/emboss.h
+		internal/bitmap/enhance.cpp
+		internal/bitmap/enhance.h
+		internal/bitmap/equalize.cpp
+		internal/bitmap/equalize.h
+		internal/bitmap/gaussianBlur.cpp
+		internal/bitmap/gaussianBlur.h
+		internal/bitmap/imagemagick.cpp
+		internal/bitmap/imagemagick.h
+		internal/bitmap/implode.cpp
+		internal/bitmap/implode.h
+		internal/bitmap/level.cpp
+		internal/bitmap/level.h
+		internal/bitmap/levelChannel.cpp
+		internal/bitmap/levelChannel.h
+		internal/bitmap/medianFilter.cpp
+		internal/bitmap/medianFilter.h
+		internal/bitmap/modulate.cpp
+		internal/bitmap/modulate.h
+		internal/bitmap/negate.cpp
+		internal/bitmap/negate.h
+		internal/bitmap/normalize.cpp
+		internal/bitmap/normalize.h
+		internal/bitmap/oilPaint.cpp
+		internal/bitmap/oilPaint.h
+		internal/bitmap/opacity.cpp
+		internal/bitmap/opacity.h
+		internal/bitmap/raise.cpp
+		internal/bitmap/raise.h
+		internal/bitmap/reduceNoise.cpp
+		internal/bitmap/reduceNoise.h
+		internal/bitmap/sample.cpp
+		internal/bitmap/sample.h
+		internal/bitmap/shade.cpp
+		internal/bitmap/shade.h
+		internal/bitmap/sharpen.cpp
+		internal/bitmap/sharpen.h
+		internal/bitmap/solarize.cpp
+		internal/bitmap/solarize.h
+		internal/bitmap/spread.cpp
+		internal/bitmap/spread.h
+		internal/bitmap/swirl.cpp
+		internal/bitmap/swirl.h
+		internal/bitmap/threshold.cpp
+		internal/bitmap/threshold.h
+		internal/bitmap/unsharpmask.cpp
+		internal/bitmap/unsharpmask.h
+		internal/bitmap/wave.cpp
+		internal/bitmap/wave.h
+	)
+endif()
+
+if(WITH_DBUS)
+	list(APPEND extension_SRC
+		dbus/application-interface.cpp
+		dbus/dbus-init.cpp
+		dbus/document-interface.cpp
+
+		# ------
+		# Header
+		dbus/application-interface.h
+		dbus/dbus-init.h
+		dbus/document-interface.h
+		dbus/wrapper/inkscape-dbus-wrapper.h
+	)
+
+	include_directories(dbus)
+endif()
+
+# add_inkscape_lib(extension_LIB "${extension_SRC}")
+add_inkscape_source("${extension_SRC}")

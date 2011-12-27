@@ -1,6 +1,4 @@
-/**
- * \brief widget adjustable by dragging it to rotate away from a zero-change axis
- *
+/*
  * Authors:
  *   buliabyak@gmail.com
  *
@@ -9,13 +7,12 @@
  * Released under GNU GPL.  Read the file 'COPYING' for more information.
  */
 
-#include "event-context.h"
-#include "rotateable.h"
-#include "libnr/nr-point.h"
-#include "libnr/nr-point-fns.h"
 #include <gtkmm/box.h>
 #include <gtkmm/eventbox.h>
 #include <glibmm/i18n.h>
+#include <2geom/point.h>
+#include "event-context.h"
+#include "rotateable.h"
 
 namespace Inkscape {
 namespace UI {

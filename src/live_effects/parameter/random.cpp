@@ -9,7 +9,6 @@
 #include "live_effects/parameter/random.h"
 #include "live_effects/effect.h"
 #include "svg/svg.h"
-#include "libnr/nr-values.h"
 #include "ui/widget/registered-widget.h"
 #include <gtkmm.h>
 #include "ui/widget/random.h"
@@ -32,8 +31,8 @@ RandomParam::RandomParam( const Glib::ustring& label, const Glib::ustring& tip,
 {
     defvalue = default_value;
     value = defvalue;
-    min = -NR_HUGE;
-    max = NR_HUGE;
+    min = -Geom::infinity();
+    max = Geom::infinity();
     integer = false;
 
     defseed = default_seed;

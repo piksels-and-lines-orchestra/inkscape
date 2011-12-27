@@ -1,11 +1,13 @@
-/** @file
- * @brief  Generic properties editor
+/**
+ * @file
+ * Generic properties editor.
  */
 /* Authors:
  *   Lauris Kaplinski <lauris@kaplinski.com>
  *   bulia byak <buliabyak@users.sf.net>
+ *   Kris De Gussem <Kris.DeGussem@gmail.com>
  *
- * Copyright (C) 1999-2005 Authors
+ * Copyright (C) 1999-2011 Authors
  *
  * Released under GNU GPL, read the file 'COPYING' for more information
  */
@@ -65,75 +67,41 @@ static const SPAttrDesc image_nohref_desc[] = {
 };
 
 
-static void
-object_released( SPObject */*object*/, GtkWidget *widget )
-{
-    gtk_widget_destroy (widget);
-}
-
-
-
-static void
-window_destroyed( GtkObject *window, GtkObject */*object*/ )
-{
-    sigc::connection *release_connection = (sigc::connection *)g_object_get_data(G_OBJECT(window), "release_connection");
-    release_connection->disconnect();
-    delete release_connection;
-}
-
-
-
-static void
-sp_object_attr_show_dialog ( SPObject *object,
+static void sp_object_attr_show_dialog ( SPObject *object,
                              const SPAttrDesc *desc,
                              const gchar *tag )
 {
-    const gchar **labels, **attrs;
-    gint len, i;
-    gchar *title;
-    GtkWidget *w, *t;
-
-    len = 0;
-    while (desc[len].label) len += 1;
-
-    labels = (const gchar **)alloca (len * sizeof (char *));
-    attrs = (const gchar **)alloca (len * sizeof (char *));
-
-    for (i = 0; i < len; i++) {
-        labels[i] = desc[i].label;
-        attrs[i] = desc[i].attribute;
-    }
+    int len;
+	Gtk::Window *window;
+    SPAttributeTable* t;
+    Glib::ustring title;
+    std::vector<Glib::ustring> labels;
+    std::vector<Glib::ustring> attrs;
 
     if (!strcmp (tag, "Link")) {
-        title = g_strdup_printf (_("Link Properties"));
+        title = _("Link Properties");
     } else if (!strcmp (tag, "Image")) {
-        title = g_strdup_printf (_("Image Properties"));
+        title = _("Image Properties");
     } else {
-        title = g_strdup_printf (_("%s Properties"), tag);
+        title = Glib::ustring::compose(_("%1 Properties"), tag);
     }
 
-    w = sp_window_new (title, TRUE);
-    g_free (title);
-
-    t = sp_attribute_table_new (object, len, labels, attrs);
-    gtk_widget_show (t);
-    gtk_container_add (GTK_CONTAINER (w), t);
-
-    g_signal_connect ( G_OBJECT (w), "destroy",
-                       G_CALLBACK (window_destroyed), object );
-
-    sigc::connection *release_connection = new sigc::connection();
-    *release_connection = object->connectRelease(sigc::bind<1>(sigc::ptr_fun(&object_released), w));
-    g_object_set_data(G_OBJECT(w), "release_connection", release_connection);
-
-    gtk_widget_show (w);
-
+    len = 0;
+    while (desc[len].label)
+    {
+        labels.push_back(desc[len].label);
+        attrs.push_back (desc[len].attribute);
+        len += 1;
+    }
+    
+    window = Inkscape::UI::window_new (title.c_str(), true);
+    t = new SPAttributeTable (object, labels, attrs, (GtkWidget*)window->gobj());
+    t->show();
+    window->show();
 } // end of sp_object_attr_show_dialog()
 
 
-
-void
-sp_object_attributes_dialog (SPObject *object, const gchar *tag)
+void sp_object_attributes_dialog (SPObject *object, const gchar *tag)
 {
     g_return_if_fail (object != NULL);
     g_return_if_fail (SP_IS_OBJECT (object));

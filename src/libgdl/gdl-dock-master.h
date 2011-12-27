@@ -25,7 +25,7 @@
 #define __GDL_DOCK_MASTER_H__
 
 #include <glib-object.h>
-#include <gtk/gtktypeutils.h>
+#include <gtk/gtk.h>
 #include "libgdl/gdl-dock-object.h"
 
 
@@ -33,16 +33,25 @@ G_BEGIN_DECLS
 
 /* standard macros */
 #define GDL_TYPE_DOCK_MASTER             (gdl_dock_master_get_type ())
-#define GDL_DOCK_MASTER(obj)             (GTK_CHECK_CAST ((obj), GDL_TYPE_DOCK_MASTER, GdlDockMaster))
-#define GDL_DOCK_MASTER_CLASS(klass)     (GTK_CHECK_CLASS_CAST ((klass), GDL_TYPE_DOCK_MASTER, GdlDockMasterClass))
-#define GDL_IS_DOCK_MASTER(obj)          (GTK_CHECK_TYPE ((obj), GDL_TYPE_DOCK_MASTER))
-#define GDL_IS_DOCK_MASTER_CLASS(klass)  (GTK_CHECK_CLASS_TYPE ((klass), GDL_TYPE_DOCK_MASTER))
-#define GDL_DOCK_MASTER_GET_CLASS(obj)   (GTK_CHECK_GET_CLASS ((obj), GTK_TYPE_DOCK_MASTER, GdlDockMasterClass))
+#define GDL_DOCK_MASTER(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), GDL_TYPE_DOCK_MASTER, GdlDockMaster))
+#define GDL_DOCK_MASTER_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), GDL_TYPE_DOCK_MASTER, GdlDockMasterClass))
+#define GDL_IS_DOCK_MASTER(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GDL_TYPE_DOCK_MASTER))
+#define GDL_IS_DOCK_MASTER_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), GDL_TYPE_DOCK_MASTER))
+#define GDL_DOCK_MASTER_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_DOCK_MASTER, GdlDockMasterClass))
 
 /* data types & structures */
 typedef struct _GdlDockMaster        GdlDockMaster;
 typedef struct _GdlDockMasterClass   GdlDockMasterClass;
 typedef struct _GdlDockMasterPrivate GdlDockMasterPrivate;
+
+typedef enum {
+    GDL_SWITCHER_STYLE_TEXT,
+    GDL_SWITCHER_STYLE_ICON,
+    GDL_SWITCHER_STYLE_BOTH,
+    GDL_SWITCHER_STYLE_TOOLBAR,
+    GDL_SWITCHER_STYLE_TABS,
+    GDL_SWITCHER_STYLE_NONE
+} GdlSwitcherStyle;
 
 struct _GdlDockMaster {
     GObject               object;

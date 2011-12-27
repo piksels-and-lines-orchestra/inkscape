@@ -95,7 +95,7 @@ LayerSelector::LayerSelector(SPDesktop *desktop)
     AlternateIcons *label;
 
     label = Gtk::manage(new AlternateIcons(Inkscape::ICON_SIZE_DECORATION,
-        INKSCAPE_ICON_OBJECT_VISIBLE, INKSCAPE_ICON_OBJECT_HIDDEN));
+        INKSCAPE_ICON("object-visible"), INKSCAPE_ICON("object-hidden")));
     _visibility_toggle.add(*label);
     _visibility_toggle.signal_toggled().connect(
         sigc::compose(
@@ -116,7 +116,7 @@ LayerSelector::LayerSelector(SPDesktop *desktop)
     pack_start(_visibility_toggle, Gtk::PACK_EXPAND_PADDING);
 
     label = Gtk::manage(new AlternateIcons(Inkscape::ICON_SIZE_DECORATION,
-        INKSCAPE_ICON_OBJECT_UNLOCKED, INKSCAPE_ICON_OBJECT_LOCKED));
+        INKSCAPE_ICON("object-unlocked"), INKSCAPE_ICON("object-locked")));
     _lock_toggle.add(*label);
     _lock_toggle.signal_toggled().connect(
         sigc::compose(
@@ -236,6 +236,8 @@ void LayerSelector::_selectLayer(SPObject *layer) {
     using Inkscape::Util::reverse_list;
 
     _selection_changed_connection.block();
+    _visibility_toggled_connection.block();
+    _lock_toggled_connection.block();
 
     while (!_layer_model->children().empty()) {
         Gtk::ListStore::iterator first_row(_layer_model->children().begin());
@@ -285,6 +287,8 @@ void LayerSelector::_selectLayer(SPObject *layer) {
         _lock_toggle.set_active(( SP_IS_ITEM(layer) ? SP_ITEM(layer)->isLocked() : false ));
     }
 
+    _lock_toggled_connection.unblock();
+    _visibility_toggled_connection.unblock();
     _selection_changed_connection.unblock();
 }
 

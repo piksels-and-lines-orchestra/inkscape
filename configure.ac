@@ -325,7 +325,6 @@ else
   platform_osx=no
 fi
 AC_MSG_RESULT([$platform_osx])
-AM_CONDITIONAL(EXPORT_DYNAMIC_DIRECT, test "$platform_osx" = "yes")
 	
 AC_MSG_CHECKING([for Solaris platform])
 case "$host" in
@@ -341,60 +340,6 @@ case "$host" in
 esac
 AC_MSG_RESULT([$platform_solaris])
 AM_CONDITIONAL(PLATFORM_SOLARIS, test "$platform_solaris" = "yes")
-
-dnl ******************************
-dnl Xft checking
-dnl ******************************
-
-AC_ARG_WITH(xft,
-            AC_HELP_STRING([--with-xft], [use xft scalable font database (default is auto)]),
-            [with_xft=$withval], [with_xft=auto])
-
-if test "x$with_xft" != "xno" ; then
-	dnl Test fontconfig package
-	PKG_CHECK_MODULES(XFT, fontconfig, xft_ok=yes, xft_ok=no)
-	if test "x$xft_ok" != "xyes"; then
-		dnl test xft package
-		PKG_CHECK_MODULES(XFT, xft, xft_ok=yes, xft_ok=no)
-		if test "x$xft_ok" != "xyes"; then
-			dnl Have to test xft presence
-			AC_CHECK_HEADER(X11/Xft/Xft.h, xft_ok=yes, xft_ok=no)
-			if test "x$xft_ok" != "xyes"; then
-				dnl No xft found
-				if test "x$with_xft" = "xyes"; then
-					dnl Xft was explicitly asked, so stop
-					AC_MSG_ERROR([--with-xft was specified, but appropriate development packages could not be found])
-				fi
-			else
-				dnl Working Xft1
-				XFT_LIBS="-L/usr/X11R6/lib -lXft "
-			fi
-		fi
-	fi
-else
-	dnl Asked to ignore xft
-	xft_ok=no
-fi
-
-AC_SUBST(XFT_CFLAGS)
-AC_SUBST(XFT_LIBS)
-
-AM_CONDITIONAL(USE_XFT, test "x$xft_ok" = "xyes")
-if test "x$xft_ok" = "xyes"; then
-	AC_DEFINE(WITH_XFT, 1, [Use Xft font database])
-fi
-
-dnl ******************************
-dnl pangoft2 for xft
-dnl ******************************
-
-if test "x$xft_ok" = "xyes"; then
-	PKG_CHECK_MODULES(PANGOFT2, pangoft2, pango_ok=yes, pango_ok=no)
-	if test "x$pango_ok" = "xyes"; then
-		XFT_LIBS="$XFT_LIBS $PANGOFT2_LIBS"
-	fi
-fi
-
 
 dnl ******************************
 dnl gnome vfs checking
@@ -673,54 +618,39 @@ CPPFLAGS=$ink_svd_CPPFLAGS
 LIBS=$ink_svd_LIBS
 
 dnl ******************************
-dnl Inkboard dependency checking
-dnl ******************************
-
-dnl with_inkboard="no"
-dnl with_inkboard_ssl="no"
-
-dnl INKBOARD_CFLAGS=""
-
-dnl AC_ARG_ENABLE(inkboard,
-dnl 		AS_HELP_STRING([--enable-inkboard], [enable Inkboard online whiteboard facility (disabled by default)]),
-dnl        with_inkboard=$enableval,with_inkboard=no)
-
-dnl if test "x$with_inkboard" = "xyes"; then
-dnl 		with_inkboard="yes"
-dnl 		AC_DEFINE(WITH_INKBOARD,1,[Build in Inkboard support])
-		
-		dnl Test for OpenSSL
-dnl 		PKG_CHECK_MODULES(INKBOARD, openssl, with_inkboard_ssl=yes, with_inkboard_ssl=no)
-dnl 		if test "x$with_inkboard_ssl" = "xyes"; then
-			dnl OpenSSL found; enable SSL support in Pedro
-dnl 			INKBOARD_CFLAGS="$INKBOARD_CFLAGS -DHAVE_SSL"
-dnl 			RELAYTOOL([ssl], INKBOARD_LIBS, INKBOARD_CFLAGS, [inkboard_weak=yes])
-dnl 			RELAYTOOL([crypto], INKBOARD_LIBS, INKBOARD_CFLAGS, [inkboard_weak=yes])
-dnl 			AC_DEFINE(WITH_INKBOARD_SSL,1,[Build in SSL support for Inkboard])
-dnl 		fi
-dnl else
-dnl 	with_inkboard="no"
-dnl fi
-
-dnl AM_CONDITIONAL(WITH_INKBOARD, test "x$with_inkboard" = "xyes")
-
-INKBOARD_CFLAGS=""
-INKBOARD_LIBS=""
-AC_SUBST(INKBOARD_LIBS)
-AC_SUBST(INKBOARD_CFLAGS)
-
-dnl ******************************
 dnl Check for libwpg for extension
 dnl ******************************
 
-PKG_CHECK_MODULES(LIBWPG, libwpg-0.1 libwpg-stream-0.1, with_libwpg=yes, with_libwpg=no)
-if test "x$with_libwpg" = "xyes"; then
-	AC_DEFINE(WITH_LIBWPG,1,[Build in libwpg])
-fi
-AM_CONDITIONAL(WITH_LIBWPG, test "x$with_libwpg" = "xyes")
+AC_ARG_ENABLE(wpg,
+       [  --disable-wpg           compile without support for WordPerfect Graphics],
+       enable_wpg=$enableval,enable_wpg=yes)
 
-AC_SUBST(LIBWPG_LIBS)
-AC_SUBST(LIBWPG_CFLAGS)
+with_libwpg=no
+
+if test "x$enable_wpg" = "xyes"; then
+	PKG_CHECK_MODULES(LIBWPG01, libwpg-0.1 libwpg-stream-0.1, with_libwpg01=yes, with_libwpg01=no)
+	if test "x$with_libwpg01" = "xyes"; then
+		AC_DEFINE(WITH_LIBWPG01,1,[Build in libwpg 0.1.x])
+		with_libwpg=yes
+		AC_SUBST(LIBWPG_LIBS, $LIBWPG01_LIBS)
+		AC_SUBST(LIBWPG_CFLAGS, $LIBWPG01_CFLAGS)
+	fi
+
+	PKG_CHECK_MODULES(LIBWPG02, libwpg-0.2 libwpd-0.9 libwpd-stream-0.9, with_libwpg02=yes, with_libwpg02=no)
+	if test "x$with_libwpg02" = "xyes"; then
+		AC_DEFINE(WITH_LIBWPG02,1,[Build in libwpg 0.2.x])
+		with_libwpg=yes
+		AC_SUBST(LIBWPG_LIBS, $LIBWPG02_LIBS)
+		AC_SUBST(LIBWPG_CFLAGS, $LIBWPG02_CFLAGS)
+	fi
+
+	if test "x$with_libwpg" = "xyes"; then
+		AC_DEFINE(WITH_LIBWPG,1,[Build in libwpg])
+	fi
+fi
+AM_CONDITIONAL(WITH_LIBWPG01, test "x$with_libwpg01" = "xyes")
+AM_CONDITIONAL(WITH_LIBWPG02, test "x$with_libwpg02" = "xyes")
+AM_CONDITIONAL(WITH_LIBWPG, test "x$with_libwpg" = "xyes")
 
 dnl ******************************
 dnl Support doing a local install
@@ -788,7 +718,17 @@ if test $cc_vers_major -gt 3; then
 else
   min_sigc_version=2.0.11
 fi
-PKG_CHECK_MODULES(INKSCAPE, gdkmm-2.4  glibmm-2.4 giomm-2.4 gtkmm-2.4 >= 2.10.0  gtk+-2.0  libxml-2.0 >= 2.6.11  libxslt >= 1.0.15  cairo  sigc++-2.0 >= $min_sigc_version  $ink_spell_pkg  gthread-2.0 >= 2.0 libpng >= 1.2 gsl)
+PKG_CHECK_MODULES(INKSCAPE, glib-2.0 >= 2.24  gtk+-2.0 >= 2.20  libxml-2.0 >= 2.6.11  libxslt >= 1.0.15  cairo >= 1.10  sigc++-2.0 >= $min_sigc_version  $ink_spell_pkg  gthread-2.0 >= 2.0 libpng >= 1.2 gsl  glibmm-2.4 giomm-2.4  gdkmm-2.4  gtkmm-2.4 >= 2.10.0)
+
+# Check for GTK+ backend target
+AC_MSG_CHECKING([for GTK+ backend target])
+gtk_backend_target=`pkg-config --variable=target gtk+-2.0`
+AC_MSG_RESULT($gtk_backend_target)
+
+# Add X11 library if needed
+if test "x$gtk_backend_target" = "xx11"; then
+  INKSCAPE_LIBS="$INKSCAPE_LIBS -lX11"
+fi
 
 # Check for Apple Mac OS X Carbon framework
 carbon_ok=no
@@ -814,7 +754,7 @@ if test "x$cairo_pdf" = "xyes"; then
 fi
 
 dnl Shouldn't we test for libpng and libz?
-INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz -lX11 -lxml2 -ldl"
+INKSCAPE_LIBS="$INKSCAPE_LIBS -lpng -lz -lxml2 -ldl"
 if test "x$openmp_ok" = "xyes"; then
 	INKSCAPE_LIBS="$INKSCAPE_LIBS -lgomp"
 fi
@@ -1013,14 +953,11 @@ src/helper/makefile
 src/io/makefile
 src/libcroco/makefile
 src/libgdl/makefile
-src/libnr/makefile
 src/libnrtype/makefile
 src/libavoid/makefile
 src/livarot/makefile
 src/live_effects/makefile
 src/live_effects/parameter/makefile
-src/pedro/makefile
-src/jabber_whiteboard/makefile
 src/svg/makefile
 src/trace/makefile
 src/ui/cache/makefile
@@ -1035,6 +972,7 @@ src/2geom/makefile
 doc/Makefile
 po/Makefile.in
 share/Makefile
+share/attributes/Makefile
 share/clipart/Makefile
 share/examples/Makefile
 share/extensions/Makefile
@@ -1043,6 +981,7 @@ share/extensions/Barcode/Makefile
 share/extensions/Poly3DObjects/Makefile
 share/extensions/test/Makefile
 share/extensions/xaml2svg/Makefile
+share/extensions/ink2canvas/Makefile
 share/filters/Makefile
 share/fonts/Makefile
 share/gradients/Makefile
@@ -1086,7 +1025,6 @@ Configuration:
         CFLAGS:                   ${CFLAGS}
         LDFLAGS:                  ${LDFLAGS}
 
-        Use Xft font database:    ${xft_ok}
         Use gnome-vfs:            ${gnome_vfs}
         Use openoffice files:     ${ij}
         Use relocation support:   ${enable_binreloc}
@@ -1098,4 +1036,5 @@ Configuration:
         ImageMagick Magick++:     ${magick_ok}
         Libwpg:                   ${with_libwpg}
         Doing Local Install:      ${with_localinstall}
+        GTK+ backend target:      ${gtk_backend_target}
 "

@@ -14,9 +14,6 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <libnr/nr-matrix-ops.h>
-#include <libnr/nr-rotate-ops.h>
-#include <libnr/nr-rect.h>
 #include <2geom/d2.h>
 #include <2geom/affine.h>
 #include <glibmm/ustring.h>
@@ -39,7 +36,6 @@ using Inkscape::Extension::Internal::CairoRenderContext;
 
 class SPStyle;
 class Shape;
-class NRArenaGroup;
 class SPPrintContext;
 class SVGLength;
 class Path;
@@ -48,6 +44,8 @@ class font_instance;
 typedef struct _PangoFontDescription PangoFontDescription;
 
 namespace Inkscape {
+class DrawingGroup;
+
 namespace Text {
 
 /** \brief Generates the layout for either wrapped or non-wrapped text and stores the result
@@ -329,7 +327,7 @@ public:
      \param in_arena  The arena to add the glyphs group to
      \param paintbox  The current rendering tile
     */
-    void show(NRArenaGroup *in_arena, NRRect const *paintbox) const;
+    void show(DrawingGroup *in_arena, Geom::OptRect const &paintbox) const;
 
     /** Calculates the smallest rectangle completely enclosing all the
     glyphs.
@@ -337,7 +335,7 @@ public:
       \param transform     The transform to be applied to the entire object
                            prior to calculating its bounds.
     */
-    void getBoundingBox(NRRect *bounding_box, Geom::Affine const &transform, int start = -1, int length = -1) const;
+    Geom::OptRect bounds(Geom::Affine const &transform, int start = -1, int length = -1) const;
 
     /** Sends all the glyphs to the given print context.
      \param ctx   I have
@@ -346,7 +344,7 @@ public:
      \param bbox  parameters
      \param ctm   do yet
     */
-    void print(SPPrintContext *ctx, NRRect const *pbox, NRRect const *dbox, NRRect const *bbox, Geom::Affine const &ctm) const;
+    void print(SPPrintContext *ctx, Geom::OptRect const &pbox, Geom::OptRect const &dbox, Geom::OptRect const &bbox, Geom::Affine const &ctm) const;
 
 #ifdef HAVE_CAIRO_PDF    
     /** Renders all the glyphs to the given Cairo rendering context.
@@ -487,6 +485,8 @@ public:
     /** For left aligned text, the leftmost end of the baseline
     For rightmost text, the rightmost... you probably got it by now ;-)*/
     boost::optional<Geom::Point> baselineAnchorPoint() const;
+
+    Geom::Path baseline() const;
 
     /** This is that value to apply to the x,y attributes of tspan role=line
     elements, and hence it takes alignment into account. */

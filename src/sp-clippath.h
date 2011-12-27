@@ -23,11 +23,17 @@
 
 class SPClipPathView;
 
-#include "display/nr-arena-forward.h"
-#include "libnr/nr-forward.h"
 #include "sp-object-group.h"
 #include "uri-references.h"
 #include "xml/node.h"
+
+
+namespace Inkscape {
+
+class Drawing;
+class DrawingItem;
+
+} // namespace Inkscape
 
 class SPClipPath : public SPObjectGroup {
 public:
@@ -40,11 +46,11 @@ public:
     static const gchar *create(GSList *reprs, SPDocument *document, Geom::Affine const* applyTransform);
     static GType sp_clippath_get_type(void);
 
-    NRArenaItem *show(NRArena *arena, unsigned int key);
+    Inkscape::DrawingItem *show(Inkscape::Drawing &drawing, unsigned int key);
     void hide(unsigned int key);
 
-    void setBBox(unsigned int key, NRRect *bbox);
-    void getBBox(NRRect *bbox, Geom::Affine const &transform, unsigned const flags);
+    void setBBox(unsigned int key, Geom::OptRect const &bbox);
+    Geom::OptRect geometricBounds(Geom::Affine const &transform);
 
 private:
     static void init(SPClipPath *clippath);

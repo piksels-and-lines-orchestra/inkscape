@@ -55,10 +55,9 @@
 
 #include "sp-style-elem.h"
 #include "sp-switch.h"
-#include "color-profile-fns.h"
+#include "color-profile.h"
 #include "xml/repr.h"
 #include "sp-filter.h"
-#include "sp-gaussian-blur.h"
 #include "filters/blend.h"
 #include "filters/colormatrix.h"
 #include "filters/componenttransfer.h"
@@ -69,6 +68,7 @@
 #include "filters/distantlight.h"
 #include "filters/displacementmap.h"
 #include "filters/flood.h"
+#include "filters/gaussian-blur.h"
 #include "filters/image.h"
 #include "filters/merge.h"
 #include "filters/morphology.h"
@@ -89,11 +89,7 @@ static unsigned const N_NAME_TYPES = SODIPODI_TYPE + 1;
 
 static GType name_to_gtype(NameType name_type, gchar const *name);
 
-/**
- * Construct an SPRoot and all its descendents from the given repr.
- */
-SPObject *
-sp_object_repr_build_tree(SPDocument *document, Inkscape::XML::Node *repr)
+SPRoot *sp_object_repr_build_tree(SPDocument *document, Inkscape::XML::Node *repr)
 {
     g_assert(document != NULL);
     g_assert(repr != NULL);
@@ -108,7 +104,7 @@ sp_object_repr_build_tree(SPDocument *document, Inkscape::XML::Node *repr)
     g_assert(object != NULL);
     object->invoke_build(document, repr, FALSE);
 
-    return object;
+    return SP_ROOT(object);
 }
 
 GType

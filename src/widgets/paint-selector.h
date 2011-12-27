@@ -1,7 +1,6 @@
 #ifndef SEEN_SP_PAINT_SELECTOR_H
 #define SEEN_SP_PAINT_SELECTOR_H
-
-/** \file
+/*
  * Generic paint selector widget
  *
  * Authors:
@@ -14,27 +13,27 @@
  */
 
 #include <glib.h>
+#include <gtk/gtk.h>
 
+#include "color.h"
 #include "fill-or-stroke.h"
 #include "sp-gradient-spread.h"
 #include "sp-gradient-units.h"
 
 class SPGradient;
+class SPDesktop;
+class SPPattern;
+class SPStyle;
 
 #define SP_TYPE_PAINT_SELECTOR (sp_paint_selector_get_type ())
-#define SP_PAINT_SELECTOR(o) (GTK_CHECK_CAST ((o), SP_TYPE_PAINT_SELECTOR, SPPaintSelector))
-#define SP_PAINT_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_CAST ((k), SP_TYPE_PAINT_SELECTOR, SPPaintSelectorClass))
-#define SP_IS_PAINT_SELECTOR(o) (GTK_CHECK_TYPE ((o), SP_TYPE_PAINT_SELECTOR))
-#define SP_IS_PAINT_SELECTOR_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), SP_TYPE_PAINT_SELECTOR))
+#define SP_PAINT_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_CAST ((o), SP_TYPE_PAINT_SELECTOR, SPPaintSelector))
+#define SP_PAINT_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_CAST ((k), SP_TYPE_PAINT_SELECTOR, SPPaintSelectorClass))
+#define SP_IS_PAINT_SELECTOR(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), SP_TYPE_PAINT_SELECTOR))
+#define SP_IS_PAINT_SELECTOR_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), SP_TYPE_PAINT_SELECTOR))
 
-#include <gtk/gtkvbox.h>
-
-#include "../forward.h"
-#include <color.h>
-#include <libnr/nr-forward.h>
-
-
-/// Generic paint selector widget
+/**
+ * Generic paint selector widget.
+ */
 struct SPPaintSelector {
     GtkVBox vbox;
 
@@ -114,7 +113,7 @@ struct SPPaintSelectorClass {
     void (* fillrule_changed) (SPPaintSelector *psel, SPPaintSelector::FillRule fillrule);
 };
 
-GtkType sp_paint_selector_get_type (void);
+GType sp_paint_selector_get_type (void);
 
 SPPaintSelector *sp_paint_selector_new(FillOrStroke kind);
 

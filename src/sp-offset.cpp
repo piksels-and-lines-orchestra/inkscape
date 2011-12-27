@@ -36,7 +36,7 @@
 #include "sp-use-reference.h"
 #include "uri.h"
 
-#include <libnr/nr-matrix-fns.h>
+#include <2geom/affine.h>
 #include <2geom/pathvector.h>
 
 #include "xml/repr.h"
@@ -463,6 +463,7 @@ sp_offset_set_shape(SPShape *shape)
             SPCurve *c = new SPCurve(pv);
             g_assert(c != NULL);
             ((SPShape *) offset)->setCurveInsync (c, TRUE);
+            ((SPShape *) offset)->setCurveBeforeLPE(c);
             c->unref();
         }
         return;
@@ -513,7 +514,7 @@ sp_offset_set_shape(SPShape *shape)
         theRes->ConvertToForme (orig, 1, originaux);
 
         SPItem *item = shape;
-        Geom::OptRect bbox = item->getBboxDesktop ();
+        Geom::OptRect bbox = item->desktopVisualBounds();
         if ( bbox ) {
             gdouble size = L2(bbox->dimensions());
             gdouble const exp = item->transform.descrim();
@@ -712,6 +713,7 @@ sp_offset_set_shape(SPShape *shape)
         SPCurve *c = new SPCurve(pv);
         g_assert(c != NULL);
         ((SPShape *) offset)->setCurveInsync (c, TRUE);
+        ((SPShape *) offset)->setCurveBeforeLPE(c);
         c->unref();
 
         free (res_d);
@@ -842,7 +844,7 @@ sp_offset_distance_to_original (SPOffset * offset, Geom::Point px)
                 {
                     // we have a new minimum distance
                     // now we need to wheck if px is inside or outside (for the sign)
-                    nx = px - to_2geom(theRes->getPoint(i).x);
+                    nx = px - theRes->getPoint(i).x;
                     double nlen = sqrt (dot(nx , nx));
                     nx /= nlen;
                     int pb, cb, fb;
@@ -1024,37 +1026,41 @@ sp_offset_href_changed(SPObject */*old_ref*/, SPObject */*ref*/, SPOffset *offse
     }
 }
 
-static void
-sp_offset_move_compensate(Geom::Affine const *mp, SPItem */*original*/, SPOffset *self)
+static void sp_offset_move_compensate(Geom::Affine const *mp, SPItem */*original*/, SPOffset *self)
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     guint mode = prefs->getInt("/options/clonecompensation/value", SP_CLONE_COMPENSATION_PARALLEL);
-    if (mode == SP_CLONE_COMPENSATION_NONE) return;
 
     Geom::Affine m(*mp);
-    if (!(m.isTranslation())) return;
+    if (!(m.isTranslation()) || mode == SP_CLONE_COMPENSATION_NONE) {
+        self->sourceDirty=true;
+        self->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+        return;
+    }
 
     // calculate the compensation matrix and the advertized movement matrix
-    SPItem *item = SP_ITEM(self);
+    self->readAttr("transform");
 
-    Geom::Affine compensate;
+    Geom::Affine t = self->transform;
+    Geom::Affine offset_move = t.inverse() * m * t;
+
     Geom::Affine advertized_move;
-
-    if (mode == SP_CLONE_COMPENSATION_UNMOVED) {
-        compensate = Geom::identity();
-        advertized_move.setIdentity();
-    } else if (mode == SP_CLONE_COMPENSATION_PARALLEL) {
-        compensate = m;
+    if (mode == SP_CLONE_COMPENSATION_PARALLEL) {
+        offset_move = offset_move.inverse() * m;
         advertized_move = m;
+    } else if (mode == SP_CLONE_COMPENSATION_UNMOVED) {
+        offset_move = offset_move.inverse();
+        advertized_move.setIdentity();
     } else {
         g_assert_not_reached();
     }
 
-    item->transform *= compensate;
+    self->sourceDirty=true;
 
     // commit the compensation
-    item->doWriteTransform(item->getRepr(), item->transform, &advertized_move);
-    item->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+    self->transform *= offset_move;
+    self->doWriteTransform(self->getRepr(), self->transform, &advertized_move);
+    self->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
 }
 
 static void
@@ -1075,12 +1081,13 @@ sp_offset_delete_self(SPObject */*deleted*/, SPOffset *offset)
 }
 
 static void
-sp_offset_source_modified (SPObject */*iSource*/, guint /*flags*/, SPItem *item)
+sp_offset_source_modified (SPObject */*iSource*/, guint flags, SPItem *item)
 {
     SPOffset *offset = SP_OFFSET(item);
     offset->sourceDirty=true;
-    refresh_offset_source(offset);
-    ((SPShape *) offset)->setShape ();
+    if (flags & (SP_OBJECT_MODIFIED_FLAG | SP_OBJECT_CHILD_MODIFIED_FLAG)) {
+        offset->requestDisplayUpdate(SP_OBJECT_MODIFIED_FLAG);
+    }
 }
 
 static void
@@ -1111,6 +1118,15 @@ refresh_offset_source(SPOffset* offset)
     orig->LoadPathVector(curve->get_pathvector());
     curve->unref();
 
+    if (!item->transform.isIdentity()) {
+        gchar const *t_attr = item->getRepr()->attribute("transform");
+        if (t_attr) {
+            Geom::Affine t;
+            if (sp_svg_transform_read(t_attr, &t)) {
+                orig->Transform(t);
+            }
+        }
+    }
 
     // Finish up.
     {
