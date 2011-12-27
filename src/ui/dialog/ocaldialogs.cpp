@@ -634,6 +634,9 @@ void ImportDialog::on_list_results_selection_changed()
     std::vector<Gtk::TreeModel::Path> pathlist;
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
+    
+    printf("%s", "on_list_results_selection_changed");
+    
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
     
@@ -648,6 +651,9 @@ void ImportDialog::on_button_import_clicked() {
     std::vector<Gtk::TreeModel::Path> pathlist;
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
+    
+    printf("%s", "on_button_import_clicked");
+    
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
@@ -666,6 +672,9 @@ void ImportDialog::on_list_results_cursor_changed()
     std::vector<Gtk::TreeModel::Path> pathlist;
     pathlist = list_results->get_selection()->get_selected_rows();
     std::vector<int> posArray(1);
+    
+    printf("%s", "on_list_results_cursor_changed");
+    
     posArray = pathlist[0].get_indices();
     int row = posArray[0];
 
