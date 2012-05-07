@@ -59,9 +59,7 @@ public:
 
     PathString &moveTo(Geom::Point p) {
         _appendOp('M','m');
-        _appendPoint(p, true);
-
-        _initial_point = _current_point;
+        _appendPoint(p, true, true);
         return *this;
     }
 
@@ -71,19 +69,21 @@ public:
 
     PathString &lineTo(Geom::Point p) {
         _appendOp('L','l');
-        _appendPoint(p, true);
+        _appendPoint(p, true, true);
         return *this;
     }
 
     PathString &horizontalLineTo(Geom::Coord x) {
         _appendOp('H','h');
         _appendX(x, true);
+        _last_control_point = _current_point;
         return *this;
     }
 
     PathString &verticalLineTo(Geom::Coord y) {
         _appendOp('V','v');
         _appendY(y, true);
+        _last_control_point = _current_point;
         return *this;
     }
 
@@ -92,9 +92,16 @@ public:
     }
 
     PathString &quadTo(Geom::Point c, Geom::Point p) {
-        _appendOp('Q','q');
-        _appendPoint(c, false);
-        _appendPoint(p, true);
+        Geom::Point ncp = 2*_current_point-_last_control_point;
+        if (allow_shorthands && Geom::are_near(ncp[Geom::X], c[Geom::X], fabs(epsilon*c[Geom::X])) && Geom::are_near(ncp[Geom::Y], c[Geom::Y], fabs(epsilon*c[Geom::Y]))) {
+            _appendOp('T', 't');
+            _last_control_point = ncp;
+            _appendPoint(p, true, false);
+        } else {
+            _appendOp('Q','q');
+            _appendPoint(c, false, true);
+            _appendPoint(p, true, false);
+        }
         return *this;
     }
 
@@ -106,10 +113,18 @@ public:
     }
 
     PathString &curveTo(Geom::Point c0, Geom::Point c1, Geom::Point p) {
-        _appendOp('C','c');
-        _appendPoint(c0, false);
-        _appendPoint(c1, false);
-        _appendPoint(p, true);
+        Geom::Point ncp = 2*_current_point-_last_control_point;
+        if (allow_shorthands && Geom::are_near(ncp[Geom::X], c0[Geom::X], fabs(epsilon*c0[Geom::X])) && Geom::are_near(ncp[Geom::Y], c0[Geom::Y], fabs(epsilon*c0[Geom::Y]))) {
+            _appendOp('S','s');
+            //_appendPoint(c0, false, false);
+            _appendPoint(c1, false, true);
+            _appendPoint(p, true, false);
+        } else {
+            _appendOp('C','c');
+            _appendPoint(c0, false, false);
+            _appendPoint(c1, false, true);
+            _appendPoint(p, true, false);
+        }
         return *this;
     }
 
@@ -125,7 +140,7 @@ public:
         _appendValue(rot);
         _appendFlag(large_arc);
         _appendFlag(sweep);
-        _appendPoint(p, true);
+        _appendPoint(p, true, true);
         return *this;
     }
 
@@ -169,11 +184,12 @@ private:
         if (sc) _current_point[Geom::Y] = ry;
     }
 
-    void _appendPoint(Geom::Point p, bool sc) {
+    void _appendPoint(Geom::Point p, bool sc, bool slcp) {
         Geom::Point rp;
         _abs_state.append(p, rp);
         _rel_state.appendRelative(rp, _current_point);
         if (sc) _current_point = rp;
+        if (slcp) _last_control_point = rp;
     }
 
     struct State {
@@ -219,6 +235,7 @@ private:
 
     Geom::Point _initial_point;
     Geom::Point _current_point;
+    Geom::Point _last_control_point;
 
     // If both states have a common prefix it is stored here.
     // Separating out the common prefix prevents repeated copying between the states
@@ -229,8 +246,10 @@ private:
 
     bool const allow_relative_coordinates;
     bool const force_repeat_commands;
+    bool const allow_shorthands;
     static int numericprecision;
     static int minimumexponent;
+    static double epsilon;
 };
 
 }

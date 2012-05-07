@@ -25,14 +25,17 @@ static int const maxprec = 16;
 
 int Inkscape::SVG::PathString::numericprecision;
 int Inkscape::SVG::PathString::minimumexponent;
+double Inkscape::SVG::PathString::epsilon;
 
 Inkscape::SVG::PathString::PathString() :
     allow_relative_coordinates(Inkscape::Preferences::get()->getBool("/options/svgoutput/allowrelativecoordinates", true)),
-    force_repeat_commands(Inkscape::Preferences::get()->getBool("/options/svgoutput/forcerepeatcommands"))
+    force_repeat_commands(Inkscape::Preferences::get()->getBool("/options/svgoutput/forcerepeatcommands")),
+    allow_shorthands(Inkscape::Preferences::get()->getBool("/options/svgoutput/allowshorthands", true))
 {
     Inkscape::Preferences *prefs = Inkscape::Preferences::get();
     numericprecision = std::max<int>(minprec,std::min<int>(maxprec, prefs->getInt("/options/svgoutput/numericprecision", 8)));
     minimumexponent = prefs->getInt("/options/svgoutput/minimumexponent", -8);
+    epsilon = pow(10, -numericprecision+1); // The +1 is to give a bit more headroom when we have "low" values (we use relative error, while really we should look at digits, so a number starting with 1 requires a tolerance that's about 10 times higher).
 }
 
 void Inkscape::SVG::PathString::_appendOp(char abs_op, char rel_op) {

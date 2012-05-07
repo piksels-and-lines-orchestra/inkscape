@@ -179,6 +179,41 @@ public:
         }
     }
 
+    void testReadShorthands() {
+        Geom::PathVector pv_good_1;
+        pv_good_1.push_back(Geom::Path(Geom::Point(1,0)));
+        pv_good_1.back().append(Geom::CubicBezier(pv_good_1.back().finalPoint(), Geom::Point(1,0.5),Geom::Point(0.5,1),Geom::Point(0,1)));
+        pv_good_1.back().append(Geom::CubicBezier(pv_good_1.back().finalPoint(), Geom::Point(-0.5,1),Geom::Point(-1,0.5),Geom::Point(-1,0)));
+        pv_good_1.back().append(Geom::QuadraticBezier(pv_good_1.back().finalPoint(), Geom::Point(-1,-1),Geom::Point(0,-1)));
+        pv_good_1.back().append(Geom::QuadraticBezier(pv_good_1.back().finalPoint(), Geom::Point(1,-1),Geom::Point(1,0)));
+        Geom::PathVector pv_good_2;
+        pv_good_2.push_back(Geom::Path(Geom::Point(1,0)));
+        pv_good_2.back().append(Geom::CubicBezier(pv_good_2.back().finalPoint(), Geom::Point(1,0),Geom::Point(0.5,1),Geom::Point(0,1)));
+        pv_good_2.back().append(Geom::CubicBezier(pv_good_2.back().finalPoint(), Geom::Point(-0.5,1),Geom::Point(-1,0.5),Geom::Point(-1,0)));
+        pv_good_2.back().append(Geom::QuadraticBezier(pv_good_2.back().finalPoint(), Geom::Point(-1,0),Geom::Point(0,-1)));
+        pv_good_2.back().append(Geom::QuadraticBezier(pv_good_2.back().finalPoint(), Geom::Point(1,-1),Geom::Point(1,0)));
+        {   // Test absolute version without initial smooth point
+            char const * path_str = "M 1,0 C 1,0.5 0.5,1 0,1 S -1,0.5 -1,0 Q -1,-1 0,-1 T 1,0";
+            Geom::PathVector pv = sp_svg_read_pathv(path_str);
+            TSM_ASSERT(path_str, bpathEqual(pv,pv_good_1));
+        }
+        {   // Test relative version without initial smooth point
+            char const * path_str = "M 1,0 c 0,0.5 -0.5,1 -1,1 s -1,-0.5 -1,-1 q 0,-1 1,-1 t 1,1";
+            Geom::PathVector pv = sp_svg_read_pathv(path_str);
+            TSM_ASSERT(path_str, bpathEqual(pv,pv_good_1));
+        }
+        {   // Test absolute version with initial smooth point
+            char const * path_str = "M 1,0 S 0.5,1 0,1 S -1,0.5 -1,0 T 0,-1 T 1,0";
+            Geom::PathVector pv = sp_svg_read_pathv(path_str);
+            TSM_ASSERT(path_str, bpathEqual(pv,pv_good_2));
+        }
+        {   // Test relative version with initial smooth point
+            char const * path_str = "M 1,0 s -0.5,1 -1,1 s -1,-0.5 -1,-1 t 1,-1 t 1,1";
+            Geom::PathVector pv = sp_svg_read_pathv(path_str);
+            TSM_ASSERT(path_str, bpathEqual(pv,pv_good_2));
+        }
+    }
+
     void testReadFloatingPoint() {
         Geom::PathVector pv_good1;
         pv_good1.push_back(Geom::Path(Geom::Point(.01,.02)));
@@ -386,6 +421,13 @@ public:
         new_pv = sp_svg_read_pathv(path_str);
         TSM_ASSERT(org_path_str.c_str(), bpathEqual(pv, new_pv, 1e-17));
         g_free(path_str);
+        // Some curves
+        org_path_str = "M 1,0 C 1,0.5 0.5,1 0,1 S -1,0.5 -1,0 Q -1,-1 0,-1 T 1,0";
+        pv = sp_svg_read_pathv(org_path_str.c_str());
+        path_str = sp_svg_write_path(pv);
+        new_pv = sp_svg_read_pathv(path_str);
+        TSM_ASSERT(org_path_str.c_str(), bpathEqual(pv,new_pv));
+        g_free(path_str);
     }
 
     void testMinexpPrecision() {
@@ -481,6 +523,28 @@ private:
                         if (!Geom::are_near((*la).finalPoint(),(*lb).finalPoint(), eps)) {
                             char temp[200];
                             sprintf(temp, "Different end of segment: (%g,%g) != (%g,%g), subpath: %u, segment: %u", (*la).finalPoint()[Geom::X], (*la).finalPoint()[Geom::Y], (*lb).finalPoint()[Geom::X], (*lb).finalPoint()[Geom::Y], static_cast<unsigned int>(i), static_cast<unsigned int>(j));
+                            TS_FAIL(temp);
+                            return false;
+                        }
+                    }
+                    else if(Geom::QuadraticBezier const *la = dynamic_cast<Geom::QuadraticBezier const*>(ca))
+                    {
+                        Geom::QuadraticBezier const *lb = dynamic_cast<Geom::QuadraticBezier const*>(cb);
+                        if (!Geom::are_near((*la)[0],(*lb)[0], eps)) {
+                            char temp[200];
+                            sprintf(temp, "Different start of segment: (%g,%g) != (%g,%g), subpath: %u, segment: %u", (*la)[0][Geom::X], (*la)[0][Geom::Y], (*lb)[0][Geom::X], (*lb)[0][Geom::Y], static_cast<unsigned int>(i), static_cast<unsigned int>(j));
+                            TS_FAIL(temp);
+                            return false;
+                        }
+                        if (!Geom::are_near((*la)[1],(*lb)[1], eps)) {
+                            char temp[200];
+                            sprintf(temp, "Different 1st control point: (%g,%g) != (%g,%g), subpath: %u, segment: %u", (*la)[1][Geom::X], (*la)[1][Geom::Y], (*lb)[1][Geom::X], (*lb)[1][Geom::Y], static_cast<unsigned int>(i), static_cast<unsigned int>(j));
+                            TS_FAIL(temp);
+                            return false;
+                        }
+                        if (!Geom::are_near((*la)[2],(*lb)[2], eps)) {
+                            char temp[200];
+                            sprintf(temp, "Different end of segment: (%g,%g) != (%g,%g), subpath: %u, segment: %u", (*la)[2][Geom::X], (*la)[2][Geom::Y], (*lb)[2][Geom::X], (*lb)[2][Geom::Y], static_cast<unsigned int>(i), static_cast<unsigned int>(j));
                             TS_FAIL(temp);
                             return false;
                         }
